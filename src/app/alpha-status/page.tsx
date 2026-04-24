@@ -4,6 +4,7 @@ import { getConfiguredArtifactStorageProvider } from "@/lib/artifact-storage";
 import { getDashboardMetrics } from "@/lib/dashboard-metrics";
 import { getConfiguredLeadershipAuthProvider } from "@/lib/leadership-auth";
 import { getConfiguredPersistenceProvider } from "@/lib/program-repository";
+import { getSiteAccessConfig } from "@/lib/site-access";
 import { isSupabaseConfigured } from "@/lib/supabase/server";
 
 function statusTone(value: boolean) {
@@ -18,6 +19,7 @@ export default async function AlphaStatusPage() {
   const persistenceProvider = getConfiguredPersistenceProvider();
   const artifactStorageProvider = getConfiguredArtifactStorageProvider();
   const leadershipAuthProvider = getConfiguredLeadershipAuthProvider();
+  const siteAccess = getSiteAccessConfig();
   const leadershipAuthConfigured = Boolean(
     process.env.LEADERSHIP_AUTH_USERNAME &&
       process.env.LEADERSHIP_AUTH_PASSWORD &&
@@ -25,6 +27,11 @@ export default async function AlphaStatusPage() {
   );
   const supabaseConfigured = isSupabaseConfigured();
   const deploymentChecks = [
+    {
+      label: "Alpha access gate",
+      ok: siteAccess.enabled,
+      detail: siteAccess.enabled ? "Shared password gate is active in front of the app." : "The public URL is not gated yet."
+    },
     {
       label: "Postgres persistence",
       ok: persistenceProvider === "postgres",

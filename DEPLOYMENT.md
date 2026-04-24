@@ -71,6 +71,10 @@ Then:
 Use these values in Vercel:
 
 ```bash
+SITE_ACCESS_ENABLED=true
+SITE_ACCESS_PASSWORD=replace-with-a-shared-alpha-password
+SITE_ACCESS_SESSION_TOKEN=replace-with-a-long-random-token
+
 PERSISTENCE_PROVIDER=postgres
 DATABASE_URL=postgresql://...
 DATABASE_SSL=require
@@ -128,3 +132,4 @@ Before deploying publicly or sharing widely:
 2. confirm `.env.local` is not committed
 3. use Vercel env vars for all secrets
 4. do not expose service-role or OpenAI secrets to the client
+5. put the public alpha behind the shared site-access password gate
