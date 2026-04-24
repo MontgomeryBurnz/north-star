@@ -1,13 +1,22 @@
 import { NextResponse } from "next/server";
 import { listPrograms, upsertProgram } from "@/lib/program-store";
 import type { ProgramIntake } from "@/lib/program-intake-types";
+import { createSiteAccessDeniedResponse, isSiteAccessRequestAuthorized } from "@/lib/site-access";
 
-export async function GET() {
+export async function GET(request: Request) {
+  if (!isSiteAccessRequestAuthorized(request)) {
+    return createSiteAccessDeniedResponse();
+  }
+
   const programs = await listPrograms();
   return NextResponse.json({ programs });
 }
 
 export async function POST(request: Request) {
+  if (!isSiteAccessRequestAuthorized(request)) {
+    return createSiteAccessDeniedResponse();
+  }
+
   const body = (await request.json()) as Partial<ProgramIntake>;
 
   if (!body.programName?.trim()) {

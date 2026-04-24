@@ -2,10 +2,14 @@ import { NextResponse } from "next/server";
 import { getConfiguredArtifactStorageProvider } from "@/lib/artifact-storage";
 import { getConfiguredLeadershipAuthProvider } from "@/lib/leadership-auth";
 import { getConfiguredPersistenceProvider } from "@/lib/program-repository";
-import { getSiteAccessConfig } from "@/lib/site-access";
+import { createSiteAccessDeniedResponse, getSiteAccessConfig, isSiteAccessRequestAuthorized } from "@/lib/site-access";
 import { isSupabaseConfigured } from "@/lib/supabase/server";
 
-export async function GET() {
+export async function GET(request: Request) {
+  if (!isSiteAccessRequestAuthorized(request)) {
+    return createSiteAccessDeniedResponse();
+  }
+
   const siteAccess = getSiteAccessConfig();
   return NextResponse.json({
     ok: true,

@@ -1,8 +1,13 @@
 import { NextResponse } from "next/server";
 import { getConfiguredLeadershipAuthProvider } from "@/lib/leadership-auth";
+import { createSiteAccessDeniedResponse, isSiteAccessRequestAuthorized } from "@/lib/site-access";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export async function GET(request: Request) {
+  if (!isSiteAccessRequestAuthorized(request)) {
+    return createSiteAccessDeniedResponse();
+  }
+
   if (getConfiguredLeadershipAuthProvider() !== "supabase") {
     return NextResponse.redirect(new URL("/leadership/login", request.url));
   }

@@ -4,6 +4,7 @@ import { getAIProductById, getRelatedInitiatives } from "@/lib/content";
 import { RelatedContent } from "@/components/related-content";
 import { SectionHeader } from "@/components/section-header";
 import { StatusBadge } from "@/components/status-badge";
+import { requireSiteAccessPage } from "@/lib/site-access";
 
 export function generateStaticParams() {
   return aiProducts.map((product) => ({ id: product.id }));
@@ -11,6 +12,7 @@ export function generateStaticParams() {
 
 export default async function AIProductDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
+  await requireSiteAccessPage(`/lab/${id}`);
   const product = getAIProductById(id);
   if (!product) notFound();
 

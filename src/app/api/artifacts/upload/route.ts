@@ -1,9 +1,14 @@
 import { NextResponse } from "next/server";
 import { getArtifactStorageProvider } from "@/lib/artifact-storage";
+import { createSiteAccessDeniedResponse, isSiteAccessRequestAuthorized } from "@/lib/site-access";
 
 export const runtime = "nodejs";
 
 export async function POST(request: Request) {
+  if (!isSiteAccessRequestAuthorized(request)) {
+    return createSiteAccessDeniedResponse();
+  }
+
   const formData = await request.formData();
   const file = formData.get("file");
 

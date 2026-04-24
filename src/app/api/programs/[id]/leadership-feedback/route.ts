@@ -2,8 +2,13 @@ import { NextResponse } from "next/server";
 import { getLeadershipAccessContext } from "@/lib/leadership-auth";
 import { createLeadershipFeedback, listLeadershipFeedback } from "@/lib/program-store";
 import type { LeadershipReviewInput } from "@/lib/leadership-feedback-types";
+import { createSiteAccessDeniedResponse, isSiteAccessRequestAuthorized } from "@/lib/site-access";
 
-export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
+export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
+  if (!isSiteAccessRequestAuthorized(request)) {
+    return createSiteAccessDeniedResponse();
+  }
+
   const access = await getLeadershipAccessContext();
   if (!access.authorized) {
     return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
@@ -15,6 +20,10 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
 }
 
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
+  if (!isSiteAccessRequestAuthorized(request)) {
+    return createSiteAccessDeniedResponse();
+  }
+
   const access = await getLeadershipAccessContext();
   if (!access.authorized) {
     return NextResponse.json({ error: "Unauthorized." }, { status: 401 });

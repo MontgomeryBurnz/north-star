@@ -1,8 +1,13 @@
 import { NextResponse } from "next/server";
 import { getConfiguredLeadershipAuthProvider, leadershipSessionCookieName } from "@/lib/leadership-auth";
+import { createSiteAccessDeniedResponse, isSiteAccessRequestAuthorized } from "@/lib/site-access";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
-export async function POST() {
+export async function POST(request: Request) {
+  if (!isSiteAccessRequestAuthorized(request)) {
+    return createSiteAccessDeniedResponse();
+  }
+
   if (getConfiguredLeadershipAuthProvider() === "supabase") {
     const supabase = await createSupabaseServerClient();
     await supabase.auth.signOut();

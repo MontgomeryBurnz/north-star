@@ -4,6 +4,7 @@ import { getInitiativeById, getRelatedFrameworks, getRelatedProducts } from "@/l
 import { RelatedContent } from "@/components/related-content";
 import { SectionHeader } from "@/components/section-header";
 import { StatusBadge } from "@/components/status-badge";
+import { requireSiteAccessPage } from "@/lib/site-access";
 
 export function generateStaticParams() {
   return initiatives.map((initiative) => ({ id: initiative.id }));
@@ -11,6 +12,7 @@ export function generateStaticParams() {
 
 export default async function InitiativeDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
+  await requireSiteAccessPage(`/systems/${id}`);
   const initiative = getInitiativeById(id);
   if (!initiative) notFound();
 

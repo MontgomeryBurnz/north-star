@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { extractArtifactText } from "@/lib/artifact-extraction";
 import type { ProgramArtifact } from "@/lib/program-intake-types";
+import { createSiteAccessDeniedResponse, isSiteAccessRequestAuthorized } from "@/lib/site-access";
 
 export const runtime = "nodejs";
 
@@ -13,6 +14,10 @@ function detectFileFormat(fileName: string): NonNullable<ProgramArtifact["fileFo
 }
 
 export async function POST(request: Request) {
+  if (!isSiteAccessRequestAuthorized(request)) {
+    return createSiteAccessDeniedResponse();
+  }
+
   const formData = await request.formData();
   const file = formData.get("file");
 

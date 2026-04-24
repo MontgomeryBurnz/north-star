@@ -4,7 +4,7 @@ import { getConfiguredArtifactStorageProvider } from "@/lib/artifact-storage";
 import { getDashboardMetrics } from "@/lib/dashboard-metrics";
 import { getConfiguredLeadershipAuthProvider } from "@/lib/leadership-auth";
 import { getConfiguredPersistenceProvider } from "@/lib/program-repository";
-import { getSiteAccessConfig } from "@/lib/site-access";
+import { getSiteAccessConfig, requireSiteAccessPage } from "@/lib/site-access";
 import { isSupabaseConfigured } from "@/lib/supabase/server";
 
 function statusTone(value: boolean) {
@@ -14,6 +14,7 @@ function statusTone(value: boolean) {
 }
 
 export default async function AlphaStatusPage() {
+  await requireSiteAccessPage("/alpha-status");
   const metrics = await getDashboardMetrics();
   const assistantProvider = process.env.ASSISTANT_PROVIDER === "openai" ? "openai" : "local";
   const persistenceProvider = getConfiguredPersistenceProvider();

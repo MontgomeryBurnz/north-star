@@ -7,12 +7,14 @@ import {
   isLeadershipSessionTokenValid,
   leadershipSessionCookieName
 } from "@/lib/leadership-auth";
+import { requireSiteAccessPage } from "@/lib/site-access";
 
 export default async function LeadershipLoginPage({
   searchParams
 }: {
   searchParams: Promise<{ redirect?: string }>;
 }) {
+  await requireSiteAccessPage("/leadership/login");
   const resolvedSearchParams = await searchParams;
   const authProvider = getConfiguredLeadershipAuthProvider();
 

@@ -1,3 +1,7 @@
+import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
+import { NextResponse } from "next/server";
+
 export const siteAccessSessionCookieName = "site_access_session";
 
 export function getSiteAccessConfig() {
@@ -21,4 +25,37 @@ export function isSiteAccessSessionTokenValid(token: string | undefined | null) 
 export function isSiteAccessPasswordValid(password: string) {
   const config = getSiteAccessConfig();
   return Boolean(config.enabled && config.password && password === config.password);
+}
+
+function getCookieValue(cookieHeader: string | null, name: string) {
+  if (!cookieHeader) return undefined;
+
+  return cookieHeader
+    .split(";")
+    .map((part) => part.trim())
+    .find((part) => part.startsWith(`${name}=`))
+    ?.slice(name.length + 1);
+}
+
+export async function requireSiteAccessPage(redirectTo: string) {
+  const config = getSiteAccessConfig();
+  if (!config.enabled) return;
+
+  const cookieStore = await cookies();
+  const sessionToken = cookieStore.get(siteAccessSessionCookieName)?.value;
+  if (isSiteAccessSessionTokenValid(sessionToken)) return;
+
+  redirect(`/login?redirect=${encodeURIComponent(redirectTo)}`);
+}
+
+export function isSiteAccessRequestAuthorized(request: Request) {
+  const config = getSiteAccessConfig();
+  if (!config.enabled) return true;
+
+  const sessionToken = getCookieValue(request.headers.get("cookie"), siteAccessSessionCookieName);
+  return isSiteAccessSessionTokenValid(sessionToken);
+}
+
+export function createSiteAccessDeniedResponse() {
+  return NextResponse.json({ error: "Site access required." }, { status: 401 });
 }

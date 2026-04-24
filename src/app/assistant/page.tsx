@@ -1,5 +1,7 @@
 import { AssistantChat } from "@/components/assistant-chat";
+import { requireSiteAccessPage } from "@/lib/site-access";
 
-export default function AssistantPage() {
+export default async function AssistantPage() {
+  await requireSiteAccessPage("/assistant");
   return <AssistantChat />;
 }

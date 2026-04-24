@@ -1,8 +1,10 @@
 import { frameworks } from "@/data";
 import { FrameworkCard } from "@/components/framework-card";
 import { SectionHeader } from "@/components/section-header";
+import { requireSiteAccessPage } from "@/lib/site-access";
 
-export default function FrameworksPage() {
+export default async function FrameworksPage() {
+  await requireSiteAccessPage("/frameworks");
   return (
     <main className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
       <SectionHeader

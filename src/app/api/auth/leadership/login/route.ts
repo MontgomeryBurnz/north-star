@@ -5,8 +5,13 @@ import {
   isLeadershipCredentialsValid,
   leadershipSessionCookieName
 } from "@/lib/leadership-auth";
+import { createSiteAccessDeniedResponse, isSiteAccessRequestAuthorized } from "@/lib/site-access";
 
 export async function POST(request: Request) {
+  if (!isSiteAccessRequestAuthorized(request)) {
+    return createSiteAccessDeniedResponse();
+  }
+
   if (getConfiguredLeadershipAuthProvider() !== "env") {
     return NextResponse.json({ error: "Password login is disabled. Use Microsoft sign-in." }, { status: 400 });
   }

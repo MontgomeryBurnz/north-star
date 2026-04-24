@@ -4,8 +4,10 @@ import { CommandCenterGrid } from "@/components/command-center-grid";
 import { HeroSection } from "@/components/hero-section";
 import { OperatorSignalStrip, type OperatorSignal } from "@/components/operator-signal-strip";
 import { getDashboardMetrics } from "@/lib/dashboard-metrics";
+import { requireSiteAccessPage } from "@/lib/site-access";
 
 export default async function Home() {
+  await requireSiteAccessPage("/");
   const metrics = await getDashboardMetrics();
   const operatorSignals: OperatorSignal[] = [
     {

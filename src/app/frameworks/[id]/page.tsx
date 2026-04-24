@@ -3,6 +3,7 @@ import { frameworks } from "@/data";
 import { getFrameworkById, getRelatedInitiatives } from "@/lib/content";
 import { RelatedContent } from "@/components/related-content";
 import { SectionHeader } from "@/components/section-header";
+import { requireSiteAccessPage } from "@/lib/site-access";
 
 export function generateStaticParams() {
   return frameworks.map((framework) => ({ id: framework.id }));
@@ -10,6 +11,7 @@ export function generateStaticParams() {
 
 export default async function FrameworkDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
+  await requireSiteAccessPage(`/frameworks/${id}`);
   const framework = getFrameworkById(id);
   if (!framework) notFound();
 
