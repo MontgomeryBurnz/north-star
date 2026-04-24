@@ -25,7 +25,7 @@ const emptyReview: ActiveProgramReview = {
 type ExistingProgramOption = {
   id: string;
   label: string;
-  source: "seeded" | "local";
+  source: "local";
   review: ActiveProgramReview;
 };
 
@@ -45,11 +45,6 @@ function mergeProgramOptions(...groups: ExistingProgramOption[][]) {
       continue;
     }
 
-    if (existing.source === "seeded" && option.source === "local") {
-      merged.set(labelKey, option);
-      continue;
-    }
-
     if (existing.source === option.source && option.id !== existing.id) {
       merged.set(labelKey, option);
     }
@@ -58,58 +53,9 @@ function mergeProgramOptions(...groups: ExistingProgramOption[][]) {
   return Array.from(merged.values());
 }
 
-const seededPrograms: ExistingProgramOption[] = [
-  {
-    id: "order-guide-rollout",
-    label: "Order Guide Rollout",
-    source: "seeded",
-    review: {
-      ...emptyReview,
-      programName: "Order Guide Rollout",
-      originalNorthStar: "Increase adoption of governed ordering behavior without creating unnecessary field friction.",
-      currentPhase: "Active rollout",
-      progressSinceLastReview: "Pilot group is live. Adoption signals are visible but inconsistent by account.",
-      activeRisks: "Stakeholder concern around exception handling, incomplete owner model, uneven change readiness.",
-      decisionsPending: "Confirm whether exception routing should be centralized or owned by account teams.",
-      deliveryHealth: "Moving, but decision latency is starting to create noise.",
-      supportNeeded: "Clear decision owner, rollout threshold, and exception path."
-    }
-  },
-  {
-    id: "acd-modernization",
-    label: "Add / Change / Delete Modernization",
-    source: "seeded",
-    review: {
-      ...emptyReview,
-      programName: "Add / Change / Delete Modernization",
-      originalNorthStar: "Create a governed request path for item and customer data changes.",
-      currentPhase: "Workflow design",
-      progressSinceLastReview: "Request types are drafted. Validation checkpoints still need ownership.",
-      activeRisks: "Data ownership is unclear. Teams are using different definitions of ready.",
-      decisionsPending: "Agree on minimum required data for each request type.",
-      deliveryHealth: "Structure is improving, but handoff risk remains high.",
-      supportNeeded: "Decision on ownership, status model, and validation rules."
-    }
-  },
-  {
-    id: "compliance-hub",
-    label: "Compliance Hub",
-    source: "seeded",
-    review: {
-      ...emptyReview,
-      programName: "Compliance Hub",
-      originalNorthStar: "Make compliance-sensitive work easier to route, evidence, and approve.",
-      currentPhase: "Concept validation",
-      progressSinceLastReview: "Core evidence types are identified. Approval path still varies by scenario.",
-      activeRisks: "Policy interpretation is still distributed across people and documents.",
-      decisionsPending: "Define the first use case narrow enough to validate.",
-      deliveryHealth: "Early, but directionally useful if scope stays constrained.",
-      supportNeeded: "Use-case boundary, evidence checklist, and escalation owner."
-    }
-  }
-];
-
 const reviewHistoryKey = "work-path-active-program-updates";
+const reviewDraftKey = "work-path-active-program-review";
+const intakeDraftKey = "work-path-program-intake";
 
 const reviewFields: Array<{
   id: keyof Omit<ActiveProgramReview, "artifacts">;
@@ -227,6 +173,13 @@ function writeStoredUpdates(updates: ActiveProgramUpdate[]) {
   window.localStorage.setItem(reviewHistoryKey, JSON.stringify(updates));
 }
 
+function pruneStoredUpdates(validProgramIds: string[]) {
+  const validIds = new Set(validProgramIds);
+  const nextUpdates = readStoredUpdates().filter((update) => validIds.has(update.programId));
+  writeStoredUpdates(nextUpdates);
+  return nextUpdates;
+}
+
 function formatTimestamp(value: string) {
   return new Intl.DateTimeFormat(undefined, {
     month: "short",
@@ -240,7 +193,7 @@ export function ActiveProgramReviewSection() {
   const [review, setReview] = useState<ActiveProgramReview>(emptyReview);
   const [savedAt, setSavedAt] = useState<string | null>(null);
   const [selectedProgramId, setSelectedProgramId] = useState("");
-  const [existingPrograms, setExistingPrograms] = useState<ExistingProgramOption[]>(seededPrograms);
+  const [existingPrograms, setExistingPrograms] = useState<ExistingProgramOption[]>([]);
   const [updates, setUpdates] = useState<ActiveProgramUpdate[]>([]);
   const [saveState, setSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const [leadershipSignal, setLeadershipSignal] = useState<DeliveryLeadershipSignal | null>(null);
@@ -248,7 +201,7 @@ export function ActiveProgramReviewSection() {
   useEffect(() => {
     async function loadServerPrograms() {
       try {
-        const response = await fetch("/api/programs");
+        const response = await fetch("/api/programs", { cache: "no-store" });
         if (!response.ok) return;
         const payload = (await response.json()) as {
           programs: Array<{ id: string; intake: ProgramIntake }>;
@@ -263,25 +216,17 @@ export function ActiveProgramReviewSection() {
           }
         }));
 
-        setExistingPrograms((current) => mergeProgramOptions(serverPrograms, current));
+        setExistingPrograms(serverPrograms);
+        setUpdates(pruneStoredUpdates(serverPrograms.map((program) => program.id)));
+        window.localStorage.removeItem(intakeDraftKey);
+        window.localStorage.removeItem(reviewDraftKey);
+        setSelectedProgramId((current) => (serverPrograms.some((program) => program.id === current) ? current : ""));
       } catch {
-        // Local seeded programs remain available when the server store is unavailable.
+        setExistingPrograms([]);
       }
     }
 
     void loadServerPrograms();
-
-    const saved = window.localStorage.getItem("work-path-program-intake");
-    if (!saved) return;
-
-    try {
-      const parsed = JSON.parse(saved) as ProgramIntake;
-      const savedProgram = optionFromSavedIntake(parsed);
-      if (!savedProgram) return;
-      setExistingPrograms((current) => mergeProgramOptions([savedProgram], current));
-    } catch {
-      setExistingPrograms(seededPrograms);
-    }
   }, []);
 
   useEffect(() => {
@@ -467,7 +412,7 @@ export function ActiveProgramReviewSection() {
                   <option value="">Choose a program to review...</option>
                   {existingPrograms.map((program) => (
                     <option key={program.id} value={program.id}>
-                      {program.label} {program.source === "local" ? "(saved locally)" : ""}
+                      {program.label}
                     </option>
                   ))}
                 </select>
