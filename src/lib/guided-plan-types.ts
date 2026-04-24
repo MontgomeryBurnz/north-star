@@ -5,14 +5,23 @@ export type GuidedPlanSection = {
   items: string[];
 };
 
-export type GuidedPlanRoleFocus = {
-  role: "Delivery Lead" | "Business Analyst" | "Tech Lead" | "UX" | "Communications & Change Mgmt";
-  areas: string[];
+export type GuidedPlanRolePlan = {
+  role:
+    | "Product Management"
+    | "Business Analysis"
+    | "User Experience"
+    | "Application Development"
+    | "Data Engineering"
+    | "Change Management";
+  actionPlan: string[];
+  keyFocusAreas: string[];
+  keyOutcomes: string[];
+  risksAndMitigations: string[];
 };
 
-export type GuidedPlanRoleCoverage = {
+export type GuidedPlanRolePlans = {
   title: string;
-  roles: GuidedPlanRoleFocus[];
+  roles: GuidedPlanRolePlan[];
 };
 
 export type GuidedPlan = {
@@ -30,7 +39,7 @@ export type GuidedPlan = {
   keyOutputs: GuidedPlanSection;
   risksAndDecisions: GuidedPlanSection;
   leadershipChanges: GuidedPlanSection;
-  roleCoverage?: GuidedPlanRoleCoverage;
+  rolePlans?: GuidedPlanRolePlans;
   leadershipSignal: DeliveryLeadershipSignal;
   followUpQuestions: string[];
   sourceRecordIds: string[];

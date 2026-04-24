@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ArrowRight, FileCheck2, RefreshCw, Sparkles } from "lucide-react";
 import type { StoredProgramUpdate } from "@/lib/active-program-types";
-import type { GuidedPlan, GuidedPlanRoleCoverage, GuidedPlanSection } from "@/lib/guided-plan-types";
+import type { GuidedPlan, GuidedPlanRolePlans, GuidedPlanSection } from "@/lib/guided-plan-types";
 import type { DeliveryLeadershipSignal } from "@/lib/leadership-feedback-types";
 import type { StoredProgram } from "@/lib/program-intake-types";
 import { Button } from "@/components/ui/button";
@@ -37,23 +37,53 @@ function PlanSectionCard({ section }: { section: GuidedPlanSection }) {
   );
 }
 
-function RoleCoverageCard({ coverage }: { coverage: GuidedPlanRoleCoverage }) {
+function RolePlansCard({ rolePlans }: { rolePlans: GuidedPlanRolePlans }) {
   return (
     <Card className="bg-zinc-950/75 lg:col-span-2">
       <CardHeader className="border-b border-white/10">
-        <CardTitle className="text-zinc-50">{coverage.title}</CardTitle>
+        <CardTitle className="text-zinc-50">{rolePlans.title}</CardTitle>
       </CardHeader>
-      <CardContent className="grid gap-4 p-5 md:grid-cols-2 xl:grid-cols-3">
-        {coverage.roles.map((roleFocus) => (
-          <div key={roleFocus.role} className="rounded-md border border-white/10 bg-white/[0.035] p-4">
-            <p className="text-sm font-semibold uppercase tracking-[0.12em] text-zinc-100">{roleFocus.role}</p>
-            <div className="mt-3 grid gap-2">
-              {roleFocus.areas.map((area) => (
-                <p key={area} className="flex gap-2 text-sm leading-6 text-zinc-300">
-                  <ArrowRight className="mt-1 h-4 w-4 shrink-0 text-cyan-200" />
-                  {area}
-                </p>
-              ))}
+      <CardContent className="grid gap-4 p-5 xl:grid-cols-2">
+        {rolePlans.roles.map((rolePlan) => (
+          <div key={rolePlan.role} className="rounded-md border border-white/10 bg-white/[0.035] p-4">
+            <p className="text-sm font-semibold uppercase tracking-[0.12em] text-zinc-100">{rolePlan.role}</p>
+            <div className="mt-4 grid gap-4">
+              <div className="grid gap-2">
+                <p className="text-xs font-medium uppercase tracking-[0.14em] text-cyan-200">Action Plan</p>
+                {rolePlan.actionPlan.map((item) => (
+                  <p key={item} className="flex gap-2 text-sm leading-6 text-zinc-300">
+                    <ArrowRight className="mt-1 h-4 w-4 shrink-0 text-cyan-200" />
+                    {item}
+                  </p>
+                ))}
+              </div>
+              <div className="grid gap-2">
+                <p className="text-xs font-medium uppercase tracking-[0.14em] text-emerald-200">Key Focus Areas</p>
+                {rolePlan.keyFocusAreas.map((item) => (
+                  <p key={item} className="flex gap-2 text-sm leading-6 text-zinc-300">
+                    <ArrowRight className="mt-1 h-4 w-4 shrink-0 text-emerald-200" />
+                    {item}
+                  </p>
+                ))}
+              </div>
+              <div className="grid gap-2">
+                <p className="text-xs font-medium uppercase tracking-[0.14em] text-amber-200">Key Outcomes</p>
+                {rolePlan.keyOutcomes.map((item) => (
+                  <p key={item} className="flex gap-2 text-sm leading-6 text-zinc-300">
+                    <ArrowRight className="mt-1 h-4 w-4 shrink-0 text-amber-200" />
+                    {item}
+                  </p>
+                ))}
+              </div>
+              <div className="grid gap-2">
+                <p className="text-xs font-medium uppercase tracking-[0.14em] text-rose-200">Risk / Mitigation</p>
+                {rolePlan.risksAndMitigations.map((item) => (
+                  <p key={item} className="flex gap-2 text-sm leading-6 text-zinc-300">
+                    <ArrowRight className="mt-1 h-4 w-4 shrink-0 text-rose-200" />
+                    {item}
+                  </p>
+                ))}
+              </div>
             </div>
           </div>
         ))}
@@ -69,32 +99,54 @@ function normalizePlanSection(section: GuidedPlanSection | undefined, fallbackTi
   };
 }
 
-function normalizeRoleCoverage(coverage: GuidedPlanRoleCoverage | undefined): GuidedPlanRoleCoverage {
+function normalizeRolePlans(rolePlans: GuidedPlanRolePlans | undefined): GuidedPlanRolePlans {
   return {
-    title: coverage?.title || "Role Coverage",
+    title: rolePlans?.title || "Role Action Plans",
     roles:
-      coverage?.roles?.length
-        ? coverage.roles
+      rolePlans?.roles?.length
+        ? rolePlans.roles
         : [
             {
-              role: "Delivery Lead",
-              areas: ["Own the next checkpoint, risk posture, and delivery path once a guided plan is generated."]
+              role: "Product Management",
+              actionPlan: ["Turn the current program context into the next product path and decision sequence."],
+              keyFocusAreas: ["Outcome clarity, scope posture, and decision ownership."],
+              keyOutcomes: ["A clearer product path and decision-ready priorities."],
+              risksAndMitigations: ["Mitigate ambiguity by tightening checkpoints and scope boundaries."]
             },
             {
-              role: "Business Analyst",
-              areas: ["Translate the current ambiguity into requirements, assumptions, and decision-ready detail."]
+              role: "Business Analysis",
+              actionPlan: ["Translate ambiguity into structured requirements and traceability."],
+              keyFocusAreas: ["Requirements, assumptions, and acceptance detail."],
+              keyOutcomes: ["Decision-ready requirements and cleaner handoffs."],
+              risksAndMitigations: ["Reduce interpretation risk through explicit traceability."]
             },
             {
-              role: "Tech Lead",
-              areas: ["Frame technical dependencies, feasibility, and implementation sequencing."]
+              role: "User Experience",
+              actionPlan: ["Clarify the workflow and validation path before execution scales."],
+              keyFocusAreas: ["Workflow friction, experience risk, and learning loops."],
+              keyOutcomes: ["A more usable service path and clearer validation plan."],
+              risksAndMitigations: ["Prevent hidden experience debt by defining validation checkpoints."]
             },
             {
-              role: "UX",
-              areas: ["Clarify workflow impact, validation needs, and experience risk."]
+              role: "Application Development",
+              actionPlan: ["Frame technical sequencing, dependencies, and build gates."],
+              keyFocusAreas: ["Implementation path, dependency removal, and execution risk."],
+              keyOutcomes: ["A clearer execution plan with less avoidable rework."],
+              risksAndMitigations: ["Reduce technical stalls by naming owners and decision gates early."]
             },
             {
-              role: "Communications & Change Mgmt",
-              areas: ["Shape stakeholder communications, readiness, and adoption checkpoints."]
+              role: "Data Engineering",
+              actionPlan: ["Make data dependencies and readiness visible before downstream build expands."],
+              keyFocusAreas: ["Data quality, sourcing, transformation, and integration dependencies."],
+              keyOutcomes: ["A clearer data readiness path and fewer downstream surprises."],
+              risksAndMitigations: ["Reduce data risk by surfacing ownership and readiness checkpoints early."]
+            },
+            {
+              role: "Change Management",
+              actionPlan: ["Shape stakeholder communications, readiness, and adoption checkpoints."],
+              keyFocusAreas: ["Readiness, messaging, audience-specific updates, and adoption risk."],
+              keyOutcomes: ["Stronger alignment and smoother adoption of the guided path."],
+              risksAndMitigations: ["Reduce change resistance through targeted updates and readiness signals."]
             }
           ]
   };
@@ -303,7 +355,7 @@ export function GuidedPlansConsole() {
         )
       ]
     : [];
-  const roleCoverage = plan ? normalizeRoleCoverage(plan.roleCoverage) : null;
+  const rolePlans = plan ? normalizeRolePlans(plan.rolePlans) : null;
 
   return (
     <main className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
@@ -473,7 +525,7 @@ export function GuidedPlansConsole() {
                     </div>
                   </CardContent>
                 </Card>
-                {roleCoverage ? <RoleCoverageCard coverage={roleCoverage} /> : null}
+                {rolePlans ? <RolePlansCard rolePlans={rolePlans} /> : null}
                 {planSections.map((section) => (
                   <PlanSectionCard key={section.title} section={section} />
                 ))}
