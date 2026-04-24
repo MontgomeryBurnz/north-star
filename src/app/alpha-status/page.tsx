@@ -2,6 +2,7 @@ import { SectionHeader } from "@/components/section-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { getConfiguredArtifactStorageProvider } from "@/lib/artifact-storage";
 import { getDashboardMetrics } from "@/lib/dashboard-metrics";
+import { getConfiguredGuidedPlanProvider } from "@/lib/guided-plan-service";
 import { getConfiguredLeadershipAuthProvider } from "@/lib/leadership-auth";
 import { getConfiguredPersistenceProvider } from "@/lib/program-repository";
 import { getSiteAccessConfig, requireSiteAccessPage } from "@/lib/site-access";
@@ -17,6 +18,7 @@ export default async function AlphaStatusPage() {
   await requireSiteAccessPage("/alpha-status");
   const metrics = await getDashboardMetrics();
   const assistantProvider = process.env.ASSISTANT_PROVIDER === "openai" ? "openai" : "local";
+  const guidedPlanProvider = getConfiguredGuidedPlanProvider();
   const persistenceProvider = getConfiguredPersistenceProvider();
   const artifactStorageProvider = getConfiguredArtifactStorageProvider();
   const leadershipAuthProvider = getConfiguredLeadershipAuthProvider();
@@ -48,6 +50,14 @@ export default async function AlphaStatusPage() {
       label: "Assistant provider",
       ok: assistantProvider === "openai",
       detail: assistantProvider === "openai" ? "Server-side OpenAI is enabled." : "Assistant is still using the local fallback."
+    },
+    {
+      label: "Guided plan provider",
+      ok: guidedPlanProvider === "openai",
+      detail:
+        guidedPlanProvider === "openai"
+          ? "Guided plans are generated through the OpenAI provider with local fallback."
+          : "Guided plans are still using the local deterministic generator."
     },
     {
       label: "Leadership gate",

@@ -4,7 +4,7 @@ import { mkdir, readFile, writeFile } from "fs/promises";
 import path from "path";
 import { Pool } from "pg";
 import type { ActiveProgramReview, StoredProgramUpdate } from "@/lib/active-program-types";
-import { generateLocalGuidedPlan } from "@/lib/guided-plan-generator";
+import { generateGuidedPlan } from "@/lib/guided-plan-service";
 import type { GuidedPlan } from "@/lib/guided-plan-types";
 import type { LeadershipReviewInput, LeadershipReviewRecord } from "@/lib/leadership-feedback-types";
 import type { ProgramIntake, StoredProgram } from "@/lib/program-intake-types";
@@ -150,7 +150,7 @@ const fileRepository: ProgramRepository = {
     const leadershipFeedbacks = sortByUpdatedDesc(
       store.leadershipFeedbacks.filter((feedback) => feedback.programId === programId)
     );
-    const plan = generateLocalGuidedPlan(program, updates, leadershipFeedbacks);
+    const plan = await generateGuidedPlan({ program, updates, leadershipFeedbacks });
 
     store.guidedPlans = [plan, ...store.guidedPlans];
     await writeFileStore(store);
@@ -437,7 +437,7 @@ const postgresRepository: ProgramRepository = {
 
     const updates = await this.listProgramUpdates(programId);
     const leadershipFeedbacks = await this.listLeadershipFeedback(programId);
-    const plan = generateLocalGuidedPlan(program, updates, leadershipFeedbacks);
+    const plan = await generateGuidedPlan({ program, updates, leadershipFeedbacks });
 
     await getPool().query(
       `

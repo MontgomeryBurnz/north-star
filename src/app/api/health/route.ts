@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getConfiguredArtifactStorageProvider } from "@/lib/artifact-storage";
+import { getConfiguredGuidedPlanProvider } from "@/lib/guided-plan-service";
 import { getConfiguredLeadershipAuthProvider } from "@/lib/leadership-auth";
 import { getConfiguredPersistenceProvider } from "@/lib/program-repository";
 import { createSiteAccessDeniedResponse, getSiteAccessConfig, isSiteAccessRequestAuthorized } from "@/lib/site-access";
@@ -17,6 +18,7 @@ export async function GET(request: Request) {
     persistenceProvider: getConfiguredPersistenceProvider(),
     artifactStorageProvider: getConfiguredArtifactStorageProvider(),
     assistantProvider: process.env.ASSISTANT_PROVIDER === "openai" ? "openai" : "local",
+    guidedPlanProvider: getConfiguredGuidedPlanProvider(),
     siteAccessEnabled: siteAccess.enabled,
     leadershipAuthProvider: getConfiguredLeadershipAuthProvider(),
     leadershipAuthConfigured: Boolean(
