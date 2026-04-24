@@ -92,8 +92,8 @@ function withModelProfile(
 export const openaiAssistantProvider: AssistantProvider = {
   id: "openai",
   async getResponse(request: AssistantRequest): Promise<AssistantServiceResponse> {
-    const matches = getRelevantContent(request.prompt);
-    const localGroundedResponse = composeGroundedAnswer(request.prompt, matches);
+    const matches = await getRelevantContent(request.prompt);
+    const localGroundedResponse = await composeGroundedAnswer(request.prompt, matches);
     const apiKey = process.env.OPENAI_API_KEY?.trim();
     const model = getConfiguredModel();
     const reasoningEffort = getConfiguredReasoningEffort();

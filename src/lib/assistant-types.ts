@@ -1,6 +1,6 @@
 export type AssistantMode = "direct" | "retrieval" | "fallback";
 
-export type AssistantContentType = "initiative" | "framework" | "aiProduct" | "experiment" | "faq" | "profile";
+export type AssistantContentType = "initiative" | "framework" | "aiProduct" | "experiment" | "faq" | "profile" | "program";
 
 export type AssistantProviderId = "local" | "openai";
 

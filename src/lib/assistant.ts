@@ -1,4 +1,7 @@
+import "server-only";
+
 import { aiProducts, assistantFaqs, contentRegistry, experiments, frameworks, initiatives, profile } from "@/data";
+import { getLatestGuidedPlan, listLeadershipFeedback, listPrograms, listProgramUpdates } from "@/lib/program-store";
 import type {
   AssistantContentType,
   AssistantDebug,
@@ -26,6 +29,8 @@ type RetrievalRecord = {
   body: string;
   tags: string[];
   bullets: string[];
+  href?: string;
+  status?: string;
 };
 
 const suggestedPrompts = assistantFaqs.map((faq) => faq.question);
@@ -59,7 +64,9 @@ const stopWords = new Set([
   "from",
   "why",
   "start",
-  "first"
+  "first",
+  "should",
+  "help"
 ]);
 
 function normalize(value: string) {
@@ -80,7 +87,85 @@ function tokenize(value: string) {
     .filter((token) => token.length > 2 && !stopWords.has(token));
 }
 
-function buildRetrievalRecords(): RetrievalRecord[] {
+function excerpt(value: string, limit = 220) {
+  const compacted = value.replace(/\s+/g, " ").trim();
+  return compacted.length > limit ? `${compacted.slice(0, limit).trim()}...` : compacted;
+}
+
+async function buildProgramRecords(): Promise<RetrievalRecord[]> {
+  const programs = await listPrograms();
+
+  const records = await Promise.all(
+    programs.map(async (program) => {
+      const latestUpdate = (await listProgramUpdates(program.id))[0];
+      const latestPlan = await getLatestGuidedPlan(program.id);
+      const latestLeadershipFeedback = (await listLeadershipFeedback(program.id))[0];
+
+      const title = program.intake.programName;
+      const summary = program.intake.vision || program.intake.outcomes || program.intake.sowSummary || "Saved program context.";
+      const leadershipText = latestLeadershipFeedback
+        ? `${latestLeadershipFeedback.feedback.leadershipGuidance} ${latestLeadershipFeedback.feedback.feedbackToDeliveryLead} ${latestLeadershipFeedback.feedback.activeRisks}`
+        : "";
+      const planText = latestPlan
+        ? `${latestPlan.summary} ${latestPlan.northStar} ${latestPlan.workPath.items.join(" ")} ${latestPlan.keyOutputs.items.join(" ")}`
+        : "";
+      const updateText = latestUpdate
+        ? `${latestUpdate.review.progressSinceLastReview} ${latestUpdate.review.activeRisks} ${latestUpdate.review.decisionsPending} ${latestUpdate.review.supportNeeded}`
+        : "";
+      const reviewedContext = program.intake.reviewedContext
+        ? `${program.intake.reviewedContext.outcomes} ${program.intake.reviewedContext.stakeholders} ${program.intake.reviewedContext.risks} ${program.intake.reviewedContext.requirements} ${program.intake.reviewedContext.outputs}`
+        : "";
+
+      return {
+        id: program.id,
+        type: "program" as const,
+        title,
+        summary: excerpt(summary, 180),
+        body: [
+          program.intake.programName,
+          program.intake.vision,
+          program.intake.sowSummary,
+          program.intake.outcomes,
+          program.intake.stakeholders,
+          program.intake.risks,
+          program.intake.constraints,
+          program.intake.currentStatus,
+          program.intake.decisionsNeeded,
+          program.intake.blockers,
+          reviewedContext,
+          updateText,
+          planText,
+          leadershipText
+        ]
+          .filter(Boolean)
+          .join(" "),
+        tags: unique([
+          "program",
+          "saved-program",
+          ...tokenize(program.intake.programName),
+          ...tokenize(program.intake.vision),
+          ...tokenize(program.intake.outcomes),
+          ...tokenize(program.intake.stakeholders)
+        ]),
+        bullets: [
+          `Program: ${program.intake.programName}`,
+          `North star: ${program.intake.vision || program.intake.outcomes || "No north star captured yet."}`,
+          `Current signal: ${
+            latestUpdate?.review.progressSinceLastReview || program.intake.currentStatus || "No current program update captured yet."
+          }`,
+          `Risk posture: ${latestUpdate?.review.activeRisks || program.intake.risks || "No active risk captured yet."}`,
+          `Latest plan: ${latestPlan?.summary || "No guided plan has been generated yet."}`
+        ],
+        href: "/active-program",
+        status: latestUpdate?.review.currentPhase || program.intake.currentStatus || "Saved"
+      };
+    })
+  );
+
+  return records;
+}
+
+function buildStaticRetrievalRecords(): RetrievalRecord[] {
   return [
     ...assistantFaqs.map((faq) => ({
       id: faq.id,
@@ -108,7 +193,9 @@ function buildRetrievalRecords(): RetrievalRecord[] {
         `Problem: ${initiative.problemSpace}`,
         `System: ${initiative.systemDesigned}`,
         `Value: ${initiative.valueCreated}`
-      ]
+      ],
+      href: `/systems/${initiative.id}`,
+      status: initiative.status
     })),
     ...frameworks.map((framework) => ({
       id: framework.id,
@@ -121,7 +208,8 @@ function buildRetrievalRecords(): RetrievalRecord[] {
         `Problem solved: ${framework.problemSolved}`,
         `Applies to: ${framework.whereItApplies}`,
         `Output: ${framework.output}`
-      ]
+      ],
+      href: `/frameworks/${framework.id}`
     })),
     ...aiProducts.map((product) => ({
       id: product.id,
@@ -130,7 +218,9 @@ function buildRetrievalRecords(): RetrievalRecord[] {
       summary: product.summary,
       body: `${product.name} ${product.status} ${product.summary} ${product.purpose} ${product.inputs.join(" ")} ${product.outputs.join(" ")} ${product.value}`,
       tags: ["AI", product.status, ...product.relatedInitiativeIds],
-      bullets: [`Purpose: ${product.purpose}`, `Outputs: ${product.outputs.join(", ")}`, `Value: ${product.value}`]
+      bullets: [`Purpose: ${product.purpose}`, `Outputs: ${product.outputs.join(", ")}`, `Value: ${product.value}`],
+      href: `/lab/${product.id}`,
+      status: product.status
     })),
     ...experiments.map((experiment) => ({
       id: experiment.id,
@@ -139,7 +229,9 @@ function buildRetrievalRecords(): RetrievalRecord[] {
       summary: experiment.description,
       body: `${experiment.title} ${experiment.status} ${experiment.description} ${experiment.tag ?? ""} ${experiment.relatedInitiativeIds.join(" ")}`,
       tags: [experiment.status, experiment.tag ?? "untagged", ...experiment.relatedInitiativeIds],
-      bullets: [`Status: ${experiment.status}`, `Tag: ${experiment.tag ?? "unlabeled"}`]
+      bullets: [`Status: ${experiment.status}`, `Tag: ${experiment.tag ?? "unlabeled"}`],
+      href: "/#signals",
+      status: experiment.status
     })),
     {
       id: profile.id,
@@ -153,34 +245,55 @@ function buildRetrievalRecords(): RetrievalRecord[] {
   ];
 }
 
-const retrievalRecords = buildRetrievalRecords();
+const staticRetrievalRecords = buildStaticRetrievalRecords();
 
-function scoreRecord(record: RetrievalRecord, promptTokens: string[]) {
+async function getRetrievalRecords(): Promise<RetrievalRecord[]> {
+  return [...(await buildProgramRecords()), ...staticRetrievalRecords];
+}
+
+function scoreRecord(record: RetrievalRecord, prompt: string, promptTokens: string[]) {
+  const normalizedPrompt = normalize(prompt);
   const recordTokens = tokenize(`${record.title} ${record.body} ${record.tags.join(" ")}`);
+  const normalizedTitle = normalize(record.title);
   const matchedKeywords = unique(
     promptTokens.filter((token) =>
       recordTokens.some((keyword) => keyword === token || keyword.includes(token) || token.includes(keyword))
     )
   );
 
-  const score = matchedKeywords.reduce((total, token) => {
+  let score = matchedKeywords.reduce((total, token) => {
     const exact = recordTokens.filter((keyword) => keyword === token).length;
     const partial = recordTokens.some((keyword) => keyword.includes(token) || token.includes(keyword)) ? 1 : 0;
     const titleBoost = tokenize(record.title).includes(token) ? 3 : 0;
     return total + exact * 2 + partial + titleBoost;
   }, 0);
 
+  if (normalizedPrompt.includes(normalizedTitle)) {
+    score += record.type === "program" ? 20 : 8;
+  }
+
+  const tagPhraseBoost = record.tags.some((tag) => normalize(tag) && normalizedPrompt.includes(normalize(tag)));
+  if (tagPhraseBoost) {
+    score += record.type === "program" ? 12 : 4;
+  }
+
+  if (record.type === "program" && matchedKeywords.length) {
+    score += 10;
+  }
+
   return { score, matchedKeywords };
 }
 
-export function getRelevantContent(prompt: string, limit = 7): MatchedContent[] {
+export async function getRelevantContent(prompt: string, limit = 7): Promise<MatchedContent[]> {
   const promptTokens = tokenize(prompt);
 
   if (!promptTokens.length) return [];
 
+  const retrievalRecords = await getRetrievalRecords();
+
   return retrievalRecords
     .map((record) => {
-      const { score, matchedKeywords } = scoreRecord(record, promptTokens);
+      const { score, matchedKeywords } = scoreRecord(record, prompt, promptTokens);
 
       return {
         id: record.id,
@@ -197,7 +310,8 @@ export function getRelevantContent(prompt: string, limit = 7): MatchedContent[] 
     .slice(0, limit);
 }
 
-function getRecord(match: MatchedContent) {
+async function getRecord(match: MatchedContent) {
+  const retrievalRecords = await getRetrievalRecords();
   return retrievalRecords.find((record) => record.id === match.id && record.type === match.type);
 }
 
@@ -213,7 +327,8 @@ function toMatchedRecord(record: RetrievalRecord, score = 12, matchedKeywords: s
   };
 }
 
-function getRecordByTypeAndId(type: AssistantContentType, id: string) {
+async function getRecordByTypeAndId(type: AssistantContentType, id: string) {
+  const retrievalRecords = await getRetrievalRecords();
   return retrievalRecords.find((record) => record.type === type && record.id === id);
 }
 
@@ -280,6 +395,18 @@ function relatedItemsFromMatches(matches: MatchedContent[]): AssistantRelatedIte
       if (match.type === "framework") return relatedItemsForIds([], [match.id]);
       if (match.type === "aiProduct") return relatedItemsForIds([], [], [match.id]);
       if (match.type === "experiment") return relatedItemsForIds([], [], [], [match.id]);
+      if (match.type === "program") {
+        return [
+          {
+            id: match.id,
+            type: "program" as const,
+            title: match.title,
+            href: "/active-program",
+            summary: match.summary,
+            status: "active context"
+          }
+        ];
+      }
       return [];
     })
     .filter((item, index, all) => all.findIndex((candidate) => candidate.type === item.type && candidate.id === item.id) === index)
@@ -291,7 +418,7 @@ function buildDebug(prompt: string, matches: MatchedContent[], sections: Assista
     normalizedPrompt: normalize(prompt),
     matchedKeywords: unique(matches.flatMap((match) => match.matchedKeywords)),
     matchedRecords: matches,
-    ranking: matches.map((match, index) => ({ ...match, score: match.score + Math.max(0, 0 - index) })),
+    ranking: matches,
     sections
   };
 }
@@ -300,30 +427,46 @@ function sourceLabel(match: MatchedContent) {
   return `${match.type}: ${match.title}`;
 }
 
-function directFaqMatches(prompt: string, existingMatches: MatchedContent[]) {
+async function directFaqMatches(prompt: string, existingMatches: MatchedContent[]) {
   const directFaq = assistantFaqs.find((faq) => normalize(faq.question) === normalize(prompt));
   if (!directFaq) return null;
 
-  const directRecord = getRecordByTypeAndId("faq", directFaq.id);
+  const directRecord = await getRecordByTypeAndId("faq", directFaq.id);
   const matchedKeywords = tokenize(directFaq.question);
   const seededRecords = [
     directRecord ? toMatchedRecord(directRecord, 30, matchedKeywords) : null,
-    ...(directFaq.relatedInitiativeIds ?? [])
-      .map((id, index) => getRecordByTypeAndId("initiative", id))
-      .filter(isDefined)
-      .map((record, index) => toMatchedRecord(record, 24 - index, matchedKeywords.slice(0, 4))),
-    ...(directFaq.relatedFrameworkIds ?? [])
-      .map((id, index) => getRecordByTypeAndId("framework", id))
-      .filter(isDefined)
-      .map((record, index) => toMatchedRecord(record, 18 - index, matchedKeywords.slice(0, 4))),
-    ...(directFaq.relatedProductIds ?? [])
-      .map((id, index) => getRecordByTypeAndId("aiProduct", id))
-      .filter(isDefined)
-      .map((record, index) => toMatchedRecord(record, 14 - index, matchedKeywords.slice(0, 4))),
-    ...(directFaq.relatedExperimentIds ?? [])
-      .map((id, index) => getRecordByTypeAndId("experiment", id))
-      .filter(isDefined)
-      .map((record, index) => toMatchedRecord(record, 10 - index, matchedKeywords.slice(0, 4)))
+    ...(
+      await Promise.all(
+        (directFaq.relatedInitiativeIds ?? []).map(async (id, index) => {
+          const record = await getRecordByTypeAndId("initiative", id);
+          return record ? toMatchedRecord(record, 24 - index, matchedKeywords.slice(0, 4)) : null;
+        })
+      )
+    ),
+    ...(
+      await Promise.all(
+        (directFaq.relatedFrameworkIds ?? []).map(async (id, index) => {
+          const record = await getRecordByTypeAndId("framework", id);
+          return record ? toMatchedRecord(record, 18 - index, matchedKeywords.slice(0, 4)) : null;
+        })
+      )
+    ),
+    ...(
+      await Promise.all(
+        (directFaq.relatedProductIds ?? []).map(async (id, index) => {
+          const record = await getRecordByTypeAndId("aiProduct", id);
+          return record ? toMatchedRecord(record, 14 - index, matchedKeywords.slice(0, 4)) : null;
+        })
+      )
+    ),
+    ...(
+      await Promise.all(
+        (directFaq.relatedExperimentIds ?? []).map(async (id, index) => {
+          const record = await getRecordByTypeAndId("experiment", id);
+          return record ? toMatchedRecord(record, 10 - index, matchedKeywords.slice(0, 4)) : null;
+        })
+      )
+    )
   ].filter(Boolean) as MatchedContent[];
 
   const combined = [...seededRecords, ...existingMatches]
@@ -336,8 +479,8 @@ function directFaqMatches(prompt: string, existingMatches: MatchedContent[]) {
   return { faq: directFaq, matches: combined };
 }
 
-export function composeGroundedAnswer(prompt: string, matches: MatchedContent[]): AssistantResponse {
-  const direct = directFaqMatches(prompt, matches);
+export async function composeGroundedAnswer(prompt: string, matches: MatchedContent[]): Promise<AssistantResponse> {
+  const direct = await directFaqMatches(prompt, matches);
 
   if (direct) {
     const sections: AssistantSection[] = [
@@ -370,17 +513,19 @@ export function composeGroundedAnswer(prompt: string, matches: MatchedContent[])
   }
 
   if (!matches.length) {
+    const programs = await listPrograms();
     const sections: AssistantSection[] = [
       {
         title: "No Strong Match",
         items: [
           "No local record crossed the keyword threshold for this prompt.",
-          "Try a seeded prompt about systems, Add / Change / Delete, Order Guide, Coolition, frameworks, or role fit."
+          "Name the program, workstream, decision, role, or risk directly to improve grounding."
         ]
       },
       {
         title: "Indexed Local Surface",
         items: [
+          `${programs.length} saved programs`,
           `${contentRegistry.initiatives.length} initiatives`,
           `${contentRegistry.frameworks.length} frameworks`,
           `${contentRegistry.aiProducts.length} AI products`,
@@ -392,7 +537,7 @@ export function composeGroundedAnswer(prompt: string, matches: MatchedContent[])
 
     return {
       answer:
-        "No strong local match. Use a seeded prompt or ask about systems, frameworks, AI products, experiments, Add / Change / Delete, Order Guide, Coolition, or role fit.",
+        "No strong local match. Name the specific program, decision, role, or risk so the assistant can ground the response against the saved program context.",
       bullets: sections[0].items,
       sections,
       sources: ["Local content registry"],
@@ -404,16 +549,17 @@ export function composeGroundedAnswer(prompt: string, matches: MatchedContent[])
     };
   }
 
-  const records = matches.map(getRecord).filter(Boolean) as RetrievalRecord[];
+  const records = (await Promise.all(matches.map(getRecord))).filter(isDefined);
   const primary = records[0];
+  const primaryMatch = matches[0];
   const sections: AssistantSection[] = [
     {
       title: "Primary Match",
       items: [`${primary.title}: ${primary.summary}`]
     },
     {
-      title: "Relevant Detail",
-      items: records.flatMap((record) => record.bullets.slice(0, 2)).slice(0, 6)
+      title: primaryMatch?.type === "program" ? "Program Context" : "Relevant Detail",
+      items: records.flatMap((record) => record.bullets.slice(0, record.type === "program" ? 3 : 2)).slice(0, 6)
     },
     {
       title: "Grounding",
@@ -435,7 +581,7 @@ export function composeGroundedAnswer(prompt: string, matches: MatchedContent[])
 }
 
 export async function getAssistantResponse(prompt: string): Promise<AssistantResponse> {
-  const matches = getRelevantContent(prompt);
+  const matches = await getRelevantContent(prompt);
   return composeGroundedAnswer(prompt, matches);
 }
 
