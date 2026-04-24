@@ -24,6 +24,10 @@ function excerpt(value: string, limit = 180) {
   return compacted.length > limit ? `${compacted.slice(0, limit).trim()}...` : compacted;
 }
 
+function sourceLabel(count: number, singular: string, plural = `${singular}s`) {
+  return `${count} ${count === 1 ? singular : plural}`;
+}
+
 function getArtifactSignals(program: StoredProgram) {
   return program.intake.artifacts
     .filter(
@@ -210,6 +214,42 @@ export function generateLocalGuidedPlan(
     : buildDeliveryLeadershipSignal(null);
   const leadershipSignalSummary = leadershipSignal.summary;
   const artifactSignals = getArtifactSignals(program);
+  const latestArtifactSignal = artifactSignals[0];
+  const sourceSummaryParts = [
+    artifactSignals.length ? sourceLabel(artifactSignals.length, "upload") : "",
+    latestUpdate ? "latest active-program update" : "",
+    latestLeadershipFeedback ? "latest leadership feedback" : ""
+  ].filter(Boolean);
+  const sourceSummary = sourceSummaryParts.length ? sourceSummaryParts.join(", ") : "initial intake only";
+  const sourceInputItems = [
+    artifactSignals.length
+      ? `Uploads influencing this plan: ${artifactSignals
+          .map((artifact) => `${artifact.name} (${artifact.artifactType ?? "unclassified"})`)
+          .join(", ")}.`
+      : "No extracted uploads are influencing this plan yet. Add an artifact with parsed text to ground the guidance.",
+    latestUpdate
+      ? `Active-program update shaping this plan: ${excerpt(
+          firstAvailable(
+            review?.progressSinceLastReview ?? "",
+            review?.planChanges ?? "",
+            review?.activeRisks ?? "",
+            "Latest delivery update is on file."
+          ),
+          140
+        )}`
+      : "No active-program update is on file yet. Add one when program conditions change so the guidance can regenerate against current reality.",
+    latestLeadershipFeedback
+      ? `Leadership feedback shaping this plan: ${excerpt(
+          firstAvailable(
+            latestLeadershipFeedback.feedback.feedbackToDeliveryLead,
+            latestLeadershipFeedback.feedback.leadershipGuidance,
+            latestLeadershipFeedback.feedback.activeRisks,
+            "Leadership review is on file."
+          ),
+          140
+        )}`
+      : "No leadership feedback is on file yet. Once entered, leadership signal will be translated into plan changes and role-level direction."
+  ];
 
   return {
     id: randomUUID(),
@@ -217,7 +257,11 @@ export function generateLocalGuidedPlan(
     programName: intake.programName,
     createdAt: now,
     northStar,
-    summary: `Guided plan generated from ${latestUpdate ? "the latest active-program update" : "the initial program intake"}.`,
+    summary: `Guided plan generated from the current intake and refreshed directly by ${sourceSummary}.`,
+    sourceInputs: {
+      title: "Fresh Inputs Driving This Plan",
+      items: sourceInputItems
+    },
     signalFromNoise: {
       title: "Signal From Noise",
       items: [
@@ -228,11 +272,11 @@ export function generateLocalGuidedPlan(
           ? [`Reviewed context confidence: ${reviewedContext.confidence}. Use reviewed signals as the planning source of truth.`]
           : []),
         ...(leadershipGuidancePresent ? ["Leadership input has been incorporated into the current guidance path."] : []),
-        ...(artifactSignals[0]
+        ...(latestArtifactSignal
           ? [
-              `Artifact signal from ${artifactSignals[0].name} (${artifactSignals[0].artifactType ?? "unclassified"} / ${
-                artifactSignals[0].fileFormat ?? "unknown"
-              }): ${artifactSignals[0].signal}`
+              `Artifact signal from ${latestArtifactSignal.name} (${latestArtifactSignal.artifactType ?? "unclassified"} / ${
+                latestArtifactSignal.fileFormat ?? "unknown"
+              }): ${latestArtifactSignal.signal}`
             ]
           : [])
       ]
@@ -320,7 +364,8 @@ export function generateLocalGuidedPlan(
     followUpQuestions: [
       "What decision would remove the most ambiguity this week?",
       "Which stakeholder needs alignment before the next move?",
-      "What output would prove the program is moving toward the north star?"
+      "What output would prove the program is moving toward the north star?",
+      "What new upload, update, or leadership signal should be added before regenerating this plan?"
     ],
     sourceRecordIds: [
       program.id,

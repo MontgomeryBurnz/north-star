@@ -88,6 +88,14 @@ const seededLeadershipPlan: GuidedPlan = {
   createdAt: "2026-04-21T15:30:00.000Z",
   northStar: "Create a sponsor-visible delivery path with visible milestones, explicit decision rights, and lower escalation noise.",
   summary: "Seeded guided plan showing how leadership feedback should tighten delivery guidance and checkpoint sequencing.",
+  sourceInputs: {
+    title: "Fresh Inputs Driving This Plan",
+    items: [
+      "Uploads influencing this plan: none in the seeded leadership scenario.",
+      "Active-program update shaping this plan: Checkpoint sequence was reworked and milestone visibility improved for the sponsor view.",
+      "Leadership feedback shaping this plan: Reduce noise in the narrative, make decision ownership explicit, and keep the next outputs highly visible."
+    ]
+  },
   signalFromNoise: {
     title: "Signal From Noise",
     items: [

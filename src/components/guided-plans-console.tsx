@@ -329,7 +329,7 @@ export function GuidedPlansConsole() {
         : { signal: null };
       setUpdates(updatesPayload.updates);
       setLeadershipSignal(leadershipSignalPayload.signal);
-      setStatus("Generated from saved program context and latest updates.");
+      setStatus("Generated from current intake, uploads, latest active-program updates, and leadership signal when present.");
     } catch {
       setStatus("Could not generate guided plan.");
     } finally {
@@ -339,6 +339,14 @@ export function GuidedPlansConsole() {
 
   const planSections = plan
     ? [
+        normalizePlanSection(
+          plan.sourceInputs,
+          "Fresh Inputs Driving This Plan",
+          [
+            "This plan should be regenerated whenever uploads, active-program updates, or leadership feedback change.",
+            "No fresh source-input summary is available in this saved version."
+          ]
+        ),
         normalizePlanSection(plan.signalFromNoise, "Signal From Noise", ["No current signal summary is available."]),
         normalizePlanSection(plan.workPath, "Recommended Work Path", ["Generate a guided plan to create the next work path."]),
         normalizePlanSection(plan.planningApproach, "Planning Approach", ["No planning approach has been captured yet."]),
