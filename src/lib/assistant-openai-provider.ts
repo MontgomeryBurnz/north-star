@@ -22,6 +22,22 @@ function getConfiguredModel() {
   return process.env.OPENAI_MODEL?.trim();
 }
 
+function getConfiguredReasoningEffort() {
+  const value = process.env.OPENAI_REASONING_EFFORT?.trim();
+  if (value === "minimal" || value === "low" || value === "medium" || value === "high" || value === "xhigh") {
+    return value;
+  }
+  return "medium";
+}
+
+function getConfiguredVerbosity() {
+  const value = process.env.OPENAI_TEXT_VERBOSITY?.trim();
+  if (value === "low" || value === "medium" || value === "high") {
+    return value;
+  }
+  return "low";
+}
+
 function safeJsonParse(value: string): OpenAIComposedPayload | null {
   try {
     return JSON.parse(value) as OpenAIComposedPayload;
@@ -60,6 +76,8 @@ export const openaiAssistantProvider: AssistantProvider = {
     const localGroundedResponse = composeGroundedAnswer(request.prompt, matches);
     const apiKey = process.env.OPENAI_API_KEY?.trim();
     const model = getConfiguredModel();
+    const reasoningEffort = getConfiguredReasoningEffort();
+    const verbosity = getConfiguredVerbosity();
 
     if (!apiKey || !model) {
       return {
@@ -97,7 +115,11 @@ export const openaiAssistantProvider: AssistantProvider = {
       body: JSON.stringify({
         model,
         store: false,
+        reasoning: {
+          effort: reasoningEffort
+        },
         text: {
+          verbosity,
           format: {
             type: "json_schema",
             name: "assistant_response",
