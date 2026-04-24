@@ -125,14 +125,14 @@ export default async function AlphaStatusPage() {
 
           <Card className="bg-zinc-950/80">
             <CardHeader className="border-b border-white/10">
-              <CardTitle className="text-zinc-50">What still depends on you</CardTitle>
+              <CardTitle className="text-zinc-50">Remaining operator checks</CardTitle>
             </CardHeader>
             <CardContent className="grid gap-3 p-5">
               {[
-                "Initialize git in this folder and push the repo to GitHub.",
-                "Create the Vercel project from GitHub.",
-                "Add the production env vars in Vercel.",
-                "Rotate any secrets that were pasted into chat before wider sharing."
+                "Run the alpha test sequence against the deployed app.",
+                "Decide whether to keep prototype leadership credentials or replace them before sharing wider.",
+                "Rotate any secrets that were pasted into chat before broader internal use.",
+                "Move leadership auth to SSO when the prototype is approved."
               ].map((item) => (
                 <div key={item} className="rounded-md border border-white/10 bg-white/[0.035] px-3 py-2 text-sm text-zinc-300">
                   {item}
