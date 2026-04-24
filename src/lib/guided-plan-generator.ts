@@ -47,7 +47,8 @@ function getArtifactSignals(program: StoredProgram) {
 function buildRolePlans(
   program: StoredProgram,
   latestUpdate: StoredProgramUpdate | undefined,
-  leadershipSignalSummary: string
+  leadershipSignalSummary: string,
+  leadershipRoleImpacts: Map<string, string>
 ): GuidedPlanRolePlan[] {
   const intake = program.intake;
   const review = latestUpdate?.review;
@@ -67,7 +68,10 @@ function buildRolePlans(
       actionPlan: [
         `Lock the product path around: ${excerpt(outcomeFocus, 110)}`,
         `Turn the next major decision into a product checkpoint: ${excerpt(decisionFocus || "define the next product decision.", 110)}`,
-        `Absorb leadership direction into scope posture: ${excerpt(leadershipSignalSummary, 110)}`
+        `Absorb leadership direction into scope posture: ${excerpt(
+          leadershipRoleImpacts.get("Product Management") || leadershipSignalSummary,
+          110
+        )}`
       ],
       keyFocusAreas: [
         `Outcome clarity and sequencing across stakeholder expectations: ${excerpt(stakeholderFocus || "stakeholder alignment.", 110)}`,
@@ -87,7 +91,11 @@ function buildRolePlans(
       actionPlan: [
         `Translate ambiguity into structured requirements for: ${excerpt(requirementFocus || "critical requirements and constraints.", 110)}`,
         `Clarify assumptions, traceability, and decision-ready detail around: ${excerpt(decisionFocus || "the next unresolved decisions.", 110)}`,
-        `Maintain the working source of truth for: ${excerpt(outputFocus, 110)}`
+        `Maintain the working source of truth for: ${excerpt(outputFocus, 110)}`,
+        `Reflect leadership translation in the requirement path: ${excerpt(
+          leadershipRoleImpacts.get("Business Analysis") || leadershipSignalSummary,
+          110
+        )}`
       ],
       keyFocusAreas: [
         "Requirements breakdown, acceptance logic, and dependency tracing.",
@@ -107,7 +115,10 @@ function buildRolePlans(
       actionPlan: [
         `Translate the desired outcome into a usable workflow and experience path for: ${excerpt(outcomeFocus || "the target outcome.", 110)}`,
         `Define validation points for experience-risk areas tied to: ${excerpt(stakeholderFocus || "stakeholder and user expectations.", 110)}`,
-        "Keep user flow decisions visible before execution hardens."
+        `Keep user flow decisions visible before execution hardens: ${excerpt(
+          leadershipRoleImpacts.get("User Experience") || "protect workflow clarity and review usability.",
+          110
+        )}`
       ],
       keyFocusAreas: [
         "Workflow clarity, experience validation, and handoff simplification.",
@@ -127,7 +138,11 @@ function buildRolePlans(
       actionPlan: [
         `Frame implementation sequencing and dependency handling for: ${excerpt(requirementFocus || "the current scope and constraints.", 110)}`,
         `Make engineering decision points explicit around: ${excerpt(decisionFocus || "architecture and delivery sequencing.", 110)}`,
-        `Pressure-test feasibility against current evidence: ${excerpt(progressFocus || "latest delivery movement.", 110)}`
+        `Pressure-test feasibility against current evidence: ${excerpt(progressFocus || "latest delivery movement.", 110)}`,
+        `Apply leadership direction to build sequencing: ${excerpt(
+          leadershipRoleImpacts.get("Application Development") || leadershipSignalSummary,
+          110
+        )}`
       ],
       keyFocusAreas: [
         "Build sequencing, dependency removal, integration risk, and quality gates.",
@@ -147,7 +162,10 @@ function buildRolePlans(
       actionPlan: [
         `Clarify data movement, data quality, and integration dependencies for: ${excerpt(requirementFocus || "the scoped solution path.", 110)}`,
         `Turn data dependencies into explicit execution checkpoints around: ${excerpt(decisionFocus || "the next technical decision.", 110)}`,
-        "Make data readiness visible before downstream build work accelerates."
+        `Make data readiness visible before downstream build work accelerates: ${excerpt(
+          leadershipRoleImpacts.get("Data Engineering") || "surface the evidence required before scale.",
+          110
+        )}`
       ],
       keyFocusAreas: [
         "Data sourcing, transformation ownership, quality controls, and dependency sequencing.",
@@ -167,7 +185,10 @@ function buildRolePlans(
       actionPlan: [
         `Shape the communication and adoption path around: ${excerpt(stakeholderFocus || "the stakeholder landscape.", 110)}`,
         `Prepare change messaging for risk and decision points such as: ${excerpt(riskFocus || "major delivery risks.", 110)}`,
-        "Translate the plan into audience-specific readiness checkpoints and support actions."
+        `Translate the plan into audience-specific readiness checkpoints and support actions: ${excerpt(
+          leadershipRoleImpacts.get("Change Management") || leadershipSignalSummary,
+          110
+        )}`
       ],
       keyFocusAreas: [
         "Stakeholder readiness, adoption path, communications cadence, and resistance signals.",
@@ -213,6 +234,10 @@ export function generateLocalGuidedPlan(
       }
     : buildDeliveryLeadershipSignal(null);
   const leadershipSignalSummary = leadershipSignal.summary;
+  const leadershipInterpretation = latestLeadershipFeedback?.interpretation;
+  const leadershipRoleImpacts = new Map(
+    (leadershipInterpretation?.roleImpacts ?? []).map((item) => [item.role, item.focus])
+  );
   const artifactSignals = getArtifactSignals(program);
   const latestArtifactSignal = artifactSignals[0];
   const sourceSummaryParts = [
@@ -241,8 +266,11 @@ export function generateLocalGuidedPlan(
     latestLeadershipFeedback
       ? `Leadership feedback shaping this plan: ${excerpt(
           firstAvailable(
+            leadershipInterpretation?.deliveryLeadMessage ?? "",
+            leadershipInterpretation?.summary ?? "",
             latestLeadershipFeedback.feedback.feedbackToDeliveryLead,
             latestLeadershipFeedback.feedback.leadershipGuidance,
+            leadershipInterpretation?.riskAdjustments.join(" ") ?? "",
             latestLeadershipFeedback.feedback.activeRisks,
             "Leadership review is on file."
           ),
@@ -271,7 +299,14 @@ export function generateLocalGuidedPlan(
         ...(reviewedContext
           ? [`Reviewed context confidence: ${reviewedContext.confidence}. Use reviewed signals as the planning source of truth.`]
           : []),
-        ...(leadershipGuidancePresent ? ["Leadership input has been incorporated into the current guidance path."] : []),
+        ...(leadershipGuidancePresent
+          ? [
+              `Leadership input translated for delivery: ${excerpt(
+                leadershipInterpretation?.deliveryLeadMessage ?? leadershipSignal.summary,
+                140
+              )}`
+            ]
+          : []),
         ...(latestArtifactSignal
           ? [
               `Artifact signal from ${latestArtifactSignal.name} (${latestArtifactSignal.artifactType ?? "unclassified"} / ${
@@ -287,7 +322,10 @@ export function generateLocalGuidedPlan(
         "Start with the decision or dependency that unlocks the next useful move.",
         `Use this decision as the next checkpoint: ${firstAvailable(decisions, "Define the next decision needed.")}`,
         leadershipGuidancePresent
-          ? "Tighten the next checkpoint structure to reflect the latest leadership direction."
+          ? `Tighten the next checkpoint structure to reflect the latest leadership direction: ${excerpt(
+              leadershipInterpretation?.summary ?? leadershipSignal.summary,
+              110
+            )}`
           : "Bring leadership feedback into the next checkpoint when it is available.",
         "Keep the plan narrow enough to validate progress before expanding scope."
       ]
@@ -297,6 +335,9 @@ export function generateLocalGuidedPlan(
       items: [
         "Translate the program context into workstreams, owners, decision gates, and outputs.",
         `Account for current change: ${firstAvailable(review?.planChanges ?? "", "No plan changes captured yet.")}`,
+        ...(leadershipInterpretation?.planImpacts.length
+          ? leadershipInterpretation.planImpacts.slice(0, 2).map((item) => `Leadership-adjusted planning impact: ${item}`)
+          : []),
         artifactSignals.length
           ? `Use extracted artifact text as evidence before expanding scope: ${artifactSignals
               .map((artifact) => `${artifact.name} (${artifact.artifactType ?? "unclassified"})`)
@@ -343,9 +384,19 @@ export function generateLocalGuidedPlan(
       title: "What Changed From Leadership Signal",
       items: latestLeadershipFeedback
         ? [
-            `Leadership direction translated into plan language: ${leadershipSignal.highlights[0]?.replace(/^Direction:\s*/, "")}`,
-            `Risk posture now emphasizes: ${leadershipSignal.highlights[1]?.replace(/^Risk posture:\s*/, "")}`,
-            `Execution should account for: ${leadershipSignal.highlights[2]?.replace(/^Support emphasis:\s*/, "")}`,
+            `Leadership direction translated into plan language: ${firstAvailable(
+              leadershipInterpretation?.summary ?? "",
+              leadershipSignal.highlights[0]?.replace(/^Direction:\s*/, "")
+            )}`,
+            ...((leadershipInterpretation?.planImpacts ?? []).slice(0, 2).map((item) => `Plan update: ${item}`)),
+            `Risk posture now emphasizes: ${firstAvailable(
+              leadershipInterpretation?.riskAdjustments.join("; ") ?? "",
+              leadershipSignal.highlights[1]?.replace(/^Risk posture:\s*/, "")
+            )}`,
+            `Execution should account for: ${firstAvailable(
+              leadershipInterpretation?.deliveryLeadMessage ?? "",
+              leadershipSignal.highlights[2]?.replace(/^Support emphasis:\s*/, "")
+            )}`,
             leadershipSignal.status === "incorporated"
               ? "This leadership signal is already reflected in the current guidance."
               : "Regenerate the plan after the next leadership update to keep guidance current."
@@ -358,7 +409,7 @@ export function generateLocalGuidedPlan(
     },
     rolePlans: {
       title: "Role Action Plans",
-      roles: buildRolePlans(program, latestUpdate, leadershipSignalSummary)
+      roles: buildRolePlans(program, latestUpdate, leadershipSignalSummary, leadershipRoleImpacts)
     },
     leadershipSignal,
     followUpQuestions: [

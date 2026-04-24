@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getLeadershipAccessContext } from "@/lib/leadership-auth";
-import { createLeadershipFeedback, listLeadershipFeedback } from "@/lib/program-store";
+import { createGuidedPlan, createLeadershipFeedback, getLatestGuidedPlan, listLeadershipFeedback } from "@/lib/program-store";
 import type { LeadershipReviewInput } from "@/lib/leadership-feedback-types";
 import { createSiteAccessDeniedResponse, isSiteAccessRequestAuthorized } from "@/lib/site-access";
 
@@ -46,5 +46,11 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     feedbackToDeliveryLead: body.feedbackToDeliveryLead ?? ""
   });
 
-  return NextResponse.json({ feedback });
+  const latestPlan = await getLatestGuidedPlan(id);
+  const plan =
+    latestPlan?.sourceRecordIds.includes(feedback.id)
+      ? latestPlan
+      : await createGuidedPlan(id);
+
+  return NextResponse.json({ feedback, plan });
 }

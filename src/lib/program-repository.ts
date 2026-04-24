@@ -6,6 +6,7 @@ import { Pool } from "pg";
 import type { ActiveProgramReview, StoredProgramUpdate } from "@/lib/active-program-types";
 import { generateGuidedPlan } from "@/lib/guided-plan-service";
 import type { GuidedPlan } from "@/lib/guided-plan-types";
+import { enhanceLeadershipFeedback } from "@/lib/leadership-feedback-service";
 import type { LeadershipReviewInput, LeadershipReviewRecord } from "@/lib/leadership-feedback-types";
 import type { ProgramIntake, StoredProgram } from "@/lib/program-intake-types";
 
@@ -49,6 +50,33 @@ function sortByUpdatedDesc<T extends { updatedAt?: string; createdAt?: string }>
     const bValue = new Date(b.updatedAt ?? b.createdAt ?? 0).getTime();
     return bValue - aValue;
   });
+}
+
+function normalizeLeadershipInput(feedback: LeadershipReviewInput): LeadershipReviewInput {
+  return {
+    programName: feedback.programName.trim(),
+    timelineSummary: feedback.timelineSummary.trim(),
+    progressHighlights: feedback.progressHighlights.trim(),
+    activeRisks: feedback.activeRisks.trim(),
+    leadershipGuidance: feedback.leadershipGuidance.trim(),
+    supportRequests: feedback.supportRequests.trim(),
+    feedbackToDeliveryLead: feedback.feedbackToDeliveryLead.trim()
+  };
+}
+
+function leadershipFeedbacksMatch(a: LeadershipReviewInput, b: LeadershipReviewInput) {
+  const left = normalizeLeadershipInput(a);
+  const right = normalizeLeadershipInput(b);
+
+  return (
+    left.programName === right.programName &&
+    left.timelineSummary === right.timelineSummary &&
+    left.progressHighlights === right.progressHighlights &&
+    left.activeRisks === right.activeRisks &&
+    left.leadershipGuidance === right.leadershipGuidance &&
+    left.supportRequests === right.supportRequests &&
+    left.feedbackToDeliveryLead === right.feedbackToDeliveryLead
+  );
 }
 
 async function ensureFileStore() {
@@ -164,18 +192,28 @@ const fileRepository: ProgramRepository = {
     const store = await readFileStore();
     const now = new Date().toISOString();
     const program = store.programs.find((item) => item.id === programId);
-    const programName = feedback.programName || program?.intake.programName || "Untitled program";
+    const normalizedFeedback = normalizeLeadershipInput({
+      ...feedback,
+      programName: feedback.programName || program?.intake.programName || "Untitled program"
+    });
+    const existingLatest = sortByUpdatedDesc(
+      store.leadershipFeedbacks.filter((item) => item.programId === programId)
+    )[0];
+
+    if (existingLatest && leadershipFeedbacksMatch(existingLatest.feedback, normalizedFeedback)) {
+      return existingLatest;
+    }
+
+    const interpretation = await enhanceLeadershipFeedback(normalizedFeedback);
 
     const record: LeadershipReviewRecord = {
       id: randomUUID(),
       programId,
-      programName,
+      programName: normalizedFeedback.programName,
       createdAt: now,
       updatedAt: now,
-      feedback: {
-        ...feedback,
-        programName
-      }
+      feedback: normalizedFeedback,
+      interpretation
     };
 
     store.leadershipFeedbacks = [record, ...store.leadershipFeedbacks];
@@ -307,15 +345,20 @@ function mapLeadershipRow(row: {
   id: string;
   program_id: string;
   program_name: string;
-  feedback: LeadershipReviewInput;
+  feedback: LeadershipReviewInput | LeadershipReviewRecord;
   created_at: Date;
   updated_at: Date;
 }): LeadershipReviewRecord {
+  const payload = row.feedback as LeadershipReviewInput | LeadershipReviewRecord;
+  const normalizedFeedback = "feedback" in payload ? payload.feedback : payload;
+  const interpretation = "interpretation" in payload ? payload.interpretation : undefined;
+
   return {
     id: row.id,
     programId: row.program_id,
     programName: row.program_name,
-    feedback: row.feedback,
+    feedback: normalizedFeedback,
+    interpretation,
     createdAt: new Date(row.created_at).toISOString(),
     updatedAt: new Date(row.updated_at).toISOString()
   };
@@ -465,17 +508,24 @@ const postgresRepository: ProgramRepository = {
     await ensurePostgresSchema();
     const now = new Date();
     const program = await this.getProgram(programId);
-    const programName = feedback.programName || program?.intake.programName || "Untitled program";
+    const normalizedFeedback = normalizeLeadershipInput({
+      ...feedback,
+      programName: feedback.programName || program?.intake.programName || "Untitled program"
+    });
+    const latestExisting = await this.listLeadershipFeedback(programId);
+    if (latestExisting[0] && leadershipFeedbacksMatch(latestExisting[0].feedback, normalizedFeedback)) {
+      return latestExisting[0];
+    }
+
+    const interpretation = await enhanceLeadershipFeedback(normalizedFeedback);
     const record: LeadershipReviewRecord = {
       id: randomUUID(),
       programId,
-      programName,
+      programName: normalizedFeedback.programName,
       createdAt: now.toISOString(),
       updatedAt: now.toISOString(),
-      feedback: {
-        ...feedback,
-        programName
-      }
+      feedback: normalizedFeedback,
+      interpretation
     };
 
     await getPool().query(
@@ -483,7 +533,7 @@ const postgresRepository: ProgramRepository = {
         INSERT INTO leadership_feedback (id, program_id, program_name, feedback, created_at, updated_at)
         VALUES ($1, $2, $3, $4::jsonb, $5, $5)
       `,
-      [record.id, programId, programName, JSON.stringify(record.feedback), now]
+      [record.id, programId, record.programName, JSON.stringify(record), now]
     );
     await getPool().query("UPDATE programs SET updated_at = $2 WHERE id = $1", [programId, now]);
     return record;

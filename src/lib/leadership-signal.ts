@@ -29,15 +29,24 @@ export function buildDeliveryLeadershipSignal(
   const isIncorporated = Boolean(plan?.sourceRecordIds.includes(feedback.id));
   const direction = cleanSignal(
     firstSignal(
-      feedback.feedback.leadershipGuidance || feedback.feedback.feedbackToDeliveryLead,
+      feedback.interpretation?.deliveryLeadMessage ||
+        feedback.interpretation?.summary ||
+        feedback.feedback.leadershipGuidance ||
+        feedback.feedback.feedbackToDeliveryLead,
       "Leadership direction is available and should shape the next checkpoint."
     )
   );
   const riskFocus = cleanSignal(
-    firstSignal(feedback.feedback.activeRisks, "No specific leadership risk signal was captured.")
+    firstSignal(
+      feedback.interpretation?.riskAdjustments.join("; ") || feedback.feedback.activeRisks,
+      "No specific leadership risk signal was captured."
+    )
   );
   const supportFocus = cleanSignal(
-    firstSignal(feedback.feedback.supportRequests, "No additional leadership support request is on file.")
+    firstSignal(
+      feedback.interpretation?.planImpacts.join("; ") || feedback.feedback.supportRequests,
+      "No additional leadership support request is on file."
+    )
   );
 
   return {

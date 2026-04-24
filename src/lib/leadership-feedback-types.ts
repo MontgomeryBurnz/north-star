@@ -8,6 +8,22 @@ export type LeadershipReviewInput = {
   feedbackToDeliveryLead: string;
 };
 
+export type LeadershipRoleImpact = {
+  role: "Product Management" | "Business Analysis" | "User Experience" | "Application Development" | "Data Engineering" | "Change Management";
+  focus: string;
+};
+
+export type LeadershipFeedbackInterpretation = {
+  provider: "local" | "openai";
+  model?: string;
+  generatedAt: string;
+  summary: string;
+  deliveryLeadMessage: string;
+  planImpacts: string[];
+  riskAdjustments: string[];
+  roleImpacts: LeadershipRoleImpact[];
+};
+
 export type LeadershipReviewRecord = {
   id: string;
   programId: string;
@@ -15,6 +31,7 @@ export type LeadershipReviewRecord = {
   createdAt: string;
   updatedAt?: string;
   feedback: LeadershipReviewInput;
+  interpretation?: LeadershipFeedbackInterpretation;
 };
 
 export type DeliveryLeadershipSignal = {

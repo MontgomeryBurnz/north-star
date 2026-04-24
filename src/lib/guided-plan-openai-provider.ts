@@ -361,6 +361,7 @@ export const openaiGuidedPlanProvider: GuidedPlanProvider = {
                   "Every plan must be directly shaped by the freshest grounded inputs available: uploaded artifacts and extracted text, active-program updates, and leadership feedback.",
                   "Treat these inputs as the authoritative evidence base. Do not ignore them when they are present.",
                   "Use only the grounded context provided. Do not invent research, external facts, or missing program details.",
+                  "When a leadership feedback interpretation is present, treat it as the delivery-safe translation of leadership intent and use it to refine the plan.",
                   "Translate leadership input into delivery-safe guidance, concrete plan changes, and role-level action.",
                   "Position these roles for success where grounded context supports it: Product Management, Business Analysis, User Experience, Application Development, Data Engineering, and Change Management.",
                   "Prefer concrete actions, outcomes, risks, mitigations, dependencies, and outputs."

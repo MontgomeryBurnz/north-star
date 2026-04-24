@@ -9,6 +9,7 @@ build
 .tar.gz
 .DS_Store
 *.log
+*.tsbuildinfo
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*

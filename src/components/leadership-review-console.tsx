@@ -460,10 +460,15 @@ export function LeadershipReviewConsole() {
       });
 
       if (!response.ok) throw new Error("Leadership feedback save failed.");
-      const payload = (await response.json()) as { feedback: LeadershipReviewRecord };
-      setFeedback((current) => [payload.feedback, ...current]);
+      const payload = (await response.json()) as { feedback: LeadershipReviewRecord; plan: GuidedPlan | null };
+      setFeedback((current) => [payload.feedback, ...current.filter((entry) => entry.id !== payload.feedback.id)]);
+      setPlan(payload.plan);
       setSaveState("saved");
-      setStatus("Leadership review saved. The signal is now part of the program context for future guidance.");
+      setStatus(
+        payload.plan
+          ? "Leadership review saved. Guidance was regenerated with leadership signal translated into the current plan."
+          : "Leadership review saved. The signal is now part of the program context."
+      );
     } catch {
       setSaveState("error");
       setStatus("Leadership review could not be saved.");
@@ -674,7 +679,7 @@ export function LeadershipReviewConsole() {
                 ))}
 
                 <div className="flex flex-wrap gap-3">
-                  <Button type="submit" size="lg" disabled={!selectedProgramId}>
+                  <Button type="submit" size="lg" disabled={!selectedProgramId || saveState === "saving"}>
                     <MessageSquareQuote className="h-4 w-4" />
                     {saveState === "saving" ? "Saving..." : "Save leadership review"}
                   </Button>
@@ -682,7 +687,7 @@ export function LeadershipReviewConsole() {
                     type="button"
                     variant="outline"
                     size="lg"
-                    disabled={!selectedProgramId}
+                    disabled={!selectedProgramId || saveState === "saving"}
                     onClick={async () => {
                       if (!selectedProgramId) return;
                       setStatus("Regenerating guided plan with leadership signal...");
@@ -750,10 +755,13 @@ export function LeadershipReviewConsole() {
                         </span>
                       </div>
                       <p className="text-sm font-medium text-zinc-100">
-                        {firstSignal(entry.feedback.leadershipGuidance, "Leadership review")}
+                        {firstSignal(entry.interpretation?.summary ?? entry.feedback.leadershipGuidance, "Leadership review")}
                       </p>
                       <p className="mt-1 line-clamp-2 text-xs leading-5 text-zinc-400">
-                        {entry.feedback.feedbackToDeliveryLead || entry.feedback.supportRequests || "No detail captured."}
+                        {entry.interpretation?.deliveryLeadMessage ||
+                          entry.feedback.feedbackToDeliveryLead ||
+                          entry.feedback.supportRequests ||
+                          "No detail captured."}
                       </p>
                     </button>
                   ))
