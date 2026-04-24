@@ -34,6 +34,12 @@ export type AssistantDebug = {
   matchedRecords: MatchedContent[];
   ranking: MatchedContent[];
   sections: AssistantSection[];
+  modelProfile?: {
+    provider: AssistantProviderId;
+    model?: string;
+    reasoningEffort?: string;
+    verbosity?: string;
+  };
 };
 
 export type AssistantResponse = {

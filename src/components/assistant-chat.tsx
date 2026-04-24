@@ -79,6 +79,8 @@ export function AssistantChat() {
   const [demoMode, setDemoMode] = useState(true);
 
   const suggestedPrompts = useMemo(() => assistantFaqs.map((faq) => faq.question), []);
+  const latestAssistantMessage = turns.length ? turns[turns.length - 1]?.assistant : undefined;
+  const activeModelProfile = latestAssistantMessage?.debug?.modelProfile;
 
   async function submitPrompt(prompt: string) {
     const trimmedPrompt = prompt.trim();
@@ -211,6 +213,20 @@ export function AssistantChat() {
             <div className="flex items-center justify-between rounded-md border border-white/10 bg-white/[0.035] p-3">
               <span className="text-zinc-400">Mode</span>
               <span className="text-zinc-100">server</span>
+            </div>
+            <div className="grid gap-2 rounded-md border border-white/10 bg-white/[0.035] p-3">
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-zinc-400">Model</span>
+                <span className="text-zinc-100">{activeModelProfile?.model ?? "gpt-5.5 target"}</span>
+              </div>
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-zinc-400">Reasoning</span>
+                <span className="text-zinc-100">{activeModelProfile?.reasoningEffort ?? "medium"}</span>
+              </div>
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-zinc-400">Verbosity</span>
+                <span className="text-zinc-100">{activeModelProfile?.verbosity ?? "low"}</span>
+              </div>
             </div>
             <div className="flex items-center justify-between rounded-md border border-white/10 bg-white/[0.035] p-3">
               <span className="text-zinc-400">Indexed records</span>
@@ -395,6 +411,25 @@ function AssistantMessage({ message, demoMode }: { message: ChatMessage; demoMod
               <span className="text-[11px] text-amber-100/80">{message.debug.normalizedPrompt || "starter"}</span>
             </div>
             <div className="grid gap-3">
+              {message.debug.modelProfile ? (
+                <div>
+                  <p className="mb-2 text-[11px] uppercase tracking-[0.16em] text-amber-100/70">Model profile</p>
+                  <div className="grid gap-2 sm:grid-cols-3">
+                    <div className="rounded-md border border-amber-300/10 bg-black/20 px-3 py-2 text-xs text-zinc-300">
+                      <span className="block text-[10px] uppercase tracking-[0.16em] text-amber-100/70">Provider</span>
+                      {message.debug.modelProfile.provider}
+                    </div>
+                    <div className="rounded-md border border-amber-300/10 bg-black/20 px-3 py-2 text-xs text-zinc-300">
+                      <span className="block text-[10px] uppercase tracking-[0.16em] text-amber-100/70">Model</span>
+                      {message.debug.modelProfile.model ?? "unknown"}
+                    </div>
+                    <div className="rounded-md border border-amber-300/10 bg-black/20 px-3 py-2 text-xs text-zinc-300">
+                      <span className="block text-[10px] uppercase tracking-[0.16em] text-amber-100/70">Reasoning / Verbosity</span>
+                      {`${message.debug.modelProfile.reasoningEffort ?? "default"} / ${message.debug.modelProfile.verbosity ?? "default"}`}
+                    </div>
+                  </div>
+                </div>
+              ) : null}
               <div>
                 <p className="mb-2 text-[11px] uppercase tracking-[0.16em] text-amber-100/70">Matched keywords</p>
                 {message.debug.matchedKeywords.length ? (

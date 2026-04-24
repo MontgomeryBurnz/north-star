@@ -69,6 +69,26 @@ function extractOutputText(payload: ResponsesApiPayload) {
   return "";
 }
 
+function withModelProfile(
+  response: AssistantServiceResponse,
+  model: string,
+  reasoningEffort: string,
+  verbosity: string
+): AssistantServiceResponse {
+  return {
+    ...response,
+    debug: {
+      ...response.debug,
+      modelProfile: {
+        provider: "openai",
+        model,
+        reasoningEffort,
+        verbosity
+      }
+    }
+  };
+}
+
 export const openaiAssistantProvider: AssistantProvider = {
   id: "openai",
   async getResponse(request: AssistantRequest): Promise<AssistantServiceResponse> {
@@ -80,7 +100,7 @@ export const openaiAssistantProvider: AssistantProvider = {
     const verbosity = getConfiguredVerbosity();
 
     if (!apiKey || !model) {
-      return {
+      return withModelProfile({
         ...localGroundedResponse,
         sections: [
           ...localGroundedResponse.sections,
@@ -91,7 +111,7 @@ export const openaiAssistantProvider: AssistantProvider = {
         ],
         sources: [...localGroundedResponse.sources, "provider: openai-fallback"],
         provider: "openai"
-      };
+      }, model || "unconfigured", reasoningEffort, verbosity);
     }
 
     const groundingText = matches
@@ -159,8 +179,15 @@ export const openaiAssistantProvider: AssistantProvider = {
             content: [
               {
                 type: "input_text",
-                text:
-                  "You are an operator-level delivery guidance assistant. Use only the grounded local records provided. Be concise and practical."
+                text: [
+                  "You are North Star, an operator-level delivery guidance assistant for complex programs.",
+                  "Work outcome-first. Use only the grounded local records provided.",
+                  "Your job is to help delivery leads find the clearest next move, structure the guided plan, and position delivery roles for success.",
+                  "When relevant, translate guidance across these operating roles: Product Management, Business Analysis, User Experience, Application Development, Data Engineering, and Change Management.",
+                  "When leadership direction is present, convert it into delivery-safe guidance and show how it changes planning, risk posture, outputs, and role-specific action.",
+                  "Do not invent facts, program artifacts, or roles that are not grounded in the provided records.",
+                  "Be concise, direct, and structured. Prefer concrete actions, checkpoints, outcomes, and mitigations over abstract advice."
+                ].join(" ")
               }
             ]
           },
@@ -169,7 +196,23 @@ export const openaiAssistantProvider: AssistantProvider = {
             content: [
               {
                 type: "input_text",
-                text: `User prompt:\n${request.prompt}\n\nRecent conversation:\n${historyBlock || "None"}\n\nGrounded local records:\n${groundingText || "No direct matches."}\n\nLocal baseline answer:\n${JSON.stringify(
+                text: `Expected output contract:
+- Return grounded guidance only.
+- Keep the answer useful for a delivery lead operating one or more complex programs.
+- Where appropriate, organize guidance around next moves, role action plans, risks, mitigations, outputs, and leadership translation.
+- If grounding is weak, say what is missing and what context would improve the plan.
+
+User prompt:
+${request.prompt}
+
+Recent conversation:
+${historyBlock || "None"}
+
+Grounded local records:
+${groundingText || "No direct matches."}
+
+Local baseline answer:
+${JSON.stringify(
                   {
                     answer: localGroundedResponse.answer,
                     bullets: localGroundedResponse.bullets,
@@ -186,7 +229,7 @@ export const openaiAssistantProvider: AssistantProvider = {
     });
 
     if (!response.ok) {
-      return {
+      return withModelProfile({
         ...localGroundedResponse,
         sections: [
           ...localGroundedResponse.sections,
@@ -197,14 +240,14 @@ export const openaiAssistantProvider: AssistantProvider = {
         ],
         sources: [...localGroundedResponse.sources, "provider: openai-error-fallback"],
         provider: "openai"
-      };
+      }, model, reasoningEffort, verbosity);
     }
 
     const payload = (await response.json()) as ResponsesApiPayload;
     const parsed = safeJsonParse(extractOutputText(payload));
 
     if (!parsed) {
-      return {
+      return withModelProfile({
         ...localGroundedResponse,
         sections: [
           ...localGroundedResponse.sections,
@@ -215,10 +258,10 @@ export const openaiAssistantProvider: AssistantProvider = {
         ],
         sources: [...localGroundedResponse.sources, "provider: openai-parse-fallback"],
         provider: "openai"
-      };
+      }, model, reasoningEffort, verbosity);
     }
 
-    return {
+    return withModelProfile({
       answer: parsed.answer,
       bullets: Array.isArray(parsed.bullets) ? parsed.bullets : localGroundedResponse.bullets,
       sections: Array.isArray(parsed.sections) && parsed.sections.length ? parsed.sections : localGroundedResponse.sections,
@@ -229,6 +272,6 @@ export const openaiAssistantProvider: AssistantProvider = {
       matches,
       debug: localGroundedResponse.debug,
       provider: "openai"
-    };
+    }, model, reasoningEffort, verbosity);
   }
 };
