@@ -29,6 +29,35 @@ type ExistingProgramOption = {
   review: ActiveProgramReview;
 };
 
+function normalizeProgramLabel(value: string) {
+  return value.trim().toLowerCase();
+}
+
+function mergeProgramOptions(...groups: ExistingProgramOption[][]) {
+  const merged = new Map<string, ExistingProgramOption>();
+
+  for (const option of groups.flat()) {
+    const labelKey = normalizeProgramLabel(option.label);
+    const existing = merged.get(labelKey);
+
+    if (!existing) {
+      merged.set(labelKey, option);
+      continue;
+    }
+
+    if (existing.source === "seeded" && option.source === "local") {
+      merged.set(labelKey, option);
+      continue;
+    }
+
+    if (existing.source === option.source && option.id !== existing.id) {
+      merged.set(labelKey, option);
+    }
+  }
+
+  return Array.from(merged.values());
+}
+
 const seededPrograms: ExistingProgramOption[] = [
   {
     id: "order-guide-rollout",
@@ -234,10 +263,7 @@ export function ActiveProgramReviewSection() {
           }
         }));
 
-        setExistingPrograms((current) => [
-          ...serverPrograms,
-          ...current.filter((program) => !serverPrograms.some((serverProgram) => serverProgram.id === program.id))
-        ]);
+        setExistingPrograms((current) => mergeProgramOptions(serverPrograms, current));
       } catch {
         // Local seeded programs remain available when the server store is unavailable.
       }
@@ -252,10 +278,7 @@ export function ActiveProgramReviewSection() {
       const parsed = JSON.parse(saved) as ProgramIntake;
       const savedProgram = optionFromSavedIntake(parsed);
       if (!savedProgram) return;
-      setExistingPrograms((current) => [
-        savedProgram,
-        ...current.filter((program) => program.id !== savedProgram.id && program.label !== savedProgram.label)
-      ]);
+      setExistingPrograms((current) => mergeProgramOptions([savedProgram], current));
     } catch {
       setExistingPrograms(seededPrograms);
     }
