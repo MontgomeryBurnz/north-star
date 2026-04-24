@@ -1,0 +1,84 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Program {
+  id        String   @id
+  slug      String   @unique
+  name      String
+  intake    Json
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  updates             ProgramUpdate[]
+  guidedPlans         GuidedPlan[]
+  leadershipFeedbacks LeadershipFeedback[]
+  artifacts           Artifact[]
+
+  @@map("programs")
+}
+
+model ProgramUpdate {
+  id          String   @id
+  programId   String   @map("program_id")
+  programName String   @map("program_name")
+  review      Json
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  program Program @relation(fields: [programId], references: [id], onDelete: Cascade)
+
+  @@index([programId, createdAt(sort: Desc)])
+  @@map("program_updates")
+}
+
+model GuidedPlan {
+  id          String   @id
+  programId   String   @map("program_id")
+  programName String   @map("program_name")
+  plan        Json
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  program Program @relation(fields: [programId], references: [id], onDelete: Cascade)
+
+  @@index([programId, createdAt(sort: Desc)])
+  @@map("guided_plans")
+}
+
+model LeadershipFeedback {
+  id          String   @id
+  programId   String   @map("program_id")
+  programName String   @map("program_name")
+  feedback    Json
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  program Program @relation(fields: [programId], references: [id], onDelete: Cascade)
+
+  @@index([programId, createdAt(sort: Desc)])
+  @@map("leadership_feedback")
+}
+
+model Artifact {
+  id              String   @id
+  programId       String?  @map("program_id")
+  fileName        String   @map("file_name")
+  mimeType        String?  @map("mime_type")
+  sizeBytes       BigInt   @map("size_bytes")
+  storageProvider String   @map("storage_provider")
+  storageKey      String   @map("storage_key")
+  metadata        Json
+  extraction      Json
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  program Program? @relation(fields: [programId], references: [id], onDelete: SetNull)
+
+  @@index([programId, createdAt(sort: Desc)])
+  @@map("artifacts")
+}

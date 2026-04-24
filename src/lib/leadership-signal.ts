@@ -1,0 +1,56 @@
+import type { GuidedPlan } from "@/lib/guided-plan-types";
+import type { DeliveryLeadershipSignal, LeadershipReviewRecord } from "@/lib/leadership-feedback-types";
+
+function firstSignal(value: string, fallback: string) {
+  return (
+    value
+      .split(/\n|,|;/)
+      .map((item) => item.trim())
+      .filter(Boolean)[0] ?? fallback
+  );
+}
+
+function cleanSignal(value: string) {
+  return value.replace(/\s+/g, " ").trim();
+}
+
+export function buildDeliveryLeadershipSignal(
+  feedback?: LeadershipReviewRecord | null,
+  plan?: GuidedPlan | null
+): DeliveryLeadershipSignal {
+  if (!feedback) {
+    return {
+      status: "none",
+      summary: "No leadership signal has been captured yet.",
+      highlights: []
+    };
+  }
+
+  const isIncorporated = Boolean(plan?.sourceRecordIds.includes(feedback.id));
+  const direction = cleanSignal(
+    firstSignal(
+      feedback.feedback.leadershipGuidance || feedback.feedback.feedbackToDeliveryLead,
+      "Leadership direction is available and should shape the next checkpoint."
+    )
+  );
+  const riskFocus = cleanSignal(
+    firstSignal(feedback.feedback.activeRisks, "No specific leadership risk signal was captured.")
+  );
+  const supportFocus = cleanSignal(
+    firstSignal(feedback.feedback.supportRequests, "No additional leadership support request is on file.")
+  );
+
+  return {
+    status: isIncorporated ? "incorporated" : "new",
+    summary: isIncorporated
+      ? "Leadership input has been translated into the current delivery guidance."
+      : "New leadership input is available. Regenerate the guided plan to incorporate it.",
+    highlights: [
+      `Direction: ${direction}`,
+      `Risk posture: ${riskFocus}`,
+      `Support emphasis: ${supportFocus}`
+    ],
+    updatedAt: feedback.updatedAt ?? feedback.createdAt,
+    sourceFeedbackId: feedback.id
+  };
+}
