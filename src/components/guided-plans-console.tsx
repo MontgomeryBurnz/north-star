@@ -361,7 +361,7 @@ export function GuidedPlansConsole() {
     <main className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
       <SectionHeader
         eyebrow="Guided plans"
-        title="Turn saved program context into a working path."
+        title="Finding Our True North"
         description="Select a saved program, generate the current guidance set, and review the path, outputs, risks, and leadership-driven changes before the next move."
       />
 
