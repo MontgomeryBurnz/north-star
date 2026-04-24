@@ -8,12 +8,12 @@ import { SectionHeader } from "@/components/section-header";
 export function AssistantPreview() {
   return (
     <section id="assistant" className="mx-auto max-w-7xl px-4 py-20 sm:px-6 lg:px-8">
-      <div className="grid gap-8 lg:grid-cols-[0.9fr_1.1fr] lg:items-center">
-        <SectionHeader
-          eyebrow="North Star assistant"
-          title="Ask for the clearest next move."
-          description="Use program context to separate noise from the plan, outputs, risks, and next step."
-        />
+      <SectionHeader
+        eyebrow="North Star assistant"
+        title="Ask for the clearest next move."
+        description="Use program context to separate noise from the plan, outputs, risks, and next step."
+      />
+      <div className="mt-10">
         <Card className="relative overflow-hidden bg-zinc-950/85">
           <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-cyan-300/80 to-transparent" />
           <CardHeader className="border-b border-white/10">
