@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ArrowRight, FileCheck2, RefreshCw, Sparkles } from "lucide-react";
 import type { StoredProgramUpdate } from "@/lib/active-program-types";
-import type { GuidedPlan, GuidedPlanSection } from "@/lib/guided-plan-types";
+import type { GuidedPlan, GuidedPlanRoleCoverage, GuidedPlanSection } from "@/lib/guided-plan-types";
 import type { DeliveryLeadershipSignal } from "@/lib/leadership-feedback-types";
 import type { StoredProgram } from "@/lib/program-intake-types";
 import { Button } from "@/components/ui/button";
@@ -37,10 +37,66 @@ function PlanSectionCard({ section }: { section: GuidedPlanSection }) {
   );
 }
 
+function RoleCoverageCard({ coverage }: { coverage: GuidedPlanRoleCoverage }) {
+  return (
+    <Card className="bg-zinc-950/75 lg:col-span-2">
+      <CardHeader className="border-b border-white/10">
+        <CardTitle className="text-zinc-50">{coverage.title}</CardTitle>
+      </CardHeader>
+      <CardContent className="grid gap-4 p-5 md:grid-cols-2 xl:grid-cols-3">
+        {coverage.roles.map((roleFocus) => (
+          <div key={roleFocus.role} className="rounded-md border border-white/10 bg-white/[0.035] p-4">
+            <p className="text-sm font-semibold uppercase tracking-[0.12em] text-zinc-100">{roleFocus.role}</p>
+            <div className="mt-3 grid gap-2">
+              {roleFocus.areas.map((area) => (
+                <p key={area} className="flex gap-2 text-sm leading-6 text-zinc-300">
+                  <ArrowRight className="mt-1 h-4 w-4 shrink-0 text-cyan-200" />
+                  {area}
+                </p>
+              ))}
+            </div>
+          </div>
+        ))}
+      </CardContent>
+    </Card>
+  );
+}
+
 function normalizePlanSection(section: GuidedPlanSection | undefined, fallbackTitle: string, fallbackItems: string[]): GuidedPlanSection {
   return {
     title: section?.title || fallbackTitle,
     items: section?.items?.length ? section.items : fallbackItems
+  };
+}
+
+function normalizeRoleCoverage(coverage: GuidedPlanRoleCoverage | undefined): GuidedPlanRoleCoverage {
+  return {
+    title: coverage?.title || "Role Coverage",
+    roles:
+      coverage?.roles?.length
+        ? coverage.roles
+        : [
+            {
+              role: "Delivery Lead",
+              areas: ["Own the next checkpoint, risk posture, and delivery path once a guided plan is generated."]
+            },
+            {
+              role: "Business Analyst",
+              areas: ["Translate the current ambiguity into requirements, assumptions, and decision-ready detail."]
+            },
+            {
+              role: "Tech Lead",
+              areas: ["Frame technical dependencies, feasibility, and implementation sequencing."]
+            },
+            {
+              role: "UX",
+              areas: ["Clarify workflow impact, validation needs, and experience risk."]
+            },
+            {
+              role: "Communications & Change Mgmt",
+              areas: ["Shape stakeholder communications, readiness, and adoption checkpoints."]
+            }
+          ]
   };
 }
 
@@ -247,6 +303,7 @@ export function GuidedPlansConsole() {
         )
       ]
     : [];
+  const roleCoverage = plan ? normalizeRoleCoverage(plan.roleCoverage) : null;
 
   return (
     <main className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
@@ -416,6 +473,7 @@ export function GuidedPlansConsole() {
                     </div>
                   </CardContent>
                 </Card>
+                {roleCoverage ? <RoleCoverageCard coverage={roleCoverage} /> : null}
                 {planSections.map((section) => (
                   <PlanSectionCard key={section.title} section={section} />
                 ))}
