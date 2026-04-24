@@ -1,9 +1,7 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import "./globals.css";
-import { DemoModePanel } from "@/components/demo-mode-panel";
-import { Footer } from "@/components/footer";
-import { SiteNav } from "@/components/site-nav";
+import { AppShell } from "@/components/app-shell";
 
 export const metadata: Metadata = {
   title: "North Star",
@@ -14,10 +12,7 @@ export default function RootLayout({ children }: Readonly<{ children: ReactNode 
   return (
     <html lang="en" className="dark">
       <body className="font-sans antialiased">
-        <SiteNav />
-        {children}
-        <DemoModePanel />
-        <Footer />
+        <AppShell>{children}</AppShell>
       </body>
     </html>
   );
