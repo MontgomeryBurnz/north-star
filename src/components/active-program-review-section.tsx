@@ -273,35 +273,49 @@ export function ActiveProgramReviewSection() {
     return Math.round((completed / (values.length + 1)) * 100);
   }, [review]);
 
-  const activeGuidance = useMemo(
-    () => [
+  const updateImpact = useMemo(() => {
+    const missingInputs = [
+      !review.planChanges.trim() ? "what changed" : "",
+      !review.decisionsPending.trim() ? "pending decisions" : "",
+      !review.activeRisks.trim() ? "active risks" : "",
+      !review.supportNeeded.trim() ? "support needed" : ""
+    ].filter(Boolean);
+
+    return [
       {
-        label: "Guided plan adjustment",
+        label: "Next plan shift",
         value: review.planChanges
-          ? `Reconcile the plan around: ${firstSignal(review.planChanges, "the latest change")}`
-          : "Add what changed to identify whether the plan needs to adjust."
+          ? `The next guided plan should adjust around: ${firstSignal(review.planChanges, "the latest change")}`
+          : "Capture what changed so the next guided plan can materially shift instead of restating the current path."
       },
       {
-        label: "Key next move",
-        value: review.decisionsPending
-          ? `Drive decision: ${firstSignal(review.decisionsPending, "pending decision")}`
-          : "Add pending decisions to identify the next move."
+        label: "Decision and escalation focus",
+        value:
+          review.decisionsPending || review.supportNeeded
+            ? `Drive ${firstSignal(review.decisionsPending, "the next key decision")} and route support through ${firstSignal(
+                review.supportNeeded,
+                "the current escalation path"
+              )}.`
+            : "Add the next decision and support ask so the system can clarify ownership, escalation, and execution sequence."
       },
       {
-        label: "Delivery health signal",
-        value: review.deliveryHealth
-          ? firstSignal(review.deliveryHealth, "delivery health needs review")
-          : "Add delivery health notes to separate signal from noise."
+        label: "What the system will pressure-test",
+        value:
+          review.activeRisks || review.deliveryHealth
+            ? `Pressure-test ${firstSignal(review.activeRisks, "the current risk posture")} against ${firstSignal(
+                review.deliveryHealth,
+                "the current delivery health signal"
+              )}.`
+            : "Add current risks and delivery health to sharpen the next guidance cycle."
       },
       {
-        label: "Support path",
-        value: review.supportNeeded
-          ? firstSignal(review.supportNeeded, "support needed")
-          : "Add support needed to shape escalation, alignment, or recovery guidance."
+        label: "Missing context",
+        value: missingInputs.length
+          ? `Still thin: ${missingInputs.join(", ")}. Filling those in will make the next plan update more specific.`
+          : "Core update inputs are present. Saving this review should produce a sharper plan refresh."
       }
-    ],
-    [review]
-  );
+    ];
+  }, [review]);
 
   function updateField(field: keyof Omit<ActiveProgramReview, "artifacts">, value: string) {
     setReview((current) => ({ ...current, [field]: value }));
@@ -619,11 +633,11 @@ export function ActiveProgramReviewSection() {
             <CardHeader className="border-b border-white/10">
               <CardTitle className="flex items-center gap-2 text-zinc-50">
                 <FileClock className="h-4 w-4 text-emerald-200" />
-                Active guidance preview
+                Update impact
               </CardTitle>
             </CardHeader>
             <CardContent className="grid gap-3 p-5">
-              {activeGuidance.map((item) => (
+              {updateImpact.map((item) => (
                 <div key={item.label} className="rounded-md border border-white/10 bg-white/[0.035] p-3">
                   <p className="text-xs font-medium uppercase tracking-[0.16em] text-zinc-500">{item.label}</p>
                   <p className="mt-2 text-sm leading-6 text-zinc-300">{item.value}</p>

@@ -79,6 +79,21 @@ function leadershipFeedbacksMatch(a: LeadershipReviewInput, b: LeadershipReviewI
   );
 }
 
+function dedupeLeadershipFeedbacks(records: LeadershipReviewRecord[]) {
+  const seen = new Set<string>();
+  const deduped: LeadershipReviewRecord[] = [];
+
+  for (const record of sortByUpdatedDesc(records)) {
+    const normalized = normalizeLeadershipInput(record.feedback);
+    const key = JSON.stringify(normalized);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    deduped.push(record);
+  }
+
+  return deduped;
+}
+
 async function ensureFileStore() {
   await mkdir(storeDirectory, { recursive: true });
 }
@@ -186,7 +201,7 @@ const fileRepository: ProgramRepository = {
   },
   async listLeadershipFeedback(programId) {
     const store = await readFileStore();
-    return sortByUpdatedDesc(store.leadershipFeedbacks.filter((feedback) => feedback.programId === programId));
+    return dedupeLeadershipFeedbacks(store.leadershipFeedbacks.filter((feedback) => feedback.programId === programId));
   },
   async createLeadershipFeedback(programId, feedback) {
     const store = await readFileStore();
@@ -502,7 +517,7 @@ const postgresRepository: ProgramRepository = {
       `,
       [programId]
     );
-    return result.rows.map(mapLeadershipRow);
+    return dedupeLeadershipFeedbacks(result.rows.map(mapLeadershipRow));
   },
   async createLeadershipFeedback(programId, feedback) {
     await ensurePostgresSchema();
