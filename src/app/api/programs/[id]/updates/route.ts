@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { createProgramUpdate, listProgramUpdates } from "@/lib/program-store";
+import { createGuidedPlan, createProgramUpdate, getLatestGuidedPlan, listProgramUpdates } from "@/lib/program-store";
 import type { ActiveProgramReview } from "@/lib/active-program-types";
 import { createSiteAccessDeniedResponse, isSiteAccessRequestAuthorized } from "@/lib/site-access";
 
@@ -39,5 +39,11 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     artifacts: body.artifacts ?? []
   });
 
-  return NextResponse.json({ update });
+  const latestPlan = await getLatestGuidedPlan(id);
+  const plan =
+    latestPlan?.sourceRecordIds.includes(update.id)
+      ? latestPlan
+      : await createGuidedPlan(id);
+
+  return NextResponse.json({ update, plan });
 }

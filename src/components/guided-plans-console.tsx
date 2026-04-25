@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ArrowRight, FileCheck2, RefreshCw, Sparkles } from "lucide-react";
+import { ArrowRight, FileCheck2, RefreshCw } from "lucide-react";
 import type { StoredProgramUpdate } from "@/lib/active-program-types";
 import type { GuidedPlan, GuidedPlanRolePlans, GuidedPlanSection } from "@/lib/guided-plan-types";
 import type { DeliveryLeadershipSignal } from "@/lib/leadership-feedback-types";
@@ -212,10 +212,9 @@ export function GuidedPlansConsole() {
   const [selectedProgramId, setSelectedProgramId] = useState("");
   const [plan, setPlan] = useState<GuidedPlan | null>(null);
   const [updates, setUpdates] = useState<StoredProgramUpdate[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [isRefreshingPrograms, setIsRefreshingPrograms] = useState(false);
   const [leadershipSignal, setLeadershipSignal] = useState<DeliveryLeadershipSignal | null>(null);
   const [status, setStatus] = useState<string | null>(null);
+  const [lastSyncedAt, setLastSyncedAt] = useState<string | null>(null);
 
   const selectedProgram = useMemo(
     () => programs.find((program) => program.id === selectedProgramId),
@@ -227,8 +226,6 @@ export function GuidedPlansConsole() {
 
   const loadPrograms = useCallback(
     async (options?: { silent?: boolean }) => {
-      if (!options?.silent) setIsRefreshingPrograms(true);
-
       try {
         const response = await fetch("/api/programs", { cache: "no-store" });
         if (!response.ok) throw new Error("Could not load programs.");
@@ -250,8 +247,6 @@ export function GuidedPlansConsole() {
         });
       } catch {
         setStatus("Could not refresh saved programs.");
-      } finally {
-        if (!options?.silent) setIsRefreshingPrograms(false);
       }
     },
     []
@@ -281,61 +276,65 @@ export function GuidedPlansConsole() {
     };
   }, [loadPrograms]);
 
-  useEffect(() => {
-    async function loadPlan() {
+  const loadPlan = useCallback(
+    async (options?: { silent?: boolean }) => {
       if (!selectedProgramId) {
         setPlan(null);
         setUpdates([]);
         setLeadershipSignal(null);
+        setLastSyncedAt(null);
         return;
       }
 
-      const [planResponse, updatesResponse, leadershipSignalResponse] = await Promise.all([
-        fetch(`/api/programs/${selectedProgramId}/guided-plan`),
-        fetch(`/api/programs/${selectedProgramId}/updates`),
-        fetch(`/api/programs/${selectedProgramId}/leadership-signal`, { cache: "no-store" })
-      ]);
-      const planPayload = (await planResponse.json()) as { plan: GuidedPlan | null };
-      const updatesPayload = (await updatesResponse.json()) as { updates: StoredProgramUpdate[] };
-      const leadershipSignalPayload = leadershipSignalResponse.ok
-        ? ((await leadershipSignalResponse.json()) as { signal: DeliveryLeadershipSignal })
-        : { signal: null };
-      setPlan(planPayload.plan);
-      setUpdates(updatesPayload.updates);
-      setLeadershipSignal(leadershipSignalPayload.signal);
-      setStatus(planPayload.plan ? "Loaded latest guided plan." : "No guided plan generated yet.");
-    }
+      try {
+        const [planResponse, updatesResponse, leadershipSignalResponse] = await Promise.all([
+          fetch(`/api/programs/${selectedProgramId}/guided-plan`, { cache: "no-store" }),
+          fetch(`/api/programs/${selectedProgramId}/updates`, { cache: "no-store" }),
+          fetch(`/api/programs/${selectedProgramId}/leadership-signal`, { cache: "no-store" })
+        ]);
 
+        if (!planResponse.ok || !updatesResponse.ok) {
+          throw new Error("Could not load guided plan.");
+        }
+
+        const planPayload = (await planResponse.json()) as { plan: GuidedPlan | null };
+        const updatesPayload = (await updatesResponse.json()) as { updates: StoredProgramUpdate[] };
+        const leadershipSignalPayload = leadershipSignalResponse.ok
+          ? ((await leadershipSignalResponse.json()) as { signal: DeliveryLeadershipSignal })
+          : { signal: null };
+
+        setPlan(planPayload.plan);
+        setUpdates(updatesPayload.updates);
+        setLeadershipSignal(leadershipSignalPayload.signal);
+        setLastSyncedAt(new Date().toISOString());
+        setStatus(
+          planPayload.plan
+            ? "This view stays synced with the latest uploads, active-program updates, and leadership feedback."
+            : "No guided plan generated yet. Save a new program or active-program update to create one automatically."
+        );
+      } catch {
+        if (!options?.silent) {
+          setStatus("Could not load the latest guided plan.");
+        }
+      }
+    },
+    [selectedProgramId]
+  );
+
+  useEffect(() => {
     void loadPlan();
-  }, [selectedProgramId]);
+  }, [loadPlan]);
 
-  async function generatePlan() {
+  useEffect(() => {
     if (!selectedProgramId) return;
 
-    setIsLoading(true);
-    setStatus("Generating guided plan...");
+    const interval = window.setInterval(() => {
+      void loadPrograms({ silent: true });
+      void loadPlan({ silent: true });
+    }, 15000);
 
-    try {
-      const response = await fetch(`/api/programs/${selectedProgramId}/guided-plan`, {
-        method: "POST"
-      });
-      const payload = (await response.json()) as { plan: GuidedPlan };
-      setPlan(payload.plan);
-      const updatesResponse = await fetch(`/api/programs/${selectedProgramId}/updates`);
-      const updatesPayload = (await updatesResponse.json()) as { updates: StoredProgramUpdate[] };
-      const leadershipSignalResponse = await fetch(`/api/programs/${selectedProgramId}/leadership-signal`, { cache: "no-store" });
-      const leadershipSignalPayload = leadershipSignalResponse.ok
-        ? ((await leadershipSignalResponse.json()) as { signal: DeliveryLeadershipSignal })
-        : { signal: null };
-      setUpdates(updatesPayload.updates);
-      setLeadershipSignal(leadershipSignalPayload.signal);
-      setStatus("Generated from current intake, uploads, latest active-program updates, and leadership signal when present.");
-    } catch {
-      setStatus("Could not generate guided plan.");
-    } finally {
-      setIsLoading(false);
-    }
-  }
+    return () => window.clearInterval(interval);
+  }, [loadPlan, loadPrograms, selectedProgramId]);
 
   const planSections = plan
     ? [
@@ -358,7 +357,7 @@ export function GuidedPlansConsole() {
           plan.leadershipChanges,
           "What Changed From Leadership Signal",
           leadershipSignal?.status === "new"
-            ? ["New leadership input is available. Regenerate the guided plan to incorporate it."]
+            ? ["New leadership input is available. The plan will refresh automatically when that review is saved."]
             : ["No leadership-driven plan changes are visible in this saved version."]
         )
       ]
@@ -370,7 +369,7 @@ export function GuidedPlansConsole() {
       <SectionHeader
         eyebrow="Guided plans"
         title="Finding Our True North"
-        description="Select a saved program, generate the current guidance set, and review the path, outputs, risks, and leadership-driven changes before the next move."
+        description="Select a saved program and review the latest path, outputs, risks, and leadership-driven changes. Guided plans refresh automatically as new program inputs are saved."
       />
 
       <section className="mt-10 grid gap-6 lg:grid-cols-[380px_minmax(0,1fr)]">
@@ -398,10 +397,6 @@ export function GuidedPlansConsole() {
                   ))}
                 </select>
               </label>
-              <Button type="button" variant="outline" onClick={() => void loadPrograms()} disabled={isRefreshingPrograms}>
-                <RefreshCw className={`h-4 w-4 ${isRefreshingPrograms ? "animate-spin" : ""}`} />
-                {isRefreshingPrograms ? "Refreshing sources..." : "Refresh sources"}
-              </Button>
               {selectedProgram ? (
                 <div className="grid gap-3 rounded-md border border-white/10 bg-white/[0.035] p-3">
                   <p className="text-sm font-medium text-zinc-100">{selectedProgram.intake.programName}</p>
@@ -415,10 +410,16 @@ export function GuidedPlansConsole() {
                   Save a New Program first, then return here to generate a guided plan.
                 </div>
               )}
-              <Button type="button" onClick={() => void generatePlan()} disabled={!selectedProgramId || isLoading}>
-                {isLoading ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
-                {isLoading ? "Generating..." : "Generate guided plan"}
-              </Button>
+              <div className="rounded-md border border-cyan-300/20 bg-cyan-300/[0.055] p-3">
+                <p className="flex items-center gap-2 text-sm font-medium text-cyan-100">
+                  <RefreshCw className="h-4 w-4" />
+                  Auto-sync enabled
+                </p>
+                <p className="mt-2 text-xs leading-5 text-zinc-300">
+                  New program uploads, active-program saves, and leadership reviews refresh the guided plan automatically.
+                </p>
+                {lastSyncedAt ? <p className="mt-2 text-xs text-zinc-500">Last synced {formatDate(lastSyncedAt)}</p> : null}
+              </div>
               {status ? <p className="text-sm leading-6 text-zinc-400">{status}</p> : null}
             </CardContent>
           </Card>
@@ -557,8 +558,7 @@ export function GuidedPlansConsole() {
               <CardContent className="p-8">
                 <p className="text-lg font-medium text-zinc-100">No guided plan selected yet.</p>
                 <p className="mt-2 text-sm leading-6 text-zinc-400">
-                  Select a saved program and generate a guided plan. The first version uses deterministic local logic;
-                  OpenAI can later replace this generator behind the same API route.
+                  Select a saved program to review the latest guided plan. New intake saves, active-program updates, and leadership reviews will refresh it automatically.
                 </p>
               </CardContent>
             </Card>

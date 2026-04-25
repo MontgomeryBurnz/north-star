@@ -524,7 +524,7 @@ export function ActiveProgramReviewSection() {
             </Button>
             {savedAt ? (
               <p className={`self-center text-sm ${saveState === "error" ? "text-amber-200" : "text-cyan-200"}`}>
-                {saveState === "error" ? "Saved locally only" : "Saved to server"} at {savedAt}
+                {saveState === "error" ? "Saved locally only" : "Saved to server and refreshed guided plan"} at {savedAt}
               </p>
             ) : null}
           </div>
