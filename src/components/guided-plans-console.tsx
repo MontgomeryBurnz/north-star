@@ -2,7 +2,7 @@
 
 import type { ReactNode } from "react";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ArrowRight, FileCheck2, MessageSquareText, RefreshCw } from "lucide-react";
+import { ArrowRight, FileCheck2, MessageSquareText, Plus, RefreshCw } from "lucide-react";
 import type { StoredProgramUpdate } from "@/lib/active-program-types";
 import type { AssistantConversationTurn } from "@/lib/assistant-conversation-types";
 import type { GuidedPlan, GuidedPlanRolePlans, GuidedPlanSection } from "@/lib/guided-plan-types";
@@ -11,6 +11,15 @@ import type { StoredProgram } from "@/lib/program-intake-types";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { SectionHeader } from "@/components/section-header";
+
+const defaultTeamRoles = [
+  "Product Management",
+  "Business Analysis",
+  "User Experience",
+  "Application Development",
+  "Data Engineering",
+  "Change Management"
+];
 
 function formatDate(value: string) {
   return new Intl.DateTimeFormat(undefined, {
@@ -110,7 +119,7 @@ function normalizePlanSection(section: GuidedPlanSection | undefined, fallbackTi
 
 function normalizeRolePlans(rolePlans: GuidedPlanRolePlans | undefined): GuidedPlanRolePlans {
   return {
-    title: rolePlans?.title || "Role Action Plans",
+    title: rolePlans?.title || "Team Action Plans",
     roles:
       rolePlans?.roles?.length
         ? rolePlans.roles
@@ -226,6 +235,8 @@ export function GuidedPlansConsole() {
   const [leadershipSignal, setLeadershipSignal] = useState<DeliveryLeadershipSignal | null>(null);
   const [status, setStatus] = useState<string | null>(null);
   const [lastSyncedAt, setLastSyncedAt] = useState<string | null>(null);
+  const [newRole, setNewRole] = useState("");
+  const [isSavingRole, setIsSavingRole] = useState(false);
 
   const selectedProgram = useMemo(
     () => programs.find((program) => program.id === selectedProgramId),
@@ -234,6 +245,10 @@ export function GuidedPlansConsole() {
   const latestUpdate = updates[0];
   const ganttPhases = useMemo(() => buildProgramGantt(selectedProgram, latestUpdate), [latestUpdate, selectedProgram]);
   const currentPhase = ganttPhases.find((phase) => phase.status === "current") ?? ganttPhases[ganttPhases.length - 1];
+  const teamRoles = useMemo(
+    () => (selectedProgram?.intake.teamRoles?.length ? selectedProgram.intake.teamRoles : defaultTeamRoles),
+    [selectedProgram]
+  );
 
   const loadPrograms = useCallback(
     async (options?: { silent?: boolean }) => {
@@ -354,6 +369,60 @@ export function GuidedPlansConsole() {
     return () => window.clearInterval(interval);
   }, [loadPlan, loadPrograms, selectedProgramId]);
 
+  useEffect(() => {
+    setNewRole("");
+  }, [selectedProgramId]);
+
+  const addTeamRole = useCallback(async () => {
+    if (!selectedProgram) return;
+
+    const role = newRole.trim();
+    if (!role) {
+      setStatus("Enter a role name before adding it to the team action plans.");
+      return;
+    }
+
+    if (teamRoles.some((existingRole) => existingRole.toLowerCase() === role.toLowerCase())) {
+      setStatus(`${role} is already part of this team's action plan coverage.`);
+      return;
+    }
+
+    setIsSavingRole(true);
+    setStatus(`Adding ${role} and regenerating the guided plan...`);
+
+    try {
+      const saveResponse = await fetch("/api/programs", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ...selectedProgram.intake,
+          teamRoles: [...teamRoles, role]
+        })
+      });
+
+      if (!saveResponse.ok) {
+        throw new Error("save");
+      }
+
+      const regenerateResponse = await fetch(`/api/programs/${selectedProgram.id}/guided-plan`, {
+        method: "POST"
+      });
+
+      if (!regenerateResponse.ok) {
+        throw new Error("regenerate");
+      }
+
+      setNewRole("");
+      await loadPrograms({ silent: true });
+      await loadPlan({ silent: true });
+      setStatus(`${role} was added and the guided plan was refreshed to include the updated team composition.`);
+    } catch {
+      setStatus("Could not add the new team role and refresh the guided plan.");
+    } finally {
+      setIsSavingRole(false);
+    }
+  }, [loadPlan, loadPrograms, newRole, selectedProgram, teamRoles]);
+
   const planSections = plan
     ? [
         normalizePlanSection(
@@ -432,7 +501,7 @@ export function GuidedPlansConsole() {
     <main className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
       <SectionHeader
         eyebrow="Guided plans"
-        title="Finding Our True North"
+        title="Find True North"
         description="Select a saved program and review the latest path, outputs, risks, and leadership-driven changes. Guided plans refresh automatically as new program inputs are saved."
       />
 
@@ -474,6 +543,44 @@ export function GuidedPlansConsole() {
                   Save a New Program first, then return here to generate a guided plan.
                 </div>
               )}
+              {selectedProgram ? (
+                <div className="grid gap-3 rounded-md border border-white/10 bg-white/[0.035] p-3">
+                  <div>
+                    <p className="text-xs font-medium uppercase tracking-[0.18em] text-zinc-300">Team composition</p>
+                    <p className="mt-2 text-xs leading-5 text-zinc-400">
+                      Add the roles that actually exist on this team. The guided plan will regenerate to include them.
+                    </p>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {teamRoles.map((role) => (
+                      <span
+                        key={role}
+                        className="rounded-full border border-cyan-300/20 bg-cyan-300/[0.055] px-3 py-1 text-xs text-cyan-100"
+                      >
+                        {role}
+                      </span>
+                    ))}
+                  </div>
+                  <div className="flex gap-2">
+                    <input
+                      value={newRole}
+                      onChange={(event) => setNewRole(event.target.value)}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter") {
+                          event.preventDefault();
+                          void addTeamRole();
+                        }
+                      }}
+                      placeholder="Add a team role"
+                      className="min-h-11 flex-1 rounded-md border border-white/10 bg-zinc-950 px-3 py-3 text-sm text-zinc-100 outline-none transition-colors placeholder:text-zinc-500 focus:border-cyan-300/50"
+                    />
+                    <Button type="button" onClick={() => void addTeamRole()} disabled={isSavingRole} className="min-h-11 shrink-0">
+                      <Plus className="mr-2 h-4 w-4" />
+                      Add role
+                    </Button>
+                  </div>
+                </div>
+              ) : null}
               <div className="rounded-md border border-cyan-300/20 bg-cyan-300/[0.055] p-3">
                 <p className="flex items-center gap-2 text-sm font-medium text-cyan-100">
                   <RefreshCw className="h-4 w-4" />
@@ -615,7 +722,7 @@ export function GuidedPlansConsole() {
 
               <Card className="bg-zinc-950/80">
                 <CardHeader className="border-b border-white/10">
-                  <CardTitle className="text-zinc-50">Follow-up questions</CardTitle>
+                  <CardTitle className="text-zinc-50">Key Questions and Considerations</CardTitle>
                 </CardHeader>
                 <CardContent className="grid gap-2 p-5">
                   {plan.followUpQuestions.map((question) => (

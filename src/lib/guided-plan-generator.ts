@@ -6,6 +6,15 @@ import type { LeadershipReviewRecord } from "@/lib/leadership-feedback-types";
 import { buildDeliveryLeadershipSignal } from "@/lib/leadership-signal";
 import type { StoredProgram } from "@/lib/program-intake-types";
 
+const defaultTeamRoles = [
+  "Product Management",
+  "Business Analysis",
+  "User Experience",
+  "Application Development",
+  "Data Engineering",
+  "Change Management"
+] as const;
+
 function splitItems(value: string, fallback: string[]) {
   const items = value
     .split(/\n|,/)
@@ -62,149 +71,169 @@ function buildRolePlans(
   const outcomeFocus = firstAvailable(reviewedContext?.outcomes ?? "", intake.outcomes, intake.vision);
   const outputFocus = firstAvailable(reviewedContext?.outputs ?? "", "Updated delivery plan, decision log, and risk posture.");
   const mitigationFocus = firstAvailable(review?.planChanges ?? "", "Tighten ownership, sequence key decisions, and reduce ambiguity early.");
+  const roleNames = Array.from(
+    new Set((intake.teamRoles?.length ? intake.teamRoles : [...defaultTeamRoles]).map((role) => role.trim()).filter(Boolean))
+  );
 
-  return [
-    {
-      role: "Product Management",
-      actionPlan: [
-        `Lock the product path around: ${excerpt(outcomeFocus, 110)}`,
-        `Turn the next major decision into a product checkpoint: ${excerpt(decisionFocus || "define the next product decision.", 110)}`,
-        `Absorb leadership direction into scope posture: ${excerpt(
-          leadershipRoleImpacts.get("Product Management") || leadershipSignalSummary,
-          110
-        )}`
-      ],
-      keyFocusAreas: [
-        `Outcome clarity and sequencing across stakeholder expectations: ${excerpt(stakeholderFocus || "stakeholder alignment.", 110)}`,
-        `Product scope choices under current constraints: ${excerpt(requirementFocus || "requirements and constraints.", 110)}`
-      ],
-      keyOutcomes: [
-        "A product path that is narrow enough to execute and clear enough to align around.",
-        `Clear decision framing for the next stage of work: ${excerpt(decisionFocus || "next unresolved decision.", 110)}`
-      ],
-      risksAndMitigations: [
-        `Risk: ${excerpt(riskFocus || "scope and delivery ambiguity.", 110)}`,
-        `Mitigation: ${excerpt(mitigationFocus, 110)}`
-      ]
-    },
-    {
-      role: "Business Analysis",
-      actionPlan: [
-        `Translate ambiguity into structured requirements for: ${excerpt(requirementFocus || "critical requirements and constraints.", 110)}`,
-        `Clarify assumptions, traceability, and decision-ready detail around: ${excerpt(decisionFocus || "the next unresolved decisions.", 110)}`,
-        `Maintain the working source of truth for: ${excerpt(outputFocus, 110)}`,
-        `Reflect leadership translation in the requirement path: ${excerpt(
-          leadershipRoleImpacts.get("Business Analysis") || leadershipSignalSummary,
-          110
-        )}`
-      ],
-      keyFocusAreas: [
-        "Requirements breakdown, acceptance logic, and dependency tracing.",
-        `Decision support and process clarity tied to: ${excerpt(progressFocus || "current delivery evidence.", 110)}`
-      ],
-      keyOutcomes: [
-        "Decision-ready requirements and reduced interpretation risk across the team.",
-        "A maintained record of assumptions, scope boundaries, and required outputs."
-      ],
-      risksAndMitigations: [
-        `Risk: hidden requirement gaps or unresolved ownership in ${excerpt(stakeholderFocus || "stakeholder expectations.", 110)}`,
-        "Mitigation: tighten requirement reviews, decision logs, and traceability before execution expands."
-      ]
-    },
-    {
-      role: "User Experience",
-      actionPlan: [
-        `Translate the desired outcome into a usable workflow and experience path for: ${excerpt(outcomeFocus || "the target outcome.", 110)}`,
-        `Define validation points for experience-risk areas tied to: ${excerpt(stakeholderFocus || "stakeholder and user expectations.", 110)}`,
-        `Keep user flow decisions visible before execution hardens: ${excerpt(
-          leadershipRoleImpacts.get("User Experience") || "protect workflow clarity and review usability.",
-          110
-        )}`
-      ],
-      keyFocusAreas: [
-        "Workflow clarity, experience validation, and handoff simplification.",
-        `User-facing risk areas embedded in: ${excerpt(riskFocus || "delivery complexity and ambiguity.", 110)}`
-      ],
-      keyOutcomes: [
-        "A validated experience path that supports the operational north star.",
-        "Clearer handoffs and reduced workflow confusion."
-      ],
-      risksAndMitigations: [
-        "Risk: the team optimizes for delivery speed while experience friction remains unresolved.",
-        "Mitigation: define explicit validation checkpoints and workflow success criteria before scale."
-      ]
-    },
-    {
-      role: "Application Development",
-      actionPlan: [
-        `Frame implementation sequencing and dependency handling for: ${excerpt(requirementFocus || "the current scope and constraints.", 110)}`,
-        `Make engineering decision points explicit around: ${excerpt(decisionFocus || "architecture and delivery sequencing.", 110)}`,
-        `Pressure-test feasibility against current evidence: ${excerpt(progressFocus || "latest delivery movement.", 110)}`,
-        `Apply leadership direction to build sequencing: ${excerpt(
-          leadershipRoleImpacts.get("Application Development") || leadershipSignalSummary,
-          110
-        )}`
-      ],
-      keyFocusAreas: [
-        "Build sequencing, dependency removal, integration risk, and quality gates.",
-        `Execution risk tied to: ${excerpt(riskFocus || "the current delivery posture.", 110)}`
-      ],
-      keyOutcomes: [
-        "An executable build path with clear owners, gates, and technical decisions.",
-        "Reduced rework through earlier dependency and implementation clarity."
-      ],
-      risksAndMitigations: [
-        `Risk: technical execution stalls on unresolved dependencies or unclear ownership in ${excerpt(decisionFocus || "the build path.", 110)}`,
-        "Mitigation: isolate decision gates, confirm owners early, and sequence work to produce evidence fast."
-      ]
-    },
-    {
-      role: "Data Engineering",
-      actionPlan: [
-        `Clarify data movement, data quality, and integration dependencies for: ${excerpt(requirementFocus || "the scoped solution path.", 110)}`,
-        `Turn data dependencies into explicit execution checkpoints around: ${excerpt(decisionFocus || "the next technical decision.", 110)}`,
-        `Make data readiness visible before downstream build work accelerates: ${excerpt(
-          leadershipRoleImpacts.get("Data Engineering") || "surface the evidence required before scale.",
-          110
-        )}`
-      ],
-      keyFocusAreas: [
-        "Data sourcing, transformation ownership, quality controls, and dependency sequencing.",
-        `Operational risk tied to data flow and evidence quality: ${excerpt(riskFocus || "current delivery risk.", 110)}`
-      ],
-      keyOutcomes: [
-        "A clear path for data readiness, integration, and operational reliability.",
-        "Earlier visibility into dependency risk across the delivery plan."
-      ],
-      risksAndMitigations: [
-        "Risk: downstream teams execute against incomplete or unstable data assumptions.",
-        "Mitigation: expose data dependencies early, assign ownership, and verify quality before expansion."
-      ]
-    },
-    {
-      role: "Change Management",
-      actionPlan: [
-        `Shape the communication and adoption path around: ${excerpt(stakeholderFocus || "the stakeholder landscape.", 110)}`,
-        `Prepare change messaging for risk and decision points such as: ${excerpt(riskFocus || "major delivery risks.", 110)}`,
-        `Translate the plan into audience-specific readiness checkpoints and support actions: ${excerpt(
-          leadershipRoleImpacts.get("Change Management") || leadershipSignalSummary,
-          110
-        )}`
-      ],
-      keyFocusAreas: [
-        "Stakeholder readiness, adoption path, communications cadence, and resistance signals.",
-        `Leadership-sensitive changes embedded in the plan: ${excerpt(leadershipSignalSummary, 110)}`
-      ],
-      keyOutcomes: [
-        "A clearer adoption path and less noise across stakeholders as the plan evolves.",
-        "Delivery messaging that stays aligned to leadership intent and program reality."
-      ],
-      risksAndMitigations: [
-        "Risk: the program path changes faster than stakeholder understanding and adoption.",
-        "Mitigation: maintain targeted updates, readiness checkpoints, and role-specific communications."
-      ]
+  return roleNames.map((role) => {
+    if (role === "Product Management") {
+      return {
+        role,
+        actionPlan: [
+          `Lock the product path around: ${excerpt(outcomeFocus, 110)}`,
+          `Turn the next major decision into a product checkpoint: ${excerpt(decisionFocus || "define the next product decision.", 110)}`,
+          `Absorb leadership direction into scope posture: ${excerpt(leadershipRoleImpacts.get(role) || leadershipSignalSummary, 110)}`
+        ],
+        keyFocusAreas: [
+          `Outcome clarity and sequencing across stakeholder expectations: ${excerpt(stakeholderFocus || "stakeholder alignment.", 110)}`,
+          `Product scope choices under current constraints: ${excerpt(requirementFocus || "requirements and constraints.", 110)}`
+        ],
+        keyOutcomes: [
+          "A product path that is narrow enough to execute and clear enough to align around.",
+          `Clear decision framing for the next stage of work: ${excerpt(decisionFocus || "next unresolved decision.", 110)}`
+        ],
+        risksAndMitigations: [`Risk: ${excerpt(riskFocus || "scope and delivery ambiguity.", 110)}`, `Mitigation: ${excerpt(mitigationFocus, 110)}`]
+      };
     }
-  ];
+
+    if (role === "Business Analysis") {
+      return {
+        role,
+        actionPlan: [
+          `Translate ambiguity into structured requirements for: ${excerpt(requirementFocus || "critical requirements and constraints.", 110)}`,
+          `Clarify assumptions, traceability, and decision-ready detail around: ${excerpt(decisionFocus || "the next unresolved decisions.", 110)}`,
+          `Maintain the working source of truth for: ${excerpt(outputFocus, 110)}`,
+          `Reflect leadership translation in the requirement path: ${excerpt(leadershipRoleImpacts.get(role) || leadershipSignalSummary, 110)}`
+        ],
+        keyFocusAreas: [
+          "Requirements breakdown, acceptance logic, and dependency tracing.",
+          `Decision support and process clarity tied to: ${excerpt(progressFocus || "current delivery evidence.", 110)}`
+        ],
+        keyOutcomes: [
+          "Decision-ready requirements and reduced interpretation risk across the team.",
+          "A maintained record of assumptions, scope boundaries, and required outputs."
+        ],
+        risksAndMitigations: [
+          `Risk: hidden requirement gaps or unresolved ownership in ${excerpt(stakeholderFocus || "stakeholder expectations.", 110)}`,
+          "Mitigation: tighten requirement reviews, decision logs, and traceability before execution expands."
+        ]
+      };
+    }
+
+    if (role === "User Experience") {
+      return {
+        role,
+        actionPlan: [
+          `Translate the desired outcome into a usable workflow and experience path for: ${excerpt(outcomeFocus || "the target outcome.", 110)}`,
+          `Define validation points for experience-risk areas tied to: ${excerpt(stakeholderFocus || "stakeholder and user expectations.", 110)}`,
+          `Keep user flow decisions visible before execution hardens: ${excerpt(leadershipRoleImpacts.get(role) || "protect workflow clarity and review usability.", 110)}`
+        ],
+        keyFocusAreas: [
+          "Workflow clarity, experience validation, and handoff simplification.",
+          `User-facing risk areas embedded in: ${excerpt(riskFocus || "delivery complexity and ambiguity.", 110)}`
+        ],
+        keyOutcomes: [
+          "A validated experience path that supports the operational north star.",
+          "Clearer handoffs and reduced workflow confusion."
+        ],
+        risksAndMitigations: [
+          "Risk: the team optimizes for delivery speed while experience friction remains unresolved.",
+          "Mitigation: define explicit validation checkpoints and workflow success criteria before scale."
+        ]
+      };
+    }
+
+    if (role === "Application Development") {
+      return {
+        role,
+        actionPlan: [
+          `Frame implementation sequencing and dependency handling for: ${excerpt(requirementFocus || "the current scope and constraints.", 110)}`,
+          `Make engineering decision points explicit around: ${excerpt(decisionFocus || "architecture and delivery sequencing.", 110)}`,
+          `Pressure-test feasibility against current evidence: ${excerpt(progressFocus || "latest delivery movement.", 110)}`,
+          `Apply leadership direction to build sequencing: ${excerpt(leadershipRoleImpacts.get(role) || leadershipSignalSummary, 110)}`
+        ],
+        keyFocusAreas: [
+          "Build sequencing, dependency removal, integration risk, and quality gates.",
+          `Execution risk tied to: ${excerpt(riskFocus || "the current delivery posture.", 110)}`
+        ],
+        keyOutcomes: [
+          "An executable build path with clear owners, gates, and technical decisions.",
+          "Reduced rework through earlier dependency and implementation clarity."
+        ],
+        risksAndMitigations: [
+          `Risk: technical execution stalls on unresolved dependencies or unclear ownership in ${excerpt(decisionFocus || "the build path.", 110)}`,
+          "Mitigation: isolate decision gates, confirm owners early, and sequence work to produce evidence fast."
+        ]
+      };
+    }
+
+    if (role === "Data Engineering") {
+      return {
+        role,
+        actionPlan: [
+          `Clarify data movement, data quality, and integration dependencies for: ${excerpt(requirementFocus || "the scoped solution path.", 110)}`,
+          `Turn data dependencies into explicit execution checkpoints around: ${excerpt(decisionFocus || "the next technical decision.", 110)}`,
+          `Make data readiness visible before downstream build work accelerates: ${excerpt(leadershipRoleImpacts.get(role) || "surface the evidence required before scale.", 110)}`
+        ],
+        keyFocusAreas: [
+          "Data sourcing, transformation ownership, quality controls, and dependency sequencing.",
+          `Operational risk tied to data flow and evidence quality: ${excerpt(riskFocus || "current delivery risk.", 110)}`
+        ],
+        keyOutcomes: [
+          "A clear path for data readiness, integration, and operational reliability.",
+          "Earlier visibility into dependency risk across the delivery plan."
+        ],
+        risksAndMitigations: [
+          "Risk: downstream teams execute against incomplete or unstable data assumptions.",
+          "Mitigation: expose data dependencies early, assign ownership, and verify quality before expansion."
+        ]
+      };
+    }
+
+    if (role === "Change Management") {
+      return {
+        role,
+        actionPlan: [
+          `Shape the communication and adoption path around: ${excerpt(stakeholderFocus || "the stakeholder landscape.", 110)}`,
+          `Prepare change messaging for risk and decision points such as: ${excerpt(riskFocus || "major delivery risks.", 110)}`,
+          `Translate the plan into audience-specific readiness checkpoints and support actions: ${excerpt(leadershipRoleImpacts.get(role) || leadershipSignalSummary, 110)}`
+        ],
+        keyFocusAreas: [
+          "Stakeholder readiness, adoption path, communications cadence, and resistance signals.",
+          `Leadership-sensitive changes embedded in the plan: ${excerpt(leadershipSignalSummary, 110)}`
+        ],
+        keyOutcomes: [
+          "A clearer adoption path and less noise across stakeholders as the plan evolves.",
+          "Delivery messaging that stays aligned to leadership intent and program reality."
+        ],
+        risksAndMitigations: [
+          "Risk: the program path changes faster than stakeholder understanding and adoption.",
+          "Mitigation: maintain targeted updates, readiness checkpoints, and role-specific communications."
+        ]
+      };
+    }
+
+    return {
+      role,
+      actionPlan: [
+        `Define how ${role} contributes to the current delivery path around: ${excerpt(outcomeFocus || "the current program outcome.", 110)}`,
+        `Give ${role} explicit ownership for the next material move: ${excerpt(decisionFocus || "the next unresolved decision or dependency.", 110)}`,
+        `Apply leadership and operator context to ${role}: ${excerpt(leadershipRoleImpacts.get(role) || leadershipSignalSummary || progressFocus || "tighten the next role-specific checkpoint.", 110)}`
+      ],
+      keyFocusAreas: [
+        `${role} focus should stay aligned to: ${excerpt(requirementFocus || "requirements, constraints, and evidence quality.", 110)}`,
+        `${role} should monitor pressure in: ${excerpt(riskFocus || "active program risk and delivery ambiguity.", 110)}`
+      ],
+      keyOutcomes: [
+        `${role} has a clear, near-term contribution to the guided plan and team execution path.`,
+        `${role} decisions and outputs are visible enough to reduce ambiguity for the rest of the team.`
+      ],
+      risksAndMitigations: [
+        `Risk: ${role} is present in the team shape but not yet translated into explicit guidance.`,
+        `Mitigation: define ${role}'s ownership, expected outputs, and decision checkpoints before the next review.`
+      ]
+    };
+  });
 }
 
 export function generateLocalGuidedPlan(
@@ -447,15 +476,15 @@ export function generateLocalGuidedPlan(
           ]
     },
     rolePlans: {
-      title: "Role Action Plans",
+      title: "Team Action Plans",
       roles: buildRolePlans(program, latestUpdate, leadershipSignalSummary, leadershipRoleImpacts)
     },
     leadershipSignal,
     followUpQuestions: [
-      "What decision would remove the most ambiguity this week?",
-      "Which stakeholder needs alignment before the next move?",
-      "What output would prove the program is moving toward the north star?",
-      "What new upload, update, leadership signal, or assistant dialogue should be added before regenerating this plan?"
+      "What decision or consideration would remove the most ambiguity this week?",
+      "Which stakeholder, team role, or dependency needs alignment before the next move?",
+      "What evidence would prove the program is still moving toward true north?",
+      "What new upload, update, leadership signal, assistant dialogue, or team role should be added before the next plan refresh?"
     ],
     sourceRecordIds: [
       program.id,

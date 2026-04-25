@@ -34,6 +34,13 @@ export async function POST(request: Request) {
     currentStatus: body.currentStatus ?? "",
     decisionsNeeded: body.decisionsNeeded ?? "",
     blockers: body.blockers ?? "",
+    teamRoles: Array.from(
+      new Set(
+        (body.teamRoles ?? [])
+          .map((role) => role?.trim())
+          .filter((role): role is string => Boolean(role))
+      )
+    ),
     artifacts: body.artifacts ?? [],
     reviewedContext: body.reviewedContext
   });

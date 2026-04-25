@@ -6,13 +6,7 @@ export type GuidedPlanSection = {
 };
 
 export type GuidedPlanRolePlan = {
-  role:
-    | "Product Management"
-    | "Business Analysis"
-    | "User Experience"
-    | "Application Development"
-    | "Data Engineering"
-    | "Change Management";
+  role: string;
   actionPlan: string[];
   keyFocusAreas: string[];
   keyOutcomes: string[];

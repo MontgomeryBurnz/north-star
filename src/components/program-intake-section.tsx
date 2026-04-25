@@ -586,17 +586,20 @@ export function ProgramIntakeSection() {
   function prefillFromArtifact(artifact: ProgramArtifact) {
     if (!artifact.extractedText) return;
     const prefill = buildPrefillFromArtifact(artifact.extractedText);
+    type PrefillField = keyof Omit<ProgramIntake, "artifacts" | "reviewedContext" | "teamRoles">;
     const populated = Object.entries(prefill).filter(([field, value]) => {
-      const intakeField = field as keyof Omit<ProgramIntake, "artifacts" | "reviewedContext">;
-      return !intake[intakeField].trim() && Boolean(value?.trim());
+      const intakeField = field as PrefillField;
+      const nextValue = typeof value === "string" ? value : "";
+      return !intake[intakeField].trim() && Boolean(nextValue.trim());
     }).length;
 
     setIntake((current) => {
       const next = { ...current };
       Object.entries(prefill).forEach(([field, value]) => {
-        const intakeField = field as keyof Omit<ProgramIntake, "artifacts" | "reviewedContext">;
-        if (!next[intakeField].trim() && value?.trim()) {
-          next[intakeField] = value;
+        const intakeField = field as PrefillField;
+        const nextValue = typeof value === "string" ? value : "";
+        if (!next[intakeField].trim() && nextValue.trim()) {
+          next[intakeField] = nextValue;
         }
       });
       return next;
@@ -612,7 +615,8 @@ export function ProgramIntakeSection() {
   function prefillFromAllArtifacts() {
     const context = reviewedContext;
     if (!context) return;
-    const prefill: Partial<Omit<ProgramIntake, "artifacts" | "reviewedContext">> = {
+    type PrefillField = keyof Omit<ProgramIntake, "artifacts" | "reviewedContext" | "teamRoles">;
+    const prefill: Partial<Omit<ProgramIntake, "artifacts" | "reviewedContext" | "teamRoles">> = {
       outcomes: context.outcomes,
       stakeholders: context.stakeholders,
       risks: context.risks,
@@ -621,16 +625,18 @@ export function ProgramIntakeSection() {
       sowSummary: context.outputs
     };
     const populated = Object.entries(prefill).filter(([field, value]) => {
-      const intakeField = field as keyof Omit<ProgramIntake, "artifacts" | "reviewedContext">;
-      return !intake[intakeField].trim() && Boolean(value?.trim());
+      const intakeField = field as PrefillField;
+      const nextValue = typeof value === "string" ? value : "";
+      return !intake[intakeField].trim() && Boolean(nextValue.trim());
     }).length;
 
     setIntake((current) => {
       const next = { ...current };
       Object.entries(prefill).forEach(([field, value]) => {
-        const intakeField = field as keyof Omit<ProgramIntake, "artifacts" | "reviewedContext">;
-        if (!next[intakeField].trim() && value?.trim()) {
-          next[intakeField] = value;
+        const intakeField = field as PrefillField;
+        const nextValue = typeof value === "string" ? value : "";
+        if (!next[intakeField].trim() && nextValue.trim()) {
+          next[intakeField] = nextValue;
         }
       });
       return next;

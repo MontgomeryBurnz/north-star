@@ -386,7 +386,7 @@ export const openaiGuidedPlanProvider: GuidedPlanProvider = {
                   "Use only the grounded context provided. Do not invent research, external facts, or missing program details.",
                   "When a leadership feedback interpretation is present, treat it as the delivery-safe translation of leadership intent and use it to refine the plan.",
                   "Translate leadership input into delivery-safe guidance, concrete plan changes, and role-level action.",
-                  "Position these roles for success where grounded context supports it: Product Management, Business Analysis, User Experience, Application Development, Data Engineering, and Change Management.",
+                  "Position the actual stored team roles for success where grounded context supports it. Use the program's current team-role list when present, including any custom roles added by the operator.",
                   "Prefer concrete actions, outcomes, risks, mitigations, dependencies, and outputs."
                 ].join(" ")
               }

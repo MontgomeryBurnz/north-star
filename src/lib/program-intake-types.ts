@@ -49,6 +49,7 @@ export type ProgramIntake = {
   currentStatus: string;
   decisionsNeeded: string;
   blockers: string;
+  teamRoles?: string[];
   artifacts: ProgramArtifact[];
   reviewedContext?: ReviewedArtifactContext;
 };
