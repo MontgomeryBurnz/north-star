@@ -44,12 +44,20 @@ export function CommandCenterGrid({ metrics }: { metrics: DashboardMetrics }) {
       detail: "current guidance paths"
     },
     {
-      label: "Actionable callouts",
-      value: metrics.actionableCallouts,
-      detail: metrics.callouts[0]
-        ? `${metrics.callouts[0].programName}: ${metrics.callouts[0].type}`
-        : "no critical issues surfaced",
-      help: metrics.actionableCalloutsHelp
+      label: "Risks",
+      value: metrics.riskCount,
+      detail: metrics.callouts.find((callout) => callout.type === "risk")
+        ? `${metrics.callouts.find((callout) => callout.type === "risk")?.programName}: latest guided-plan risk`
+        : "no active risks surfaced",
+      help: metrics.riskHelp
+    },
+    {
+      label: "Decisions needed",
+      value: metrics.decisionCount,
+      detail: metrics.callouts.find((callout) => callout.type === "decision")
+        ? `${metrics.callouts.find((callout) => callout.type === "decision")?.programName}: pending decision`
+        : "no pending decisions surfaced",
+      help: metrics.decisionHelp
     }
   ];
 
@@ -122,7 +130,7 @@ export function CommandCenterGrid({ metrics }: { metrics: DashboardMetrics }) {
         </Card>
       </div>
 
-      <div className="mt-4 grid gap-4 md:grid-cols-3">
+      <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         {metricCards.map((item) => (
           <div key={item.label} className="rounded-md border border-white/10 bg-white/[0.025] p-4">
             <p className="text-2xl font-semibold text-zinc-50">{String(item.value).padStart(2, "0")}</p>

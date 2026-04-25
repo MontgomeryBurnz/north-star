@@ -25,13 +25,22 @@ export default async function Home() {
       detail: "current guidance paths"
     },
     {
-      id: "actionable-callouts",
-      label: "Actionable Callouts",
-      value: metrics.actionableCallouts,
+      id: "risks",
+      label: "Risks",
+      value: metrics.riskCount,
       href: "/systems",
-      detail: metrics.callouts[0]
-        ? `${metrics.callouts[0].programName}: ${metrics.callouts[0].type}`
-        : "risks, timing, blockers"
+      detail: metrics.callouts.find((callout) => callout.type === "risk")
+        ? `${metrics.callouts.find((callout) => callout.type === "risk")?.programName}: risk`
+        : "guided-plan and update risks"
+    },
+    {
+      id: "decisions",
+      label: "Decisions Needed",
+      value: metrics.decisionCount,
+      href: "/systems",
+      detail: metrics.callouts.find((callout) => callout.type === "decision")
+        ? `${metrics.callouts.find((callout) => callout.type === "decision")?.programName}: decision`
+        : "pending approvals and choices"
     }
   ];
 

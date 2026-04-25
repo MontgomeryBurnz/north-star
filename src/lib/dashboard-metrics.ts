@@ -6,15 +6,19 @@ export type DashboardCallout = {
   id: string;
   programId: string;
   programName: string;
-  type: "risk" | "timeline" | "delivery";
+  type: "risk" | "timeline" | "delivery" | "decision";
   detail: string;
 };
 
 export type DashboardMetrics = {
   activePrograms: number;
   guidedPlans: number;
+  riskCount: number;
+  decisionCount: number;
   actionableCallouts: number;
   callouts: DashboardCallout[];
+  riskHelp: string;
+  decisionHelp: string;
   actionableCalloutsHelp: string;
 };
 
@@ -49,7 +53,7 @@ function classifyCalloutType(value: string): DashboardCallout["type"] | null {
   }
 
   if (/^\s*decision needed:/i.test(value)) {
-    return "delivery";
+    return "decision";
   }
 
   if (hasTimelinePressure(value)) {
@@ -127,12 +131,19 @@ export async function getDashboardMetrics(): Promise<DashboardMetrics> {
   );
 
   const allCallouts = programViews.flatMap((view) => view.callouts);
+  const riskCallouts = allCallouts.filter((callout) => callout.type === "risk");
+  const decisionCallouts = allCallouts.filter((callout) => callout.type === "decision");
 
   return {
     activePrograms: programs.length,
     guidedPlans: programViews.filter((view) => view.hasGuidedPlan).length,
+    riskCount: riskCallouts.length,
+    decisionCount: decisionCallouts.length,
     actionableCallouts: allCallouts.length,
     callouts: allCallouts.slice(0, 3),
+    riskHelp: "Counts individual risk items from the latest guided plan and unresolved update signals when present.",
+    decisionHelp:
+      "Counts explicit decision-needed items from the latest guided plan and unresolved decisions captured in the latest active-program update.",
     actionableCalloutsHelp:
       "Counts individual items from the latest guided plan's Risks and Decisions section, plus unresolved items captured in the latest active-program update when present."
   };

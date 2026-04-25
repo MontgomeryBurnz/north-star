@@ -104,11 +104,12 @@ export default async function AlphaStatusPage() {
             <CardHeader className="border-b border-white/10">
               <CardTitle className="text-zinc-50">Live counts</CardTitle>
             </CardHeader>
-            <CardContent className="grid gap-3 p-5 sm:grid-cols-3">
+            <CardContent className="grid gap-3 p-5 sm:grid-cols-4">
               {[
                 ["Active programs", metrics.activePrograms],
                 ["Guided plans", metrics.guidedPlans],
-                ["Actionable callouts", metrics.actionableCallouts]
+                ["Risks", metrics.riskCount],
+                ["Decisions needed", metrics.decisionCount]
               ].map(([label, value]) => (
                 <div key={label} className="rounded-md border border-white/10 bg-white/[0.035] p-3">
                   <p className="text-2xl font-semibold text-zinc-50">{String(value).padStart(2, "0")}</p>
