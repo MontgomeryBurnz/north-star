@@ -33,6 +33,10 @@ type RetrievalRecord = {
   status?: string;
 };
 
+type AssistantRetrievalOptions = {
+  selectedProgramId?: string;
+};
+
 const suggestedPrompts = assistantFaqs.map((faq) => faq.question);
 
 const stopWords = new Set([
@@ -92,11 +96,29 @@ function excerpt(value: string, limit = 220) {
   return compacted.length > limit ? `${compacted.slice(0, limit).trim()}...` : compacted;
 }
 
-async function buildProgramRecords(): Promise<RetrievalRecord[]> {
+async function contextualPrompts(selectedProgramId?: string) {
+  if (!selectedProgramId) {
+    return suggestedPrompts.slice(0, 4);
+  }
+
   const programs = await listPrograms();
+  const selectedProgram = programs.find((program) => program.id === selectedProgramId);
+  const label = selectedProgram?.intake.programName || "this program";
+
+  return [
+    `What should I focus on for ${label}?`,
+    `What are the top risks on ${label}?`,
+    `What decisions are still needed for ${label}?`,
+    `How should I guide Product, BA, UX, Engineering, Data, and Change on ${label}?`
+  ];
+}
+
+async function buildProgramRecords(selectedProgramId?: string): Promise<RetrievalRecord[]> {
+  const programs = await listPrograms();
+  const scopedPrograms = selectedProgramId ? programs.filter((program) => program.id === selectedProgramId) : programs;
 
   const records = await Promise.all(
-    programs.map(async (program) => {
+    scopedPrograms.map(async (program) => {
       const latestUpdate = (await listProgramUpdates(program.id))[0];
       const latestPlan = await getLatestGuidedPlan(program.id);
       const latestLeadershipFeedback = (await listLeadershipFeedback(program.id))[0];
@@ -247,8 +269,12 @@ function buildStaticRetrievalRecords(): RetrievalRecord[] {
 
 const staticRetrievalRecords = buildStaticRetrievalRecords();
 
-async function getRetrievalRecords(): Promise<RetrievalRecord[]> {
-  return [...(await buildProgramRecords()), ...staticRetrievalRecords];
+async function getRetrievalRecords(options: AssistantRetrievalOptions = {}): Promise<RetrievalRecord[]> {
+  const programRecords = await buildProgramRecords(options.selectedProgramId);
+  if (options.selectedProgramId) {
+    return programRecords;
+  }
+  return [...programRecords, ...staticRetrievalRecords];
 }
 
 function scoreRecord(record: RetrievalRecord, prompt: string, promptTokens: string[]) {
@@ -284,12 +310,16 @@ function scoreRecord(record: RetrievalRecord, prompt: string, promptTokens: stri
   return { score, matchedKeywords };
 }
 
-export async function getRelevantContent(prompt: string, limit = 7): Promise<MatchedContent[]> {
+export async function getRelevantContent(
+  prompt: string,
+  options: AssistantRetrievalOptions = {},
+  limit = 7
+): Promise<MatchedContent[]> {
   const promptTokens = tokenize(prompt);
 
   if (!promptTokens.length) return [];
 
-  const retrievalRecords = await getRetrievalRecords();
+  const retrievalRecords = await getRetrievalRecords(options);
 
   return retrievalRecords
     .map((record) => {
@@ -310,8 +340,8 @@ export async function getRelevantContent(prompt: string, limit = 7): Promise<Mat
     .slice(0, limit);
 }
 
-async function getRecord(match: MatchedContent) {
-  const retrievalRecords = await getRetrievalRecords();
+async function getRecord(match: MatchedContent, options: AssistantRetrievalOptions = {}) {
+  const retrievalRecords = await getRetrievalRecords(options);
   return retrievalRecords.find((record) => record.id === match.id && record.type === match.type);
 }
 
@@ -327,8 +357,8 @@ function toMatchedRecord(record: RetrievalRecord, score = 12, matchedKeywords: s
   };
 }
 
-async function getRecordByTypeAndId(type: AssistantContentType, id: string) {
-  const retrievalRecords = await getRetrievalRecords();
+async function getRecordByTypeAndId(type: AssistantContentType, id: string, options: AssistantRetrievalOptions = {}) {
+  const retrievalRecords = await getRetrievalRecords(options);
   return retrievalRecords.find((record) => record.type === type && record.id === id);
 }
 
@@ -427,11 +457,19 @@ function sourceLabel(match: MatchedContent) {
   return `${match.type}: ${match.title}`;
 }
 
-async function directFaqMatches(prompt: string, existingMatches: MatchedContent[]) {
+async function directFaqMatches(
+  prompt: string,
+  existingMatches: MatchedContent[],
+  options: AssistantRetrievalOptions = {}
+) {
+  if (options.selectedProgramId) {
+    return null;
+  }
+
   const directFaq = assistantFaqs.find((faq) => normalize(faq.question) === normalize(prompt));
   if (!directFaq) return null;
 
-  const directRecord = await getRecordByTypeAndId("faq", directFaq.id);
+  const directRecord = await getRecordByTypeAndId("faq", directFaq.id, options);
   const matchedKeywords = tokenize(directFaq.question);
   const seededRecords = [
     directRecord ? toMatchedRecord(directRecord, 30, matchedKeywords) : null,
@@ -479,8 +517,13 @@ async function directFaqMatches(prompt: string, existingMatches: MatchedContent[
   return { faq: directFaq, matches: combined };
 }
 
-export async function composeGroundedAnswer(prompt: string, matches: MatchedContent[]): Promise<AssistantResponse> {
-  const direct = await directFaqMatches(prompt, matches);
+export async function composeGroundedAnswer(
+  prompt: string,
+  matches: MatchedContent[],
+  options: AssistantRetrievalOptions = {}
+): Promise<AssistantResponse> {
+  const relatedPrompts = await contextualPrompts(options.selectedProgramId);
+  const direct = await directFaqMatches(prompt, matches, options);
 
   if (direct) {
     const sections: AssistantSection[] = [
@@ -514,34 +557,45 @@ export async function composeGroundedAnswer(prompt: string, matches: MatchedCont
 
   if (!matches.length) {
     const programs = await listPrograms();
+    const scopeLabel = options.selectedProgramId
+      ? "No strong program-grounded match inside the selected active program."
+      : "No local record crossed the keyword threshold for this prompt.";
     const sections: AssistantSection[] = [
       {
         title: "No Strong Match",
         items: [
-          "No local record crossed the keyword threshold for this prompt.",
-          "Name the program, workstream, decision, role, or risk directly to improve grounding."
+          scopeLabel,
+          options.selectedProgramId
+            ? "Add more program-specific language, or capture additional active updates, leadership feedback, or uploaded artifacts."
+            : "Name the program, workstream, decision, role, or risk directly to improve grounding."
         ]
       },
       {
         title: "Indexed Local Surface",
         items: [
           `${programs.length} saved programs`,
-          `${contentRegistry.initiatives.length} initiatives`,
-          `${contentRegistry.frameworks.length} frameworks`,
-          `${contentRegistry.aiProducts.length} AI products`,
-          `${contentRegistry.experiments.length} experiments`,
-          `${contentRegistry.assistantFaqs.length} seeded assistant prompts`
+          ...(options.selectedProgramId
+            ? ["Scoped to the selected active program only."]
+            : [
+                `${contentRegistry.initiatives.length} initiatives`,
+                `${contentRegistry.frameworks.length} frameworks`,
+                `${contentRegistry.aiProducts.length} AI products`,
+                `${contentRegistry.experiments.length} experiments`,
+                `${contentRegistry.assistantFaqs.length} seeded assistant prompts`
+              ])
         ]
       }
     ];
 
     return {
       answer:
-        "No strong local match. Name the specific program, decision, role, or risk so the assistant can ground the response against the saved program context.",
+        options.selectedProgramId
+          ? "No strong match inside the selected program yet. Add more program-specific detail or capture fresh program inputs so the assistant can ground the guidance properly."
+          : "No strong local match. Name the specific program, decision, role, or risk so the assistant can ground the response against the saved program context.",
       bullets: sections[0].items,
       sections,
       sources: ["Local content registry"],
-      relatedPrompts: suggestedPrompts.slice(0, 4),
+      relatedPrompts,
       relatedContent: [],
       mode: "fallback",
       matches,
@@ -549,7 +603,7 @@ export async function composeGroundedAnswer(prompt: string, matches: MatchedCont
     };
   }
 
-  const records = (await Promise.all(matches.map(getRecord))).filter(isDefined);
+  const records = (await Promise.all(matches.map((match) => getRecord(match, options)))).filter(isDefined);
   const primary = records[0];
   const primaryMatch = matches[0];
   const sections: AssistantSection[] = [
@@ -572,7 +626,7 @@ export async function composeGroundedAnswer(prompt: string, matches: MatchedCont
     bullets: sections[1].items,
     sections,
     sources: unique(matches.map(sourceLabel)),
-    relatedPrompts: suggestedPrompts.slice(0, 4),
+    relatedPrompts,
     relatedContent: relatedItemsFromMatches(matches),
     mode: "retrieval",
     matches,
@@ -580,9 +634,9 @@ export async function composeGroundedAnswer(prompt: string, matches: MatchedCont
   };
 }
 
-export async function getAssistantResponse(prompt: string): Promise<AssistantResponse> {
-  const matches = await getRelevantContent(prompt);
-  return composeGroundedAnswer(prompt, matches);
+export async function getAssistantResponse(prompt: string, options: AssistantRetrievalOptions = {}): Promise<AssistantResponse> {
+  const matches = await getRelevantContent(prompt, options);
+  return composeGroundedAnswer(prompt, matches, options);
 }
 
 export const getLocalAssistantResponse = getAssistantResponse;

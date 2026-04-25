@@ -2,12 +2,17 @@
 
 import type { AssistantProviderId, AssistantServiceResponse } from "@/lib/assistant-types";
 
-export async function getAssistantApiResponse(prompt: string, provider?: AssistantProviderId): Promise<AssistantServiceResponse> {
+export async function getAssistantApiResponse(
+  prompt: string,
+  provider?: AssistantProviderId,
+  selectedProgramId?: string
+): Promise<AssistantServiceResponse> {
   const response = await fetch("/api/assistant", {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({
       prompt,
+      selectedProgramId,
       provider,
       includeDebug: true
     })

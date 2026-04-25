@@ -11,6 +11,7 @@ export async function POST(request: Request) {
   const body = (await request.json()) as Partial<AssistantRequest>;
   const prompt = typeof body.prompt === "string" ? body.prompt.trim() : "";
   const provider = body.provider === "openai" || body.provider === "local" ? body.provider : undefined;
+  const selectedProgramId = typeof body.selectedProgramId === "string" ? body.selectedProgramId.trim() : undefined;
 
   if (!prompt) {
     return NextResponse.json({ error: "Missing prompt." }, { status: 400 });
@@ -18,6 +19,7 @@ export async function POST(request: Request) {
 
   const response = await getAssistantServiceResponse({
     prompt,
+    selectedProgramId,
     history: body.history,
     provider,
     includeDebug: body.includeDebug

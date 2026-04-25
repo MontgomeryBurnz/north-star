@@ -1,8 +1,7 @@
 "use client";
 
-import { FormEvent, useMemo, useState } from "react";
-import { Bot, Braces, Database, Gauge, LockKeyhole, Send, Sparkles, UserRound } from "lucide-react";
-import { aiProducts, assistantFaqs, experiments, frameworks, initiatives } from "@/data";
+import { FormEvent, useEffect, useMemo, useState } from "react";
+import { Bot, Braces, Gauge, Send, Sparkles, UserRound } from "lucide-react";
 import { getAssistantApiResponse } from "@/lib/assistant-client";
 import type {
   AssistantDebug,
@@ -12,6 +11,7 @@ import type {
   AssistantSection,
   MatchedContent
 } from "@/lib/assistant-types";
+import type { StoredProgram } from "@/lib/program-intake-types";
 import { StatusBadge } from "@/components/status-badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -39,7 +39,7 @@ type ConversationTurn = {
 const starterMessage: ChatMessage = {
   id: "starter",
   role: "assistant",
-  content: "Give me the program context. I will help shape the plan, risks, outputs, and next move.",
+  content: "Select an active program, then give me the delivery context. I will stay inside that program and help shape the plan, risks, outputs, and next move.",
   sections: [
     {
       title: "Work Path Surface",
@@ -54,6 +54,16 @@ const starterMessage: ChatMessage = {
   mode: "direct",
   matches: []
 };
+
+function buildSuggestedPrompts(programName?: string) {
+  const label = programName || "this program";
+  return [
+    `What should I focus on for ${label}?`,
+    `What are the top risks on ${label}?`,
+    `What decisions are still needed for ${label}?`,
+    `How should I guide Product, BA, UX, Engineering, Data, and Change on ${label}?`
+  ];
+}
 
 function responseToMessage(response: AssistantResponse & { provider?: AssistantProviderId }): ChatMessage {
   return {
@@ -72,19 +82,47 @@ function responseToMessage(response: AssistantResponse & { provider?: AssistantP
 }
 
 export function AssistantChat() {
+  const [programs, setPrograms] = useState<StoredProgram[]>([]);
+  const [selectedProgramId, setSelectedProgramId] = useState("");
   const [turns, setTurns] = useState<ConversationTurn[]>([]);
   const [input, setInput] = useState("");
   const [isThinking, setIsThinking] = useState(false);
   const [lastRelatedPrompts, setLastRelatedPrompts] = useState<string[]>([]);
   const [demoMode, setDemoMode] = useState(true);
 
-  const suggestedPrompts = useMemo(() => assistantFaqs.map((faq) => faq.question), []);
+  const selectedProgram = useMemo(
+    () => programs.find((program) => program.id === selectedProgramId) ?? null,
+    [programs, selectedProgramId]
+  );
+  const suggestedPrompts = useMemo(
+    () => buildSuggestedPrompts(selectedProgram?.intake.programName),
+    [selectedProgram?.intake.programName]
+  );
   const latestAssistantMessage = turns.length ? turns[turns.length - 1]?.assistant : undefined;
   const activeModelProfile = latestAssistantMessage?.debug?.modelProfile;
 
+  useEffect(() => {
+    let ignore = false;
+
+    async function loadPrograms() {
+      const response = await fetch("/api/programs", { cache: "no-store" });
+      if (!response.ok) return;
+      const payload = (await response.json()) as { programs: StoredProgram[] };
+      if (ignore) return;
+      setPrograms(payload.programs);
+      setSelectedProgramId((current) => current || payload.programs[0]?.id || "");
+    }
+
+    void loadPrograms();
+
+    return () => {
+      ignore = true;
+    };
+  }, []);
+
   async function submitPrompt(prompt: string) {
     const trimmedPrompt = prompt.trim();
-    if (!trimmedPrompt || isThinking) return;
+    if (!trimmedPrompt || isThinking || !selectedProgramId) return;
 
     const turnId = `turn-${Date.now()}`;
     const userMessage: ChatMessage = {
@@ -98,7 +136,7 @@ export function AssistantChat() {
     setTurns((current) => [...current, { id: turnId, user: userMessage }]);
 
     await new Promise((resolve) => window.setTimeout(resolve, 360));
-    const response = await getAssistantApiResponse(trimmedPrompt);
+    const response = await getAssistantApiResponse(trimmedPrompt, undefined, selectedProgramId);
     const assistantMessage = responseToMessage(response);
 
     setLastRelatedPrompts(response.relatedPrompts);
@@ -145,9 +183,32 @@ export function AssistantChat() {
 
         <div className="grid min-h-[650px] grid-rows-[auto_1fr_auto]">
           <div className="border-b border-white/10 bg-white/[0.025] p-4">
+            <div className="mb-3 grid gap-3 md:grid-cols-[minmax(0,1fr)_220px] md:items-end">
+              <div>
+                <p className="text-xs font-medium uppercase tracking-[0.18em] text-zinc-500">Active program context</p>
+                <p className="mt-1 text-xs text-zinc-600">
+                  The assistant should stay inside the selected saved program and use its uploads, updates, leadership feedback, and guided plan as grounding.
+                </p>
+              </div>
+              <label className="grid gap-1 text-xs text-zinc-500">
+                <span className="uppercase tracking-[0.18em]">Program</span>
+                <select
+                  value={selectedProgramId}
+                  onChange={(event) => setSelectedProgramId(event.target.value)}
+                  className="min-h-11 rounded-md border border-white/10 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 outline-none transition-colors focus:border-emerald-300/40"
+                >
+                  <option value="">Select a saved program</option>
+                  {programs.map((program) => (
+                    <option key={program.id} value={program.id}>
+                      {program.intake.programName}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
             <div className="mb-3 flex items-center justify-between gap-3">
               <p className="text-xs font-medium uppercase tracking-[0.18em] text-zinc-500">Prompt chips</p>
-                <p className="text-xs text-zinc-600">seeded tests</p>
+              <p className="text-xs text-zinc-600">{selectedProgram ? selectedProgram.intake.programName : "select a program first"}</p>
             </div>
             <div className="flex flex-wrap gap-2">
               {suggestedPrompts.map((prompt) => (
@@ -155,6 +216,7 @@ export function AssistantChat() {
                   key={prompt}
                   type="button"
                   onClick={() => void submitPrompt(prompt)}
+                  disabled={!selectedProgramId}
                   className="rounded-md border border-white/10 bg-zinc-950 px-3 py-2 text-left text-xs text-zinc-300 transition-all duration-200 hover:-translate-y-0.5 hover:border-emerald-300/40 hover:text-zinc-50"
                 >
                   {prompt}
@@ -190,10 +252,10 @@ export function AssistantChat() {
               <input
                 value={input}
                 onChange={(event) => setInput(event.target.value)}
-                placeholder="Describe the program, risk, decision, or next output needed..."
+                placeholder={selectedProgramId ? "Ask about the selected program, risk, decision, role, or next output..." : "Select an active program first..."}
                 className="min-h-11 flex-1 rounded-md border border-white/10 bg-zinc-950 px-3 py-3 text-sm text-zinc-100 outline-none transition-colors placeholder:text-zinc-600 focus:border-emerald-300/50"
               />
-              <Button type="submit" aria-label="Send prompt" disabled={isThinking}>
+              <Button type="submit" aria-label="Send prompt" disabled={isThinking || !selectedProgramId}>
                 <Send className="h-4 w-4" />
               </Button>
             </div>
@@ -229,16 +291,18 @@ export function AssistantChat() {
               </div>
             </div>
             <div className="flex items-center justify-between rounded-md border border-white/10 bg-white/[0.035] p-3">
-              <span className="text-zinc-400">Indexed records</span>
-              <span className="text-zinc-100">
-                {initiatives.length + assistantFaqs.length + frameworks.length + aiProducts.length + experiments.length}
-              </span>
+              <span className="text-zinc-400">Selected program</span>
+              <span className="text-zinc-100">{selectedProgram?.intake.programName ?? "Not selected"}</span>
             </div>
             <div className="rounded-md border border-cyan-300/20 bg-cyan-300/10 p-3 text-xs leading-5 text-cyan-100">
-              Local grounding remains authoritative, but the UI now runs through the server assistant route.
+              The assistant now uses the server route, but it should be grounded to the selected active program rather than unrelated seeded product ideas.
             </div>
             <div className="flex items-center justify-between rounded-md border border-white/10 bg-white/[0.035] p-3">
-              <span className="text-zinc-400">Demo records</span>
+              <span className="text-zinc-400">Saved programs</span>
+              <span className="text-zinc-100">{String(programs.length).padStart(2, "0")}</span>
+            </div>
+            <div className="flex items-center justify-between rounded-md border border-white/10 bg-white/[0.035] p-3">
+              <span className="text-zinc-400">Debug view</span>
               <button
                 type="button"
                 onClick={() => setDemoMode((current) => !current)}
@@ -263,6 +327,7 @@ export function AssistantChat() {
                 key={prompt}
                 type="button"
                 onClick={() => void submitPrompt(prompt)}
+                disabled={!selectedProgramId}
                 className="rounded-md border border-white/10 bg-white/[0.035] p-3 text-left text-sm leading-6 text-zinc-300 transition-all duration-200 hover:-translate-y-0.5 hover:border-emerald-300/30 hover:text-zinc-50"
               >
                 {prompt}
@@ -275,23 +340,33 @@ export function AssistantChat() {
         <Card className="bg-zinc-950/80">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-zinc-50">
-              <Database className="h-4 w-4 text-cyan-200" />
-              Local response sources
+              <Braces className="h-4 w-4 text-cyan-200" />
+              Scoped grounding
             </CardTitle>
           </CardHeader>
           <CardContent className="grid gap-3">
-            {initiatives.map((initiative) => (
-              <div key={initiative.id} className="rounded-md border border-white/10 bg-white/[0.035] p-3">
-                <div className="mb-2 flex items-center justify-between gap-2">
-                  <p className="text-sm font-medium text-zinc-100">{initiative.title}</p>
-                  <StatusBadge status={initiative.status} />
+            <div className="rounded-md border border-white/10 bg-white/[0.035] p-3 text-sm leading-6 text-zinc-300">
+              {selectedProgram
+                ? `Requests are scoped to ${selectedProgram.intake.programName}. Retrieval should prioritize that program's saved context and exclude unrelated seeded records.`
+                : "Select a saved program to scope retrieval."}
+            </div>
+            {latestAssistantMessage?.matches?.length ? (
+              latestAssistantMessage.matches.map((match) => (
+                <div key={`${match.type}-${match.id}`} className="rounded-md border border-white/10 bg-white/[0.035] p-3">
+                  <div className="mb-2 flex items-center justify-between gap-2">
+                    <p className="text-sm font-medium text-zinc-100">{match.title}</p>
+                    <span className="rounded-md border border-white/10 bg-white/[0.035] px-2 py-0.5 text-[11px] uppercase tracking-[0.16em] text-zinc-400">
+                      {match.type}
+                    </span>
+                  </div>
+                  <p className="text-xs leading-5 text-zinc-400">score {match.score}</p>
                 </div>
-                <p className="flex items-center gap-2 text-xs leading-5 text-zinc-400">
-                  <LockKeyhole className="h-3 w-3 text-amber-200" />
-                  {initiative.systemDesigned}
-                </p>
+              ))
+            ) : (
+              <div className="rounded-md border border-white/10 bg-white/[0.035] p-3 text-xs leading-5 text-zinc-500">
+                No scoped retrieval records yet.
               </div>
-            ))}
+            )}
           </CardContent>
         </Card>
         ) : null}

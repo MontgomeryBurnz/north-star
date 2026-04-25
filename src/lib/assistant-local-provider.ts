@@ -4,7 +4,9 @@ import type { AssistantProvider, AssistantRequest, AssistantServiceResponse } fr
 export const localAssistantProvider: AssistantProvider = {
   id: "local",
   async getResponse(request: AssistantRequest): Promise<AssistantServiceResponse> {
-    const response = await getAssistantResponse(request.prompt);
+    const response = await getAssistantResponse(request.prompt, {
+      selectedProgramId: request.selectedProgramId
+    });
 
     return {
       ...response,

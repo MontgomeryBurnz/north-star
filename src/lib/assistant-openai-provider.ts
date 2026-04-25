@@ -92,8 +92,9 @@ function withModelProfile(
 export const openaiAssistantProvider: AssistantProvider = {
   id: "openai",
   async getResponse(request: AssistantRequest): Promise<AssistantServiceResponse> {
-    const matches = await getRelevantContent(request.prompt);
-    const localGroundedResponse = await composeGroundedAnswer(request.prompt, matches);
+    const retrievalOptions = { selectedProgramId: request.selectedProgramId };
+    const matches = await getRelevantContent(request.prompt, retrievalOptions);
+    const localGroundedResponse = await composeGroundedAnswer(request.prompt, matches, retrievalOptions);
     const apiKey = process.env.OPENAI_API_KEY?.trim();
     const model = getConfiguredModel();
     const reasoningEffort = getConfiguredReasoningEffort();
@@ -182,6 +183,9 @@ export const openaiAssistantProvider: AssistantProvider = {
                 text: [
                   "You are North Star, an operator-level delivery guidance assistant for complex programs.",
                   "Work outcome-first. Use only the grounded local records provided.",
+                  request.selectedProgramId
+                    ? "The user selected a specific active program. Stay strictly inside that program context. Ignore unrelated demo, lab, or seeded product ideas."
+                    : "If no active program is selected, use the strongest grounded records available.",
                   "Your job is to help delivery leads find the clearest next move, structure the guided plan, and position delivery roles for success.",
                   "When relevant, translate guidance across these operating roles: Product Management, Business Analysis, User Experience, Application Development, Data Engineering, and Change Management.",
                   "When leadership direction is present, convert it into delivery-safe guidance and show how it changes planning, risk posture, outputs, and role-specific action.",
@@ -204,6 +208,9 @@ export const openaiAssistantProvider: AssistantProvider = {
 
 User prompt:
 ${request.prompt}
+
+Selected program id:
+${request.selectedProgramId || "None"}
 
 Recent conversation:
 ${historyBlock || "None"}

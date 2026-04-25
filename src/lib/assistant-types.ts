@@ -61,6 +61,7 @@ export type AssistantMessageInput = {
 
 export type AssistantRequest = {
   prompt: string;
+  selectedProgramId?: string;
   history?: AssistantMessageInput[];
   provider?: AssistantProviderId;
   includeDebug?: boolean;
