@@ -2,7 +2,6 @@
 
 import type { ReactNode } from "react";
 import { usePathname } from "next/navigation";
-import { DemoModePanel } from "@/components/demo-mode-panel";
 import { Footer } from "@/components/footer";
 import { SiteNav } from "@/components/site-nav";
 
@@ -20,7 +19,6 @@ export function AppShell({ children }: { children: ReactNode }) {
     <>
       <SiteNav />
       {children}
-      <DemoModePanel />
       <Footer />
     </>
   );
