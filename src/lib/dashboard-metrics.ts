@@ -30,6 +30,14 @@ function hasTimelinePressure(value: string) {
   return /\b(delay|delayed|slip|slipped|behind|timeline|milestone|deadline|schedule|late|blocked|stalled|recovery)\b/i.test(value);
 }
 
+function hasRiskSignal(value: string) {
+  return /\b(risk|issue|blocker|blocked|constraint|dependency|escalat|pressure|unclear|concern)\b/i.test(value);
+}
+
+function hasDeliverySignal(value: string) {
+  return /\b(decision|support|owner|ownership|approval|action|next step|checkpoint|escalat)\b/i.test(value);
+}
+
 export async function getDashboardMetrics(): Promise<DashboardMetrics> {
   const programs = await listPrograms();
 
@@ -39,15 +47,30 @@ export async function getDashboardMetrics(): Promise<DashboardMetrics> {
       const latestUpdate = updates[0];
       const callouts: DashboardCallout[] = [];
       const riskSignal = firstSignal(
-        latestUpdate?.review.activeRisks || program.intake.risks || program.intake.blockers,
+        latestUpdate?.review.activeRisks ??
+          program.intake.risks ??
+          program.intake.blockers ??
+          latestPlan?.risksAndDecisions.items.find((item) => hasRiskSignal(item)) ??
+          latestPlan?.leadershipChanges.items.find((item) => hasRiskSignal(item)) ??
+          "",
         ""
       );
       const timelineSignal = firstSignal(
-        latestUpdate?.review.planChanges || latestUpdate?.review.currentPhase || program.intake.currentStatus,
+        latestUpdate?.review.planChanges ??
+          latestUpdate?.review.currentPhase ??
+          program.intake.currentStatus ??
+          latestPlan?.workPath.items.find((item) => hasTimelinePressure(item)) ??
+          latestPlan?.planningApproach.items.find((item) => hasTimelinePressure(item)) ??
+          "",
         ""
       );
       const deliverySignal = firstSignal(
-        latestUpdate?.review.supportNeeded || latestUpdate?.review.decisionsPending || program.intake.decisionsNeeded,
+        latestUpdate?.review.supportNeeded ??
+          latestUpdate?.review.decisionsPending ??
+          program.intake.decisionsNeeded ??
+          latestPlan?.risksAndDecisions.items.find((item) => hasDeliverySignal(item)) ??
+          latestPlan?.leadershipChanges.items.find((item) => hasDeliverySignal(item)) ??
+          "",
         ""
       );
 
