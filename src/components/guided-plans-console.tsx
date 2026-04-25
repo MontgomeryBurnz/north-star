@@ -1,8 +1,10 @@
 "use client";
 
+import type { ReactNode } from "react";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ArrowRight, FileCheck2, RefreshCw } from "lucide-react";
+import { ArrowRight, FileCheck2, MessageSquareText, RefreshCw } from "lucide-react";
 import type { StoredProgramUpdate } from "@/lib/active-program-types";
+import type { AssistantConversationTurn } from "@/lib/assistant-conversation-types";
 import type { GuidedPlan, GuidedPlanRolePlans, GuidedPlanSection } from "@/lib/guided-plan-types";
 import type { DeliveryLeadershipSignal } from "@/lib/leadership-feedback-types";
 import type { StoredProgram } from "@/lib/program-intake-types";
@@ -19,7 +21,13 @@ function formatDate(value: string) {
   }).format(new Date(value));
 }
 
-function PlanSectionCard({ section }: { section: GuidedPlanSection }) {
+function PlanSectionCard({
+  section,
+  footer
+}: {
+  section: GuidedPlanSection;
+  footer?: ReactNode;
+}) {
   return (
     <Card className="bg-zinc-950/75">
       <CardHeader className="border-b border-white/10">
@@ -32,6 +40,7 @@ function PlanSectionCard({ section }: { section: GuidedPlanSection }) {
             {item}
           </p>
         ))}
+        {footer}
       </CardContent>
     </Card>
   );
@@ -212,6 +221,8 @@ export function GuidedPlansConsole() {
   const [selectedProgramId, setSelectedProgramId] = useState("");
   const [plan, setPlan] = useState<GuidedPlan | null>(null);
   const [updates, setUpdates] = useState<StoredProgramUpdate[]>([]);
+  const [assistantConversations, setAssistantConversations] = useState<AssistantConversationTurn[]>([]);
+  const [showAssistantHistory, setShowAssistantHistory] = useState(false);
   const [leadershipSignal, setLeadershipSignal] = useState<DeliveryLeadershipSignal | null>(null);
   const [status, setStatus] = useState<string | null>(null);
   const [lastSyncedAt, setLastSyncedAt] = useState<string | null>(null);
@@ -281,30 +292,37 @@ export function GuidedPlansConsole() {
       if (!selectedProgramId) {
         setPlan(null);
         setUpdates([]);
+        setAssistantConversations([]);
+        setShowAssistantHistory(false);
         setLeadershipSignal(null);
         setLastSyncedAt(null);
         return;
       }
 
       try {
-        const [planResponse, updatesResponse, leadershipSignalResponse] = await Promise.all([
+        const [planResponse, updatesResponse, leadershipSignalResponse, assistantConversationsResponse] = await Promise.all([
           fetch(`/api/programs/${selectedProgramId}/guided-plan`, { cache: "no-store" }),
           fetch(`/api/programs/${selectedProgramId}/updates`, { cache: "no-store" }),
-          fetch(`/api/programs/${selectedProgramId}/leadership-signal`, { cache: "no-store" })
+          fetch(`/api/programs/${selectedProgramId}/leadership-signal`, { cache: "no-store" }),
+          fetch(`/api/programs/${selectedProgramId}/assistant-conversations`, { cache: "no-store" })
         ]);
 
-        if (!planResponse.ok || !updatesResponse.ok) {
+        if (!planResponse.ok || !updatesResponse.ok || !assistantConversationsResponse.ok) {
           throw new Error("Could not load guided plan.");
         }
 
         const planPayload = (await planResponse.json()) as { plan: GuidedPlan | null };
         const updatesPayload = (await updatesResponse.json()) as { updates: StoredProgramUpdate[] };
+        const assistantConversationsPayload = (await assistantConversationsResponse.json()) as {
+          conversations: AssistantConversationTurn[];
+        };
         const leadershipSignalPayload = leadershipSignalResponse.ok
           ? ((await leadershipSignalResponse.json()) as { signal: DeliveryLeadershipSignal })
           : { signal: null };
 
         setPlan(planPayload.plan);
         setUpdates(updatesPayload.updates);
+        setAssistantConversations(assistantConversationsPayload.conversations);
         setLeadershipSignal(leadershipSignalPayload.signal);
         setLastSyncedAt(new Date().toISOString());
         setStatus(
@@ -371,6 +389,44 @@ export function GuidedPlansConsole() {
       ]
     : [];
   const rolePlans = plan ? normalizeRolePlans(plan.rolePlans) : null;
+  const latestAssistantConversation = assistantConversations[0];
+  const lastAssistantDialogueAt = latestAssistantConversation?.updatedAt || latestAssistantConversation?.createdAt;
+  const assistantDialogueFooter = assistantConversations.length ? (
+    <div className="mt-2 grid gap-3 rounded-md border border-cyan-300/20 bg-cyan-300/[0.055] p-3">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <p className="flex items-center gap-2 text-sm font-medium text-cyan-100">
+          <MessageSquareText className="h-4 w-4" />
+          Conversation history
+        </p>
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          className="h-auto px-2 py-1 text-cyan-100 hover:text-cyan-50"
+          onClick={() => setShowAssistantHistory((open) => !open)}
+        >
+          {showAssistantHistory ? "Hide history" : "View full history"}
+        </Button>
+      </div>
+      {showAssistantHistory ? (
+        <div className="grid gap-3">
+          {assistantConversations.map((turn) => (
+            <div key={turn.id} className="rounded-md border border-white/10 bg-black/20 p-3">
+              <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-zinc-500">{formatDate(turn.updatedAt)}</p>
+              <p className="mt-2 text-xs font-medium uppercase tracking-[0.14em] text-zinc-300">Prompt</p>
+              <p className="mt-1 text-sm leading-6 text-zinc-200">{turn.prompt}</p>
+              <p className="mt-3 text-xs font-medium uppercase tracking-[0.14em] text-zinc-300">Assistant</p>
+              <p className="mt-1 text-sm leading-6 text-zinc-400">{turn.response.answer}</p>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <p className="text-xs leading-5 text-zinc-300">
+          {assistantConversations.length} stored dialogue {assistantConversations.length === 1 ? "turn is" : "turns are"} shaping this plan.
+        </p>
+      )}
+    </div>
+  ) : null;
 
   return (
     <main className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
@@ -444,6 +500,11 @@ export function GuidedPlansConsole() {
                         Current guided plan
                       </p>
                       <CardTitle className="text-2xl text-zinc-50">{plan.programName}</CardTitle>
+                      {lastAssistantDialogueAt ? (
+                        <p className="mt-2 text-xs leading-5 text-cyan-200">
+                          Last updated from assistant dialogue {formatDate(lastAssistantDialogueAt)}
+                        </p>
+                      ) : null}
                     </div>
                     <span className="rounded-md border border-white/10 bg-white/[0.035] px-3 py-1 text-xs text-zinc-400">
                       {formatDate(plan.createdAt)}
@@ -544,7 +605,11 @@ export function GuidedPlansConsole() {
                 </Card>
                 {rolePlans ? <RolePlansCard rolePlans={rolePlans} /> : null}
                 {planSections.map((section) => (
-                  <PlanSectionCard key={section.title} section={section} />
+                  <PlanSectionCard
+                    key={section.title}
+                    section={section}
+                    footer={section.title === "Assistant Dialogue Shaping This Plan" ? assistantDialogueFooter : undefined}
+                  />
                 ))}
               </div>
 
