@@ -1,10 +1,9 @@
 "use client";
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
-import { Bot, Braces, Gauge, Send, Sparkles, UserRound } from "lucide-react";
+import { Bot, Gauge, Send, Sparkles, UserRound } from "lucide-react";
 import { getAssistantApiResponse } from "@/lib/assistant-client";
 import type {
-  AssistantDebug,
   AssistantMessageInput,
   AssistantProviderId,
   AssistantRelatedItem,
@@ -14,9 +13,9 @@ import type {
 } from "@/lib/assistant-types";
 import type { AssistantConversationTurn } from "@/lib/assistant-conversation-types";
 import type { StoredProgram } from "@/lib/program-intake-types";
-import { StatusBadge } from "@/components/status-badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import type { AssistantBriefing } from "@/lib/assistant-briefing";
 
 type ChatMessage = {
   id: string;
@@ -28,7 +27,6 @@ type ChatMessage = {
   relatedContent?: AssistantRelatedItem[];
   mode?: AssistantResponse["mode"];
   matches?: MatchedContent[];
-  debug?: AssistantDebug;
   provider?: AssistantProviderId;
 };
 
@@ -48,7 +46,7 @@ const starterMessage: ChatMessage = {
       items: [
         "Separate the signal from the noise.",
         "Clarify what matters now: plan, owners, risks, outputs, or decisions.",
-        "Use demo mode to inspect the retrieval trace."
+        "Use the assistant to capture delivery context that should influence the next guided-plan refresh."
       ]
     }
   ],
@@ -78,7 +76,6 @@ function responseToMessage(response: AssistantResponse & { provider?: AssistantP
     relatedContent: response.relatedContent,
     mode: response.mode,
     matches: response.matches,
-    debug: response.debug,
     provider: response.provider
   };
 }
@@ -101,19 +98,25 @@ export function AssistantChat() {
   const [turns, setTurns] = useState<ConversationTurn[]>([]);
   const [input, setInput] = useState("");
   const [isThinking, setIsThinking] = useState(false);
-  const [lastRelatedPrompts, setLastRelatedPrompts] = useState<string[]>([]);
-  const [demoMode, setDemoMode] = useState(true);
+  const [assistantBriefing, setAssistantBriefing] = useState<AssistantBriefing | null>(null);
 
   const selectedProgram = useMemo(
     () => programs.find((program) => program.id === selectedProgramId) ?? null,
     [programs, selectedProgramId]
   );
   const suggestedPrompts = useMemo(
-    () => buildSuggestedPrompts(selectedProgram?.intake.programName),
-    [selectedProgram?.intake.programName]
+    () => assistantBriefing?.promptChips?.length ? assistantBriefing.promptChips : buildSuggestedPrompts(selectedProgram?.intake.programName),
+    [assistantBriefing?.promptChips, selectedProgram?.intake.programName]
+  );
+  const strategicPrompts = useMemo(
+    () => assistantBriefing?.promptQueue?.length ? assistantBriefing.promptQueue : buildSuggestedPrompts(selectedProgram?.intake.programName),
+    [assistantBriefing?.promptQueue, selectedProgram?.intake.programName]
   );
   const latestAssistantMessage = turns.length ? turns[turns.length - 1]?.assistant : undefined;
-  const activeModelProfile = latestAssistantMessage?.debug?.modelProfile;
+  const activeModelName = assistantBriefing?.model ?? "gpt-5.5";
+  const understandingScore = assistantBriefing?.understandingScore ?? 0;
+  const understandingLabel =
+    understandingScore >= 80 ? "Strong" : understandingScore >= 60 ? "Working" : "Needs more context";
 
   useEffect(() => {
     let ignore = false;
@@ -140,15 +143,20 @@ export function AssistantChat() {
     async function loadAssistantConversations() {
       if (!selectedProgramId) {
         setTurns([]);
+        setAssistantBriefing(null);
         return;
       }
 
-      const response = await fetch(`/api/programs/${selectedProgramId}/assistant-conversations`, { cache: "no-store" });
-      if (!response.ok) return;
-      const payload = (await response.json()) as { conversations: AssistantConversationTurn[] };
+      const [conversationResponse, briefingResponse] = await Promise.all([
+        fetch(`/api/programs/${selectedProgramId}/assistant-conversations`, { cache: "no-store" }),
+        fetch(`/api/programs/${selectedProgramId}/assistant-briefing`, { cache: "no-store" })
+      ]);
+      if (!conversationResponse.ok || !briefingResponse.ok) return;
+      const payload = (await conversationResponse.json()) as { conversations: AssistantConversationTurn[] };
+      const briefingPayload = (await briefingResponse.json()) as { briefing: AssistantBriefing };
       if (ignore) return;
       setTurns(payload.conversations.reverse().map(conversationToTurn));
-      setLastRelatedPrompts([]);
+      setAssistantBriefing(briefingPayload.briefing);
     }
 
     void loadAssistantConversations();
@@ -185,12 +193,16 @@ export function AssistantChat() {
     await new Promise((resolve) => window.setTimeout(resolve, 360));
     const response = await getAssistantApiResponse(trimmedPrompt, undefined, selectedProgramId, history);
     const assistantMessage = responseToMessage(response);
-
-    setLastRelatedPrompts(response.relatedPrompts);
     setTurns((current) =>
       current.map((turn) => (turn.id === turnId ? { ...turn, assistant: assistantMessage } : turn))
     );
     setIsThinking(false);
+
+    const briefingResponse = await fetch(`/api/programs/${selectedProgramId}/assistant-briefing`, { cache: "no-store" });
+    if (briefingResponse.ok) {
+      const briefingPayload = (await briefingResponse.json()) as { briefing: AssistantBriefing };
+      setAssistantBriefing(briefingPayload.briefing);
+    }
   }
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -217,27 +229,20 @@ export function AssistantChat() {
               <div className="rounded-md border border-cyan-300/20 bg-cyan-300/10 px-3 py-1 text-xs text-cyan-100">
                 API-ready
               </div>
-              <button
-                type="button"
-                onClick={() => setDemoMode((current) => !current)}
-                className="rounded-md border border-white/10 bg-white/[0.035] px-3 py-1 text-xs text-zinc-300 transition-colors hover:border-emerald-300/30 hover:text-zinc-50"
-              >
-                Demo {demoMode ? "on" : "off"}
-              </button>
             </div>
           </div>
         </div>
 
         <div className="grid min-h-[650px] grid-rows-[auto_1fr_auto]">
           <div className="border-b border-white/10 bg-white/[0.025] p-4">
-            <div className="mb-3 grid gap-3 md:grid-cols-[minmax(0,1fr)_220px] md:items-end">
+            <div className="mb-3 grid gap-3 md:grid-cols-[minmax(0,1fr)_280px] md:items-end">
               <div>
                 <p className="text-xs font-medium uppercase tracking-[0.18em] text-zinc-500">Active program context</p>
                 <p className="mt-1 text-xs text-zinc-600">
                   The assistant should stay inside the selected saved program and use its uploads, updates, leadership feedback, and guided plan as grounding.
                 </p>
               </div>
-              <label className="grid gap-1 text-xs text-zinc-500">
+              <label className="grid gap-2 rounded-md border border-white/10 bg-zinc-950/70 p-3 text-xs text-zinc-500">
                 <span className="uppercase tracking-[0.18em]">Program</span>
                 <select
                   value={selectedProgramId}
@@ -255,7 +260,9 @@ export function AssistantChat() {
             </div>
             <div className="mb-3 flex items-center justify-between gap-3">
               <p className="text-xs font-medium uppercase tracking-[0.18em] text-zinc-500">Prompt chips</p>
-              <p className="text-xs text-zinc-600">{selectedProgram ? selectedProgram.intake.programName : "select a program first"}</p>
+              <p className="text-xs text-zinc-600">
+                {selectedProgram ? "OpenAI-generated leading questions" : "select a program first"}
+              </p>
             </div>
             <div className="flex flex-wrap gap-2">
               {suggestedPrompts.map((prompt) => (
@@ -273,11 +280,11 @@ export function AssistantChat() {
           </div>
 
           <div className="max-h-[58vh] space-y-4 overflow-y-auto p-5">
-            <AssistantMessage message={starterMessage} demoMode={demoMode} />
+            <AssistantMessage message={starterMessage} />
             {turns.map((turn) => (
               <div key={turn.id} className="animate-[fadeIn_260ms_ease-out_both] space-y-3">
                 <UserMessage message={turn.user} />
-                {turn.assistant ? <AssistantMessage message={turn.assistant} demoMode={demoMode} /> : null}
+                {turn.assistant ? <AssistantMessage message={turn.assistant} /> : null}
               </div>
             ))}
             {isThinking ? (
@@ -319,44 +326,35 @@ export function AssistantChat() {
             </CardTitle>
           </CardHeader>
           <CardContent className="grid gap-3 text-sm">
-            <div className="flex items-center justify-between rounded-md border border-white/10 bg-white/[0.035] p-3">
-              <span className="text-zinc-400">Mode</span>
-              <span className="text-zinc-100">server</span>
-            </div>
             <div className="grid gap-2 rounded-md border border-white/10 bg-white/[0.035] p-3">
               <div className="flex items-center justify-between gap-3">
                 <span className="text-zinc-400">Model</span>
-                <span className="text-zinc-100">{activeModelProfile?.model ?? "gpt-5.5 target"}</span>
+                <span className="text-zinc-100">{activeModelName}</span>
               </div>
+            </div>
+            <div className="grid gap-2 rounded-md border border-white/10 bg-white/[0.035] p-3">
               <div className="flex items-center justify-between gap-3">
                 <span className="text-zinc-400">Reasoning</span>
-                <span className="text-zinc-100">{activeModelProfile?.reasoningEffort ?? "medium"}</span>
+                <span className="text-zinc-100">{understandingScore}%</span>
               </div>
-              <div className="flex items-center justify-between gap-3">
-                <span className="text-zinc-400">Verbosity</span>
-                <span className="text-zinc-100">{activeModelProfile?.verbosity ?? "low"}</span>
+              <div className="h-2 rounded-full bg-zinc-900">
+                <div
+                  className={`h-full rounded-full ${
+                    understandingScore >= 80 ? "bg-emerald-300" : understandingScore >= 60 ? "bg-cyan-300" : "bg-amber-300"
+                  }`}
+                  style={{ width: `${understandingScore}%` }}
+                />
               </div>
+              <p className="text-xs leading-5 text-zinc-400">
+                {understandingLabel}. {assistantBriefing?.understandingSummary ?? "More program context improves guidance quality."}
+              </p>
             </div>
             <div className="flex items-center justify-between rounded-md border border-white/10 bg-white/[0.035] p-3">
               <span className="text-zinc-400">Selected program</span>
               <span className="text-zinc-100">{selectedProgram?.intake.programName ?? "Not selected"}</span>
             </div>
             <div className="rounded-md border border-cyan-300/20 bg-cyan-300/10 p-3 text-xs leading-5 text-cyan-100">
-              The assistant now uses the server route, but it should be grounded to the selected active program rather than unrelated seeded product ideas.
-            </div>
-            <div className="flex items-center justify-between rounded-md border border-white/10 bg-white/[0.035] p-3">
-              <span className="text-zinc-400">Saved programs</span>
-              <span className="text-zinc-100">{String(programs.length).padStart(2, "0")}</span>
-            </div>
-            <div className="flex items-center justify-between rounded-md border border-white/10 bg-white/[0.035] p-3">
-              <span className="text-zinc-400">Debug view</span>
-              <button
-                type="button"
-                onClick={() => setDemoMode((current) => !current)}
-                className="rounded-md border border-white/10 bg-zinc-950 px-2 py-1 text-xs text-zinc-300 hover:border-emerald-300/30"
-              >
-                {demoMode ? "visible" : "hidden"}
-              </button>
+              OpenAI is grounded to the selected program and should use uploads, updates, leadership feedback, and dialogue as the operating context.
             </div>
           </CardContent>
         </Card>
@@ -369,7 +367,7 @@ export function AssistantChat() {
             </CardTitle>
           </CardHeader>
           <CardContent className="grid gap-2">
-            {(lastRelatedPrompts.length ? lastRelatedPrompts : suggestedPrompts.slice(0, 4)).map((prompt) => (
+            {strategicPrompts.map((prompt) => (
               <button
                 key={prompt}
                 type="button"
@@ -382,41 +380,6 @@ export function AssistantChat() {
             ))}
           </CardContent>
         </Card>
-
-        {demoMode ? (
-        <Card className="bg-zinc-950/80">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-zinc-50">
-              <Braces className="h-4 w-4 text-cyan-200" />
-              Scoped grounding
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="grid gap-3">
-            <div className="rounded-md border border-white/10 bg-white/[0.035] p-3 text-sm leading-6 text-zinc-300">
-              {selectedProgram
-                ? `Requests are scoped to ${selectedProgram.intake.programName}. Retrieval should prioritize that program's saved context and exclude unrelated seeded records.`
-                : "Select a saved program to scope retrieval."}
-            </div>
-            {latestAssistantMessage?.matches?.length ? (
-              latestAssistantMessage.matches.map((match) => (
-                <div key={`${match.type}-${match.id}`} className="rounded-md border border-white/10 bg-white/[0.035] p-3">
-                  <div className="mb-2 flex items-center justify-between gap-2">
-                    <p className="text-sm font-medium text-zinc-100">{match.title}</p>
-                    <span className="rounded-md border border-white/10 bg-white/[0.035] px-2 py-0.5 text-[11px] uppercase tracking-[0.16em] text-zinc-400">
-                      {match.type}
-                    </span>
-                  </div>
-                  <p className="text-xs leading-5 text-zinc-400">score {match.score}</p>
-                </div>
-              ))
-            ) : (
-              <div className="rounded-md border border-white/10 bg-white/[0.035] p-3 text-xs leading-5 text-zinc-500">
-                No scoped retrieval records yet.
-              </div>
-            )}
-          </CardContent>
-        </Card>
-        ) : null}
       </aside>
     </main>
   );
@@ -436,7 +399,7 @@ function UserMessage({ message }: { message: ChatMessage }) {
   );
 }
 
-function AssistantMessage({ message, demoMode }: { message: ChatMessage; demoMode: boolean }) {
+function AssistantMessage({ message }: { message: ChatMessage }) {
   return (
     <div className="flex justify-start">
       <div className="max-w-[88%] rounded-lg border border-white/10 bg-white/[0.035] p-4">
@@ -446,12 +409,6 @@ function AssistantMessage({ message, demoMode }: { message: ChatMessage; demoMod
             Assistant
             {message.provider ? <span className="text-zinc-600">{message.provider}</span> : null}
           </div>
-          {message.mode ? (
-            <span className="inline-flex items-center gap-1 rounded-md border border-white/10 bg-black/20 px-2 py-1 text-xs text-zinc-400">
-              <Braces className="h-3 w-3 text-zinc-500" />
-              {message.mode}
-            </span>
-          ) : null}
         </div>
         <p className="text-sm leading-6 text-zinc-200">{message.content}</p>
         {message.sections?.length ? (
@@ -509,96 +466,6 @@ function AssistantMessage({ message, demoMode }: { message: ChatMessage; demoMod
                   <p className="mt-1 line-clamp-2 text-xs leading-5 text-zinc-400">{item.summary}</p>
                 </a>
               ))}
-            </div>
-          </div>
-        ) : null}
-        {message.sources?.length ? (
-          <div className="mt-3 flex flex-wrap gap-2">
-            {message.sources.map((source) => (
-              <span
-                key={source}
-                className="rounded-md border border-cyan-300/20 bg-cyan-300/10 px-2 py-1 text-xs text-cyan-100"
-              >
-                {source}
-              </span>
-            ))}
-          </div>
-        ) : null}
-        {demoMode && message.debug ? (
-          <div className="mt-3 rounded-md border border-amber-400/20 bg-amber-400/10 p-3">
-            <div className="mb-3 flex items-center justify-between gap-3">
-              <p className="text-xs font-medium uppercase tracking-[0.18em] text-amber-200">
-                Developer debug view
-              </p>
-              <span className="text-[11px] text-amber-100/80">{message.debug.normalizedPrompt || "starter"}</span>
-            </div>
-            <div className="grid gap-3">
-              {message.debug.modelProfile ? (
-                <div>
-                  <p className="mb-2 text-[11px] uppercase tracking-[0.16em] text-amber-100/70">Model profile</p>
-                  <div className="grid gap-2 sm:grid-cols-3">
-                    <div className="rounded-md border border-amber-300/10 bg-black/20 px-3 py-2 text-xs text-zinc-300">
-                      <span className="block text-[10px] uppercase tracking-[0.16em] text-amber-100/70">Provider</span>
-                      {message.debug.modelProfile.provider}
-                    </div>
-                    <div className="rounded-md border border-amber-300/10 bg-black/20 px-3 py-2 text-xs text-zinc-300">
-                      <span className="block text-[10px] uppercase tracking-[0.16em] text-amber-100/70">Model</span>
-                      {message.debug.modelProfile.model ?? "unknown"}
-                    </div>
-                    <div className="rounded-md border border-amber-300/10 bg-black/20 px-3 py-2 text-xs text-zinc-300">
-                      <span className="block text-[10px] uppercase tracking-[0.16em] text-amber-100/70">Reasoning / Verbosity</span>
-                      {`${message.debug.modelProfile.reasoningEffort ?? "default"} / ${message.debug.modelProfile.verbosity ?? "default"}`}
-                    </div>
-                  </div>
-                </div>
-              ) : null}
-              <div>
-                <p className="mb-2 text-[11px] uppercase tracking-[0.16em] text-amber-100/70">Matched keywords</p>
-                {message.debug.matchedKeywords.length ? (
-                  <div className="flex flex-wrap gap-2">
-                    {message.debug.matchedKeywords.map((keyword) => (
-                      <span key={keyword} className="rounded-md border border-amber-300/20 bg-black/20 px-2 py-1 text-xs text-amber-50">
-                        {keyword}
-                      </span>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-xs text-zinc-400">No keywords matched.</p>
-                )}
-              </div>
-              <div>
-                <p className="mb-2 text-[11px] uppercase tracking-[0.16em] text-amber-100/70">Ranking order</p>
-                {message.debug.ranking.length ? (
-                  <div className="grid gap-2">
-                    {message.debug.ranking.map((match, index) => (
-                      <div
-                        key={`${match.type}-${match.id}`}
-                        className="flex items-center justify-between gap-3 rounded-md border border-amber-300/10 bg-black/20 px-3 py-2 text-xs text-zinc-300"
-                      >
-                        <span>
-                          {index + 1}. {match.type}: {match.title}
-                        </span>
-                        <span className="text-amber-100">score {match.score}</span>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-xs text-zinc-400">No ranked records.</p>
-                )}
-              </div>
-              <div>
-                <p className="mb-2 text-[11px] uppercase tracking-[0.16em] text-amber-100/70">
-                  Final composed sections
-                </p>
-                <div className="grid gap-2">
-                  {message.debug.sections.map((section) => (
-                    <div key={section.title} className="rounded-md border border-amber-300/10 bg-black/20 px-3 py-2">
-                      <p className="text-xs font-medium text-amber-50">{section.title}</p>
-                      <p className="mt-1 text-xs leading-5 text-zinc-400">{section.items.length} item(s)</p>
-                    </div>
-                  ))}
-                </div>
-              </div>
             </div>
           </div>
         ) : null}

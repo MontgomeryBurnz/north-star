@@ -16,7 +16,7 @@ export async function getAssistantApiResponse(
       selectedProgramId,
       history,
       provider,
-      includeDebug: true
+      includeDebug: false
     })
   });
 
