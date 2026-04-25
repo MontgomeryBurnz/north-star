@@ -15,6 +15,7 @@ export type DashboardMetrics = {
   guidedPlans: number;
   actionableCallouts: number;
   callouts: DashboardCallout[];
+  actionableCalloutsHelp: string;
 };
 
 function firstSignal(value: string, fallback: string) {
@@ -42,6 +43,43 @@ function hasDeliverySignal(value: string) {
   return /\b(decision|support|owner|ownership|approval|action|next step|checkpoint|escalat)\b/i.test(value);
 }
 
+function classifyCalloutType(value: string): DashboardCallout["type"] | null {
+  if (/^\s*risk:/i.test(value)) {
+    return "risk";
+  }
+
+  if (/^\s*decision needed:/i.test(value)) {
+    return "delivery";
+  }
+
+  if (hasTimelinePressure(value)) {
+    return "timeline";
+  }
+
+  if (hasRiskSignal(value)) {
+    return "risk";
+  }
+
+  if (hasDeliverySignal(value)) {
+    return "delivery";
+  }
+
+  return null;
+}
+
+function uniqueCallouts(callouts: DashboardCallout[]) {
+  const seen = new Set<string>();
+  return callouts.filter((callout) => {
+    const key = `${callout.programId}:${callout.type}:${callout.detail}`;
+    if (seen.has(key)) {
+      return false;
+    }
+
+    seen.add(key);
+    return true;
+  });
+}
+
 export async function getDashboardMetrics(): Promise<DashboardMetrics> {
   const programs = await listPrograms();
 
@@ -50,78 +88,52 @@ export async function getDashboardMetrics(): Promise<DashboardMetrics> {
       const [latestPlan, updates] = await Promise.all([getLatestGuidedPlan(program.id), listProgramUpdates(program.id)]);
       const latestUpdate = updates[0];
       const callouts: DashboardCallout[] = [];
-      const riskSignal = firstSignal(
-        firstNonEmpty(
-          latestUpdate?.review.activeRisks,
-          program.intake.risks,
-          program.intake.blockers,
-          latestPlan?.risksAndDecisions.items.find((item) => hasRiskSignal(item)),
-          latestPlan?.leadershipChanges.items.find((item) => hasRiskSignal(item))
-        ),
-        ""
-      );
-      const timelineSignal = firstSignal(
-        firstNonEmpty(
-          latestUpdate?.review.planChanges,
-          latestUpdate?.review.currentPhase,
-          program.intake.currentStatus,
-          latestPlan?.workPath.items.find((item) => hasTimelinePressure(item)),
-          latestPlan?.planningApproach.items.find((item) => hasTimelinePressure(item))
-        ),
-        ""
-      );
-      const deliverySignal = firstSignal(
-        firstNonEmpty(
-          latestUpdate?.review.supportNeeded,
-          latestUpdate?.review.decisionsPending,
-          program.intake.decisionsNeeded,
-          latestPlan?.risksAndDecisions.items.find((item) => hasDeliverySignal(item)),
-          latestPlan?.leadershipChanges.items.find((item) => hasDeliverySignal(item))
-        ),
-        ""
-      );
+      const candidateSignals = [
+        ...(latestPlan?.risksAndDecisions.items ?? []),
+        latestUpdate?.review.activeRisks,
+        latestUpdate?.review.planChanges,
+        latestUpdate?.review.supportNeeded,
+        latestUpdate?.review.decisionsPending,
+        latestUpdate?.review.currentPhase,
+        program.intake.risks,
+        program.intake.blockers,
+        program.intake.decisionsNeeded,
+        program.intake.currentStatus
+      ]
+        .flatMap((value) => (typeof value === "string" ? [value] : []))
+        .map((value) => firstSignal(value, ""))
+        .filter(Boolean);
 
-      if (riskSignal) {
+      candidateSignals.forEach((detail, index) => {
+        const type = classifyCalloutType(detail);
+        if (!type) {
+          return;
+        }
+
         callouts.push({
-          id: `${program.id}-risk`,
+          id: `${program.id}-${type}-${index}`,
           programId: program.id,
           programName: program.intake.programName,
-          type: "risk",
-          detail: riskSignal
+          type,
+          detail
         });
-      }
-
-      if (timelineSignal && hasTimelinePressure(timelineSignal)) {
-        callouts.push({
-          id: `${program.id}-timeline`,
-          programId: program.id,
-          programName: program.intake.programName,
-          type: "timeline",
-          detail: timelineSignal
-        });
-      }
-
-      if (deliverySignal) {
-        callouts.push({
-          id: `${program.id}-delivery`,
-          programId: program.id,
-          programName: program.intake.programName,
-          type: "delivery",
-          detail: deliverySignal
-        });
-      }
+      });
 
       return {
         hasGuidedPlan: Boolean(latestPlan),
-        callouts
+        callouts: uniqueCallouts(callouts)
       };
     })
   );
 
+  const allCallouts = programViews.flatMap((view) => view.callouts);
+
   return {
     activePrograms: programs.length,
     guidedPlans: programViews.filter((view) => view.hasGuidedPlan).length,
-    actionableCallouts: programViews.reduce((total, view) => total + view.callouts.length, 0),
-    callouts: programViews.flatMap((view) => view.callouts).slice(0, 3)
+    actionableCallouts: allCallouts.length,
+    callouts: allCallouts.slice(0, 3),
+    actionableCalloutsHelp:
+      "Counts individual items from the latest guided plan's Risks and Decisions section, plus unresolved items captured in the latest active-program update when present."
   };
 }

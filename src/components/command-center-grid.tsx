@@ -1,4 +1,4 @@
-import { ArrowRight, BrainCircuit, ClipboardList, FileCheck2, HeartPulse, Route, ShieldAlert } from "lucide-react";
+import { ArrowRight, BrainCircuit, ClipboardList, FileCheck2, HeartPulse, Info, Route, ShieldAlert } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type { DashboardMetrics } from "@/lib/dashboard-metrics";
 
@@ -48,7 +48,8 @@ export function CommandCenterGrid({ metrics }: { metrics: DashboardMetrics }) {
       value: metrics.actionableCallouts,
       detail: metrics.callouts[0]
         ? `${metrics.callouts[0].programName}: ${metrics.callouts[0].type}`
-        : "no critical issues surfaced"
+        : "no critical issues surfaced",
+      help: metrics.actionableCalloutsHelp
     }
   ];
 
@@ -125,7 +126,17 @@ export function CommandCenterGrid({ metrics }: { metrics: DashboardMetrics }) {
         {metricCards.map((item) => (
           <div key={item.label} className="rounded-md border border-white/10 bg-white/[0.025] p-4">
             <p className="text-2xl font-semibold text-zinc-50">{String(item.value).padStart(2, "0")}</p>
-            <p className="mt-1 text-xs uppercase tracking-[0.18em] text-zinc-500">{item.label}</p>
+            <div className="mt-1 flex items-center gap-1 text-xs uppercase tracking-[0.18em] text-zinc-500">
+              <span>{item.label}</span>
+              {"help" in item ? (
+                <span className="group relative inline-flex items-center normal-case tracking-normal">
+                  <Info className="h-3.5 w-3.5 cursor-help text-zinc-600" />
+                  <span className="pointer-events-none absolute bottom-full left-1/2 z-20 mb-2 hidden w-56 -translate-x-1/2 rounded-md border border-white/10 bg-zinc-950 px-3 py-2 text-[11px] leading-5 text-zinc-300 shadow-lg group-hover:block">
+                    {item.help}
+                  </span>
+                </span>
+              ) : null}
+            </div>
             <p className="mt-2 text-xs leading-5 text-zinc-400">{item.detail}</p>
           </div>
         ))}
