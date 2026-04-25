@@ -20,6 +20,9 @@ model Program {
   leadershipFeedbacks LeadershipFeedback[]
   assistantConversations AssistantConversation[]
   artifacts           Artifact[]
+  meetingInputs       MeetingInput[]
+  guidanceJustifications GuidanceJustification[]
+  guidanceFeedbackFlags GuidanceFeedbackFlag[]
 
   @@map("programs")
 }
@@ -97,4 +100,53 @@ model Artifact {
 
   @@index([programId, createdAt(sort: Desc)])
   @@map("artifacts")
+}
+
+model MeetingInput {
+  id              String   @id
+  programId       String   @map("program_id")
+  programName     String   @map("program_name")
+  title           String
+  sourceType      String   @map("source_type")
+  sourceProvider  String   @map("source_provider")
+  meetingSeriesId String?  @map("meeting_series_id")
+  capturedAt      DateTime @map("captured_at")
+  input           Json
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  program Program @relation(fields: [programId], references: [id], onDelete: Cascade)
+
+  @@index([programId, createdAt(sort: Desc)])
+  @@map("meeting_inputs")
+}
+
+model GuidanceJustification {
+  id           String   @id
+  programId    String   @map("program_id")
+  programName  String   @map("program_name")
+  guidedPlanId String   @map("guided_plan_id")
+  record       Json
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  program Program @relation(fields: [programId], references: [id], onDelete: Cascade)
+
+  @@index([programId, createdAt(sort: Desc)])
+  @@map("guidance_justifications")
+}
+
+model GuidanceFeedbackFlag {
+  id                      String   @id
+  programId               String   @map("program_id")
+  programName             String   @map("program_name")
+  guidanceJustificationId String   @map("guidance_justification_id")
+  record                  Json
+  createdAt               DateTime @default(now()) @map("created_at")
+  updatedAt               DateTime @updatedAt @map("updated_at")
+
+  program Program @relation(fields: [programId], references: [id], onDelete: Cascade)
+
+  @@index([programId, createdAt(sort: Desc)])
+  @@index([guidanceJustificationId, createdAt(sort: Desc)])
+  @@map("guidance_feedback_flags")
 }

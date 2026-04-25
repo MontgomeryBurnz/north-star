@@ -146,6 +146,7 @@ function sanitizeRolePlans(
 function toPromptContext(context: GuidedPlanGenerationContext, baselinePlan: GuidedPlan) {
   const latestUpdate = context.updates[0];
   const latestLeadershipFeedback = context.leadershipFeedbacks[0];
+  const latestMeetingInput = context.meetingInputs[0];
   const recentAssistantConversations = context.assistantConversations.slice(0, 6).map((turn) => ({
     prompt: turn.prompt,
     answer: turn.response.answer
@@ -156,6 +157,7 @@ function toPromptContext(context: GuidedPlanGenerationContext, baselinePlan: Gui
       program: context.program,
       latestUpdate: latestUpdate ?? null,
       latestLeadershipFeedback: latestLeadershipFeedback ?? null,
+      latestMeetingInput: latestMeetingInput ?? null,
       recentAssistantConversations,
       currentGroundedBaselinePlan: {
         northStar: baselinePlan.northStar,
@@ -208,7 +210,8 @@ export const openaiGuidedPlanProvider: GuidedPlanProvider = {
       context.program,
       context.updates,
       context.leadershipFeedbacks,
-      context.assistantConversations
+      context.assistantConversations,
+      context.meetingInputs
     );
     const apiKey = process.env.OPENAI_API_KEY?.trim();
     const model = getConfiguredModel();

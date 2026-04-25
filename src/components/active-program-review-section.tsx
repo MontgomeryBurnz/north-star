@@ -1,9 +1,10 @@
 "use client";
 
 import { ChangeEvent, FormEvent, useEffect, useMemo, useState } from "react";
-import { Activity, FileClock, FolderUp, HeartPulse, History, RefreshCw, Save, Trash2 } from "lucide-react";
+import { Activity, FileClock, FolderUp, HeartPulse, History, MessageSquareQuote, RefreshCw, Save, Trash2 } from "lucide-react";
 import type { ActiveProgramReview, ActiveProgramUpdate } from "@/lib/active-program-types";
 import type { DeliveryLeadershipSignal } from "@/lib/leadership-feedback-types";
+import type { ProgramMeetingInput } from "@/lib/program-intelligence-types";
 import type { ProgramArtifact, ProgramIntake } from "@/lib/program-intake-types";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -20,6 +21,17 @@ const emptyReview: ActiveProgramReview = {
   deliveryHealth: "",
   supportNeeded: "",
   artifacts: []
+};
+
+const emptyMeetingInputDraft = {
+  title: "",
+  sourceType: "meeting-notes" as ProgramMeetingInput["sourceType"],
+  sourceProvider: "manual" as ProgramMeetingInput["sourceProvider"],
+  capturedAt: "",
+  summary: "",
+  transcriptExcerpt: "",
+  extractedSignals: "",
+  recommendedPlanAdjustments: ""
 };
 
 type ExistingProgramOption = {
@@ -189,6 +201,13 @@ function formatTimestamp(value: string) {
   }).format(new Date(value));
 }
 
+function splitLines(value: string) {
+  return value
+    .split(/\n|,/)
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
 export function ActiveProgramReviewSection() {
   const [review, setReview] = useState<ActiveProgramReview>(emptyReview);
   const [savedAt, setSavedAt] = useState<string | null>(null);
@@ -197,6 +216,9 @@ export function ActiveProgramReviewSection() {
   const [updates, setUpdates] = useState<ActiveProgramUpdate[]>([]);
   const [saveState, setSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const [leadershipSignal, setLeadershipSignal] = useState<DeliveryLeadershipSignal | null>(null);
+  const [meetingInputs, setMeetingInputs] = useState<ProgramMeetingInput[]>([]);
+  const [meetingInputDraft, setMeetingInputDraft] = useState(emptyMeetingInputDraft);
+  const [meetingSaveState, setMeetingSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle");
 
   useEffect(() => {
     async function loadServerPrograms() {
@@ -255,6 +277,30 @@ export function ActiveProgramReviewSection() {
     }
 
     void loadLeadershipSignal();
+  }, [selectedProgramId, saveState]);
+
+  useEffect(() => {
+    async function loadMeetingInputs() {
+      if (!selectedProgramId) {
+        setMeetingInputs([]);
+        return;
+      }
+
+      try {
+        const response = await fetch(`/api/programs/${selectedProgramId}/meeting-inputs`, { cache: "no-store" });
+        if (!response.ok) {
+          setMeetingInputs([]);
+          return;
+        }
+
+        const payload = (await response.json()) as { meetingInputs: ProgramMeetingInput[] };
+        setMeetingInputs(payload.meetingInputs);
+      } catch {
+        setMeetingInputs([]);
+      }
+    }
+
+    void loadMeetingInputs();
   }, [selectedProgramId, saveState]);
 
   const selectedProgramHistory = useMemo(() => {
@@ -332,6 +378,7 @@ export function ActiveProgramReviewSection() {
     setReview(latestForProgram?.review ?? selectedProgram.review);
     setSavedAt(null);
     setSaveState("idle");
+    setMeetingSaveState("idle");
   }
 
   function handleArtifacts(event: ChangeEvent<HTMLInputElement>) {
@@ -396,6 +443,49 @@ export function ActiveProgramReviewSection() {
     }
   }
 
+  async function saveMeetingInput() {
+    if (!selectedProgramId || !review.programName.trim()) {
+      setMeetingSaveState("error");
+      return;
+    }
+
+    if (!meetingInputDraft.title.trim() || !meetingInputDraft.summary.trim()) {
+      setMeetingSaveState("error");
+      return;
+    }
+
+    setMeetingSaveState("saving");
+
+    try {
+      const response = await fetch(`/api/programs/${selectedProgramId}/meeting-inputs`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          title: meetingInputDraft.title,
+          sourceType: meetingInputDraft.sourceType,
+          sourceProvider: meetingInputDraft.sourceProvider,
+          capturedAt: meetingInputDraft.capturedAt || new Date().toISOString(),
+          summary: meetingInputDraft.summary,
+          transcriptExcerpt: meetingInputDraft.transcriptExcerpt,
+          extractedSignals: splitLines(meetingInputDraft.extractedSignals),
+          recommendedPlanAdjustments: splitLines(meetingInputDraft.recommendedPlanAdjustments)
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error("meeting-input");
+      }
+
+      const payload = (await response.json()) as { meetingInput: ProgramMeetingInput };
+      setMeetingInputs((current) => [payload.meetingInput, ...current]);
+      setMeetingInputDraft(emptyMeetingInputDraft);
+      setMeetingSaveState("saved");
+      setSavedAt(new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }));
+    } catch {
+      setMeetingSaveState("error");
+    }
+  }
+
   return (
     <section id="active-program-review" className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
       <div className="mb-8 max-w-3xl">
@@ -457,6 +547,129 @@ export function ActiveProgramReviewSection() {
                     />
                   </label>
                 ))}
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-zinc-950/80">
+            <CardHeader className="border-b border-white/10">
+              <CardTitle className="flex items-center gap-2 text-zinc-50">
+                <MessageSquareQuote className="h-4 w-4 text-cyan-200" />
+                Meeting intelligence
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="grid gap-4 p-5">
+              <div className="grid gap-4 md:grid-cols-2">
+                <label className="grid gap-2 md:col-span-2">
+                  <span className="text-xs font-medium uppercase tracking-[0.18em] text-zinc-300">Meeting title</span>
+                  <input
+                    value={meetingInputDraft.title}
+                    onChange={(event) => setMeetingInputDraft((current) => ({ ...current, title: event.target.value }))}
+                    placeholder="SteerCo, sprint review, working session, stakeholder sync"
+                    className="min-h-11 rounded-md border border-white/10 bg-zinc-950 px-3 py-3 text-sm text-zinc-100 outline-none transition-colors placeholder:text-zinc-500 focus:border-cyan-300/50"
+                  />
+                </label>
+                <label className="grid gap-2">
+                  <span className="text-xs font-medium uppercase tracking-[0.18em] text-zinc-300">Input type</span>
+                  <select
+                    value={meetingInputDraft.sourceType}
+                    onChange={(event) =>
+                      setMeetingInputDraft((current) => ({
+                        ...current,
+                        sourceType: event.target.value as ProgramMeetingInput["sourceType"]
+                      }))
+                    }
+                    className="min-h-11 rounded-md border border-white/10 bg-zinc-950 px-3 py-3 text-sm text-zinc-100 outline-none transition-colors focus:border-cyan-300/50"
+                  >
+                    <option value="meeting-notes">Meeting notes</option>
+                    <option value="transcript">Transcript summary</option>
+                    <option value="recording">Recording recap</option>
+                  </select>
+                </label>
+                <label className="grid gap-2">
+                  <span className="text-xs font-medium uppercase tracking-[0.18em] text-zinc-300">Capture source</span>
+                  <select
+                    value={meetingInputDraft.sourceProvider}
+                    onChange={(event) =>
+                      setMeetingInputDraft((current) => ({
+                        ...current,
+                        sourceProvider: event.target.value as ProgramMeetingInput["sourceProvider"]
+                      }))
+                    }
+                    className="min-h-11 rounded-md border border-white/10 bg-zinc-950 px-3 py-3 text-sm text-zinc-100 outline-none transition-colors focus:border-cyan-300/50"
+                  >
+                    <option value="manual">Manual summary</option>
+                    <option value="upload">Uploaded recording / transcript</option>
+                    <option value="linked-series">Linked meeting series</option>
+                  </select>
+                </label>
+                <label className="grid gap-2">
+                  <span className="text-xs font-medium uppercase tracking-[0.18em] text-zinc-300">Captured at</span>
+                  <input
+                    type="datetime-local"
+                    value={meetingInputDraft.capturedAt}
+                    onChange={(event) => setMeetingInputDraft((current) => ({ ...current, capturedAt: event.target.value }))}
+                    className="min-h-11 rounded-md border border-white/10 bg-zinc-950 px-3 py-3 text-sm text-zinc-100 outline-none transition-colors focus:border-cyan-300/50"
+                  />
+                </label>
+                <label className="grid gap-2 md:col-span-2">
+                  <span className="text-xs font-medium uppercase tracking-[0.18em] text-zinc-300">Meeting summary</span>
+                  <textarea
+                    value={meetingInputDraft.summary}
+                    onChange={(event) => setMeetingInputDraft((current) => ({ ...current, summary: event.target.value }))}
+                    rows={4}
+                    placeholder="Summarize the material program signal from this meeting."
+                    className="resize-none rounded-md border border-white/10 bg-zinc-950 px-3 py-3 text-sm leading-6 text-zinc-100 outline-none transition-colors placeholder:text-zinc-500 focus:border-cyan-300/50"
+                  />
+                </label>
+                <label className="grid gap-2 md:col-span-2">
+                  <span className="text-xs font-medium uppercase tracking-[0.18em] text-zinc-300">Transcript excerpt</span>
+                  <textarea
+                    value={meetingInputDraft.transcriptExcerpt}
+                    onChange={(event) => setMeetingInputDraft((current) => ({ ...current, transcriptExcerpt: event.target.value }))}
+                    rows={3}
+                    placeholder="Paste the most useful excerpt if a transcript or recording summary exists."
+                    className="resize-none rounded-md border border-white/10 bg-zinc-950 px-3 py-3 text-sm leading-6 text-zinc-100 outline-none transition-colors placeholder:text-zinc-500 focus:border-cyan-300/50"
+                  />
+                </label>
+                <label className="grid gap-2">
+                  <span className="text-xs font-medium uppercase tracking-[0.18em] text-zinc-300">Signals detected</span>
+                  <textarea
+                    value={meetingInputDraft.extractedSignals}
+                    onChange={(event) =>
+                      setMeetingInputDraft((current) => ({ ...current, extractedSignals: event.target.value }))
+                    }
+                    rows={4}
+                    placeholder="One per line: sponsor concern, dependency risk, decision gap, scope pressure"
+                    className="resize-none rounded-md border border-white/10 bg-zinc-950 px-3 py-3 text-sm leading-6 text-zinc-100 outline-none transition-colors placeholder:text-zinc-500 focus:border-cyan-300/50"
+                  />
+                </label>
+                <label className="grid gap-2">
+                  <span className="text-xs font-medium uppercase tracking-[0.18em] text-zinc-300">Recommended plan adjustments</span>
+                  <textarea
+                    value={meetingInputDraft.recommendedPlanAdjustments}
+                    onChange={(event) =>
+                      setMeetingInputDraft((current) => ({
+                        ...current,
+                        recommendedPlanAdjustments: event.target.value
+                      }))
+                    }
+                    rows={4}
+                    placeholder="One per line: tighten decision gate, escalate API dependency, change checkpoint cadence"
+                    className="resize-none rounded-md border border-white/10 bg-zinc-950 px-3 py-3 text-sm leading-6 text-zinc-100 outline-none transition-colors placeholder:text-zinc-500 focus:border-cyan-300/50"
+                  />
+                </label>
+              </div>
+              <div className="flex flex-wrap items-center gap-3">
+                <Button type="button" onClick={() => void saveMeetingInput()} disabled={meetingSaveState === "saving"}>
+                  <Save className="h-4 w-4" />
+                  {meetingSaveState === "saving" ? "Saving meeting input..." : "Save meeting input"}
+                </Button>
+                <p className={`text-sm ${meetingSaveState === "error" ? "text-amber-200" : "text-zinc-400"}`}>
+                  {meetingSaveState === "saved"
+                    ? "Saved to server and refreshed guided plan."
+                    : "Saving meeting inputs here should refresh the guided plan when the context justifies a change."}
+                </p>
               </div>
             </CardContent>
           </Card>
@@ -680,6 +893,39 @@ export function ActiveProgramReviewSection() {
                 <div className="rounded-md border border-white/10 bg-white/[0.035] p-3">
                   <p className="text-sm leading-6 text-zinc-400">
                     No saved updates yet. Save this review to create the first timestamped program update.
+                  </p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card className="bg-zinc-950/80">
+            <CardHeader className="border-b border-white/10">
+              <CardTitle className="flex items-center gap-2 text-zinc-50">
+                <MessageSquareQuote className="h-4 w-4 text-cyan-200" />
+                Recent meeting inputs
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="grid gap-3 p-5">
+              {meetingInputs.length ? (
+                meetingInputs.slice(0, 3).map((input) => (
+                  <div key={input.id} className="rounded-md border border-white/10 bg-white/[0.035] p-3">
+                    <div className="mb-2 flex items-center justify-between gap-3">
+                      <p className="text-sm font-medium text-zinc-100">{input.title}</p>
+                      <span className="text-xs text-zinc-500">{formatTimestamp(input.capturedAt)}</span>
+                    </div>
+                    <p className="text-sm leading-6 text-zinc-300">{input.summary}</p>
+                    {input.recommendedPlanAdjustments.length ? (
+                      <p className="mt-2 text-xs leading-5 text-cyan-200">
+                        Next adjustment: {input.recommendedPlanAdjustments[0]}
+                      </p>
+                    ) : null}
+                  </div>
+                ))
+              ) : (
+                <div className="rounded-md border border-white/10 bg-white/[0.035] p-3">
+                  <p className="text-sm leading-6 text-zinc-400">
+                    No meeting intelligence is on file yet. Add a meeting summary or transcript signal to let the next guided plan adapt to recurring delivery discussions.
                   </p>
                 </div>
               )}

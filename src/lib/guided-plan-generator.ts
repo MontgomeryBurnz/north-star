@@ -4,6 +4,7 @@ import type { AssistantConversationTurn } from "@/lib/assistant-conversation-typ
 import type { GuidedPlan, GuidedPlanRolePlan } from "@/lib/guided-plan-types";
 import type { LeadershipReviewRecord } from "@/lib/leadership-feedback-types";
 import { buildDeliveryLeadershipSignal } from "@/lib/leadership-signal";
+import type { ProgramMeetingInput } from "@/lib/program-intelligence-types";
 import type { StoredProgram } from "@/lib/program-intake-types";
 
 const defaultTeamRoles = [
@@ -240,11 +241,13 @@ export function generateLocalGuidedPlan(
   program: StoredProgram,
   updates: StoredProgramUpdate[],
   leadershipFeedbacks: LeadershipReviewRecord[] = [],
-  assistantConversations: AssistantConversationTurn[] = []
+  assistantConversations: AssistantConversationTurn[] = [],
+  meetingInputs: ProgramMeetingInput[] = []
 ): GuidedPlan {
   const latestUpdate = updates[0];
   const latestLeadershipFeedback = leadershipFeedbacks[0];
   const latestAssistantConversation = assistantConversations[0];
+  const latestMeetingInput = meetingInputs[0];
   const intake = program.intake;
   const review = latestUpdate?.review;
   const reviewedContext = intake.reviewedContext;
@@ -278,7 +281,8 @@ export function generateLocalGuidedPlan(
     latestLeadershipFeedback ? "latest leadership feedback" : "",
     latestAssistantConversation
       ? sourceLabel(assistantConversations.length, "assistant dialogue turn", "assistant dialogue turns")
-      : ""
+      : "",
+    latestMeetingInput ? sourceLabel(meetingInputs.length, "meeting input") : ""
   ].filter(Boolean);
   const sourceSummary = sourceSummaryParts.length ? sourceSummaryParts.join(", ") : "initial intake only";
   const sourceInputItems = [
@@ -317,7 +321,13 @@ export function generateLocalGuidedPlan(
           `${latestAssistantConversation.prompt} ${latestAssistantConversation.response.answer}`,
           140
         )}`
-      : "No assistant dialogue is on file yet. Use the assistant to capture operator context that should influence the next plan."
+      : "No assistant dialogue is on file yet. Use the assistant to capture operator context that should influence the next plan.",
+    latestMeetingInput
+      ? `Meeting context shaping this plan: ${excerpt(
+          `${latestMeetingInput.title}. ${latestMeetingInput.summary} ${latestMeetingInput.recommendedPlanAdjustments.join(" ")}`,
+          160
+        )}`
+      : "No meeting-derived program input is on file yet. Upload or link meeting context when recurring delivery discussions should influence guidance."
   ];
 
   return {
@@ -373,7 +383,8 @@ export function generateLocalGuidedPlan(
           : []),
         ...(latestAssistantConversation
           ? [`Assistant dialogue signal: ${excerpt(latestAssistantConversation.response.answer, 140)}`]
-          : [])
+          : []),
+        ...(latestMeetingInput ? [`Meeting signal: ${excerpt(latestMeetingInput.summary, 140)}`] : [])
       ]
     },
     workPath: {
@@ -402,6 +413,14 @@ export function generateLocalGuidedPlan(
           ? [
               `Assistant dialogue adjustment: ${excerpt(
                 `${latestAssistantConversation.prompt} ${latestAssistantConversation.response.answer}`,
+                140
+              )}`
+            ]
+          : []),
+        ...(latestMeetingInput
+          ? [
+              `Meeting-derived adjustment: ${excerpt(
+                latestMeetingInput.recommendedPlanAdjustments.join(" ") || latestMeetingInput.summary,
                 140
               )}`
             ]
@@ -491,6 +510,7 @@ export function generateLocalGuidedPlan(
       ...(latestUpdate ? [latestUpdate.id] : []),
       ...(latestLeadershipFeedback ? [latestLeadershipFeedback.id] : []),
       ...(latestAssistantConversation ? [latestAssistantConversation.id] : []),
+      ...(latestMeetingInput ? [latestMeetingInput.id] : []),
       ...artifactSignals.map((artifact) => artifact.id)
     ]
   };

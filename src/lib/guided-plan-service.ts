@@ -4,6 +4,7 @@ import { localGuidedPlanProvider } from "@/lib/guided-plan-local-provider";
 import { openaiGuidedPlanProvider } from "@/lib/guided-plan-openai-provider";
 import type { GuidedPlan } from "@/lib/guided-plan-types";
 import type { LeadershipReviewRecord } from "@/lib/leadership-feedback-types";
+import type { ProgramMeetingInput } from "@/lib/program-intelligence-types";
 import type { StoredProgram } from "@/lib/program-intake-types";
 
 export type GuidedPlanProviderId = "local" | "openai";
@@ -13,6 +14,7 @@ export type GuidedPlanGenerationContext = {
   updates: StoredProgramUpdate[];
   leadershipFeedbacks: LeadershipReviewRecord[];
   assistantConversations: AssistantConversationTurn[];
+  meetingInputs: ProgramMeetingInput[];
 };
 
 export type GuidedPlanProvider = {

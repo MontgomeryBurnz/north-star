@@ -2,11 +2,12 @@
 
 import type { ReactNode } from "react";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ArrowRight, ChevronDown, ChevronUp, FileCheck2, MessageSquareText, Plus, RefreshCw } from "lucide-react";
+import { ArrowRight, ChevronDown, ChevronUp, FileCheck2, Flag, MessageSquareText, Plus, RefreshCw } from "lucide-react";
 import type { StoredProgramUpdate } from "@/lib/active-program-types";
 import type { AssistantConversationTurn } from "@/lib/assistant-conversation-types";
 import type { GuidedPlan, GuidedPlanRolePlans, GuidedPlanSection } from "@/lib/guided-plan-types";
 import type { DeliveryLeadershipSignal } from "@/lib/leadership-feedback-types";
+import type { GuidanceFeedbackFlag, GuidanceJustificationRecord } from "@/lib/program-intelligence-types";
 import type { StoredProgram } from "@/lib/program-intake-types";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -288,12 +289,18 @@ export function GuidedPlansConsole() {
   const [assistantConversations, setAssistantConversations] = useState<AssistantConversationTurn[]>([]);
   const [showAssistantHistory, setShowAssistantHistory] = useState(false);
   const [leadershipSignal, setLeadershipSignal] = useState<DeliveryLeadershipSignal | null>(null);
+  const [justifications, setJustifications] = useState<GuidanceJustificationRecord[]>([]);
+  const [guidanceFlags, setGuidanceFlags] = useState<GuidanceFeedbackFlag[]>([]);
   const [status, setStatus] = useState<string | null>(null);
   const [lastSyncedAt, setLastSyncedAt] = useState<string | null>(null);
   const [newRole, setNewRole] = useState("");
   const [isSavingRole, setIsSavingRole] = useState(false);
   const [selectedRoleFocus, setSelectedRoleFocus] = useState(allRolesOption);
   const [expandedRoleKeys, setExpandedRoleKeys] = useState<Set<string>>(new Set());
+  const [flagTarget, setFlagTarget] = useState<{ justificationId: string; citationId?: string; scope: "partial" | "whole" } | null>(null);
+  const [flagReason, setFlagReason] = useState("");
+  const [flagContext, setFlagContext] = useState("");
+  const [isSubmittingFlag, setIsSubmittingFlag] = useState(false);
 
   const selectedProgram = useMemo(
     () => programs.find((program) => program.id === selectedProgramId),
@@ -371,19 +378,23 @@ export function GuidedPlansConsole() {
         setAssistantConversations([]);
         setShowAssistantHistory(false);
         setLeadershipSignal(null);
+        setJustifications([]);
+        setGuidanceFlags([]);
         setLastSyncedAt(null);
         return;
       }
 
       try {
-        const [planResponse, updatesResponse, leadershipSignalResponse, assistantConversationsResponse] = await Promise.all([
+        const [planResponse, updatesResponse, leadershipSignalResponse, assistantConversationsResponse, justificationsResponse, flagsResponse] = await Promise.all([
           fetch(`/api/programs/${selectedProgramId}/guided-plan`, { cache: "no-store" }),
           fetch(`/api/programs/${selectedProgramId}/updates`, { cache: "no-store" }),
           fetch(`/api/programs/${selectedProgramId}/leadership-signal`, { cache: "no-store" }),
-          fetch(`/api/programs/${selectedProgramId}/assistant-conversations`, { cache: "no-store" })
+          fetch(`/api/programs/${selectedProgramId}/assistant-conversations`, { cache: "no-store" }),
+          fetch(`/api/programs/${selectedProgramId}/guidance-justifications`, { cache: "no-store" }),
+          fetch(`/api/programs/${selectedProgramId}/guidance-feedback-flags`, { cache: "no-store" })
         ]);
 
-        if (!planResponse.ok || !updatesResponse.ok || !assistantConversationsResponse.ok) {
+        if (!planResponse.ok || !updatesResponse.ok || !assistantConversationsResponse.ok || !justificationsResponse.ok || !flagsResponse.ok) {
           throw new Error("Could not load guided plan.");
         }
 
@@ -391,6 +402,12 @@ export function GuidedPlansConsole() {
         const updatesPayload = (await updatesResponse.json()) as { updates: StoredProgramUpdate[] };
         const assistantConversationsPayload = (await assistantConversationsResponse.json()) as {
           conversations: AssistantConversationTurn[];
+        };
+        const justificationsPayload = (await justificationsResponse.json()) as {
+          justifications: GuidanceJustificationRecord[];
+        };
+        const flagsPayload = (await flagsResponse.json()) as {
+          flags: GuidanceFeedbackFlag[];
         };
         const leadershipSignalPayload = leadershipSignalResponse.ok
           ? ((await leadershipSignalResponse.json()) as { signal: DeliveryLeadershipSignal })
@@ -400,6 +417,8 @@ export function GuidedPlansConsole() {
         setUpdates(updatesPayload.updates);
         setAssistantConversations(assistantConversationsPayload.conversations);
         setLeadershipSignal(leadershipSignalPayload.signal);
+        setJustifications(justificationsPayload.justifications);
+        setGuidanceFlags(flagsPayload.flags);
         setLastSyncedAt(new Date().toISOString());
         setStatus(
           planPayload.plan
@@ -460,6 +479,12 @@ export function GuidedPlansConsole() {
 
     window.localStorage.setItem(roleFocusStorageKey, selectedRoleFocus);
   }, [roleFocusStorageKey, selectedRoleFocus]);
+
+  useEffect(() => {
+    setFlagTarget(null);
+    setFlagReason("");
+    setFlagContext("");
+  }, [selectedProgramId, plan?.id]);
 
   const handleRoleFocusChange = useCallback((nextRole: string) => {
     setSelectedRoleFocus(nextRole);
@@ -536,6 +561,57 @@ export function GuidedPlansConsole() {
       setIsSavingRole(false);
     }
   }, [loadPlan, loadPrograms, newRole, selectedProgram, teamRoles]);
+
+  const latestJustification = useMemo(() => {
+    if (!plan) return null;
+    return justifications.find((record) => record.guidedPlanId === plan.id) ?? justifications[0] ?? null;
+  }, [justifications, plan]);
+
+  const pendingFlagCount = useMemo(
+    () =>
+      guidanceFlags.filter(
+        (flag) => flag.status === "pending" && (!latestJustification || flag.guidanceJustificationId === latestJustification.id)
+      ).length,
+    [guidanceFlags, latestJustification]
+  );
+
+  const submitFlag = useCallback(async () => {
+    if (!selectedProgramId || !flagTarget || !flagReason.trim() || !flagContext.trim()) {
+      setStatus("Add both a reason and your context before flagging the rationale.");
+      return;
+    }
+
+    setIsSubmittingFlag(true);
+    setStatus("Submitting flagged guidance for governance review...");
+
+    try {
+      const response = await fetch(`/api/programs/${selectedProgramId}/guidance-feedback-flags`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          guidanceJustificationId: flagTarget.justificationId,
+          citationId: flagTarget.citationId,
+          scope: flagTarget.scope,
+          userReason: flagReason,
+          userContext: flagContext
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error("flag");
+      }
+
+      await loadPlan({ silent: true });
+      setFlagTarget(null);
+      setFlagReason("");
+      setFlagContext("");
+      setStatus("Guidance flag submitted. Leadership can now review it in Governance.");
+    } catch {
+      setStatus("Could not submit the guidance flag.");
+    } finally {
+      setIsSubmittingFlag(false);
+    }
+  }, [flagContext, flagReason, flagTarget, loadPlan, selectedProgramId]);
 
   const planSections = plan
     ? [
@@ -777,6 +853,127 @@ export function GuidedPlansConsole() {
               </Card>
 
               <div className="grid gap-4 lg:grid-cols-2">
+                {latestJustification ? (
+                  <Card className="bg-zinc-950/80 lg:col-span-2">
+                    <CardHeader className="border-b border-white/10">
+                      <div className="flex flex-wrap items-start justify-between gap-3">
+                        <div>
+                          <CardTitle className="text-zinc-50">Why This Changed</CardTitle>
+                          <p className="mt-2 text-sm leading-6 text-zinc-400">{latestJustification.summary}</p>
+                        </div>
+                        <span className="rounded-md border border-white/10 bg-white/[0.035] px-3 py-1 text-xs text-zinc-400">
+                          {pendingFlagCount ? `${pendingFlagCount} pending flag${pendingFlagCount === 1 ? "" : "s"}` : "No pending flags"}
+                        </span>
+                      </div>
+                    </CardHeader>
+                    <CardContent className="grid gap-4 p-5">
+                      <div className="grid gap-3">
+                        {latestJustification.citations.map((citation) => {
+                          const isFlagTarget =
+                            flagTarget?.justificationId === latestJustification.id && flagTarget.citationId === citation.sourceId;
+
+                          return (
+                            <div key={`${citation.sourceId}-${citation.label}`} className="rounded-md border border-white/10 bg-white/[0.035] p-4">
+                              <div className="flex flex-wrap items-start justify-between gap-3">
+                                <div>
+                                  <p className="text-xs font-medium uppercase tracking-[0.16em] text-cyan-200">{citation.label}</p>
+                                  <p className="mt-2 text-sm leading-6 text-zinc-300">{citation.rationale}</p>
+                                </div>
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="sm"
+                                  className="text-zinc-300 hover:text-zinc-50"
+                                  onClick={() => {
+                                    setFlagTarget({ justificationId: latestJustification.id, citationId: citation.sourceId, scope: "partial" });
+                                    setFlagReason("");
+                                    setFlagContext("");
+                                  }}
+                                >
+                                  <Flag className="h-4 w-4" />
+                                  Flag
+                                </Button>
+                              </div>
+                              {isFlagTarget ? (
+                                <div className="mt-4 grid gap-3 rounded-md border border-amber-300/20 bg-amber-300/[0.055] p-3">
+                                  <input
+                                    value={flagReason}
+                                    onChange={(event) => setFlagReason(event.target.value)}
+                                    placeholder="Why is this citation inaccurate or incomplete?"
+                                    className="min-h-11 rounded-md border border-white/10 bg-zinc-950 px-3 py-3 text-sm text-zinc-100 outline-none transition-colors placeholder:text-zinc-500 focus:border-amber-300/50"
+                                  />
+                                  <textarea
+                                    value={flagContext}
+                                    onChange={(event) => setFlagContext(event.target.value)}
+                                    rows={4}
+                                    placeholder="Add the operator context leadership should use to review this challenge."
+                                    className="resize-none rounded-md border border-white/10 bg-zinc-950 px-3 py-3 text-sm leading-6 text-zinc-100 outline-none transition-colors placeholder:text-zinc-500 focus:border-amber-300/50"
+                                  />
+                                  <div className="flex gap-3">
+                                    <Button type="button" onClick={() => void submitFlag()} disabled={isSubmittingFlag}>
+                                      {isSubmittingFlag ? "Submitting..." : "Submit flag"}
+                                    </Button>
+                                    <Button type="button" variant="outline" onClick={() => setFlagTarget(null)}>
+                                      Cancel
+                                    </Button>
+                                  </div>
+                                </div>
+                              ) : null}
+                            </div>
+                          );
+                        })}
+                      </div>
+
+                      <div className="rounded-md border border-white/10 bg-black/20 p-4">
+                        <div className="flex flex-wrap items-center justify-between gap-3">
+                          <div>
+                            <p className="text-sm font-medium text-zinc-100">Dispute the whole rationale</p>
+                            <p className="mt-1 text-xs leading-5 text-zinc-400">
+                              Use this when the full explanation is misframed, not just one citation.
+                            </p>
+                          </div>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => {
+                              setFlagTarget({ justificationId: latestJustification.id, scope: "whole" });
+                              setFlagReason("");
+                              setFlagContext("");
+                            }}
+                          >
+                            <Flag className="h-4 w-4" />
+                            Flag rationale
+                          </Button>
+                        </div>
+                        {flagTarget?.justificationId === latestJustification.id && flagTarget.scope === "whole" && !flagTarget.citationId ? (
+                          <div className="mt-4 grid gap-3">
+                            <input
+                              value={flagReason}
+                              onChange={(event) => setFlagReason(event.target.value)}
+                              placeholder="Why is the overall rationale inaccurate?"
+                              className="min-h-11 rounded-md border border-white/10 bg-zinc-950 px-3 py-3 text-sm text-zinc-100 outline-none transition-colors placeholder:text-zinc-500 focus:border-amber-300/50"
+                            />
+                            <textarea
+                              value={flagContext}
+                              onChange={(event) => setFlagContext(event.target.value)}
+                              rows={4}
+                              placeholder="Add the broader program context or correction that should govern this plan."
+                              className="resize-none rounded-md border border-white/10 bg-zinc-950 px-3 py-3 text-sm leading-6 text-zinc-100 outline-none transition-colors placeholder:text-zinc-500 focus:border-amber-300/50"
+                            />
+                            <div className="flex gap-3">
+                              <Button type="button" onClick={() => void submitFlag()} disabled={isSubmittingFlag}>
+                                {isSubmittingFlag ? "Submitting..." : "Submit flag"}
+                              </Button>
+                              <Button type="button" variant="outline" onClick={() => setFlagTarget(null)}>
+                                Cancel
+                              </Button>
+                            </div>
+                          </div>
+                        ) : null}
+                      </div>
+                    </CardContent>
+                  </Card>
+                ) : null}
                 <Card className="bg-zinc-950/80 lg:col-span-2">
                   <CardHeader className="border-b border-white/10">
                     <CardTitle className="text-zinc-50">Gantt Summary</CardTitle>
