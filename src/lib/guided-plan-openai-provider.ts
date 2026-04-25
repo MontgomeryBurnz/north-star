@@ -7,6 +7,7 @@ type OpenAIGuidedPlanPayload = {
   northStar: string;
   summary: string;
   sourceInputs: GuidedPlanSection;
+  assistantDialogue: GuidedPlanSection;
   signalFromNoise: GuidedPlanSection;
   workPath: GuidedPlanSection;
   planningApproach: GuidedPlanSection;
@@ -153,6 +154,7 @@ function toPromptContext(context: GuidedPlanGenerationContext, baselinePlan: Gui
         northStar: baselinePlan.northStar,
         summary: baselinePlan.summary,
         sourceInputs: baselinePlan.sourceInputs,
+        assistantDialogue: baselinePlan.assistantDialogue,
         signalFromNoise: baselinePlan.signalFromNoise,
         workPath: baselinePlan.workPath,
         planningApproach: baselinePlan.planningApproach,
@@ -178,6 +180,7 @@ function mergeWithBaseline(payload: OpenAIGuidedPlanPayload, baselinePlan: Guide
     northStar: typeof payload.northStar === "string" && payload.northStar.trim() ? payload.northStar.trim() : baselinePlan.northStar,
     summary: typeof payload.summary === "string" && payload.summary.trim() ? payload.summary.trim() : baselinePlan.summary,
     sourceInputs: sanitizeSection(payload.sourceInputs, baselinePlan.sourceInputs),
+    assistantDialogue: sanitizeSection(payload.assistantDialogue, baselinePlan.assistantDialogue),
     signalFromNoise: sanitizeSection(payload.signalFromNoise, baselinePlan.signalFromNoise),
     workPath: sanitizeSection(payload.workPath, baselinePlan.workPath),
     planningApproach: sanitizeSection(payload.planningApproach, baselinePlan.planningApproach),
@@ -234,6 +237,15 @@ export const openaiGuidedPlanProvider: GuidedPlanProvider = {
                 northStar: { type: "string" },
                 summary: { type: "string" },
                 sourceInputs: {
+                  type: "object",
+                  additionalProperties: false,
+                  properties: {
+                    title: { type: "string" },
+                    items: { type: "array", items: { type: "string" } }
+                  },
+                  required: ["title", "items"]
+                },
+                assistantDialogue: {
                   type: "object",
                   additionalProperties: false,
                   properties: {
@@ -346,6 +358,7 @@ export const openaiGuidedPlanProvider: GuidedPlanProvider = {
                 "northStar",
                 "summary",
                 "sourceInputs",
+                "assistantDialogue",
                 "signalFromNoise",
                 "workPath",
                 "planningApproach",

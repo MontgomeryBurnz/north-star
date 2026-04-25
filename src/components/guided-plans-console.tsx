@@ -346,6 +346,14 @@ export function GuidedPlansConsole() {
             "No fresh source-input summary is available in this saved version."
           ]
         ),
+        normalizePlanSection(
+          plan.assistantDialogue,
+          "Assistant Dialogue Shaping This Plan",
+          [
+            "No assistant dialogue is visible in this saved version.",
+            "Use the assistant to capture operator context that should influence the next guided-plan refresh."
+          ]
+        ),
         normalizePlanSection(plan.signalFromNoise, "Signal From Noise", ["No current signal summary is available."]),
         normalizePlanSection(plan.workPath, "Recommended Work Path", ["Generate a guided plan to create the next work path."]),
         normalizePlanSection(plan.planningApproach, "Planning Approach", ["No planning approach has been captured yet."]),

@@ -32,6 +32,7 @@ export type GuidedPlan = {
   northStar: string;
   summary: string;
   sourceInputs: GuidedPlanSection;
+  assistantDialogue: GuidedPlanSection;
   signalFromNoise: GuidedPlanSection;
   workPath: GuidedPlanSection;
   planningApproach: GuidedPlanSection;

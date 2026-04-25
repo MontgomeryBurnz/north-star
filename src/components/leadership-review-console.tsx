@@ -95,6 +95,13 @@ const seededLeadershipPlan: GuidedPlan = {
       "Leadership feedback shaping this plan: Reduce noise in the narrative, make decision ownership explicit, and keep the next outputs highly visible."
     ]
   },
+  assistantDialogue: {
+    title: "Assistant Dialogue Shaping This Plan",
+    items: [
+      "No assistant dialogue is on file in the seeded leadership scenario.",
+      "Use the assistant to capture delivery-lead context that should influence the next plan refresh."
+    ]
+  },
   signalFromNoise: {
     title: "Signal From Noise",
     items: [

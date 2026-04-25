@@ -302,6 +302,22 @@ export function generateLocalGuidedPlan(
       title: "Fresh Inputs Driving This Plan",
       items: sourceInputItems
     },
+    assistantDialogue: {
+      title: "Assistant Dialogue Shaping This Plan",
+      items: latestAssistantConversation
+        ? [
+            `Latest operator prompt: ${excerpt(latestAssistantConversation.prompt, 140)}`,
+            `Latest assistant response influencing this plan: ${excerpt(latestAssistantConversation.response.answer, 140)}`,
+            `Dialogue history on file: ${sourceLabel(
+              assistantConversations.length,
+              "turn"
+            )}. The assistant dialogue is treated as a grounded planning input for this program.`
+          ]
+        : [
+            "No assistant dialogue is on file yet for this program.",
+            "Use the assistant to capture delivery-lead context, open questions, or operator judgment that should influence the next plan refresh."
+          ]
+    },
     signalFromNoise: {
       title: "Signal From Noise",
       items: [
