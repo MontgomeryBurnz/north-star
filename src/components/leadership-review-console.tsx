@@ -8,8 +8,7 @@ import {
   MessageSquareQuote,
   Milestone,
   RefreshCw,
-  ShieldAlert,
-  Sparkles
+  ShieldAlert
 } from "lucide-react";
 import type { StoredProgramUpdate } from "@/lib/active-program-types";
 import type { GuidedPlan } from "@/lib/guided-plan-types";
@@ -682,27 +681,6 @@ export function LeadershipReviewConsole() {
                   <Button type="submit" size="lg" disabled={!selectedProgramId || saveState === "saving"}>
                     <MessageSquareQuote className="h-4 w-4" />
                     {saveState === "saving" ? "Saving..." : "Save leadership review"}
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="lg"
-                    disabled={!selectedProgramId || saveState === "saving"}
-                    onClick={async () => {
-                      if (!selectedProgramId) return;
-                      setStatus("Regenerating guided plan with leadership signal...");
-                      const response = await fetch(`/api/programs/${selectedProgramId}/guided-plan`, { method: "POST" });
-                      if (response.ok) {
-                        const payload = (await response.json()) as { plan: GuidedPlan };
-                        setPlan(payload.plan);
-                        setStatus("Guided plan regenerated with leadership signal included.");
-                      } else {
-                        setStatus("Could not regenerate guided plan.");
-                      }
-                    }}
-                  >
-                    <Sparkles className="h-4 w-4" />
-                    Regenerate guidance
                   </Button>
                 </div>
               </form>
