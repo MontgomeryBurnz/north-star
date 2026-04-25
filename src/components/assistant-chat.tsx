@@ -1,7 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
-import { Bot, Gauge, Send, Sparkles, UserRound } from "lucide-react";
+import { Bot, ChevronDown, ChevronUp, Gauge, Send, Sparkles, UserRound } from "lucide-react";
 import { getAssistantApiResponse } from "@/lib/assistant-client";
 import type {
   AssistantMessageInput,
@@ -99,6 +99,7 @@ export function AssistantChat() {
   const [input, setInput] = useState("");
   const [isThinking, setIsThinking] = useState(false);
   const [assistantBriefing, setAssistantBriefing] = useState<AssistantBriefing | null>(null);
+  const [showReasoningDetail, setShowReasoningDetail] = useState(false);
 
   const selectedProgram = useMemo(
     () => programs.find((program) => program.id === selectedProgramId) ?? null,
@@ -112,7 +113,6 @@ export function AssistantChat() {
     () => assistantBriefing?.promptQueue?.length ? assistantBriefing.promptQueue : buildSuggestedPrompts(selectedProgram?.intake.programName),
     [assistantBriefing?.promptQueue, selectedProgram?.intake.programName]
   );
-  const latestAssistantMessage = turns.length ? turns[turns.length - 1]?.assistant : undefined;
   const activeModelName = assistantBriefing?.model ?? "gpt-5.5";
   const understandingScore = assistantBriefing?.understandingScore ?? 0;
   const understandingLabel =
@@ -140,7 +140,7 @@ export function AssistantChat() {
   useEffect(() => {
     let ignore = false;
 
-    async function loadAssistantConversations() {
+    async function loadAssistantConversations(silent = false) {
       if (!selectedProgramId) {
         setTurns([]);
         setAssistantBriefing(null);
@@ -157,12 +157,35 @@ export function AssistantChat() {
       if (ignore) return;
       setTurns(payload.conversations.reverse().map(conversationToTurn));
       setAssistantBriefing(briefingPayload.briefing);
+      if (!silent) {
+        setShowReasoningDetail(false);
+      }
     }
 
     void loadAssistantConversations();
 
+    function refreshWhenVisible() {
+      if (document.visibilityState === "visible") {
+        void loadAssistantConversations(true);
+      }
+    }
+
+    function refreshOnFocus() {
+      void loadAssistantConversations(true);
+    }
+
+    const interval = window.setInterval(() => {
+      void loadAssistantConversations(true);
+    }, 15000);
+
+    document.addEventListener("visibilitychange", refreshWhenVisible);
+    window.addEventListener("focus", refreshOnFocus);
+
     return () => {
       ignore = true;
+      window.clearInterval(interval);
+      document.removeEventListener("visibilitychange", refreshWhenVisible);
+      window.removeEventListener("focus", refreshOnFocus);
     };
   }, [selectedProgramId]);
 
@@ -333,10 +356,17 @@ export function AssistantChat() {
               </div>
             </div>
             <div className="grid gap-2 rounded-md border border-white/10 bg-white/[0.035] p-3">
-              <div className="flex items-center justify-between gap-3">
+              <button
+                type="button"
+                onClick={() => setShowReasoningDetail((open) => !open)}
+                className="flex items-center justify-between gap-3 text-left"
+              >
                 <span className="text-zinc-400">Reasoning</span>
-                <span className="text-zinc-100">{understandingScore}%</span>
-              </div>
+                <span className="flex items-center gap-2 text-zinc-100">
+                  {understandingScore}%
+                  {showReasoningDetail ? <ChevronUp className="h-4 w-4 text-zinc-500" /> : <ChevronDown className="h-4 w-4 text-zinc-500" />}
+                </span>
+              </button>
               <div className="h-2 rounded-full bg-zinc-900">
                 <div
                   className={`h-full rounded-full ${
@@ -348,6 +378,20 @@ export function AssistantChat() {
               <p className="text-xs leading-5 text-zinc-400">
                 {understandingLabel}. {assistantBriefing?.understandingSummary ?? "More program context improves guidance quality."}
               </p>
+              {showReasoningDetail ? (
+                <div className="grid gap-2 rounded-md border border-white/10 bg-black/20 p-3">
+                  <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-zinc-500">
+                    Inputs that would raise guidance quality
+                  </p>
+                  {(assistantBriefing?.missingInputs?.length ? assistantBriefing.missingInputs : ["The current program has strong enough context across the major input sources."]).map(
+                    (item) => (
+                      <p key={item} className="text-xs leading-5 text-zinc-300">
+                        {item}
+                      </p>
+                    )
+                  )}
+                </div>
+              ) : null}
             </div>
             <div className="flex items-center justify-between rounded-md border border-white/10 bg-white/[0.035] p-3">
               <span className="text-zinc-400">Selected program</span>
