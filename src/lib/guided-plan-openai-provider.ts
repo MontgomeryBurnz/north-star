@@ -115,7 +115,7 @@ function sanitizeRolePlans(
     return fallback;
   }
 
-  const roles = rolePlans.roles
+  const generatedRoles = rolePlans.roles
     .map((role) => {
       if (!role || typeof role !== "object" || typeof role.role !== "string") return null;
       return {
@@ -128,12 +128,19 @@ function sanitizeRolePlans(
     })
     .filter((role): role is GuidedPlanRolePlan => Boolean(role && role.actionPlan.length && role.keyFocusAreas.length));
 
-  return roles.length
-    ? {
-        title: typeof rolePlans.title === "string" && rolePlans.title.trim() ? rolePlans.title.trim() : fallback.title,
-        roles
-      }
-    : fallback;
+  if (!generatedRoles.length) {
+    return fallback;
+  }
+
+  const generatedByRole = new Map(generatedRoles.map((role) => [role.role.toLowerCase(), role]));
+  const fallbackRoleKeys = new Set(fallback.roles.map((role) => role.role.toLowerCase()));
+  const mergedRoles = fallback.roles.map((role) => generatedByRole.get(role.role.toLowerCase()) ?? role);
+  const extraGeneratedRoles = generatedRoles.filter((role) => !fallbackRoleKeys.has(role.role.toLowerCase()));
+
+  return {
+    title: typeof rolePlans.title === "string" && rolePlans.title.trim() ? rolePlans.title.trim() : fallback.title,
+    roles: [...mergedRoles, ...extraGeneratedRoles]
+  };
 }
 
 function toPromptContext(context: GuidedPlanGenerationContext, baselinePlan: GuidedPlan) {
@@ -387,6 +394,7 @@ export const openaiGuidedPlanProvider: GuidedPlanProvider = {
                   "When a leadership feedback interpretation is present, treat it as the delivery-safe translation of leadership intent and use it to refine the plan.",
                   "Translate leadership input into delivery-safe guidance, concrete plan changes, and role-level action.",
                   "Position the actual stored team roles for success where grounded context supports it. Use the program's current team-role list when present, including any custom roles added by the operator.",
+                  "Every stored team role must appear in rolePlans.roles exactly once. Do not drop custom roles just because they were added later.",
                   "Prefer concrete actions, outcomes, risks, mitigations, dependencies, and outputs."
                 ].join(" ")
               }
