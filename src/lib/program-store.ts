@@ -1,5 +1,6 @@
 import "server-only";
 import type { ActiveProgramReview } from "@/lib/active-program-types";
+import type { AssistantServiceResponse } from "@/lib/assistant-types";
 import type { LeadershipReviewInput } from "@/lib/leadership-feedback-types";
 import type { ProgramIntake } from "@/lib/program-intake-types";
 import { getProgramRepository } from "@/lib/program-repository";
@@ -22,6 +23,14 @@ export async function listProgramUpdates(programId: string) {
 
 export async function createProgramUpdate(programId: string, review: ActiveProgramReview) {
   return getProgramRepository().createProgramUpdate(programId, review);
+}
+
+export async function listAssistantConversations(programId: string) {
+  return getProgramRepository().listAssistantConversations(programId);
+}
+
+export async function createAssistantConversation(programId: string, prompt: string, response: AssistantServiceResponse) {
+  return getProgramRepository().createAssistantConversation(programId, prompt, response);
 }
 
 export async function getLatestGuidedPlan(programId: string) {

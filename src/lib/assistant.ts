@@ -1,7 +1,7 @@
 import "server-only";
 
 import { aiProducts, assistantFaqs, contentRegistry, experiments, frameworks, initiatives, profile } from "@/data";
-import { getLatestGuidedPlan, listLeadershipFeedback, listPrograms, listProgramUpdates } from "@/lib/program-store";
+import { getLatestGuidedPlan, listAssistantConversations, listLeadershipFeedback, listPrograms, listProgramUpdates } from "@/lib/program-store";
 import type {
   AssistantContentType,
   AssistantDebug,
@@ -121,6 +121,7 @@ async function buildProgramRecords(selectedProgramId?: string): Promise<Retrieva
     scopedPrograms.map(async (program) => {
       const latestUpdate = (await listProgramUpdates(program.id))[0];
       const latestPlan = await getLatestGuidedPlan(program.id);
+      const assistantConversations = await listAssistantConversations(program.id);
       const latestLeadershipFeedback = (await listLeadershipFeedback(program.id))[0];
 
       const title = program.intake.programName;
@@ -137,6 +138,10 @@ async function buildProgramRecords(selectedProgramId?: string): Promise<Retrieva
       const reviewedContext = program.intake.reviewedContext
         ? `${program.intake.reviewedContext.outcomes} ${program.intake.reviewedContext.stakeholders} ${program.intake.reviewedContext.risks} ${program.intake.reviewedContext.requirements} ${program.intake.reviewedContext.outputs}`
         : "";
+      const assistantConversationText = assistantConversations
+        .slice(0, 6)
+        .map((turn) => `${turn.prompt} ${turn.response.answer}`)
+        .join(" ");
 
       return {
         id: program.id,
@@ -157,6 +162,7 @@ async function buildProgramRecords(selectedProgramId?: string): Promise<Retrieva
           reviewedContext,
           updateText,
           planText,
+          assistantConversationText,
           leadershipText
         ]
           .filter(Boolean)
@@ -176,7 +182,12 @@ async function buildProgramRecords(selectedProgramId?: string): Promise<Retrieva
             latestUpdate?.review.progressSinceLastReview || program.intake.currentStatus || "No current program update captured yet."
           }`,
           `Risk posture: ${latestUpdate?.review.activeRisks || program.intake.risks || "No active risk captured yet."}`,
-          `Latest plan: ${latestPlan?.summary || "No guided plan has been generated yet."}`
+          `Latest plan: ${latestPlan?.summary || "No guided plan has been generated yet."}`,
+          `Assistant dialogue: ${
+            assistantConversations[0]?.prompt
+              ? excerpt(`${assistantConversations[0].prompt} ${assistantConversations[0].response.answer}`, 120)
+              : "No assistant dialogue captured yet."
+          }`
         ],
         href: "/active-program",
         status: latestUpdate?.review.currentPhase || program.intake.currentStatus || "Saved"

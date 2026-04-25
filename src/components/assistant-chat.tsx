@@ -5,12 +5,14 @@ import { Bot, Braces, Gauge, Send, Sparkles, UserRound } from "lucide-react";
 import { getAssistantApiResponse } from "@/lib/assistant-client";
 import type {
   AssistantDebug,
+  AssistantMessageInput,
   AssistantProviderId,
   AssistantRelatedItem,
   AssistantResponse,
   AssistantSection,
   MatchedContent
 } from "@/lib/assistant-types";
+import type { AssistantConversationTurn } from "@/lib/assistant-conversation-types";
 import type { StoredProgram } from "@/lib/program-intake-types";
 import { StatusBadge } from "@/components/status-badge";
 import { Button } from "@/components/ui/button";
@@ -81,6 +83,18 @@ function responseToMessage(response: AssistantResponse & { provider?: AssistantP
   };
 }
 
+function conversationToTurn(conversation: AssistantConversationTurn): ConversationTurn {
+  return {
+    id: conversation.id,
+    user: {
+      id: `${conversation.id}-user`,
+      role: "user",
+      content: conversation.prompt
+    },
+    assistant: responseToMessage(conversation.response)
+  };
+}
+
 export function AssistantChat() {
   const [programs, setPrograms] = useState<StoredProgram[]>([]);
   const [selectedProgramId, setSelectedProgramId] = useState("");
@@ -120,6 +134,30 @@ export function AssistantChat() {
     };
   }, []);
 
+  useEffect(() => {
+    let ignore = false;
+
+    async function loadAssistantConversations() {
+      if (!selectedProgramId) {
+        setTurns([]);
+        return;
+      }
+
+      const response = await fetch(`/api/programs/${selectedProgramId}/assistant-conversations`, { cache: "no-store" });
+      if (!response.ok) return;
+      const payload = (await response.json()) as { conversations: AssistantConversationTurn[] };
+      if (ignore) return;
+      setTurns(payload.conversations.reverse().map(conversationToTurn));
+      setLastRelatedPrompts([]);
+    }
+
+    void loadAssistantConversations();
+
+    return () => {
+      ignore = true;
+    };
+  }, [selectedProgramId]);
+
   async function submitPrompt(prompt: string) {
     const trimmedPrompt = prompt.trim();
     if (!trimmedPrompt || isThinking || !selectedProgramId) return;
@@ -135,8 +173,17 @@ export function AssistantChat() {
     setIsThinking(true);
     setTurns((current) => [...current, { id: turnId, user: userMessage }]);
 
+    const history: AssistantMessageInput[] = turns.flatMap((turn) =>
+      turn.assistant
+        ? [
+            { role: "user" as const, content: turn.user.content },
+            { role: "assistant" as const, content: turn.assistant.content }
+          ]
+        : [{ role: "user" as const, content: turn.user.content }]
+    );
+
     await new Promise((resolve) => window.setTimeout(resolve, 360));
-    const response = await getAssistantApiResponse(trimmedPrompt, undefined, selectedProgramId);
+    const response = await getAssistantApiResponse(trimmedPrompt, undefined, selectedProgramId, history);
     const assistantMessage = responseToMessage(response);
 
     setLastRelatedPrompts(response.relatedPrompts);

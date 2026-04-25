@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getAssistantServiceResponse } from "@/lib/assistant-service";
 import type { AssistantRequest } from "@/lib/assistant-types";
+import { createAssistantConversation } from "@/lib/program-store";
 import { createSiteAccessDeniedResponse, isSiteAccessRequestAuthorized } from "@/lib/site-access";
 
 export async function POST(request: Request) {
@@ -24,6 +25,10 @@ export async function POST(request: Request) {
     provider,
     includeDebug: body.includeDebug
   });
+
+  if (selectedProgramId) {
+    await createAssistantConversation(selectedProgramId, prompt, response);
+  }
 
   return NextResponse.json(response);
 }

@@ -4,6 +4,8 @@ import { mkdir, readFile, writeFile } from "fs/promises";
 import path from "path";
 import { Pool } from "pg";
 import type { ActiveProgramReview, StoredProgramUpdate } from "@/lib/active-program-types";
+import type { AssistantConversationTurn } from "@/lib/assistant-conversation-types";
+import type { AssistantServiceResponse } from "@/lib/assistant-types";
 import { generateGuidedPlan } from "@/lib/guided-plan-service";
 import type { GuidedPlan } from "@/lib/guided-plan-types";
 import { enhanceLeadershipFeedback } from "@/lib/leadership-feedback-service";
@@ -17,6 +19,8 @@ type ProgramRepository = {
   upsertProgram(intake: ProgramIntake): Promise<StoredProgram>;
   listProgramUpdates(programId: string): Promise<StoredProgramUpdate[]>;
   createProgramUpdate(programId: string, review: ActiveProgramReview): Promise<StoredProgramUpdate>;
+  listAssistantConversations(programId: string): Promise<AssistantConversationTurn[]>;
+  createAssistantConversation(programId: string, prompt: string, response: AssistantServiceResponse): Promise<AssistantConversationTurn>;
   getLatestGuidedPlan(programId: string): Promise<GuidedPlan | null>;
   createGuidedPlan(programId: string): Promise<GuidedPlan | null>;
   listLeadershipFeedback(programId: string): Promise<LeadershipReviewRecord[]>;
@@ -26,6 +30,7 @@ type ProgramRepository = {
 type ProgramStoreFile = {
   programs: StoredProgram[];
   updates: StoredProgramUpdate[];
+  assistantConversations: AssistantConversationTurn[];
   guidedPlans: GuidedPlan[];
   leadershipFeedbacks: LeadershipReviewRecord[];
 };
@@ -33,6 +38,7 @@ type ProgramStoreFile = {
 const emptyFileStore: ProgramStoreFile = {
   programs: [],
   updates: [],
+  assistantConversations: [],
   guidedPlans: [],
   leadershipFeedbacks: []
 };
@@ -180,6 +186,29 @@ const fileRepository: ProgramRepository = {
     await writeFileStore(store);
     return update;
   },
+  async listAssistantConversations(programId) {
+    const store = await readFileStore();
+    return sortByUpdatedDesc(store.assistantConversations.filter((conversation) => conversation.programId === programId));
+  },
+  async createAssistantConversation(programId, prompt, response) {
+    const store = await readFileStore();
+    const now = new Date().toISOString();
+    const program = store.programs.find((item) => item.id === programId);
+    const record: AssistantConversationTurn = {
+      id: randomUUID(),
+      programId,
+      programName: program?.intake.programName || "Untitled program",
+      prompt,
+      response,
+      createdAt: now,
+      updatedAt: now
+    };
+
+    store.assistantConversations = [record, ...store.assistantConversations];
+    store.programs = store.programs.map((item) => (item.id === programId ? { ...item, updatedAt: now } : item));
+    await writeFileStore(store);
+    return record;
+  },
   async getLatestGuidedPlan(programId) {
     const store = await readFileStore();
     return sortByUpdatedDesc(store.guidedPlans.filter((plan) => plan.programId === programId))[0] ?? null;
@@ -193,7 +222,10 @@ const fileRepository: ProgramRepository = {
     const leadershipFeedbacks = sortByUpdatedDesc(
       store.leadershipFeedbacks.filter((feedback) => feedback.programId === programId)
     );
-    const plan = await generateGuidedPlan({ program, updates, leadershipFeedbacks });
+    const assistantConversations = sortByUpdatedDesc(
+      store.assistantConversations.filter((conversation) => conversation.programId === programId)
+    );
+    const plan = await generateGuidedPlan({ program, updates, leadershipFeedbacks, assistantConversations });
 
     store.guidedPlans = [plan, ...store.guidedPlans];
     await writeFileStore(store);
@@ -293,6 +325,16 @@ async function ensurePostgresSchema() {
             updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
           );
 
+          CREATE TABLE IF NOT EXISTS assistant_conversations (
+            id TEXT PRIMARY KEY,
+            program_id TEXT NOT NULL REFERENCES programs(id) ON DELETE CASCADE,
+            program_name TEXT NOT NULL,
+            prompt TEXT NOT NULL,
+            response JSONB NOT NULL,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+          );
+
           CREATE TABLE IF NOT EXISTS artifacts (
             id TEXT PRIMARY KEY,
             program_id TEXT REFERENCES programs(id) ON DELETE SET NULL,
@@ -313,6 +355,8 @@ async function ensurePostgresSchema() {
             ON guided_plans(program_id, created_at DESC);
           CREATE INDEX IF NOT EXISTS idx_leadership_feedback_program_id_created_at
             ON leadership_feedback(program_id, created_at DESC);
+          CREATE INDEX IF NOT EXISTS idx_assistant_conversations_program_id_created_at
+            ON assistant_conversations(program_id, created_at DESC);
           CREATE INDEX IF NOT EXISTS idx_artifacts_program_id_created_at
             ON artifacts(program_id, created_at DESC);
         `);
@@ -354,6 +398,26 @@ function mapUpdateRow(row: {
 
 function mapPlanRow(row: { plan: GuidedPlan }): GuidedPlan {
   return row.plan;
+}
+
+function mapAssistantConversationRow(row: {
+  id: string;
+  program_id: string;
+  program_name: string;
+  prompt: string;
+  response: AssistantServiceResponse;
+  created_at: Date;
+  updated_at: Date;
+}): AssistantConversationTurn {
+  return {
+    id: row.id,
+    programId: row.program_id,
+    programName: row.program_name,
+    prompt: row.prompt,
+    response: row.response,
+    createdAt: new Date(row.created_at).toISOString(),
+    updatedAt: new Date(row.updated_at).toISOString()
+  };
 }
 
 function mapLeadershipRow(row: {
@@ -474,6 +538,43 @@ const postgresRepository: ProgramRepository = {
     await getPool().query("UPDATE programs SET updated_at = $2 WHERE id = $1", [programId, now]);
     return update;
   },
+  async listAssistantConversations(programId) {
+    await ensurePostgresSchema();
+    const result = await getPool().query(
+      `
+        SELECT id, program_id, program_name, prompt, response, created_at, updated_at
+        FROM assistant_conversations
+        WHERE program_id = $1
+        ORDER BY created_at DESC
+      `,
+      [programId]
+    );
+    return result.rows.map(mapAssistantConversationRow);
+  },
+  async createAssistantConversation(programId, prompt, response) {
+    await ensurePostgresSchema();
+    const now = new Date();
+    const program = await this.getProgram(programId);
+    const record: AssistantConversationTurn = {
+      id: randomUUID(),
+      programId,
+      programName: program?.intake.programName || "Untitled program",
+      prompt,
+      response,
+      createdAt: now.toISOString(),
+      updatedAt: now.toISOString()
+    };
+
+    await getPool().query(
+      `
+        INSERT INTO assistant_conversations (id, program_id, program_name, prompt, response, created_at, updated_at)
+        VALUES ($1, $2, $3, $4, $5::jsonb, $6, $6)
+      `,
+      [record.id, programId, record.programName, prompt, JSON.stringify(response), now]
+    );
+    await getPool().query("UPDATE programs SET updated_at = $2 WHERE id = $1", [programId, now]);
+    return record;
+  },
   async getLatestGuidedPlan(programId) {
     await ensurePostgresSchema();
     const result = await getPool().query(
@@ -495,7 +596,8 @@ const postgresRepository: ProgramRepository = {
 
     const updates = await this.listProgramUpdates(programId);
     const leadershipFeedbacks = await this.listLeadershipFeedback(programId);
-    const plan = await generateGuidedPlan({ program, updates, leadershipFeedbacks });
+    const assistantConversations = await this.listAssistantConversations(programId);
+    const plan = await generateGuidedPlan({ program, updates, leadershipFeedbacks, assistantConversations });
 
     await getPool().query(
       `

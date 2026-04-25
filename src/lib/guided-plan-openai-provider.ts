@@ -138,12 +138,17 @@ function sanitizeRolePlans(
 function toPromptContext(context: GuidedPlanGenerationContext, baselinePlan: GuidedPlan) {
   const latestUpdate = context.updates[0];
   const latestLeadershipFeedback = context.leadershipFeedbacks[0];
+  const recentAssistantConversations = context.assistantConversations.slice(0, 6).map((turn) => ({
+    prompt: turn.prompt,
+    answer: turn.response.answer
+  }));
 
   return JSON.stringify(
     {
       program: context.program,
       latestUpdate: latestUpdate ?? null,
       latestLeadershipFeedback: latestLeadershipFeedback ?? null,
+      recentAssistantConversations,
       currentGroundedBaselinePlan: {
         northStar: baselinePlan.northStar,
         summary: baselinePlan.summary,
@@ -189,7 +194,12 @@ function mergeWithBaseline(payload: OpenAIGuidedPlanPayload, baselinePlan: Guide
 export const openaiGuidedPlanProvider: GuidedPlanProvider = {
   id: "openai",
   async generatePlan(context) {
-    const baselinePlan = generateLocalGuidedPlan(context.program, context.updates, context.leadershipFeedbacks);
+    const baselinePlan = generateLocalGuidedPlan(
+      context.program,
+      context.updates,
+      context.leadershipFeedbacks,
+      context.assistantConversations
+    );
     const apiKey = process.env.OPENAI_API_KEY?.trim();
     const model = getConfiguredModel();
     const reasoningEffort = getConfiguredReasoningEffort();

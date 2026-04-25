@@ -1,11 +1,12 @@
 "use client";
 
-import type { AssistantProviderId, AssistantServiceResponse } from "@/lib/assistant-types";
+import type { AssistantMessageInput, AssistantProviderId, AssistantServiceResponse } from "@/lib/assistant-types";
 
 export async function getAssistantApiResponse(
   prompt: string,
   provider?: AssistantProviderId,
-  selectedProgramId?: string
+  selectedProgramId?: string,
+  history?: AssistantMessageInput[]
 ): Promise<AssistantServiceResponse> {
   const response = await fetch("/api/assistant", {
     method: "POST",
@@ -13,6 +14,7 @@ export async function getAssistantApiResponse(
     body: JSON.stringify({
       prompt,
       selectedProgramId,
+      history,
       provider,
       includeDebug: true
     })

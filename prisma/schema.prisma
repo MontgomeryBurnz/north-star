@@ -18,6 +18,7 @@ model Program {
   updates             ProgramUpdate[]
   guidedPlans         GuidedPlan[]
   leadershipFeedbacks LeadershipFeedback[]
+  assistantConversations AssistantConversation[]
   artifacts           Artifact[]
 
   @@map("programs")
@@ -62,6 +63,21 @@ model LeadershipFeedback {
 
   @@index([programId, createdAt(sort: Desc)])
   @@map("leadership_feedback")
+}
+
+model AssistantConversation {
+  id          String   @id
+  programId   String   @map("program_id")
+  programName String   @map("program_name")
+  prompt      String
+  response    Json
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  program Program @relation(fields: [programId], references: [id], onDelete: Cascade)
+
+  @@index([programId, createdAt(sort: Desc)])
+  @@map("assistant_conversations")
 }
 
 model Artifact {

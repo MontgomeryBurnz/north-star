@@ -4,6 +4,11 @@ import type { GuidedPlanProvider } from "@/lib/guided-plan-service";
 export const localGuidedPlanProvider: GuidedPlanProvider = {
   id: "local",
   async generatePlan(context) {
-    return generateLocalGuidedPlan(context.program, context.updates, context.leadershipFeedbacks);
+    return generateLocalGuidedPlan(
+      context.program,
+      context.updates,
+      context.leadershipFeedbacks,
+      context.assistantConversations
+    );
   }
 };

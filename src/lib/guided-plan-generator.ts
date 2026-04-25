@@ -1,5 +1,6 @@
 import { randomUUID } from "crypto";
 import type { StoredProgramUpdate } from "@/lib/active-program-types";
+import type { AssistantConversationTurn } from "@/lib/assistant-conversation-types";
 import type { GuidedPlan, GuidedPlanRolePlan } from "@/lib/guided-plan-types";
 import type { LeadershipReviewRecord } from "@/lib/leadership-feedback-types";
 import { buildDeliveryLeadershipSignal } from "@/lib/leadership-signal";
@@ -209,10 +210,12 @@ function buildRolePlans(
 export function generateLocalGuidedPlan(
   program: StoredProgram,
   updates: StoredProgramUpdate[],
-  leadershipFeedbacks: LeadershipReviewRecord[] = []
+  leadershipFeedbacks: LeadershipReviewRecord[] = [],
+  assistantConversations: AssistantConversationTurn[] = []
 ): GuidedPlan {
   const latestUpdate = updates[0];
   const latestLeadershipFeedback = leadershipFeedbacks[0];
+  const latestAssistantConversation = assistantConversations[0];
   const intake = program.intake;
   const review = latestUpdate?.review;
   const reviewedContext = intake.reviewedContext;
@@ -243,7 +246,10 @@ export function generateLocalGuidedPlan(
   const sourceSummaryParts = [
     artifactSignals.length ? sourceLabel(artifactSignals.length, "upload") : "",
     latestUpdate ? "latest active-program update" : "",
-    latestLeadershipFeedback ? "latest leadership feedback" : ""
+    latestLeadershipFeedback ? "latest leadership feedback" : "",
+    latestAssistantConversation
+      ? sourceLabel(assistantConversations.length, "assistant dialogue turn", "assistant dialogue turns")
+      : ""
   ].filter(Boolean);
   const sourceSummary = sourceSummaryParts.length ? sourceSummaryParts.join(", ") : "initial intake only";
   const sourceInputItems = [
@@ -276,7 +282,13 @@ export function generateLocalGuidedPlan(
           ),
           140
         )}`
-      : "No leadership feedback is on file yet. Once entered, leadership signal will be translated into plan changes and role-level direction."
+      : "No leadership feedback is on file yet. Once entered, leadership signal will be translated into plan changes and role-level direction.",
+    latestAssistantConversation
+      ? `Assistant dialogue shaping this plan: ${excerpt(
+          `${latestAssistantConversation.prompt} ${latestAssistantConversation.response.answer}`,
+          140
+        )}`
+      : "No assistant dialogue is on file yet. Use the assistant to capture operator context that should influence the next plan."
   ];
 
   return {
@@ -313,6 +325,9 @@ export function generateLocalGuidedPlan(
                 latestArtifactSignal.fileFormat ?? "unknown"
               }): ${latestArtifactSignal.signal}`
             ]
+          : []),
+        ...(latestAssistantConversation
+          ? [`Assistant dialogue signal: ${excerpt(latestAssistantConversation.response.answer, 140)}`]
           : [])
       ]
     },
@@ -337,6 +352,14 @@ export function generateLocalGuidedPlan(
         `Account for current change: ${firstAvailable(review?.planChanges ?? "", "No plan changes captured yet.")}`,
         ...(leadershipInterpretation?.planImpacts.length
           ? leadershipInterpretation.planImpacts.slice(0, 2).map((item) => `Leadership-adjusted planning impact: ${item}`)
+          : []),
+        ...(latestAssistantConversation
+          ? [
+              `Assistant dialogue adjustment: ${excerpt(
+                `${latestAssistantConversation.prompt} ${latestAssistantConversation.response.answer}`,
+                140
+              )}`
+            ]
           : []),
         artifactSignals.length
           ? `Use extracted artifact text as evidence before expanding scope: ${artifactSignals
@@ -416,12 +439,13 @@ export function generateLocalGuidedPlan(
       "What decision would remove the most ambiguity this week?",
       "Which stakeholder needs alignment before the next move?",
       "What output would prove the program is moving toward the north star?",
-      "What new upload, update, or leadership signal should be added before regenerating this plan?"
+      "What new upload, update, leadership signal, or assistant dialogue should be added before regenerating this plan?"
     ],
     sourceRecordIds: [
       program.id,
       ...(latestUpdate ? [latestUpdate.id] : []),
       ...(latestLeadershipFeedback ? [latestLeadershipFeedback.id] : []),
+      ...(latestAssistantConversation ? [latestAssistantConversation.id] : []),
       ...artifactSignals.map((artifact) => artifact.id)
     ]
   };
