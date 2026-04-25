@@ -26,6 +26,10 @@ function firstSignal(value: string, fallback: string) {
   );
 }
 
+function firstNonEmpty(...values: Array<string | null | undefined>) {
+  return values.find((value) => typeof value === "string" && value.trim().length > 0) ?? "";
+}
+
 function hasTimelinePressure(value: string) {
   return /\b(delay|delayed|slip|slipped|behind|timeline|milestone|deadline|schedule|late|blocked|stalled|recovery)\b/i.test(value);
 }
@@ -47,30 +51,33 @@ export async function getDashboardMetrics(): Promise<DashboardMetrics> {
       const latestUpdate = updates[0];
       const callouts: DashboardCallout[] = [];
       const riskSignal = firstSignal(
-        latestUpdate?.review.activeRisks ??
-          program.intake.risks ??
-          program.intake.blockers ??
-          latestPlan?.risksAndDecisions.items.find((item) => hasRiskSignal(item)) ??
-          latestPlan?.leadershipChanges.items.find((item) => hasRiskSignal(item)) ??
-          "",
+        firstNonEmpty(
+          latestUpdate?.review.activeRisks,
+          program.intake.risks,
+          program.intake.blockers,
+          latestPlan?.risksAndDecisions.items.find((item) => hasRiskSignal(item)),
+          latestPlan?.leadershipChanges.items.find((item) => hasRiskSignal(item))
+        ),
         ""
       );
       const timelineSignal = firstSignal(
-        latestUpdate?.review.planChanges ??
-          latestUpdate?.review.currentPhase ??
-          program.intake.currentStatus ??
-          latestPlan?.workPath.items.find((item) => hasTimelinePressure(item)) ??
-          latestPlan?.planningApproach.items.find((item) => hasTimelinePressure(item)) ??
-          "",
+        firstNonEmpty(
+          latestUpdate?.review.planChanges,
+          latestUpdate?.review.currentPhase,
+          program.intake.currentStatus,
+          latestPlan?.workPath.items.find((item) => hasTimelinePressure(item)),
+          latestPlan?.planningApproach.items.find((item) => hasTimelinePressure(item))
+        ),
         ""
       );
       const deliverySignal = firstSignal(
-        latestUpdate?.review.supportNeeded ??
-          latestUpdate?.review.decisionsPending ??
-          program.intake.decisionsNeeded ??
-          latestPlan?.risksAndDecisions.items.find((item) => hasDeliverySignal(item)) ??
-          latestPlan?.leadershipChanges.items.find((item) => hasDeliverySignal(item)) ??
-          "",
+        firstNonEmpty(
+          latestUpdate?.review.supportNeeded,
+          latestUpdate?.review.decisionsPending,
+          program.intake.decisionsNeeded,
+          latestPlan?.risksAndDecisions.items.find((item) => hasDeliverySignal(item)),
+          latestPlan?.leadershipChanges.items.find((item) => hasDeliverySignal(item))
+        ),
         ""
       );
 
