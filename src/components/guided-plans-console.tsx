@@ -2,7 +2,7 @@
 
 import type { ReactNode } from "react";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ArrowRight, FileCheck2, MessageSquareText, Plus, RefreshCw } from "lucide-react";
+import { ArrowRight, ChevronDown, ChevronUp, FileCheck2, MessageSquareText, Plus, RefreshCw } from "lucide-react";
 import type { StoredProgramUpdate } from "@/lib/active-program-types";
 import type { AssistantConversationTurn } from "@/lib/assistant-conversation-types";
 import type { GuidedPlan, GuidedPlanRolePlans, GuidedPlanSection } from "@/lib/guided-plan-types";
@@ -20,6 +20,12 @@ const defaultTeamRoles = [
   "Data Engineering",
   "Change Management"
 ];
+
+const allRolesOption = "__all_roles__";
+
+function normalizeRoleKey(role: string) {
+  return role.trim().toLowerCase();
+}
 
 function formatDate(value: string) {
   return new Intl.DateTimeFormat(undefined, {
@@ -55,56 +61,105 @@ function PlanSectionCard({
   );
 }
 
-function RolePlansCard({ rolePlans }: { rolePlans: GuidedPlanRolePlans }) {
+function RolePlansCard({
+  rolePlans,
+  selectedRoleFocus,
+  expandedRoleKeys,
+  onToggleRole
+}: {
+  rolePlans: GuidedPlanRolePlans;
+  selectedRoleFocus: string;
+  expandedRoleKeys: Set<string>;
+  onToggleRole: (role: string) => void;
+}) {
+  const sortedRoles =
+    selectedRoleFocus === allRolesOption
+      ? rolePlans.roles
+      : [
+          ...rolePlans.roles.filter((rolePlan) => normalizeRoleKey(rolePlan.role) === normalizeRoleKey(selectedRoleFocus)),
+          ...rolePlans.roles.filter((rolePlan) => normalizeRoleKey(rolePlan.role) !== normalizeRoleKey(selectedRoleFocus))
+        ];
+
   return (
     <Card className="bg-zinc-950/75 lg:col-span-2">
       <CardHeader className="border-b border-white/10">
         <CardTitle className="text-zinc-50">{rolePlans.title}</CardTitle>
       </CardHeader>
       <CardContent className="grid gap-4 p-5 xl:grid-cols-2">
-        {rolePlans.roles.map((rolePlan) => (
-          <div key={rolePlan.role} className="rounded-md border border-white/10 bg-white/[0.035] p-4">
-            <p className="text-sm font-semibold uppercase tracking-[0.12em] text-zinc-100">{rolePlan.role}</p>
-            <div className="mt-4 grid gap-4">
-              <div className="grid gap-2">
-                <p className="text-xs font-medium uppercase tracking-[0.14em] text-cyan-200">Action Plan</p>
-                {rolePlan.actionPlan.map((item) => (
-                  <p key={item} className="flex gap-2 text-sm leading-6 text-zinc-300">
-                    <ArrowRight className="mt-1 h-4 w-4 shrink-0 text-cyan-200" />
-                    {item}
-                  </p>
-                ))}
+        {sortedRoles.map((rolePlan) => {
+          const isFocusedRole =
+            selectedRoleFocus !== allRolesOption && normalizeRoleKey(rolePlan.role) === normalizeRoleKey(selectedRoleFocus);
+          const isExpanded = selectedRoleFocus === allRolesOption || isFocusedRole || expandedRoleKeys.has(normalizeRoleKey(rolePlan.role));
+
+          return (
+            <div
+              key={rolePlan.role}
+              className={`rounded-md border bg-white/[0.035] p-4 ${isFocusedRole ? "border-cyan-300/25 xl:col-span-2" : "border-white/10"}`}
+            >
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-sm font-semibold uppercase tracking-[0.12em] text-zinc-100">{rolePlan.role}</p>
+                  {isFocusedRole ? <p className="mt-1 text-xs text-cyan-200">Focused role view</p> : null}
+                </div>
+                {!isFocusedRole && selectedRoleFocus !== allRolesOption ? (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-9 shrink-0 px-2 text-zinc-300 hover:text-zinc-50"
+                    onClick={() => onToggleRole(rolePlan.role)}
+                  >
+                    {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                  </Button>
+                ) : null}
               </div>
-              <div className="grid gap-2">
-                <p className="text-xs font-medium uppercase tracking-[0.14em] text-emerald-200">Key Focus Areas</p>
-                {rolePlan.keyFocusAreas.map((item) => (
-                  <p key={item} className="flex gap-2 text-sm leading-6 text-zinc-300">
-                    <ArrowRight className="mt-1 h-4 w-4 shrink-0 text-emerald-200" />
-                    {item}
-                  </p>
-                ))}
-              </div>
-              <div className="grid gap-2">
-                <p className="text-xs font-medium uppercase tracking-[0.14em] text-amber-200">Key Outcomes</p>
-                {rolePlan.keyOutcomes.map((item) => (
-                  <p key={item} className="flex gap-2 text-sm leading-6 text-zinc-300">
-                    <ArrowRight className="mt-1 h-4 w-4 shrink-0 text-amber-200" />
-                    {item}
-                  </p>
-                ))}
-              </div>
-              <div className="grid gap-2">
-                <p className="text-xs font-medium uppercase tracking-[0.14em] text-rose-200">Risk / Mitigation</p>
-                {rolePlan.risksAndMitigations.map((item) => (
-                  <p key={item} className="flex gap-2 text-sm leading-6 text-zinc-300">
-                    <ArrowRight className="mt-1 h-4 w-4 shrink-0 text-rose-200" />
-                    {item}
-                  </p>
-                ))}
-              </div>
+              {isExpanded ? (
+                <div className="mt-4 grid gap-4">
+                  <div className="grid gap-2">
+                    <p className="text-xs font-medium uppercase tracking-[0.14em] text-cyan-200">Action Plan</p>
+                    {rolePlan.actionPlan.map((item) => (
+                      <p key={item} className="flex gap-2 text-sm leading-6 text-zinc-300">
+                        <ArrowRight className="mt-1 h-4 w-4 shrink-0 text-cyan-200" />
+                        {item}
+                      </p>
+                    ))}
+                  </div>
+                  <div className="grid gap-2">
+                    <p className="text-xs font-medium uppercase tracking-[0.14em] text-emerald-200">Key Focus Areas</p>
+                    {rolePlan.keyFocusAreas.map((item) => (
+                      <p key={item} className="flex gap-2 text-sm leading-6 text-zinc-300">
+                        <ArrowRight className="mt-1 h-4 w-4 shrink-0 text-emerald-200" />
+                        {item}
+                      </p>
+                    ))}
+                  </div>
+                  <div className="grid gap-2">
+                    <p className="text-xs font-medium uppercase tracking-[0.14em] text-amber-200">Key Outcomes</p>
+                    {rolePlan.keyOutcomes.map((item) => (
+                      <p key={item} className="flex gap-2 text-sm leading-6 text-zinc-300">
+                        <ArrowRight className="mt-1 h-4 w-4 shrink-0 text-amber-200" />
+                        {item}
+                      </p>
+                    ))}
+                  </div>
+                  <div className="grid gap-2">
+                    <p className="text-xs font-medium uppercase tracking-[0.14em] text-rose-200">Risk / Mitigation</p>
+                    {rolePlan.risksAndMitigations.map((item) => (
+                      <p key={item} className="flex gap-2 text-sm leading-6 text-zinc-300">
+                        <ArrowRight className="mt-1 h-4 w-4 shrink-0 text-rose-200" />
+                        {item}
+                      </p>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <p className="mt-3 text-sm leading-6 text-zinc-400">
+                  Expand this role to view its action plan, focus areas, outcomes, and mitigations.
+                </p>
+              )}
             </div>
-          </div>
-        ))}
+          );
+        })}
       </CardContent>
     </Card>
   );
@@ -237,6 +292,8 @@ export function GuidedPlansConsole() {
   const [lastSyncedAt, setLastSyncedAt] = useState<string | null>(null);
   const [newRole, setNewRole] = useState("");
   const [isSavingRole, setIsSavingRole] = useState(false);
+  const [selectedRoleFocus, setSelectedRoleFocus] = useState(allRolesOption);
+  const [expandedRoleKeys, setExpandedRoleKeys] = useState<Set<string>>(new Set());
 
   const selectedProgram = useMemo(
     () => programs.find((program) => program.id === selectedProgramId),
@@ -248,6 +305,10 @@ export function GuidedPlansConsole() {
   const teamRoles = useMemo(
     () => (selectedProgram?.intake.teamRoles?.length ? selectedProgram.intake.teamRoles : defaultTeamRoles),
     [selectedProgram]
+  );
+  const roleFocusStorageKey = useMemo(
+    () => (selectedProgramId ? `north-star:guided-plans:role-focus:${selectedProgramId}` : ""),
+    [selectedProgramId]
   );
 
   const loadPrograms = useCallback(
@@ -373,6 +434,58 @@ export function GuidedPlansConsole() {
     setNewRole("");
   }, [selectedProgramId]);
 
+  useEffect(() => {
+    if (!selectedProgramId) {
+      setSelectedRoleFocus(allRolesOption);
+      setExpandedRoleKeys(new Set());
+      return;
+    }
+
+    const storedRoleFocus = window.localStorage.getItem(roleFocusStorageKey);
+    const normalizedTeamRoles = new Set(teamRoles.map((role) => normalizeRoleKey(role)));
+    const nextRoleFocus =
+      storedRoleFocus && normalizedTeamRoles.has(normalizeRoleKey(storedRoleFocus)) ? storedRoleFocus : allRolesOption;
+
+    setSelectedRoleFocus(nextRoleFocus);
+    setExpandedRoleKeys(nextRoleFocus === allRolesOption ? new Set() : new Set([normalizeRoleKey(nextRoleFocus)]));
+  }, [roleFocusStorageKey, selectedProgramId, teamRoles]);
+
+  useEffect(() => {
+    if (!roleFocusStorageKey) return;
+
+    if (selectedRoleFocus === allRolesOption) {
+      window.localStorage.removeItem(roleFocusStorageKey);
+      return;
+    }
+
+    window.localStorage.setItem(roleFocusStorageKey, selectedRoleFocus);
+  }, [roleFocusStorageKey, selectedRoleFocus]);
+
+  const handleRoleFocusChange = useCallback((nextRole: string) => {
+    setSelectedRoleFocus(nextRole);
+    setExpandedRoleKeys(nextRole === allRolesOption ? new Set() : new Set([normalizeRoleKey(nextRole)]));
+  }, []);
+
+  const toggleExpandedRole = useCallback(
+    (role: string) => {
+      if (selectedRoleFocus === allRolesOption || normalizeRoleKey(role) === normalizeRoleKey(selectedRoleFocus)) {
+        return;
+      }
+
+      setExpandedRoleKeys((current) => {
+        const next = new Set(current);
+        const key = normalizeRoleKey(role);
+        if (next.has(key)) {
+          next.delete(key);
+        } else {
+          next.add(key);
+        }
+        return next;
+      });
+    },
+    [selectedRoleFocus]
+  );
+
   const addTeamRole = useCallback(async () => {
     if (!selectedProgram) return;
 
@@ -413,6 +526,7 @@ export function GuidedPlansConsole() {
       }
 
       setNewRole("");
+      setSelectedRoleFocus(role);
       await loadPrograms({ silent: true });
       await loadPlan({ silent: true });
       setStatus(`${role} was added and the guided plan was refreshed to include the updated team composition.`);
@@ -561,6 +675,24 @@ export function GuidedPlansConsole() {
                       </span>
                     ))}
                   </div>
+                  <label className="grid gap-2">
+                    <span className="text-xs font-medium uppercase tracking-[0.18em] text-zinc-300">My role focus</span>
+                    <select
+                      value={selectedRoleFocus}
+                      onChange={(event) => handleRoleFocusChange(event.target.value)}
+                      className="min-h-11 rounded-md border border-white/10 bg-zinc-950 px-3 py-3 text-sm text-zinc-100 outline-none transition-colors focus:border-cyan-300/50"
+                    >
+                      <option value={allRolesOption}>All Roles</option>
+                      {teamRoles.map((role) => (
+                        <option key={role} value={role}>
+                          {role}
+                        </option>
+                      ))}
+                    </select>
+                    <p className="text-xs leading-5 text-zinc-400">
+                      Choose your role to keep that action plan fully expanded while the others stay collapsed until opened.
+                    </p>
+                  </label>
                   <div className="flex gap-2">
                     <input
                       value={newRole}
@@ -710,7 +842,14 @@ export function GuidedPlansConsole() {
                     </div>
                   </CardContent>
                 </Card>
-                {rolePlans ? <RolePlansCard rolePlans={rolePlans} /> : null}
+                {rolePlans ? (
+                  <RolePlansCard
+                    rolePlans={rolePlans}
+                    selectedRoleFocus={selectedRoleFocus}
+                    expandedRoleKeys={expandedRoleKeys}
+                    onToggleRole={toggleExpandedRole}
+                  />
+                ) : null}
                 {planSections.map((section) => (
                   <PlanSectionCard
                     key={section.title}
