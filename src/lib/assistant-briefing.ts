@@ -7,6 +7,7 @@ export type AssistantBriefing = {
   promptQueue: string[];
   understandingScore: number;
   understandingSummary: string;
+  missingInputs: string[];
   model?: string;
 };
 
@@ -142,7 +143,8 @@ function buildLocalBriefing(input: {
         ? "OpenAI has strong program context. Use the assistant to sharpen decisions, role actions, and execution posture."
         : input.understandingScore >= 60
           ? "OpenAI has a workable understanding of the program, but more updates, dialogue, or leadership input would improve specificity."
-          : "OpenAI needs more grounded program context. Add artifacts, active-program updates, or assistant dialogue to improve guidance quality."
+          : "OpenAI needs more grounded program context. Add artifacts, active-program updates, or assistant dialogue to improve guidance quality.",
+    missingInputs: []
   } satisfies AssistantBriefing;
 }
 
@@ -153,7 +155,8 @@ export async function getAssistantBriefing(programId: string): Promise<Assistant
       promptChips: [],
       promptQueue: [],
       understandingScore: 0,
-      understandingSummary: "No saved program was found."
+      understandingSummary: "No saved program was found.",
+      missingInputs: ["Select or save a program before using the assistant."]
     };
   }
 
@@ -205,11 +208,22 @@ export async function getAssistantBriefing(programId: string): Promise<Assistant
     ),
     understandingScore
   });
+  const missingInputs = [
+    !program.intake.vision.trim() && !program.intake.outcomes.trim()
+      ? "Add a clearer north star or outcome statement in program intake."
+      : null,
+    extractedArtifacts.length === 0 ? "Upload a source artifact with extracted text to ground the model." : null,
+    !program.intake.reviewedContext ? "Review and confirm extracted context so the model has validated signals." : null,
+    !latestPlan ? "Generate or refresh a guided plan so the assistant can reason against the current operating path." : null,
+    !latestUpdate ? "Save an active-program update so the assistant can see current progress, risks, and decisions." : null,
+    !latestLeadershipFeedback ? "Capture leadership feedback if sponsor direction should shape the guidance." : null,
+    !latestAssistantConversation ? "Use the assistant to add operator dialogue that can sharpen future recommendations." : null
+  ].filter((value): value is string => Boolean(value));
 
   const apiKey = process.env.OPENAI_API_KEY?.trim();
   const model = getConfiguredModel();
   if (!apiKey || !model) {
-    return { ...localBriefing, model: model || "unconfigured" };
+    return { ...localBriefing, missingInputs, model: model || "unconfigured" };
   }
 
   const reasoningEffort = getConfiguredReasoningEffort();
@@ -291,12 +305,12 @@ export async function getAssistantBriefing(programId: string): Promise<Assistant
   });
 
   if (!response.ok) {
-    return { ...localBriefing, model };
+    return { ...localBriefing, missingInputs, model };
   }
 
   const payload = safeJsonParse(extractOutputText((await response.json()) as ResponsesApiPayload));
   if (!payload) {
-    return { ...localBriefing, model };
+    return { ...localBriefing, missingInputs, model };
   }
 
   return {
@@ -304,6 +318,7 @@ export async function getAssistantBriefing(programId: string): Promise<Assistant
     promptQueue: payload.promptQueue.slice(0, 4),
     understandingScore: clampScore(payload.understandingScore),
     understandingSummary: payload.understandingSummary.trim() || localBriefing.understandingSummary,
+    missingInputs,
     model
   };
 }
