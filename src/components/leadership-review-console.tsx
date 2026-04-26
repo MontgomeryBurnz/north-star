@@ -1,7 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   ClipboardPen,
   FileClock,
@@ -427,6 +427,8 @@ function buildProgramGantt(program: StoredProgram | null, latestUpdate: StoredPr
 }
 
 export function LeadershipReviewConsole() {
+  const router = useRouter();
+  const pathname = usePathname();
   const searchParams = useSearchParams();
   const queueMode = searchParams.get("queue") === "due";
   const [programs, setPrograms] = useState<StoredProgram[]>([seededLeadershipProgram]);
@@ -751,6 +753,10 @@ export function LeadershipReviewConsole() {
     }
   }
 
+  function clearQueueFilter() {
+    router.replace(pathname);
+  }
+
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!selectedProgramId || !selectedProgram) return;
@@ -897,10 +903,17 @@ export function LeadershipReviewConsole() {
 
           <Card className="bg-zinc-950/80">
             <CardHeader className="border-b border-white/10">
-              <CardTitle className="flex items-center gap-2 text-zinc-50">
-                <RefreshCw className="h-4 w-4 text-fuchsia-200" />
-                {queueMode ? "Filtered review due queue" : "Review due queue"}
-              </CardTitle>
+              <div className="flex items-center justify-between gap-3">
+                <CardTitle className="flex items-center gap-2 text-zinc-50">
+                  <RefreshCw className="h-4 w-4 text-fuchsia-200" />
+                  {queueMode ? "Filtered review due queue" : "Review due queue"}
+                </CardTitle>
+                {queueMode ? (
+                  <Button type="button" variant="ghost" size="sm" className="text-zinc-300" onClick={clearQueueFilter}>
+                    Clear queue filter
+                  </Button>
+                ) : null}
+              </div>
             </CardHeader>
             <CardContent className="grid gap-3 p-5">
               {queueMode ? (
@@ -920,18 +933,23 @@ export function LeadershipReviewConsole() {
                         ? "border-fuchsia-300/35 bg-fuchsia-300/[0.08]"
                         : "border-white/10 bg-white/[0.035] hover:border-fuchsia-300/25"
                     }`}
-                  >
+                    >
                     <div className="flex items-center justify-between gap-3">
                       <p className="text-sm font-medium text-zinc-100">{entry.programName}</p>
-                      <span
-                        className={`rounded-full border px-2.5 py-1 text-[11px] font-medium uppercase tracking-[0.14em] ${
-                          entry.status === "overdue"
-                            ? "border-rose-300/30 bg-rose-300/10 text-rose-100"
-                            : "border-amber-300/30 bg-amber-300/10 text-amber-100"
-                        }`}
-                      >
-                        {entry.status === "overdue" ? "Overdue" : "Due"}
-                      </span>
+                      <div className="flex items-center gap-2">
+                        <span className="rounded-full border border-white/10 bg-black/20 px-2.5 py-1 text-[11px] font-medium uppercase tracking-[0.14em] text-zinc-300">
+                          {entry.cadence === "weekly" ? "Weekly" : "Bi-weekly"}
+                        </span>
+                        <span
+                          className={`rounded-full border px-2.5 py-1 text-[11px] font-medium uppercase tracking-[0.14em] ${
+                            entry.status === "overdue"
+                              ? "border-rose-300/30 bg-rose-300/10 text-rose-100"
+                              : "border-amber-300/30 bg-amber-300/10 text-amber-100"
+                          }`}
+                        >
+                          {entry.status === "overdue" ? "Overdue" : "Due"}
+                        </span>
+                      </div>
                     </div>
                     <p className="mt-2 text-xs leading-5 text-zinc-400">{entry.lastReviewedLabel}</p>
                     <p className="mt-1 text-xs leading-5 text-zinc-500">{entry.nextReviewLabel}</p>
