@@ -4,7 +4,7 @@ import { ChangeEvent, FormEvent, useEffect, useMemo, useState } from "react";
 import { Activity, FileClock, FolderUp, HeartPulse, History, MessageSquareQuote, RefreshCw, Save, Trash2 } from "lucide-react";
 import type { ActiveProgramReview, ActiveProgramUpdate } from "@/lib/active-program-types";
 import type { DeliveryLeadershipSignal } from "@/lib/leadership-feedback-types";
-import type { ProgramMeetingInput } from "@/lib/program-intelligence-types";
+import type { ProgramMeetingAttachment, ProgramMeetingInput } from "@/lib/program-intelligence-types";
 import type { ProgramArtifact, ProgramIntake } from "@/lib/program-intake-types";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -30,6 +30,7 @@ const emptyMeetingInputDraft = {
   capturedAt: "",
   summary: "",
   transcriptExcerpt: "",
+  attachments: [] as ProgramMeetingAttachment[],
   extractedSignals: "",
   recommendedPlanAdjustments: ""
 };
@@ -208,6 +209,18 @@ function splitLines(value: string) {
     .filter(Boolean);
 }
 
+function isTextLikeMeetingFile(file: File) {
+  return file.type.startsWith("text/") || /\.(txt|md|csv|rtf)$/i.test(file.name);
+}
+
+function inferMeetingTitleFromFileName(fileName: string) {
+  return fileName
+    .replace(/\.[^.]+$/, "")
+    .replace(/[_-]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 export function ActiveProgramReviewSection() {
   const [review, setReview] = useState<ActiveProgramReview>(emptyReview);
   const [savedAt, setSavedAt] = useState<string | null>(null);
@@ -219,6 +232,7 @@ export function ActiveProgramReviewSection() {
   const [meetingInputs, setMeetingInputs] = useState<ProgramMeetingInput[]>([]);
   const [meetingInputDraft, setMeetingInputDraft] = useState(emptyMeetingInputDraft);
   const [meetingSaveState, setMeetingSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle");
+  const [meetingUploadState, setMeetingUploadState] = useState<"idle" | "uploading" | "uploaded" | "error">("idle");
 
   useEffect(() => {
     async function loadServerPrograms() {
@@ -409,6 +423,77 @@ export function ActiveProgramReviewSection() {
     }));
   }
 
+  async function uploadMeetingAttachment(file: File) {
+    const formData = new FormData();
+    formData.append("file", file);
+
+    const response = await fetch("/api/artifacts/upload", {
+      method: "POST",
+      body: formData
+    });
+
+    if (!response.ok) throw new Error("meeting-attachment-upload");
+    const payload = (await response.json()) as {
+      artifact: ProgramMeetingAttachment;
+    };
+    return payload.artifact;
+  }
+
+  async function handleMeetingAttachments(event: ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(event.target.files ?? []);
+    if (!files.length) return;
+
+    setMeetingUploadState("uploading");
+
+    try {
+      const attachments = await Promise.all(files.map((file) => uploadMeetingAttachment(file)));
+      const transcriptTexts = await Promise.all(
+        files.map(async (file) => {
+          if (!isTextLikeMeetingFile(file)) return "";
+          try {
+            return (await file.text()).trim();
+          } catch {
+            return "";
+          }
+        })
+      );
+
+      setMeetingInputDraft((current) => {
+        const nextAttachments = [...current.attachments, ...attachments].filter(
+          (attachment, index, all) => all.findIndex((candidate) => candidate.id === attachment.id) === index
+        );
+        const nextTitle = current.title.trim() ? current.title : inferMeetingTitleFromFileName(files[0]?.name ?? "");
+        const nextTranscriptExcerpt = current.transcriptExcerpt.trim()
+          ? current.transcriptExcerpt
+          : transcriptTexts.find(Boolean) ?? "";
+        const hasTextUpload = files.some((file) => isTextLikeMeetingFile(file));
+        const hasRecordingUpload = files.some((file) => file.type.startsWith("audio/") || file.type.startsWith("video/"));
+
+        return {
+          ...current,
+          sourceProvider: "upload",
+          sourceType: hasTextUpload ? "transcript" : hasRecordingUpload ? "recording" : current.sourceType,
+          title: nextTitle,
+          transcriptExcerpt: nextTranscriptExcerpt,
+          attachments: nextAttachments
+        };
+      });
+
+      setMeetingUploadState("uploaded");
+    } catch {
+      setMeetingUploadState("error");
+    } finally {
+      event.target.value = "";
+    }
+  }
+
+  function removeMeetingAttachment(id: string) {
+    setMeetingInputDraft((current) => ({
+      ...current,
+      attachments: current.attachments.filter((attachment) => attachment.id !== id)
+    }));
+  }
+
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const timestamp = new Date();
@@ -467,6 +552,7 @@ export function ActiveProgramReviewSection() {
           capturedAt: meetingInputDraft.capturedAt || new Date().toISOString(),
           summary: meetingInputDraft.summary,
           transcriptExcerpt: meetingInputDraft.transcriptExcerpt,
+          attachments: meetingInputDraft.attachments,
           extractedSignals: splitLines(meetingInputDraft.extractedSignals),
           recommendedPlanAdjustments: splitLines(meetingInputDraft.recommendedPlanAdjustments)
         })
@@ -480,6 +566,7 @@ export function ActiveProgramReviewSection() {
       setMeetingInputs((current) => [payload.meetingInput, ...current]);
       setMeetingInputDraft(emptyMeetingInputDraft);
       setMeetingSaveState("saved");
+      setMeetingUploadState("idle");
       setSavedAt(new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }));
     } catch {
       setMeetingSaveState("error");
@@ -569,6 +656,55 @@ export function ActiveProgramReviewSection() {
                     className="min-h-11 rounded-md border border-white/10 bg-zinc-950 px-3 py-3 text-sm text-zinc-100 outline-none transition-colors placeholder:text-zinc-500 focus:border-cyan-300/50"
                   />
                 </label>
+                <div className="grid gap-3 md:col-span-2">
+                  <span className="text-xs font-medium uppercase tracking-[0.18em] text-zinc-300">Meeting recording or transcript</span>
+                  <label className="flex cursor-pointer flex-col items-center justify-center rounded-lg border border-dashed border-cyan-300/30 bg-cyan-300/[0.045] px-4 py-6 text-center transition-colors hover:border-cyan-300/60">
+                    <FolderUp className="mb-3 h-7 w-7 text-cyan-200" />
+                    <span className="text-sm font-medium text-zinc-100">Upload Teams, Zoom, Meet, transcript, or recap files</span>
+                    <span className="mt-2 text-xs leading-5 text-zinc-500">
+                      We store the recording or transcript reference with this meeting input. Text-based uploads can prefill the transcript excerpt.
+                    </span>
+                    <input
+                      className="hidden"
+                      type="file"
+                      multiple
+                      accept="audio/*,video/*,.txt,.md,.csv,.rtf,.doc,.docx,.pdf"
+                      onChange={(event) => void handleMeetingAttachments(event)}
+                    />
+                  </label>
+                  <p className={`text-xs leading-5 ${meetingUploadState === "error" ? "text-amber-200" : "text-zinc-500"}`}>
+                    {meetingUploadState === "uploading"
+                      ? "Uploading meeting files..."
+                      : meetingUploadState === "uploaded"
+                        ? "Meeting file uploaded and attached to this input."
+                        : "Use this for raw recordings, exported transcripts, or meeting recaps that should stay attached to the program signal."}
+                  </p>
+                  {meetingInputDraft.attachments.length ? (
+                    <div className="grid gap-2">
+                      {meetingInputDraft.attachments.map((attachment) => (
+                        <div
+                          key={attachment.id}
+                          className="flex items-center justify-between gap-3 rounded-md border border-white/10 bg-white/[0.035] p-3"
+                        >
+                          <div className="min-w-0">
+                            <p className="truncate text-sm font-medium text-zinc-100">{attachment.fileName}</p>
+                            <p className="mt-1 text-xs text-zinc-500">
+                              {attachment.mimeType || "unknown"} / {formatFileSize(attachment.sizeBytes)}
+                            </p>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => removeMeetingAttachment(attachment.id)}
+                            className="rounded-md border border-white/10 bg-black/20 p-2 text-zinc-400 transition-colors hover:border-red-300/30 hover:text-red-200"
+                            aria-label={`Remove ${attachment.fileName}`}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  ) : null}
+                </div>
                 <label className="grid gap-2">
                   <span className="text-xs font-medium uppercase tracking-[0.18em] text-zinc-300">Input type</span>
                   <select
@@ -915,6 +1051,11 @@ export function ActiveProgramReviewSection() {
                       <span className="text-xs text-zinc-500">{formatTimestamp(input.capturedAt)}</span>
                     </div>
                     <p className="text-sm leading-6 text-zinc-300">{input.summary}</p>
+                    {input.attachments.length ? (
+                      <p className="mt-2 text-xs leading-5 text-zinc-500">
+                        Attachments: {input.attachments.map((attachment) => attachment.fileName).join(", ")}
+                      </p>
+                    ) : null}
                     {input.recommendedPlanAdjustments.length ? (
                       <p className="mt-2 text-xs leading-5 text-cyan-200">
                         Next adjustment: {input.recommendedPlanAdjustments[0]}

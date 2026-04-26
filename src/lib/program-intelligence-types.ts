@@ -8,6 +8,16 @@ export type ProgramMeetingSeries = {
   notes?: string;
 };
 
+export type ProgramMeetingAttachment = {
+  id: string;
+  fileName: string;
+  mimeType: string;
+  sizeBytes: number;
+  provider: "local" | "blob" | "supabase";
+  storageKey: string;
+  createdAt: string;
+};
+
 export type ProgramMeetingInput = {
   id: string;
   programId: string;
@@ -19,6 +29,7 @@ export type ProgramMeetingInput = {
   capturedAt: string;
   summary: string;
   transcriptExcerpt?: string;
+  attachments: ProgramMeetingAttachment[];
   recommendedPlanAdjustments: string[];
   extractedSignals: string[];
   justificationStatus: "no-change" | "plan-refresh-recommended" | "plan-refreshed";

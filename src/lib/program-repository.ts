@@ -337,7 +337,9 @@ const fileRepository: ProgramRepository = {
     const assistantConversations = sortByUpdatedDesc(
       store.assistantConversations.filter((conversation) => conversation.programId === programId)
     );
-    const meetingInputs = sortByUpdatedDesc(store.meetingInputs.filter((input) => input.programId === programId));
+    const meetingInputs = sortByUpdatedDesc(store.meetingInputs.filter((input) => input.programId === programId)).map(
+      normalizeMeetingInput
+    );
     const plan = await generateGuidedPlan({ program, updates, leadershipFeedbacks, assistantConversations, meetingInputs });
 
     store.guidedPlans = [plan, ...store.guidedPlans];
@@ -394,7 +396,7 @@ const fileRepository: ProgramRepository = {
   },
   async listMeetingInputs(programId) {
     const store = await readFileStore();
-    return sortByUpdatedDesc(store.meetingInputs.filter((input) => input.programId === programId));
+    return sortByUpdatedDesc(store.meetingInputs.filter((input) => input.programId === programId)).map(normalizeMeetingInput);
   },
   async createMeetingInput(programId, input) {
     const store = await readFileStore();
@@ -406,7 +408,8 @@ const fileRepository: ProgramRepository = {
       programName: program?.intake.programName || "Untitled program",
       createdAt: now,
       updatedAt: now,
-      ...input
+      ...input,
+      attachments: input.attachments ?? []
     };
 
     store.meetingInputs = [record, ...store.meetingInputs];
@@ -677,8 +680,15 @@ function mapLeadershipRow(row: {
   };
 }
 
+function normalizeMeetingInput(input: ProgramMeetingInput): ProgramMeetingInput {
+  return {
+    ...input,
+    attachments: Array.isArray(input.attachments) ? input.attachments : []
+  };
+}
+
 function mapMeetingInputRow(row: { input: ProgramMeetingInput }): ProgramMeetingInput {
-  return row.input;
+  return normalizeMeetingInput(row.input);
 }
 
 function mapGuidanceJustificationRow(row: { record: GuidanceJustificationRecord }): GuidanceJustificationRecord {
@@ -936,7 +946,8 @@ const postgresRepository: ProgramRepository = {
       programName: program?.intake.programName || "Untitled program",
       createdAt: now.toISOString(),
       updatedAt: now.toISOString(),
-      ...input
+      ...input,
+      attachments: input.attachments ?? []
     };
 
     await getPool().query(

@@ -38,6 +38,15 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     capturedAt: body.capturedAt ?? new Date().toISOString(),
     summary: body.summary,
     transcriptExcerpt: body.transcriptExcerpt?.trim() || undefined,
+    attachments: (body.attachments ?? []).map((attachment) => ({
+      id: attachment.id ?? "",
+      fileName: attachment.fileName ?? "Untitled file",
+      mimeType: attachment.mimeType ?? "unknown",
+      sizeBytes: Number(attachment.sizeBytes ?? 0),
+      provider: attachment.provider === "blob" || attachment.provider === "supabase" ? attachment.provider : "local",
+      storageKey: attachment.storageKey ?? "",
+      createdAt: attachment.createdAt ?? new Date().toISOString()
+    })),
     recommendedPlanAdjustments: (body.recommendedPlanAdjustments ?? []).map((item) => item.trim()).filter(Boolean),
     extractedSignals: (body.extractedSignals ?? []).map((item) => item.trim()).filter(Boolean),
     justificationStatus: "plan-refreshed"
