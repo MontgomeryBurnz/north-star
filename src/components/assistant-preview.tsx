@@ -9,7 +9,7 @@ export function AssistantPreview() {
   return (
     <section id="assistant" className="mx-auto max-w-7xl px-4 py-20 sm:px-6 lg:px-8">
       <SectionHeader
-        eyebrow="North Star assistant"
+        eyebrow="North Star guide"
         title="Ask for the clearest next move."
         description="Use program context to separate noise from the plan, outputs, risks, and next step."
       />
@@ -68,7 +68,7 @@ export function AssistantPreview() {
             </div>
             <Button asChild className="mt-2 w-full">
               <Link href="/assistant">
-                Open work path assistant
+                Open work path guide
                 <ArrowRight className="h-4 w-4" />
               </Link>
             </Button>

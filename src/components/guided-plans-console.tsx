@@ -625,10 +625,10 @@ export function GuidedPlansConsole() {
         ),
         normalizePlanSection(
           plan.assistantDialogue,
-          "Assistant Dialogue Shaping This Plan",
+          "Guide Dialogue Shaping This Plan",
           [
-            "No assistant dialogue is visible in this saved version.",
-            "Use the assistant to capture operator context that should influence the next guided-plan refresh."
+            "No guide dialogue is visible in this saved version.",
+            "Use Guide to capture operator context that should influence the next guided-plan refresh."
           ]
         ),
         normalizePlanSection(plan.signalFromNoise, "Signal From Noise", ["No current signal summary is available."]),
@@ -674,14 +674,14 @@ export function GuidedPlansConsole() {
               <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-zinc-500">{formatDate(turn.updatedAt)}</p>
               <p className="mt-2 text-xs font-medium uppercase tracking-[0.14em] text-zinc-300">Prompt</p>
               <p className="mt-1 text-sm leading-6 text-zinc-200">{turn.prompt}</p>
-              <p className="mt-3 text-xs font-medium uppercase tracking-[0.14em] text-zinc-300">Assistant</p>
+              <p className="mt-3 text-xs font-medium uppercase tracking-[0.14em] text-zinc-300">Guide</p>
               <p className="mt-1 text-sm leading-6 text-zinc-400">{turn.response.answer}</p>
             </div>
           ))}
         </div>
       ) : (
         <p className="text-xs leading-5 text-zinc-300">
-          {assistantConversations.length} stored dialogue {assistantConversations.length === 1 ? "turn is" : "turns are"} shaping this plan.
+          {assistantConversations.length} stored dialogue {assistantConversations.length === 1 ? "turn is" : "turns are"} from Guide shaping this plan.
         </p>
       )}
     </div>
@@ -817,7 +817,7 @@ export function GuidedPlansConsole() {
                       <CardTitle className="text-2xl text-zinc-50">{plan.programName}</CardTitle>
                       {lastAssistantDialogueAt ? (
                         <p className="mt-2 text-xs leading-5 text-cyan-200">
-                          Last updated from assistant dialogue {formatDate(lastAssistantDialogueAt)}
+                          Last updated from guide dialogue {formatDate(lastAssistantDialogueAt)}
                         </p>
                       ) : null}
                     </div>
@@ -1051,7 +1051,7 @@ export function GuidedPlansConsole() {
                   <PlanSectionCard
                     key={section.title}
                     section={section}
-                    footer={section.title === "Assistant Dialogue Shaping This Plan" ? assistantDialogueFooter : undefined}
+                    footer={section.title === "Guide Dialogue Shaping This Plan" ? assistantDialogueFooter : undefined}
                   />
                 ))}
               </div>

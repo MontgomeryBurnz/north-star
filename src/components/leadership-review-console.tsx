@@ -96,10 +96,10 @@ const seededLeadershipPlan: GuidedPlan = {
     ]
   },
   assistantDialogue: {
-    title: "Assistant Dialogue Shaping This Plan",
+    title: "Guide Dialogue Shaping This Plan",
     items: [
-      "No assistant dialogue is on file in the seeded leadership scenario.",
-      "Use the assistant to capture delivery-lead context that should influence the next plan refresh."
+      "No guide dialogue is on file in the seeded leadership scenario.",
+      "Use Guide to capture delivery-lead context that should influence the next plan refresh."
     ]
   },
   signalFromNoise: {

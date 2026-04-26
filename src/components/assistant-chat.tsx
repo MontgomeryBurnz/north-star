@@ -39,18 +39,18 @@ type ConversationTurn = {
 const starterMessage: ChatMessage = {
   id: "starter",
   role: "assistant",
-  content: "Select an active program, then give me the delivery context. I will stay inside that program and help shape the plan, risks, outputs, and next move.",
+  content: "Select an active program, then give me the delivery context. Guide will stay inside that program and help shape the plan, risks, outputs, and next move.",
   sections: [
     {
       title: "Work Path Surface",
       items: [
         "Separate the signal from the noise.",
         "Clarify what matters now: plan, owners, risks, outputs, or decisions.",
-        "Use the assistant to capture delivery context that should influence the next guided-plan refresh."
+        "Use Guide to capture delivery context that should influence the next guided-plan refresh."
       ]
     }
   ],
-  sources: ["Local assistant content"],
+  sources: ["Local guide content"],
   mode: "direct",
   matches: []
 };
@@ -242,12 +242,12 @@ export function AssistantChat() {
               <p className="mb-2 text-xs font-medium uppercase tracking-[0.22em] text-emerald-300">North Star</p>
               <h1 className="flex items-center gap-3 text-3xl font-semibold text-zinc-50">
                 <Bot className="h-7 w-7 text-emerald-200" />
-                Work Path Assistant
+                Work Path Guide
               </h1>
             </div>
             <div className="flex flex-wrap gap-2">
               <div className="rounded-md border border-emerald-300/20 bg-emerald-300/10 px-3 py-1 text-xs text-emerald-100">
-                server assistant
+                server guide
               </div>
               <div className="rounded-md border border-cyan-300/20 bg-cyan-300/10 px-3 py-1 text-xs text-cyan-100">
                 API-ready
@@ -262,7 +262,7 @@ export function AssistantChat() {
               <div>
                 <p className="text-xs font-medium uppercase tracking-[0.18em] text-zinc-500">Active program context</p>
                 <p className="mt-1 text-xs text-zinc-600">
-                  The assistant should stay inside the selected saved program and use its uploads, updates, leadership feedback, and guided plan as grounding.
+                  Guide should stay inside the selected saved program and use its uploads, updates, leadership feedback, and guided plan as grounding.
                 </p>
               </div>
               <label className="grid gap-2 rounded-md border border-white/10 bg-zinc-950/70 p-3 text-xs text-zinc-500">
@@ -314,7 +314,7 @@ export function AssistantChat() {
               <div className="animate-[fadeIn_220ms_ease-out_both] rounded-lg border border-white/10 bg-white/[0.035] p-4">
                 <div className="mb-3 flex items-center gap-2 text-xs font-medium uppercase tracking-[0.18em] text-zinc-500">
                   <Bot className="h-3.5 w-3.5 text-cyan-200" />
-                  Assistant
+                  Guide
                 </div>
                 <div className="inline-flex items-center gap-2 rounded-md border border-emerald-300/20 bg-emerald-300/10 px-3 py-2 text-sm text-emerald-100">
                   <Sparkles className="h-4 w-4 animate-pulse" />
@@ -345,7 +345,7 @@ export function AssistantChat() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-zinc-50">
               <Gauge className="h-4 w-4 text-emerald-200" />
-              Assistant state
+              Guide state
             </CardTitle>
           </CardHeader>
           <CardContent className="grid gap-3 text-sm">
@@ -450,7 +450,7 @@ function AssistantMessage({ message }: { message: ChatMessage }) {
         <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
           <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-[0.18em] text-zinc-500">
             <Bot className="h-3.5 w-3.5 text-cyan-200" />
-            Assistant
+            Guide
             {message.provider ? <span className="text-zinc-600">{message.provider}</span> : null}
           </div>
         </div>

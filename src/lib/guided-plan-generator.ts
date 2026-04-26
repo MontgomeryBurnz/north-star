@@ -317,11 +317,11 @@ export function generateLocalGuidedPlan(
         )}`
       : "No leadership feedback is on file yet. Once entered, leadership signal will be translated into plan changes and role-level direction.",
     latestAssistantConversation
-      ? `Assistant dialogue shaping this plan: ${excerpt(
+      ? `Guide dialogue shaping this plan: ${excerpt(
           `${latestAssistantConversation.prompt} ${latestAssistantConversation.response.answer}`,
           140
         )}`
-      : "No assistant dialogue is on file yet. Use the assistant to capture operator context that should influence the next plan.",
+      : "No guide dialogue is on file yet. Use Guide to capture operator context that should influence the next plan.",
     latestMeetingInput
       ? `Meeting context shaping this plan: ${excerpt(
           `${latestMeetingInput.title}. ${latestMeetingInput.summary} ${latestMeetingInput.recommendedPlanAdjustments.join(" ")}`,
@@ -342,19 +342,19 @@ export function generateLocalGuidedPlan(
       items: sourceInputItems
     },
     assistantDialogue: {
-      title: "Assistant Dialogue Shaping This Plan",
+      title: "Guide Dialogue Shaping This Plan",
       items: latestAssistantConversation
         ? [
             `Latest operator prompt: ${excerpt(latestAssistantConversation.prompt, 140)}`,
-            `Latest assistant response influencing this plan: ${excerpt(latestAssistantConversation.response.answer, 140)}`,
+            `Latest Guide response influencing this plan: ${excerpt(latestAssistantConversation.response.answer, 140)}`,
             `Dialogue history on file: ${sourceLabel(
               assistantConversations.length,
               "turn"
-            )}. The assistant dialogue is treated as a grounded planning input for this program.`
+            )}. Guide dialogue is treated as a grounded planning input for this program.`
           ]
         : [
-            "No assistant dialogue is on file yet for this program.",
-            "Use the assistant to capture delivery-lead context, open questions, or operator judgment that should influence the next plan refresh."
+            "No guide dialogue is on file yet for this program.",
+            "Use Guide to capture delivery-lead context, open questions, or operator judgment that should influence the next plan refresh."
           ]
     },
     signalFromNoise: {
