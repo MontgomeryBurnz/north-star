@@ -43,6 +43,7 @@ const seededLeadershipProgram: StoredProgram = {
     currentStatus: "Recovery planning is active and sequencing has been tightened.",
     decisionsNeeded: "Approve checkpoint cadence\nConfirm leadership escalation path",
     blockers: "The program needs cleaner signal, fewer status narratives, and tighter checkpoint structure.",
+    leadershipReviewCadence: "weekly",
     artifacts: [],
     reviewedContext: {
       outcomes: "Visible milestone posture\nClear sponsor checkpoints\nReduced escalation noise",
@@ -325,6 +326,10 @@ function formatRelativeDays(days: number) {
 
 function buildReviewCycleStatus(entries: LeadershipReviewRecord[]): ReviewCycleStatus {
   const cadence = inferReviewCadence(entries);
+  return buildReviewCycleStatusForCadence(entries, cadence);
+}
+
+function buildReviewCycleStatusForCadence(entries: LeadershipReviewRecord[], cadence: ReviewCadence): ReviewCycleStatus {
   const cadenceDays = cadence === "weekly" ? 7 : 14;
 
   if (!entries.length) {
@@ -350,10 +355,10 @@ function buildReviewCycleStatus(entries: LeadershipReviewRecord[]): ReviewCycleS
   let badgeLabel = `${cadence === "weekly" ? "Weekly" : "Bi-weekly"} review on track`;
   if (daysUntilNextReview < 0) {
     badgeTone = "overdue";
-    badgeLabel = `${cadence === "weekly" ? "Weekly" : "Bi-weekly"} review overdue`;
+      badgeLabel = `${cadence === "weekly" ? "Weekly" : "Bi-weekly"} review overdue`;
   } else if (daysUntilNextReview <= 1) {
     badgeTone = "due";
-    badgeLabel = `${cadence === "weekly" ? "Weekly" : "Bi-weekly"} review due`;
+      badgeLabel = `${cadence === "weekly" ? "Weekly" : "Bi-weekly"} review due`;
   }
 
   return {
@@ -520,7 +525,11 @@ export function LeadershipReviewConsole() {
     ]
   );
   const recentLeadershipSignals = useMemo(() => feedback.slice(0, 3), [feedback]);
-  const reviewCycleStatus = useMemo(() => buildReviewCycleStatus(feedback), [feedback]);
+  const selectedCadence = (selectedProgram?.intake.leadershipReviewCadence as ReviewCadence | undefined) ?? inferReviewCadence(feedback);
+  const reviewCycleStatus = useMemo(
+    () => buildReviewCycleStatusForCadence(feedback, selectedCadence),
+    [feedback, selectedCadence]
+  );
   const latestReviewCycle = feedback[0];
 
   const timeline = useMemo<TimelineItem[]>(() => {
@@ -633,6 +642,46 @@ export function LeadershipReviewConsole() {
     setReview((current) => ({ ...current, [field]: value }));
   }
 
+  async function handleCadenceChange(nextCadence: ReviewCadence) {
+    if (!selectedProgram) return;
+
+    const previousPrograms = programs;
+    const nextPrograms = programs.map((program) =>
+      program.id === selectedProgram.id
+        ? {
+            ...program,
+            updatedAt: new Date().toISOString(),
+            intake: {
+              ...program.intake,
+              leadershipReviewCadence: nextCadence
+            }
+          }
+        : program
+    );
+
+    setPrograms(nextPrograms);
+    setStatus("Saving review cadence...");
+
+    try {
+      const response = await fetch("/api/programs", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          ...selectedProgram.intake,
+          leadershipReviewCadence: nextCadence
+        })
+      });
+
+      if (!response.ok) throw new Error("Cadence save failed.");
+      const payload = (await response.json()) as { program: StoredProgram };
+      setPrograms((current) => current.map((program) => (program.id === payload.program.id ? payload.program : program)));
+      setStatus("Leadership review cadence saved.");
+    } catch {
+      setPrograms(previousPrograms);
+      setStatus("Leadership review cadence could not be saved.");
+    }
+  }
+
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!selectedProgramId || !selectedProgram) return;
@@ -708,6 +757,20 @@ export function LeadershipReviewConsole() {
                   </p>
                   <p className="text-xs text-zinc-500">Updated {formatTimestamp(selectedProgram.updatedAt)}</p>
                 </div>
+              ) : null}
+
+              {selectedProgram ? (
+                <label className="grid gap-2">
+                  <span className="text-xs font-medium uppercase tracking-[0.18em] text-zinc-300">Review cadence</span>
+                  <select
+                    value={selectedCadence}
+                    onChange={(event) => void handleCadenceChange(event.target.value as ReviewCadence)}
+                    className="min-h-11 rounded-md border border-white/10 bg-zinc-950 px-3 py-3 text-sm text-zinc-100 outline-none transition-colors focus:border-emerald-300/50"
+                  >
+                    <option value="weekly">Weekly</option>
+                    <option value="biweekly">Bi-weekly</option>
+                  </select>
+                </label>
               ) : null}
 
               {status ? <p className="text-sm leading-6 text-zinc-400">{status}</p> : null}

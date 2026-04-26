@@ -41,6 +41,13 @@ export default async function Home() {
       detail: metrics.callouts.find((callout) => callout.type === "decision")
         ? `${metrics.callouts.find((callout) => callout.type === "decision")?.programName}: decision`
         : "pending approvals and choices"
+    },
+    {
+      id: "leadership-reviews",
+      label: "Reviews Due",
+      value: metrics.leadershipReviewsDue,
+      href: "/leadership",
+      detail: metrics.leadershipReviewsDue ? "weekly and bi-weekly leadership cycles due" : "no leadership reviews due this week"
     }
   ];
 

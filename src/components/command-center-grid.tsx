@@ -58,6 +58,14 @@ export function CommandCenterGrid({ metrics }: { metrics: DashboardMetrics }) {
         ? `${metrics.callouts.find((callout) => callout.type === "decision")?.programName}: pending decision`
         : "no pending decisions surfaced",
       help: metrics.decisionHelp
+    },
+    {
+      label: "Reviews due",
+      value: metrics.leadershipReviewsDue,
+      detail: metrics.leadershipReviewsDue
+        ? "leadership check-ins due this week"
+        : "no leadership check-ins due this week",
+      help: metrics.leadershipReviewHelp
     }
   ];
 
@@ -130,7 +138,7 @@ export function CommandCenterGrid({ metrics }: { metrics: DashboardMetrics }) {
         </Card>
       </div>
 
-      <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+      <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-5">
         {metricCards.map((item) => (
           <div key={item.label} className="rounded-md border border-white/10 bg-white/[0.025] p-4">
             <p className="text-2xl font-semibold text-zinc-50">{String(item.value).padStart(2, "0")}</p>

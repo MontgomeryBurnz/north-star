@@ -586,7 +586,7 @@ export function ProgramIntakeSection() {
   function prefillFromArtifact(artifact: ProgramArtifact) {
     if (!artifact.extractedText) return;
     const prefill = buildPrefillFromArtifact(artifact.extractedText);
-    type PrefillField = keyof Omit<ProgramIntake, "artifacts" | "reviewedContext" | "teamRoles">;
+    type PrefillField = keyof Omit<ProgramIntake, "artifacts" | "reviewedContext" | "teamRoles" | "leadershipReviewCadence">;
     const populated = Object.entries(prefill).filter(([field, value]) => {
       const intakeField = field as PrefillField;
       const nextValue = typeof value === "string" ? value : "";
@@ -615,8 +615,8 @@ export function ProgramIntakeSection() {
   function prefillFromAllArtifacts() {
     const context = reviewedContext;
     if (!context) return;
-    type PrefillField = keyof Omit<ProgramIntake, "artifacts" | "reviewedContext" | "teamRoles">;
-    const prefill: Partial<Omit<ProgramIntake, "artifacts" | "reviewedContext" | "teamRoles">> = {
+    type PrefillField = keyof Omit<ProgramIntake, "artifacts" | "reviewedContext" | "teamRoles" | "leadershipReviewCadence">;
+    const prefill: Partial<Omit<ProgramIntake, "artifacts" | "reviewedContext" | "teamRoles" | "leadershipReviewCadence">> = {
       outcomes: context.outcomes,
       stakeholders: context.stakeholders,
       risks: context.risks,

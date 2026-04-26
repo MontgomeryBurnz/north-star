@@ -18,6 +18,11 @@ export function HeroSection({ metrics }: { metrics: DashboardMetrics }) {
       label: "Decisions needed",
       value: String(metrics.decisionCount).padStart(2, "0"),
       help: metrics.decisionHelp
+    },
+    {
+      label: "Reviews due",
+      value: String(metrics.leadershipReviewsDue).padStart(2, "0"),
+      help: metrics.leadershipReviewHelp
     }
   ];
 
@@ -71,7 +76,7 @@ export function HeroSection({ metrics }: { metrics: DashboardMetrics }) {
               </CardTitle>
             </CardHeader>
             <CardContent className="grid gap-4">
-              <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+              <div className="grid grid-cols-2 gap-3 xl:grid-cols-5">
                 {stats.map((stat) => (
                   <div key={stat.label} className="rounded-md border border-white/10 bg-white/[0.035] p-3">
                     <p className="text-2xl font-semibold text-zinc-50">{stat.value}</p>

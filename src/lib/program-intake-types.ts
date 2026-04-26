@@ -50,6 +50,7 @@ export type ProgramIntake = {
   decisionsNeeded: string;
   blockers: string;
   teamRoles?: string[];
+  leadershipReviewCadence?: "weekly" | "biweekly";
   artifacts: ProgramArtifact[];
   reviewedContext?: ReviewedArtifactContext;
 };

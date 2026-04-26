@@ -1,6 +1,6 @@
 import "server-only";
 
-import { getLatestGuidedPlan, listProgramUpdates, listPrograms } from "@/lib/program-store";
+import { getLatestGuidedPlan, listLeadershipFeedback, listProgramUpdates, listPrograms } from "@/lib/program-store";
 
 export type DashboardCallout = {
   id: string;
@@ -15,12 +15,25 @@ export type DashboardMetrics = {
   guidedPlans: number;
   riskCount: number;
   decisionCount: number;
+  leadershipReviewsDue: number;
   actionableCallouts: number;
   callouts: DashboardCallout[];
   riskHelp: string;
   decisionHelp: string;
+  leadershipReviewHelp: string;
   actionableCalloutsHelp: string;
 };
+
+function differenceInDays(later: Date, earlier: Date) {
+  return Math.floor((later.getTime() - earlier.getTime()) / (1000 * 60 * 60 * 24));
+}
+
+function inferReviewCadence(reviewDates: string[]): "weekly" | "biweekly" {
+  if (reviewDates.length < 2) return "weekly";
+  const latest = new Date(reviewDates[0]);
+  const previous = new Date(reviewDates[1]);
+  return differenceInDays(latest, previous) >= 10 ? "biweekly" : "weekly";
+}
 
 function firstSignal(value: string, fallback: string) {
   return (
@@ -89,7 +102,11 @@ export async function getDashboardMetrics(): Promise<DashboardMetrics> {
 
   const programViews = await Promise.all(
     programs.map(async (program) => {
-      const [latestPlan, updates] = await Promise.all([getLatestGuidedPlan(program.id), listProgramUpdates(program.id)]);
+      const [latestPlan, updates, leadershipFeedback] = await Promise.all([
+        getLatestGuidedPlan(program.id),
+        listProgramUpdates(program.id),
+        listLeadershipFeedback(program.id)
+      ]);
       const latestUpdate = updates[0];
       const callouts: DashboardCallout[] = [];
       const candidateSignals = [
@@ -125,7 +142,14 @@ export async function getDashboardMetrics(): Promise<DashboardMetrics> {
 
       return {
         hasGuidedPlan: Boolean(latestPlan),
-        callouts: uniqueCallouts(callouts)
+        callouts: uniqueCallouts(callouts),
+        leadershipReviewDue: (() => {
+          const cadence = program.intake.leadershipReviewCadence ?? inferReviewCadence(leadershipFeedback.map((entry) => entry.createdAt));
+          const cadenceDays = cadence === "weekly" ? 7 : 14;
+          const latestReview = leadershipFeedback[0];
+          if (!latestReview) return true;
+          return differenceInDays(new Date(), new Date(latestReview.createdAt)) >= cadenceDays - 1;
+        })()
       };
     })
   );
@@ -133,17 +157,21 @@ export async function getDashboardMetrics(): Promise<DashboardMetrics> {
   const allCallouts = programViews.flatMap((view) => view.callouts);
   const riskCallouts = allCallouts.filter((callout) => callout.type === "risk");
   const decisionCallouts = allCallouts.filter((callout) => callout.type === "decision");
+  const leadershipReviewsDue = programViews.filter((view) => view.leadershipReviewDue).length;
 
   return {
     activePrograms: programs.length,
     guidedPlans: programViews.filter((view) => view.hasGuidedPlan).length,
     riskCount: riskCallouts.length,
     decisionCount: decisionCallouts.length,
+    leadershipReviewsDue,
     actionableCallouts: allCallouts.length,
     callouts: allCallouts.slice(0, 3),
     riskHelp: "Counts individual risk items from the latest guided plan and unresolved update signals when present.",
     decisionHelp:
       "Counts explicit decision-needed items from the latest guided plan and unresolved decisions captured in the latest active-program update.",
+    leadershipReviewHelp:
+      "Counts programs whose leadership review is due this week based on the saved weekly or bi-weekly cadence for that program.",
     actionableCalloutsHelp:
       "Counts individual items from the latest guided plan's Risks and Decisions section, plus unresolved items captured in the latest active-program update when present."
   };

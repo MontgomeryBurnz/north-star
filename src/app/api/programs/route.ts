@@ -41,6 +41,7 @@ export async function POST(request: Request) {
           .filter((role): role is string => Boolean(role))
       )
     ),
+    leadershipReviewCadence: body.leadershipReviewCadence === "biweekly" ? "biweekly" : "weekly",
     artifacts: body.artifacts ?? [],
     reviewedContext: body.reviewedContext
   });
