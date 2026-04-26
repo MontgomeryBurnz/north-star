@@ -47,9 +47,9 @@ export default async function AlphaStatusPage() {
         artifactStorageProvider === "supabase" ? "Artifacts store in Supabase." : "Artifacts are not on shared object storage yet."
     },
     {
-      label: "Assistant provider",
+      label: "Guide provider",
       ok: assistantProvider === "openai",
-      detail: assistantProvider === "openai" ? "Server-side OpenAI is enabled." : "Assistant is still using the local fallback."
+      detail: assistantProvider === "openai" ? "Server-side OpenAI is enabled." : "Guide is still using the local fallback."
     },
     {
       label: "Guided plan provider",
@@ -133,7 +133,7 @@ export default async function AlphaStatusPage() {
                 "Update the program in Active Program.",
                 "Enter leadership feedback.",
                 "Regenerate the plan and confirm leadership signal appears.",
-                "Ask the assistant a grounded program question."
+                "Ask Guide a grounded program question."
               ].map((step) => (
                 <div key={step} className="rounded-md border border-white/10 bg-white/[0.035] px-3 py-2 text-sm text-zinc-300">
                   {step}

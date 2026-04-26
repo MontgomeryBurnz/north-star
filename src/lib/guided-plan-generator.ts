@@ -280,7 +280,7 @@ export function generateLocalGuidedPlan(
     latestUpdate ? "latest active-program update" : "",
     latestLeadershipFeedback ? "latest leadership feedback" : "",
     latestAssistantConversation
-      ? sourceLabel(assistantConversations.length, "assistant dialogue turn", "assistant dialogue turns")
+      ? sourceLabel(assistantConversations.length, "guide dialogue turn", "guide dialogue turns")
       : "",
     latestMeetingInput ? sourceLabel(meetingInputs.length, "meeting input") : ""
   ].filter(Boolean);
@@ -382,7 +382,7 @@ export function generateLocalGuidedPlan(
             ]
           : []),
         ...(latestAssistantConversation
-          ? [`Assistant dialogue signal: ${excerpt(latestAssistantConversation.response.answer, 140)}`]
+          ? [`Guide dialogue signal: ${excerpt(latestAssistantConversation.response.answer, 140)}`]
           : []),
         ...(latestMeetingInput ? [`Meeting signal: ${excerpt(latestMeetingInput.summary, 140)}`] : [])
       ]

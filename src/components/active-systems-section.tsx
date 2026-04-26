@@ -10,7 +10,7 @@ export function ActiveSystemsSection() {
     <section id="systems" className="mx-auto max-w-7xl px-4 py-20 sm:px-6 lg:px-8">
       <SectionHeader
         eyebrow="Guided plans"
-        title="What the assistant helps shape."
+        title="What Guide helps shape."
         description="Sample guided plans for turning program context into a work path, planning approach, key outcomes, critical requirements, outputs, and next steps."
       />
       <div className="mt-10 grid gap-4 lg:grid-cols-2">

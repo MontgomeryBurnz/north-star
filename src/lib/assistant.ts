@@ -183,10 +183,10 @@ async function buildProgramRecords(selectedProgramId?: string): Promise<Retrieva
           }`,
           `Risk posture: ${latestUpdate?.review.activeRisks || program.intake.risks || "No active risk captured yet."}`,
           `Latest plan: ${latestPlan?.summary || "No guided plan has been generated yet."}`,
-          `Assistant dialogue: ${
+          `Guide dialogue: ${
             assistantConversations[0]?.prompt
               ? excerpt(`${assistantConversations[0].prompt} ${assistantConversations[0].response.answer}`, 120)
-              : "No assistant dialogue captured yet."
+              : "No guide dialogue captured yet."
           }`
         ],
         href: "/active-program",
@@ -592,7 +592,7 @@ export async function composeGroundedAnswer(
                 `${contentRegistry.frameworks.length} frameworks`,
                 `${contentRegistry.aiProducts.length} AI products`,
                 `${contentRegistry.experiments.length} experiments`,
-                `${contentRegistry.assistantFaqs.length} seeded assistant prompts`
+                `${contentRegistry.assistantFaqs.length} seeded guide prompts`
               ])
         ]
       }
@@ -601,8 +601,8 @@ export async function composeGroundedAnswer(
     return {
       answer:
         options.selectedProgramId
-          ? "No strong match inside the selected program yet. Add more program-specific detail or capture fresh program inputs so the assistant can ground the guidance properly."
-          : "No strong local match. Name the specific program, decision, role, or risk so the assistant can ground the response against the saved program context.",
+          ? "No strong match inside the selected program yet. Add more program-specific detail or capture fresh program inputs so Guide can ground the guidance properly."
+          : "No strong local match. Name the specific program, decision, role, or risk so Guide can ground the response against the saved program context.",
       bullets: sections[0].items,
       sections,
       sources: ["Local content registry"],

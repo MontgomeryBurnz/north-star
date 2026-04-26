@@ -140,10 +140,10 @@ function buildLocalBriefing(input: {
     understandingScore: input.understandingScore,
     understandingSummary:
       input.understandingScore >= 80
-        ? "OpenAI has strong program context. Use the assistant to sharpen decisions, role actions, and execution posture."
+        ? "OpenAI has strong program context. Use Guide to sharpen decisions, role actions, and execution posture."
         : input.understandingScore >= 60
           ? "OpenAI has a workable understanding of the program, but more updates, dialogue, or leadership input would improve specificity."
-          : "OpenAI needs more grounded program context. Add artifacts, active-program updates, or assistant dialogue to improve guidance quality.",
+          : "OpenAI needs more grounded program context. Add artifacts, active-program updates, or guide dialogue to improve guidance quality.",
     missingInputs: []
   } satisfies AssistantBriefing;
 }
@@ -156,7 +156,7 @@ export async function getAssistantBriefing(programId: string): Promise<Assistant
       promptQueue: [],
       understandingScore: 0,
       understandingSummary: "No saved program was found.",
-      missingInputs: ["Select or save a program before using the assistant."]
+      missingInputs: ["Select or save a program before using Guide."]
     };
   }
 
@@ -214,10 +214,10 @@ export async function getAssistantBriefing(programId: string): Promise<Assistant
       : null,
     extractedArtifacts.length === 0 ? "Upload a source artifact with extracted text to ground the model." : null,
     !program.intake.reviewedContext ? "Review and confirm extracted context so the model has validated signals." : null,
-    !latestPlan ? "Generate or refresh a guided plan so the assistant can reason against the current operating path." : null,
-    !latestUpdate ? "Save an active-program update so the assistant can see current progress, risks, and decisions." : null,
+    !latestPlan ? "Generate or refresh a guided plan so Guide can reason against the current operating path." : null,
+    !latestUpdate ? "Save an active-program update so Guide can see current progress, risks, and decisions." : null,
     !latestLeadershipFeedback ? "Capture leadership feedback if sponsor direction should shape the guidance." : null,
-    !latestAssistantConversation ? "Use the assistant to add operator dialogue that can sharpen future recommendations." : null
+    !latestAssistantConversation ? "Use Guide to add operator dialogue that can sharpen future recommendations." : null
   ].filter((value): value is string => Boolean(value));
 
   const apiKey = process.env.OPENAI_API_KEY?.trim();

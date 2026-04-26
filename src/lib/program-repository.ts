@@ -123,10 +123,10 @@ function buildGuidanceJustificationRecord(input: {
     citations.push({
       sourceType: "assistant-dialogue",
       sourceId: latestAssistant.id,
-      label: "Assistant dialogue",
+      label: "Guide dialogue",
       rationale:
         input.plan.assistantDialogue.items[1] ??
-        "Assistant dialogue added operator context that shaped the refreshed plan."
+        "Guide dialogue added operator context that shaped the refreshed plan."
     });
   }
 
