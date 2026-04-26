@@ -281,6 +281,19 @@ function phaseIndexFromLabel(value: string) {
   return 2;
 }
 
+function firstNonEmpty(...values: Array<string | null | undefined>) {
+  return values.map((value) => value?.trim()).find(Boolean) ?? "";
+}
+
+function splitSignals(value: string, fallback: string) {
+  const items = value
+    .split(/\n|•|;/)
+    .map((item) => item.trim())
+    .filter(Boolean);
+
+  return items.length ? items : [fallback];
+}
+
 function buildProgramGantt(program: StoredProgram | null, latestUpdate: StoredProgramUpdate | undefined): GanttPhase[] {
   const currentPhaseLabel = latestUpdate?.review.currentPhase || program?.intake.currentStatus || "Execution";
   const currentIndex = phaseIndexFromLabel(currentPhaseLabel);
@@ -337,6 +350,98 @@ export function LeadershipReviewConsole() {
   const latestFeedback = feedback[0];
   const ganttPhases = useMemo(() => buildProgramGantt(selectedProgram, latestUpdate), [latestUpdate, selectedProgram]);
   const currentPhase = ganttPhases.find((phase) => phase.status === "current") ?? ganttPhases[ganttPhases.length - 1];
+  const executiveSummary = useMemo(
+    () =>
+      firstNonEmpty(
+        latestFeedback?.interpretation?.summary,
+        plan?.summary,
+        latestUpdate?.review.progressSinceLastReview,
+        selectedProgram?.intake.vision,
+        selectedProgram?.intake.outcomes
+      ) || "No executive summary is available yet.",
+    [latestFeedback?.interpretation?.summary, latestUpdate?.review.progressSinceLastReview, plan?.summary, selectedProgram?.intake.outcomes, selectedProgram?.intake.vision]
+  );
+  const leaderReadout = useMemo(
+    () => [
+      {
+        label: "Program summary",
+        value: executiveSummary
+      },
+      {
+        label: "Progression",
+        value:
+          firstNonEmpty(
+            latestUpdate?.review.progressSinceLastReview,
+            latestFeedback?.feedback.progressHighlights,
+            selectedProgram?.intake.currentStatus
+          ) || "No recent progression signal is available yet."
+      },
+      {
+        label: "Risk posture",
+        value:
+          firstNonEmpty(
+            latestUpdate?.review.activeRisks,
+            latestFeedback?.feedback.activeRisks,
+            plan?.risksAndDecisions.items[0],
+            selectedProgram?.intake.risks
+          ) || "No active risk signal is available yet."
+      },
+      {
+        label: "Decisions needing leadership",
+        value:
+          firstNonEmpty(
+            latestUpdate?.review.decisionsPending,
+            selectedProgram?.intake.decisionsNeeded,
+            plan?.risksAndDecisions.items.find((item) => item.toLowerCase().includes("decision"))
+          ) || "No decision callout is currently saved."
+      }
+    ],
+    [
+      executiveSummary,
+      latestFeedback?.feedback.activeRisks,
+      latestFeedback?.feedback.progressHighlights,
+      latestUpdate?.review.activeRisks,
+      latestUpdate?.review.decisionsPending,
+      latestUpdate?.review.progressSinceLastReview,
+      plan?.risksAndDecisions.items,
+      selectedProgram?.intake.currentStatus,
+      selectedProgram?.intake.decisionsNeeded,
+      selectedProgram?.intake.risks
+    ]
+  );
+  const quickContextSignals = useMemo(
+    () => [
+      {
+        label: "Phase",
+        value: latestUpdate?.review.currentPhase || selectedProgram?.intake.currentStatus || "No phase captured."
+      },
+      {
+        label: "Leadership direction",
+        value:
+          firstNonEmpty(
+            latestFeedback?.feedback.leadershipGuidance,
+            latestFeedback?.interpretation?.deliveryLeadMessage
+          ) || "No leadership direction saved yet."
+      },
+      {
+        label: "Support needed",
+        value:
+          firstNonEmpty(
+            latestUpdate?.review.supportNeeded,
+            latestFeedback?.feedback.supportRequests
+          ) || "No sponsor or leadership support request is captured yet."
+      }
+    ],
+    [
+      latestFeedback?.feedback.leadershipGuidance,
+      latestFeedback?.feedback.supportRequests,
+      latestFeedback?.interpretation?.deliveryLeadMessage,
+      latestUpdate?.review.currentPhase,
+      latestUpdate?.review.supportNeeded,
+      selectedProgram?.intake.currentStatus
+    ]
+  );
+  const recentLeadershipSignals = useMemo(() => feedback.slice(0, 3), [feedback]);
 
   const timeline = useMemo<TimelineItem[]>(() => {
     if (!selectedProgram) return [];
@@ -532,28 +637,79 @@ export function LeadershipReviewConsole() {
           <Card className="bg-zinc-950/80">
             <CardHeader className="border-b border-white/10">
               <CardTitle className="flex items-center gap-2 text-zinc-50">
-                <Flag className="h-4 w-4 text-cyan-200" />
-                Leadership snapshot
+                <MessageSquareQuote className="h-4 w-4 text-cyan-200" />
+                Recent leadership signal
               </CardTitle>
             </CardHeader>
             <CardContent className="grid gap-3 p-5">
-              {[
-                ["North star", selectedProgram?.intake.vision || selectedProgram?.intake.outcomes || "No north star captured."],
-                ["Current phase", latestUpdate?.review.currentPhase || selectedProgram?.intake.currentStatus || "No active phase captured."],
-                ["Progress highlight", latestUpdate?.review.progressSinceLastReview || review.progressHighlights || "No progress highlight captured."],
-                ["Active risk", latestUpdate?.review.activeRisks || review.activeRisks || "No active risk captured."],
-                ["Leadership direction", latestFeedback?.feedback.leadershipGuidance || "No leadership guidance saved yet."]
-              ].map(([label, value]) => (
-                <div key={label} className="rounded-md border border-white/10 bg-white/[0.035] p-3">
-                  <p className="text-xs font-medium uppercase tracking-[0.16em] text-zinc-500">{label}</p>
-                  <p className="mt-2 text-sm leading-6 text-zinc-300">{value}</p>
+              {recentLeadershipSignals.length ? (
+                recentLeadershipSignals.map((entry, index) => (
+                  <button
+                    key={entry.id}
+                    type="button"
+                    onClick={() => setReview(entry.feedback)}
+                    className="rounded-md border border-white/10 bg-white/[0.035] p-3 text-left transition-colors hover:border-cyan-300/30"
+                  >
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="text-xs font-medium uppercase tracking-[0.16em] text-cyan-200">
+                        {index === 0 ? "Most recent" : formatTimestamp(entry.createdAt)}
+                      </span>
+                      <span className="text-[11px] text-zinc-500">{index === 0 ? formatTimestamp(entry.createdAt) : "load"}</span>
+                    </div>
+                    <p className="mt-2 text-sm font-medium text-zinc-100">
+                      {firstSignal(entry.interpretation?.summary ?? entry.feedback.leadershipGuidance, "Leadership review")}
+                    </p>
+                    <p className="mt-1 line-clamp-3 text-xs leading-5 text-zinc-400">
+                      {entry.interpretation?.deliveryLeadMessage ||
+                        entry.feedback.feedbackToDeliveryLead ||
+                        entry.feedback.supportRequests ||
+                        "No detail captured."}
+                    </p>
+                  </button>
+                ))
+              ) : (
+                <div className="rounded-md border border-white/10 bg-white/[0.035] p-3 text-sm leading-6 text-zinc-400">
+                  No leadership guidance is saved yet.
                 </div>
-              ))}
+              )}
             </CardContent>
           </Card>
         </aside>
 
         <section className="grid gap-6">
+          <Card className="bg-zinc-950/80">
+            <CardHeader className="border-b border-white/10">
+              <CardTitle className="flex items-center gap-2 text-zinc-50">
+                <Flag className="h-4 w-4 text-emerald-200" />
+                Executive summary
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="grid gap-4 p-5">
+              <div className="rounded-md border border-emerald-300/15 bg-emerald-300/[0.07] p-4">
+                <p className="text-xs font-medium uppercase tracking-[0.16em] text-emerald-200">Leader readout</p>
+                <p className="mt-3 text-base leading-7 text-zinc-100">{executiveSummary}</p>
+              </div>
+
+              <div className="grid gap-3 lg:grid-cols-2">
+                {leaderReadout.map((item) => (
+                  <div key={item.label} className="rounded-md border border-white/10 bg-white/[0.035] p-4">
+                    <p className="text-xs font-medium uppercase tracking-[0.16em] text-zinc-500">{item.label}</p>
+                    <p className="mt-2 text-sm leading-6 text-zinc-300">{item.value}</p>
+                  </div>
+                ))}
+              </div>
+
+              <div className="grid gap-3 md:grid-cols-3">
+                {quickContextSignals.map((item) => (
+                  <div key={item.label} className="rounded-md border border-white/10 bg-black/20 p-3">
+                    <p className="text-xs font-medium uppercase tracking-[0.16em] text-zinc-500">{item.label}</p>
+                    <p className="mt-2 text-sm leading-6 text-zinc-300">{item.value}</p>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+
           <Card className="bg-zinc-950/80">
             <CardHeader className="border-b border-white/10">
               <CardTitle className="flex items-center gap-2 text-zinc-50">
@@ -666,23 +822,60 @@ export function LeadershipReviewConsole() {
             <CardHeader className="border-b border-white/10">
               <CardTitle className="flex items-center gap-2 text-zinc-50">
                 <ClipboardPen className="h-4 w-4 text-emerald-200" />
-                Leadership input
+                Fresh leadership guidance
               </CardTitle>
             </CardHeader>
             <CardContent className="p-5">
               <form onSubmit={handleSubmit} className="grid gap-4">
-                {leadershipFields.map((field) => (
-                  <label key={field.id} className="grid gap-2">
-                    <span className="text-xs font-medium uppercase tracking-[0.16em] text-zinc-300">{field.label}</span>
-                    <textarea
-                      value={review[field.id]}
-                      onChange={(event) => updateField(field.id, event.target.value)}
-                      rows={field.rows}
-                      placeholder={field.placeholder}
-                      className="resize-none rounded-md border border-white/10 bg-zinc-950 px-3 py-3 text-sm leading-6 text-zinc-100 outline-none transition-colors placeholder:text-zinc-400 focus:border-emerald-300/50"
-                    />
-                  </label>
-                ))}
+                <div className="grid gap-3 lg:grid-cols-[1.1fr_0.9fr]">
+                  <div className="grid gap-4">
+                    {leadershipFields.slice(0, 4).map((field) => (
+                      <label key={field.id} className="grid gap-2">
+                        <span className="text-xs font-medium uppercase tracking-[0.16em] text-zinc-300">{field.label}</span>
+                        <textarea
+                          value={review[field.id]}
+                          onChange={(event) => updateField(field.id, event.target.value)}
+                          rows={field.rows}
+                          placeholder={field.placeholder}
+                          className="resize-none rounded-md border border-white/10 bg-zinc-950 px-3 py-3 text-sm leading-6 text-zinc-100 outline-none transition-colors placeholder:text-zinc-400 focus:border-emerald-300/50"
+                        />
+                      </label>
+                    ))}
+                  </div>
+
+                  <div className="grid gap-4">
+                    <div className="rounded-md border border-white/10 bg-white/[0.035] p-4">
+                      <p className="text-xs font-medium uppercase tracking-[0.16em] text-emerald-200">What leaders should clarify</p>
+                      <div className="mt-3 grid gap-2">
+                        {splitSignals(
+                          firstNonEmpty(
+                            latestUpdate?.review.decisionsPending,
+                            selectedProgram?.intake.decisionsNeeded,
+                            review.supportRequests
+                          ),
+                          "No decision pressure is currently saved."
+                        ).map((item) => (
+                          <p key={item} className="text-sm leading-6 text-zinc-300">
+                            {item}
+                          </p>
+                        ))}
+                      </div>
+                    </div>
+
+                    {leadershipFields.slice(4).map((field) => (
+                      <label key={field.id} className="grid gap-2">
+                        <span className="text-xs font-medium uppercase tracking-[0.16em] text-zinc-300">{field.label}</span>
+                        <textarea
+                          value={review[field.id]}
+                          onChange={(event) => updateField(field.id, event.target.value)}
+                          rows={field.rows}
+                          placeholder={field.placeholder}
+                          className="resize-none rounded-md border border-white/10 bg-zinc-950 px-3 py-3 text-sm leading-6 text-zinc-100 outline-none transition-colors placeholder:text-zinc-400 focus:border-emerald-300/50"
+                        />
+                      </label>
+                    ))}
+                  </div>
+                </div>
 
                 <div className="flex flex-wrap gap-3">
                   <Button type="submit" size="lg" disabled={!selectedProgramId || saveState === "saving"}>
