@@ -63,7 +63,7 @@ export function CommandCenterGrid({ metrics }: { metrics: DashboardMetrics }) {
       label: "Reviews due",
       value: metrics.leadershipReviewsDue,
       detail: metrics.leadershipReviewsDue
-        ? "leadership check-ins due this week"
+        ? metrics.duePrograms.slice(0, 2).map((program) => program.programName).join(" • ")
         : "no leadership check-ins due this week",
       help: metrics.leadershipReviewHelp
     }

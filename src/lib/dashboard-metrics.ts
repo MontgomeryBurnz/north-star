@@ -10,12 +10,21 @@ export type DashboardCallout = {
   detail: string;
 };
 
+export type DashboardDueProgram = {
+  programId: string;
+  programName: string;
+  cadence: "weekly" | "biweekly";
+  status: "due" | "overdue";
+  detail: string;
+};
+
 export type DashboardMetrics = {
   activePrograms: number;
   guidedPlans: number;
   riskCount: number;
   decisionCount: number;
   leadershipReviewsDue: number;
+  duePrograms: DashboardDueProgram[];
   actionableCallouts: number;
   callouts: DashboardCallout[];
   riskHelp: string;
@@ -33,6 +42,15 @@ function inferReviewCadence(reviewDates: string[]): "weekly" | "biweekly" {
   const latest = new Date(reviewDates[0]);
   const previous = new Date(reviewDates[1]);
   return differenceInDays(latest, previous) >= 10 ? "biweekly" : "weekly";
+}
+
+function formatDueProgramDetail(cadence: "weekly" | "biweekly", latestReview: string | null) {
+  if (!latestReview) {
+    return `No ${cadence === "weekly" ? "weekly" : "bi-weekly"} review on file.`;
+  }
+
+  const daysSinceReview = differenceInDays(new Date(), new Date(latestReview));
+  return `${cadence === "weekly" ? "Weekly" : "Bi-weekly"} review last saved ${daysSinceReview}d ago.`;
 }
 
 function firstSignal(value: string, fallback: string) {
@@ -143,12 +161,32 @@ export async function getDashboardMetrics(): Promise<DashboardMetrics> {
       return {
         hasGuidedPlan: Boolean(latestPlan),
         callouts: uniqueCallouts(callouts),
-        leadershipReviewDue: (() => {
+        reviewDueItem: (() => {
           const cadence = program.intake.leadershipReviewCadence ?? inferReviewCadence(leadershipFeedback.map((entry) => entry.createdAt));
           const cadenceDays = cadence === "weekly" ? 7 : 14;
           const latestReview = leadershipFeedback[0];
-          if (!latestReview) return true;
-          return differenceInDays(new Date(), new Date(latestReview.createdAt)) >= cadenceDays - 1;
+          if (!latestReview) {
+            return {
+              programId: program.id,
+              programName: program.intake.programName,
+              cadence,
+              status: "due" as const,
+              detail: formatDueProgramDetail(cadence, null)
+            };
+          }
+
+          const daysSinceReview = differenceInDays(new Date(), new Date(latestReview.createdAt));
+          if (daysSinceReview < cadenceDays - 1) {
+            return null;
+          }
+
+          return {
+            programId: program.id,
+            programName: program.intake.programName,
+            cadence,
+            status: daysSinceReview >= cadenceDays ? ("overdue" as const) : ("due" as const),
+            detail: formatDueProgramDetail(cadence, latestReview.createdAt)
+          };
         })()
       };
     })
@@ -157,7 +195,18 @@ export async function getDashboardMetrics(): Promise<DashboardMetrics> {
   const allCallouts = programViews.flatMap((view) => view.callouts);
   const riskCallouts = allCallouts.filter((callout) => callout.type === "risk");
   const decisionCallouts = allCallouts.filter((callout) => callout.type === "decision");
-  const leadershipReviewsDue = programViews.filter((view) => view.leadershipReviewDue).length;
+  const duePrograms = programViews
+    .map((view) => view.reviewDueItem)
+    .filter((item): item is DashboardDueProgram => Boolean(item))
+    .sort((a, b) => {
+      if (a.status !== b.status) {
+        return a.status === "overdue" ? -1 : 1;
+      }
+
+      return a.programName.localeCompare(b.programName);
+    });
+  const leadershipReviewsDue = duePrograms.length;
+  const duePreview = duePrograms.slice(0, 3).map((item) => item.programName).join(", ");
 
   return {
     activePrograms: programs.length,
@@ -165,13 +214,16 @@ export async function getDashboardMetrics(): Promise<DashboardMetrics> {
     riskCount: riskCallouts.length,
     decisionCount: decisionCallouts.length,
     leadershipReviewsDue,
+    duePrograms,
     actionableCallouts: allCallouts.length,
     callouts: allCallouts.slice(0, 3),
     riskHelp: "Counts individual risk items from the latest guided plan and unresolved update signals when present.",
     decisionHelp:
       "Counts explicit decision-needed items from the latest guided plan and unresolved decisions captured in the latest active-program update.",
     leadershipReviewHelp:
-      "Counts programs whose leadership review is due this week based on the saved weekly or bi-weekly cadence for that program.",
+      leadershipReviewsDue
+        ? `Programs due now: ${duePreview}${duePrograms.length > 3 ? ", and more." : "."}`
+        : "No programs are due for a leadership review right now.",
     actionableCalloutsHelp:
       "Counts individual items from the latest guided plan's Risks and Decisions section, plus unresolved items captured in the latest active-program update when present."
   };

@@ -109,7 +109,8 @@ export default async function AlphaStatusPage() {
                 ["Active programs", metrics.activePrograms],
                 ["Guided plans", metrics.guidedPlans],
                 ["Risks", metrics.riskCount],
-                ["Decisions needed", metrics.decisionCount]
+                ["Decisions needed", metrics.decisionCount],
+                ["Reviews due", metrics.leadershipReviewsDue]
               ].map(([label, value]) => (
                 <div key={label} className="rounded-md border border-white/10 bg-white/[0.035] p-3">
                   <p className="text-2xl font-semibold text-zinc-50">{String(value).padStart(2, "0")}</p>

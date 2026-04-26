@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import {
   ClipboardPen,
   FileClock,
@@ -266,6 +267,16 @@ type ReviewCycleStatus = {
   helperText: string;
 };
 
+type ReviewQueueItem = {
+  programId: string;
+  programName: string;
+  cadence: ReviewCadence;
+  status: "due" | "overdue";
+  badgeLabel: string;
+  lastReviewedLabel: string;
+  nextReviewLabel: string;
+};
+
 function formatTimestamp(value: string) {
   return new Intl.DateTimeFormat(undefined, {
     month: "short",
@@ -416,11 +427,14 @@ function buildProgramGantt(program: StoredProgram | null, latestUpdate: StoredPr
 }
 
 export function LeadershipReviewConsole() {
+  const searchParams = useSearchParams();
+  const queueMode = searchParams.get("queue") === "due";
   const [programs, setPrograms] = useState<StoredProgram[]>([seededLeadershipProgram]);
   const [selectedProgramId, setSelectedProgramId] = useState(seededLeadershipProgram.id);
   const [updates, setUpdates] = useState<StoredProgramUpdate[]>(seededLeadershipUpdates);
   const [plan, setPlan] = useState<GuidedPlan | null>(seededLeadershipPlan);
   const [feedback, setFeedback] = useState<LeadershipReviewRecord[]>(seededLeadershipFeedback);
+  const [reviewQueue, setReviewQueue] = useState<ReviewQueueItem[]>([]);
   const [review, setReview] = useState<LeadershipReviewInput>(emptyLeadershipReview);
   const [status, setStatus] = useState<string | null>(null);
   const [saveState, setSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle");
@@ -586,6 +600,61 @@ export function LeadershipReviewConsole() {
 
     void loadPrograms();
   }, []);
+
+  useEffect(() => {
+    async function loadReviewQueue() {
+      if (!programs.length) {
+        setReviewQueue([]);
+        return;
+      }
+
+      const queueEntries = await Promise.all(
+        programs.map(async (program) => {
+          const cadence = (program.intake.leadershipReviewCadence as ReviewCadence | undefined) ?? "weekly";
+          const programFeedback =
+            program.id === seededLeadershipProgram.id
+              ? seededLeadershipFeedback
+              : ((await fetch(`/api/programs/${program.id}/leadership-feedback`).then((response) => response.json())) as {
+                  feedback: LeadershipReviewRecord[];
+                }).feedback;
+          const cycleStatus = buildReviewCycleStatusForCadence(programFeedback, cadence);
+          if (cycleStatus.badgeTone === "on-track") {
+            return null;
+          }
+
+          return {
+            programId: program.id,
+            programName: program.intake.programName,
+            cadence,
+            status: cycleStatus.badgeTone,
+            badgeLabel: cycleStatus.badgeLabel,
+            lastReviewedLabel: cycleStatus.lastReviewedLabel,
+            nextReviewLabel: cycleStatus.nextReviewLabel
+          } satisfies ReviewQueueItem;
+        })
+      );
+
+      const dueQueue: ReviewQueueItem[] = queueEntries
+        .filter((entry) => entry !== null)
+        .sort((a, b) => {
+          if (a.status !== b.status) {
+            return a.status === "overdue" ? -1 : 1;
+          }
+
+          return a.programName.localeCompare(b.programName);
+        });
+
+      setReviewQueue(dueQueue);
+    }
+
+    void loadReviewQueue();
+  }, [feedback, programs]);
+
+  useEffect(() => {
+    if (!queueMode || !reviewQueue.length) return;
+    if (reviewQueue.some((entry) => entry.programId === selectedProgramId)) return;
+    setSelectedProgramId(reviewQueue[0].programId);
+  }, [queueMode, reviewQueue, selectedProgramId]);
 
   useEffect(() => {
     async function loadProgramContext() {
@@ -823,6 +892,56 @@ export function LeadershipReviewConsole() {
                   <p className="mt-2 text-sm leading-6 text-zinc-200">{reviewCycleStatus.nextReviewLabel}</p>
                 </div>
               </div>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-zinc-950/80">
+            <CardHeader className="border-b border-white/10">
+              <CardTitle className="flex items-center gap-2 text-zinc-50">
+                <RefreshCw className="h-4 w-4 text-fuchsia-200" />
+                {queueMode ? "Filtered review due queue" : "Review due queue"}
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="grid gap-3 p-5">
+              {queueMode ? (
+                <div className="rounded-md border border-fuchsia-300/20 bg-fuchsia-300/[0.07] p-3 text-sm leading-6 text-zinc-300">
+                  The Console sent you here because one or more leadership reviews are due now.
+                </div>
+              ) : null}
+
+              {reviewQueue.length ? (
+                reviewQueue.map((entry) => (
+                  <button
+                    key={entry.programId}
+                    type="button"
+                    onClick={() => setSelectedProgramId(entry.programId)}
+                    className={`rounded-md border p-3 text-left transition-colors ${
+                      entry.programId === selectedProgramId
+                        ? "border-fuchsia-300/35 bg-fuchsia-300/[0.08]"
+                        : "border-white/10 bg-white/[0.035] hover:border-fuchsia-300/25"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between gap-3">
+                      <p className="text-sm font-medium text-zinc-100">{entry.programName}</p>
+                      <span
+                        className={`rounded-full border px-2.5 py-1 text-[11px] font-medium uppercase tracking-[0.14em] ${
+                          entry.status === "overdue"
+                            ? "border-rose-300/30 bg-rose-300/10 text-rose-100"
+                            : "border-amber-300/30 bg-amber-300/10 text-amber-100"
+                        }`}
+                      >
+                        {entry.status === "overdue" ? "Overdue" : "Due"}
+                      </span>
+                    </div>
+                    <p className="mt-2 text-xs leading-5 text-zinc-400">{entry.lastReviewedLabel}</p>
+                    <p className="mt-1 text-xs leading-5 text-zinc-500">{entry.nextReviewLabel}</p>
+                  </button>
+                ))
+              ) : (
+                <div className="rounded-md border border-white/10 bg-white/[0.035] p-3 text-sm leading-6 text-zinc-400">
+                  No leadership reviews are due right now.
+                </div>
+              )}
             </CardContent>
           </Card>
 

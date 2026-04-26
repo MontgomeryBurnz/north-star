@@ -46,8 +46,10 @@ export default async function Home() {
       id: "leadership-reviews",
       label: "Reviews Due",
       value: metrics.leadershipReviewsDue,
-      href: "/leadership",
-      detail: metrics.leadershipReviewsDue ? "weekly and bi-weekly leadership cycles due" : "no leadership reviews due this week"
+      href: "/leadership?queue=due",
+      detail: metrics.leadershipReviewsDue
+        ? metrics.duePrograms.slice(0, 2).map((program) => program.programName).join(" • ")
+        : "no leadership reviews due this week"
     }
   ];
 
