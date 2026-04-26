@@ -253,6 +253,18 @@ type GanttPhase = {
   status: "completed" | "current" | "upcoming";
 };
 
+type ReviewCadence = "weekly" | "biweekly";
+
+type ReviewCycleStatus = {
+  cadence: ReviewCadence;
+  lastReviewedLabel: string;
+  nextReviewLabel: string;
+  badgeLabel: string;
+  badgeTone: "on-track" | "due" | "overdue";
+  ctaLabel: string;
+  helperText: string;
+};
+
 function formatTimestamp(value: string) {
   return new Intl.DateTimeFormat(undefined, {
     month: "short",
@@ -292,6 +304,72 @@ function splitSignals(value: string, fallback: string) {
     .filter(Boolean);
 
   return items.length ? items : [fallback];
+}
+
+function differenceInDays(later: Date, earlier: Date) {
+  return Math.floor((later.getTime() - earlier.getTime()) / (1000 * 60 * 60 * 24));
+}
+
+function inferReviewCadence(entries: LeadershipReviewRecord[]): ReviewCadence {
+  if (entries.length < 2) return "weekly";
+  const latest = new Date(entries[0].createdAt);
+  const previous = new Date(entries[1].createdAt);
+  return differenceInDays(latest, previous) >= 10 ? "biweekly" : "weekly";
+}
+
+function formatRelativeDays(days: number) {
+  if (days <= 0) return "today";
+  if (days === 1) return "in 1 day";
+  return `in ${days} days`;
+}
+
+function buildReviewCycleStatus(entries: LeadershipReviewRecord[]): ReviewCycleStatus {
+  const cadence = inferReviewCadence(entries);
+  const cadenceDays = cadence === "weekly" ? 7 : 14;
+
+  if (!entries.length) {
+    return {
+      cadence,
+      lastReviewedLabel: "No review on file",
+      nextReviewLabel: cadence === "weekly" ? "Start the first weekly review" : "Start the first bi-weekly review",
+      badgeLabel: "Review needed",
+      badgeTone: "due",
+      ctaLabel: "Start new review cycle",
+      helperText: "No leadership review has been saved for this program yet."
+    };
+  }
+
+  const latestDate = new Date(entries[0].createdAt);
+  const now = new Date();
+  const daysSinceReview = differenceInDays(now, latestDate);
+  const nextReviewDate = new Date(latestDate);
+  nextReviewDate.setDate(nextReviewDate.getDate() + cadenceDays);
+  const daysUntilNextReview = differenceInDays(nextReviewDate, now);
+
+  let badgeTone: ReviewCycleStatus["badgeTone"] = "on-track";
+  let badgeLabel = `${cadence === "weekly" ? "Weekly" : "Bi-weekly"} review on track`;
+  if (daysUntilNextReview < 0) {
+    badgeTone = "overdue";
+    badgeLabel = `${cadence === "weekly" ? "Weekly" : "Bi-weekly"} review overdue`;
+  } else if (daysUntilNextReview <= 1) {
+    badgeTone = "due";
+    badgeLabel = `${cadence === "weekly" ? "Weekly" : "Bi-weekly"} review due`;
+  }
+
+  return {
+    cadence,
+    lastReviewedLabel: `${formatTimestamp(entries[0].createdAt)} (${daysSinceReview === 0 ? "today" : `${daysSinceReview}d ago`})`,
+    nextReviewLabel: `${formatTimestamp(nextReviewDate.toISOString())} (${daysUntilNextReview < 0 ? `${Math.abs(daysUntilNextReview)}d overdue` : formatRelativeDays(daysUntilNextReview)})`,
+    badgeLabel,
+    badgeTone,
+    ctaLabel: daysSinceReview < 2 ? "Update this review cycle" : "Start new review cycle",
+    helperText:
+      badgeTone === "overdue"
+        ? "Leadership input is past the expected review cadence for this program."
+        : badgeTone === "due"
+          ? "A new leadership review should be entered now so guidance stays current."
+          : "The current leadership review is still within the expected review window."
+  };
 }
 
 function buildProgramGantt(program: StoredProgram | null, latestUpdate: StoredProgramUpdate | undefined): GanttPhase[] {
@@ -442,6 +520,8 @@ export function LeadershipReviewConsole() {
     ]
   );
   const recentLeadershipSignals = useMemo(() => feedback.slice(0, 3), [feedback]);
+  const reviewCycleStatus = useMemo(() => buildReviewCycleStatus(feedback), [feedback]);
+  const latestReviewCycle = feedback[0];
 
   const timeline = useMemo<TimelineItem[]>(() => {
     if (!selectedProgram) return [];
@@ -631,6 +711,55 @@ export function LeadershipReviewConsole() {
               ) : null}
 
               {status ? <p className="text-sm leading-6 text-zinc-400">{status}</p> : null}
+            </CardContent>
+          </Card>
+
+          <Card className="bg-zinc-950/80">
+            <CardHeader className="border-b border-white/10">
+              <CardTitle className="flex items-center gap-2 text-zinc-50">
+                <FileClock className="h-4 w-4 text-amber-200" />
+                Review cadence
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="grid gap-4 p-5">
+              <div
+                className={`rounded-md border p-4 ${
+                  reviewCycleStatus.badgeTone === "overdue"
+                    ? "border-rose-300/25 bg-rose-300/10"
+                    : reviewCycleStatus.badgeTone === "due"
+                      ? "border-amber-300/25 bg-amber-300/10"
+                      : "border-emerald-300/20 bg-emerald-300/[0.07]"
+                }`}
+              >
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <p className="text-xs font-medium uppercase tracking-[0.16em] text-zinc-200">
+                    {reviewCycleStatus.cadence === "weekly" ? "Weekly review loop" : "Bi-weekly review loop"}
+                  </p>
+                  <span
+                    className={`rounded-full border px-3 py-1 text-[11px] font-medium uppercase tracking-[0.14em] ${
+                      reviewCycleStatus.badgeTone === "overdue"
+                        ? "border-rose-300/30 bg-rose-300/10 text-rose-100"
+                        : reviewCycleStatus.badgeTone === "due"
+                          ? "border-amber-300/30 bg-amber-300/10 text-amber-100"
+                          : "border-emerald-300/30 bg-emerald-300/10 text-emerald-100"
+                    }`}
+                  >
+                    {reviewCycleStatus.badgeLabel}
+                  </span>
+                </div>
+                <p className="mt-3 text-sm leading-6 text-zinc-300">{reviewCycleStatus.helperText}</p>
+              </div>
+
+              <div className="grid gap-3 md:grid-cols-2">
+                <div className="rounded-md border border-white/10 bg-white/[0.035] p-3">
+                  <p className="text-xs font-medium uppercase tracking-[0.16em] text-zinc-500">Last reviewed</p>
+                  <p className="mt-2 text-sm leading-6 text-zinc-200">{reviewCycleStatus.lastReviewedLabel}</p>
+                </div>
+                <div className="rounded-md border border-white/10 bg-white/[0.035] p-3">
+                  <p className="text-xs font-medium uppercase tracking-[0.16em] text-zinc-500">Next expected review</p>
+                  <p className="mt-2 text-sm leading-6 text-zinc-200">{reviewCycleStatus.nextReviewLabel}</p>
+                </div>
+              </div>
             </CardContent>
           </Card>
 
@@ -827,6 +956,24 @@ export function LeadershipReviewConsole() {
             </CardHeader>
             <CardContent className="p-5">
               <form onSubmit={handleSubmit} className="grid gap-4">
+                <div className="rounded-md border border-white/10 bg-white/[0.035] p-4">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                      <p className="text-xs font-medium uppercase tracking-[0.16em] text-emerald-200">
+                        {reviewCycleStatus.ctaLabel}
+                      </p>
+                      <p className="mt-2 text-sm leading-6 text-zinc-300">
+                        {latestReviewCycle
+                          ? `The current leadership record on file was submitted ${formatTimestamp(latestReviewCycle.createdAt)}. Save this form to create the next cadence update and refresh the guided plan.`
+                          : "No review has been captured yet. Save this form to establish the first leadership review cycle and refresh the guided plan."}
+                      </p>
+                    </div>
+                    <span className="rounded-full border border-white/10 bg-black/20 px-3 py-1 text-[11px] font-medium uppercase tracking-[0.14em] text-zinc-400">
+                      {reviewCycleStatus.cadence === "weekly" ? "7-day loop" : "14-day loop"}
+                    </span>
+                  </div>
+                </div>
+
                 <div className="grid gap-3 lg:grid-cols-[1.1fr_0.9fr]">
                   <div className="grid gap-4">
                     {leadershipFields.slice(0, 4).map((field) => (
@@ -912,7 +1059,7 @@ export function LeadershipReviewConsole() {
               <CardHeader className="border-b border-white/10">
                 <CardTitle className="flex items-center gap-2 text-zinc-50">
                   <RefreshCw className="h-4 w-4 text-amber-200" />
-                  Leadership history
+                  Review cycle history
                 </CardTitle>
               </CardHeader>
               <CardContent className="grid gap-3 p-5">
@@ -928,8 +1075,8 @@ export function LeadershipReviewConsole() {
                         <span className="text-xs font-medium uppercase tracking-[0.16em] text-amber-200">
                           {formatTimestamp(entry.createdAt)}
                         </span>
-                        <span className="rounded-md border border-white/10 bg-black/20 px-2 py-0.5 text-[11px] text-zinc-500">
-                          load
+                        <span className="rounded-md border border-white/10 bg-black/20 px-2 py-0.5 text-[11px] uppercase tracking-[0.14em] text-zinc-500">
+                          review cycle
                         </span>
                       </div>
                       <p className="text-sm font-medium text-zinc-100">
@@ -940,6 +1087,9 @@ export function LeadershipReviewConsole() {
                           entry.feedback.feedbackToDeliveryLead ||
                           entry.feedback.supportRequests ||
                           "No detail captured."}
+                      </p>
+                      <p className="mt-3 text-[11px] uppercase tracking-[0.14em] text-zinc-500">
+                        Click to load this review cycle into the guidance form
                       </p>
                     </button>
                   ))
