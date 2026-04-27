@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 const emptyIntake: ProgramIntake = {
   programName: "",
+  programOwner: "",
   vision: "",
   sowSummary: "",
   outcomes: "",
@@ -42,6 +43,7 @@ Key outputs: recommended work path, planning approach, critical requirements, ri
 
 const sampleIntake: ProgramIntake = {
   programName: "Customer Onboarding Modernization",
+  programOwner: "Delivery lead",
   vision: "Create a clear delivery path that reduces onboarding ambiguity and gives leaders a reliable view of decisions, risks, and next outputs.",
   sowSummary: "Modernize the intake-to-delivery workflow for customer onboarding using structured program context, artifact evidence, and guided planning outputs.",
   outcomes: "Reduce onboarding cycle time\nCreate a visible delivery path\nImprove sponsor decision clarity\nDefine readiness criteria before expansion",
@@ -87,6 +89,12 @@ const textFields: Array<{
   placeholder: string;
   rows: number;
 }> = [
+  {
+    id: "programOwner",
+    label: "Program owner / delivery lead",
+    placeholder: "Who owns execution for this program?",
+    rows: 2
+  },
   {
     id: "vision",
     label: "Vision / desired outcome",
@@ -788,8 +796,20 @@ export function ProgramIntakeSection() {
                     Required. This becomes the saved program source used in Guided Plans, Active Program, and Leadership.
                   </span>
                 </label>
+                <label className="grid gap-2">
+                  <span className="text-xs font-medium uppercase tracking-[0.18em] text-zinc-300">Program owner / delivery lead</span>
+                  <input
+                    value={intake.programOwner}
+                    onChange={(event) => updateField("programOwner", event.target.value)}
+                    placeholder="Name the delivery lead or program owner"
+                    className="min-h-11 rounded-md border border-white/10 bg-zinc-950 px-3 py-3 text-sm text-zinc-100 outline-none transition-colors placeholder:text-zinc-300 focus:border-emerald-300/50"
+                  />
+                  <span className="text-xs leading-5 text-zinc-400">
+                    This becomes the explicit owner shown in leadership review queues and due-program views.
+                  </span>
+                </label>
                 <div className="grid gap-4 md:grid-cols-2">
-                  {textFields.map((field) => (
+                  {textFields.filter((field) => field.id !== "programOwner").map((field) => (
                     <label key={field.id} className={field.rows > 3 ? "grid gap-2 md:col-span-2" : "grid gap-2"}>
                       <span className="text-xs font-medium uppercase tracking-[0.18em] text-zinc-300">{field.label}</span>
                       <textarea

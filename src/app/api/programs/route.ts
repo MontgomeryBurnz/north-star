@@ -25,6 +25,7 @@ export async function POST(request: Request) {
 
   const program = await upsertProgram({
     programName: body.programName,
+    programOwner: body.programOwner ?? "",
     vision: body.vision ?? "",
     sowSummary: body.sowSummary ?? "",
     outcomes: body.outcomes ?? "",

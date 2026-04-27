@@ -40,6 +40,7 @@ export type ReviewedArtifactContext = {
 
 export type ProgramIntake = {
   programName: string;
+  programOwner: string;
   vision: string;
   sowSummary: string;
   outcomes: string;

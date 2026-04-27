@@ -35,6 +35,7 @@ const seededLeadershipProgram: StoredProgram = {
   updatedAt: "2026-04-22T13:30:00.000Z",
   intake: {
     programName: "Ordering Visibility Recovery",
+    programOwner: "Delivery lead",
     vision: "Create a sponsor-visible delivery path for order workflow modernization without burying delivery leads in escalation noise.",
     sowSummary: "Stabilize the delivery path, improve milestone visibility, and create a clearer decision and risk signal for leadership.",
     outcomes: "Visible milestone posture\nClear sponsor checkpoints\nReduced escalation noise\nHigher confidence in execution path",
@@ -320,6 +321,10 @@ function splitSignals(value: string, fallback: string) {
 }
 
 function deriveLeadLabel(program: StoredProgram) {
+  if (program.intake.programOwner?.trim()) {
+    return program.intake.programOwner.trim();
+  }
+
   const stakeholderLines = (program.intake.stakeholders || "")
     .split(/\n|,/)
     .map((item) => item.trim())
