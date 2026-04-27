@@ -270,6 +270,7 @@ type ReviewCycleStatus = {
 type ReviewQueueItem = {
   programId: string;
   programName: string;
+  leadLabel: string;
   cadence: ReviewCadence;
   status: "due" | "overdue";
   badgeLabel: string;
@@ -316,6 +317,19 @@ function splitSignals(value: string, fallback: string) {
     .filter(Boolean);
 
   return items.length ? items : [fallback];
+}
+
+function deriveLeadLabel(program: StoredProgram) {
+  const stakeholderLines = (program.intake.stakeholders || "")
+    .split(/\n|,/)
+    .map((item) => item.trim())
+    .filter(Boolean);
+
+  const explicitLead =
+    stakeholderLines.find((item) => /\b(delivery lead|program lead|owner|engagement lead|program manager)\b/i.test(item)) ??
+    stakeholderLines[0];
+
+  return explicitLead || "Lead not named";
 }
 
 function differenceInDays(later: Date, earlier: Date) {
@@ -548,6 +562,13 @@ export function LeadershipReviewConsole() {
   );
   const latestReviewCycle = feedback[0];
 
+  function focusReviewCycle(programId: string) {
+    setSelectedProgramId(programId);
+    requestAnimationFrame(() => {
+      document.getElementById("leadership-review-form")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+  }
+
   const timeline = useMemo<TimelineItem[]>(() => {
     if (!selectedProgram) return [];
 
@@ -627,6 +648,7 @@ export function LeadershipReviewConsole() {
           return {
             programId: program.id,
             programName: program.intake.programName,
+            leadLabel: deriveLeadLabel(program),
             cadence,
             status: cycleStatus.badgeTone,
             badgeLabel: cycleStatus.badgeLabel,
@@ -924,18 +946,19 @@ export function LeadershipReviewConsole() {
 
               {reviewQueue.length ? (
                 reviewQueue.map((entry) => (
-                  <button
+                  <div
                     key={entry.programId}
-                    type="button"
-                    onClick={() => setSelectedProgramId(entry.programId)}
-                    className={`rounded-md border p-3 text-left transition-colors ${
+                    className={`rounded-md border p-3 transition-colors ${
                       entry.programId === selectedProgramId
                         ? "border-fuchsia-300/35 bg-fuchsia-300/[0.08]"
                         : "border-white/10 bg-white/[0.035] hover:border-fuchsia-300/25"
                     }`}
-                    >
+                  >
                     <div className="flex items-center justify-between gap-3">
-                      <p className="text-sm font-medium text-zinc-100">{entry.programName}</p>
+                      <div>
+                        <p className="text-sm font-medium text-zinc-100">{entry.programName}</p>
+                        <p className="mt-1 text-xs leading-5 text-zinc-400">Lead: {entry.leadLabel}</p>
+                      </div>
                       <div className="flex items-center gap-2">
                         <span className="rounded-full border border-white/10 bg-black/20 px-2.5 py-1 text-[11px] font-medium uppercase tracking-[0.14em] text-zinc-300">
                           {entry.cadence === "weekly" ? "Weekly" : "Bi-weekly"}
@@ -953,7 +976,20 @@ export function LeadershipReviewConsole() {
                     </div>
                     <p className="mt-2 text-xs leading-5 text-zinc-400">{entry.lastReviewedLabel}</p>
                     <p className="mt-1 text-xs leading-5 text-zinc-500">{entry.nextReviewLabel}</p>
-                  </button>
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant={entry.programId === selectedProgramId ? "default" : "secondary"}
+                        onClick={() => setSelectedProgramId(entry.programId)}
+                      >
+                        Open program
+                      </Button>
+                      <Button type="button" size="sm" variant="ghost" className="text-zinc-200" onClick={() => focusReviewCycle(entry.programId)}>
+                        Start review cycle
+                      </Button>
+                    </div>
+                  </div>
                 ))
               ) : (
                 <div className="rounded-md border border-white/10 bg-white/[0.035] p-3 text-sm leading-6 text-zinc-400">
@@ -1155,7 +1191,7 @@ export function LeadershipReviewConsole() {
               </CardTitle>
             </CardHeader>
             <CardContent className="p-5">
-              <form onSubmit={handleSubmit} className="grid gap-4">
+              <form id="leadership-review-form" onSubmit={handleSubmit} className="grid gap-4">
                 <div className="rounded-md border border-white/10 bg-white/[0.035] p-4">
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <div>
