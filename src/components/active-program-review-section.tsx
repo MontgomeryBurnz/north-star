@@ -1,8 +1,8 @@
 "use client";
 
 import { ChangeEvent, FormEvent, useEffect, useMemo, useState } from "react";
-import { Activity, FileClock, FolderUp, HeartPulse, History, MessageSquareQuote, RefreshCw, Save, Trash2 } from "lucide-react";
-import type { ActiveProgramReview, ActiveProgramUpdate } from "@/lib/active-program-types";
+import { Activity, FileClock, FolderUp, HeartPulse, History, Layers3, MessageSquareQuote, RefreshCw, Save, Trash2, Users2 } from "lucide-react";
+import type { ActiveProgramReview, ActiveProgramUpdate, TeamRoleUpdate, TeamRoleUpdateConfidence } from "@/lib/active-program-types";
 import type { DeliveryLeadershipSignal } from "@/lib/leadership-feedback-types";
 import type { ProgramMeetingAttachment, ProgramMeetingInput } from "@/lib/program-intelligence-types";
 import type { ProgramArtifact, ProgramIntake } from "@/lib/program-intake-types";
@@ -20,6 +20,12 @@ const emptyReview: ActiveProgramReview = {
   decisionsPending: "",
   deliveryHealth: "",
   supportNeeded: "",
+  updateCadence: "weekly",
+  cycleLabel: "",
+  cycleStartedAt: "",
+  programSynthesisNote: "",
+  lastUpdatedRole: "",
+  teamRoleUpdates: [],
   artifacts: []
 };
 
@@ -39,6 +45,7 @@ type ExistingProgramOption = {
   id: string;
   label: string;
   source: "local";
+  intake?: ProgramIntake;
   review: ActiveProgramReview;
 };
 
@@ -70,66 +77,19 @@ const reviewHistoryKey = "work-path-active-program-updates";
 const reviewDraftKey = "work-path-active-program-review";
 const intakeDraftKey = "work-path-program-intake";
 
-const reviewFields: Array<{
-  id: keyof Omit<ActiveProgramReview, "artifacts">;
-  label: string;
-  placeholder: string;
-  rows: number;
-}> = [
-  {
-    id: "originalNorthStar",
-    label: "Original north star",
-    placeholder: "What was the intended outcome or work path when this program started?",
-    rows: 4
-  },
-  {
-    id: "currentPhase",
-    label: "Current phase",
-    placeholder: "Where is the program now? Discovery, build, launch, stabilization, recovery, or scale?",
-    rows: 3
-  },
-  {
-    id: "progressSinceLastReview",
-    label: "Progress since last review",
-    placeholder: "What moved, what shipped, what changed, and what evidence do we have?",
-    rows: 3
-  },
-  {
-    id: "planChanges",
-    label: "What changed",
-    placeholder: "Scope changes, timeline shifts, new risks, stakeholder changes, or new constraints.",
-    rows: 3
-  },
-  {
-    id: "activeRisks",
-    label: "Active risks / issues",
-    placeholder: "What is threatening delivery health right now?",
-    rows: 3
-  },
-  {
-    id: "stakeholderTemperature",
-    label: "Stakeholder temperature",
-    placeholder: "Where are stakeholders aligned, uncertain, frustrated, blocked, or split?",
-    rows: 3
-  },
-  {
-    id: "decisionsPending",
-    label: "Decisions pending",
-    placeholder: "What decisions are needed to keep the work moving?",
-    rows: 3
-  },
-  {
-    id: "deliveryHealth",
-    label: "Delivery health",
-    placeholder: "What feels healthy, overloaded, unclear, noisy, or at risk?",
-    rows: 3
-  },
-  {
-    id: "supportNeeded",
-    label: "Support needed",
-    placeholder: "What help, escalation, resource, decision, or alignment would improve the path?",
-    rows: 3
-  }
+const defaultTeamRoles = [
+  "Product Management",
+  "Business Analysis",
+  "User Experience",
+  "Application Development",
+  "Data Engineering",
+  "Change Management"
+] as const;
+
+const confidenceOptions: Array<{ value: TeamRoleUpdateConfidence; label: string }> = [
+  { value: "high", label: "High confidence" },
+  { value: "medium", label: "Medium confidence" },
+  { value: "low", label: "Low confidence" }
 ];
 
 function formatFileSize(size: number) {
@@ -150,11 +110,8 @@ function firstSignal(value: string, fallback: string) {
 function optionFromSavedIntake(savedIntake: ProgramIntake): ExistingProgramOption | null {
   if (!savedIntake.programName.trim()) return null;
 
-  return {
-    id: "local-saved-intake",
-    label: savedIntake.programName,
-    source: "local",
-    review: {
+  const roleAwareReview = normalizeReview(
+    {
       ...emptyReview,
       programName: savedIntake.programName,
       originalNorthStar: savedIntake.vision || savedIntake.outcomes,
@@ -166,8 +123,18 @@ function optionFromSavedIntake(savedIntake: ProgramIntake): ExistingProgramOptio
       decisionsPending: savedIntake.decisionsNeeded,
       deliveryHealth: savedIntake.blockers,
       supportNeeded: savedIntake.constraints,
+      updateCadence: savedIntake.leadershipReviewCadence === "biweekly" ? "biweekly" : "weekly",
       artifacts: savedIntake.artifacts
-    }
+    },
+    savedIntake
+  );
+
+  return {
+    id: "local-saved-intake",
+    label: savedIntake.programName,
+    source: "local",
+    intake: savedIntake,
+    review: roleAwareReview
   };
 }
 
@@ -221,6 +188,143 @@ function inferMeetingTitleFromFileName(fileName: string) {
     .trim();
 }
 
+function getProgramTeamRoles(intake?: ProgramIntake) {
+  const configured = intake?.teamRoles?.map((role) => role.trim()).filter(Boolean) ?? [];
+  return Array.from(new Set((configured.length ? configured : [...defaultTeamRoles]).map((role) => role.trim()).filter(Boolean)));
+}
+
+function startOfWeek(date: Date) {
+  const next = new Date(date);
+  const day = next.getDay();
+  const diff = day === 0 ? -6 : 1 - day;
+  next.setDate(next.getDate() + diff);
+  next.setHours(0, 0, 0, 0);
+  return next;
+}
+
+function buildCycleMetadata(cadence: ActiveProgramReview["updateCadence"], date = new Date()) {
+  const start = startOfWeek(date);
+  const weekStart = new Date(start);
+  if (cadence === "biweekly") {
+    const reference = new Date("2026-01-05T00:00:00.000Z");
+    const diffDays = Math.floor((start.getTime() - reference.getTime()) / 86400000);
+    const weekIndex = Math.floor(diffDays / 7);
+    if (weekIndex % 2 !== 0) {
+      weekStart.setDate(weekStart.getDate() - 7);
+    }
+  }
+
+  const end = new Date(weekStart);
+  end.setDate(end.getDate() + (cadence === "biweekly" ? 13 : 6));
+  const label = `${cadence === "biweekly" ? "Bi-weekly" : "Weekly"} cycle of ${weekStart.toLocaleDateString(undefined, {
+    month: "short",
+    day: "numeric"
+  })}`;
+
+  return {
+    cycleLabel: label,
+    cycleStartedAt: weekStart.toISOString(),
+    cycleEndsAt: end.toISOString()
+  };
+}
+
+function buildTeamRoleUpdate(role: string, existing?: Partial<TeamRoleUpdate>): TeamRoleUpdate {
+  return {
+    role,
+    updatedBy: existing?.updatedBy ?? "",
+    progressUpdate: existing?.progressUpdate ?? "",
+    changesObserved: existing?.changesObserved ?? "",
+    activeRisks: existing?.activeRisks ?? "",
+    blockers: existing?.blockers ?? "",
+    decisionsNeeded: existing?.decisionsNeeded ?? "",
+    supportNeeded: existing?.supportNeeded ?? "",
+    confidence: existing?.confidence ?? "medium",
+    lastUpdatedAt: existing?.lastUpdatedAt
+  };
+}
+
+function normalizeTeamRoleUpdates(roleUpdates: TeamRoleUpdate[] | undefined, roles: string[]) {
+  const byRole = new Map((roleUpdates ?? []).map((roleUpdate) => [normalizeProgramLabel(roleUpdate.role), roleUpdate]));
+  return roles.map((role) => buildTeamRoleUpdate(role, byRole.get(normalizeProgramLabel(role))));
+}
+
+function joinRoleSignals(roleUpdates: TeamRoleUpdate[], selector: (role: TeamRoleUpdate) => string, fallback: string) {
+  const items = roleUpdates
+    .map((role) => {
+      const value = selector(role).trim();
+      return value ? `${role.role}: ${value}` : "";
+    })
+    .filter(Boolean);
+  return items.length ? items.join("\n") : fallback;
+}
+
+function buildSynthesizedReview(review: ActiveProgramReview, roles: string[], lastUpdatedRole = ""): ActiveProgramReview {
+  const normalizedRoleUpdates = normalizeTeamRoleUpdates(review.teamRoleUpdates, roles);
+  const touchedRoles = normalizedRoleUpdates.filter(
+    (role) =>
+      role.progressUpdate.trim() ||
+      role.changesObserved.trim() ||
+      role.activeRisks.trim() ||
+      role.blockers.trim() ||
+      role.decisionsNeeded.trim() ||
+      role.supportNeeded.trim()
+  );
+  const cycleMetadata = buildCycleMetadata(review.updateCadence === "biweekly" ? "biweekly" : "weekly");
+  const cadence: ActiveProgramReview["updateCadence"] = review.updateCadence === "biweekly" ? "biweekly" : "weekly";
+  const programSynthesisNote = touchedRoles.length
+    ? `${touchedRoles.length} of ${roles.length} assigned team roles submitted updates in the current ${cadence === "biweekly" ? "bi-weekly" : "weekly"} cycle.`
+    : `No team role submissions are on file for the current ${cadence === "biweekly" ? "bi-weekly" : "weekly"} cycle yet.`;
+
+  return {
+    ...review,
+    updateCadence: cadence,
+    cycleLabel: cycleMetadata.cycleLabel,
+    cycleStartedAt: cycleMetadata.cycleStartedAt,
+    programSynthesisNote,
+    lastUpdatedRole: lastUpdatedRole || review.lastUpdatedRole || "",
+    teamRoleUpdates: normalizedRoleUpdates,
+    progressSinceLastReview: joinRoleSignals(
+      normalizedRoleUpdates,
+      (role) => role.progressUpdate,
+      review.progressSinceLastReview || "No role-level progress updates captured yet."
+    ),
+    planChanges: joinRoleSignals(
+      normalizedRoleUpdates,
+      (role) => role.changesObserved,
+      review.planChanges || "No role-level changes captured yet."
+    ),
+    activeRisks: joinRoleSignals(
+      normalizedRoleUpdates,
+      (role) => [role.activeRisks, role.blockers].filter(Boolean).join(" / "),
+      review.activeRisks || "No role-level risks captured yet."
+    ),
+    decisionsPending: joinRoleSignals(
+      normalizedRoleUpdates,
+      (role) => role.decisionsNeeded,
+      review.decisionsPending || "No role-level decisions captured yet."
+    ),
+    supportNeeded: joinRoleSignals(
+      normalizedRoleUpdates,
+      (role) => role.supportNeeded,
+      review.supportNeeded || "No role-level support needs captured yet."
+    )
+  };
+}
+
+function normalizeReview(review: ActiveProgramReview, intake?: ProgramIntake) {
+  return buildSynthesizedReview(
+    {
+      ...emptyReview,
+      ...review,
+      updateCadence: (review.updateCadence === "biweekly" ? "biweekly" : review.updateCadence ?? "weekly") as
+        | "weekly"
+        | "biweekly"
+    },
+    getProgramTeamRoles(intake),
+    review.lastUpdatedRole ?? ""
+  );
+}
+
 export function ActiveProgramReviewSection() {
   const [review, setReview] = useState<ActiveProgramReview>(emptyReview);
   const [savedAt, setSavedAt] = useState<string | null>(null);
@@ -246,10 +350,17 @@ export function ActiveProgramReviewSection() {
           id: program.id,
           label: program.intake.programName,
           source: "local",
-          review: optionFromSavedIntake(program.intake)?.review ?? {
-            ...emptyReview,
-            programName: program.intake.programName
-          }
+          intake: program.intake,
+          review:
+            optionFromSavedIntake(program.intake)?.review ??
+            normalizeReview(
+              {
+                ...emptyReview,
+                programName: program.intake.programName,
+                updateCadence: program.intake.leadershipReviewCadence === "biweekly" ? "biweekly" : "weekly"
+              },
+              program.intake
+            )
         }));
 
         setExistingPrograms(serverPrograms);
@@ -268,6 +379,33 @@ export function ActiveProgramReviewSection() {
   useEffect(() => {
     setUpdates(readStoredUpdates());
   }, []);
+
+  useEffect(() => {
+    async function loadProgramUpdates() {
+      if (!selectedProgramId) return;
+
+      try {
+        const response = await fetch(`/api/programs/${selectedProgramId}/updates`, { cache: "no-store" });
+        if (!response.ok) return;
+        const payload = (await response.json()) as { updates: ActiveProgramUpdate[] };
+        const normalizedUpdates = payload.updates.map((update) => ({
+          ...update,
+          review: normalizeReview(
+            update.review,
+            existingPrograms.find((program) => program.id === selectedProgramId)?.intake
+          )
+        }));
+        setUpdates((current) => {
+          const currentOtherPrograms = current.filter((update) => update.programId !== selectedProgramId);
+          return [...normalizedUpdates, ...currentOtherPrograms];
+        });
+      } catch {
+        return;
+      }
+    }
+
+    void loadProgramUpdates();
+  }, [existingPrograms, selectedProgramId]);
 
   useEffect(() => {
     async function loadLeadershipSignal() {
@@ -292,6 +430,13 @@ export function ActiveProgramReviewSection() {
 
     void loadLeadershipSignal();
   }, [selectedProgramId, saveState]);
+
+  const selectedProgram = useMemo(
+    () => existingPrograms.find((program) => program.id === selectedProgramId),
+    [existingPrograms, selectedProgramId]
+  );
+
+  const activeTeamRoles = useMemo(() => getProgramTeamRoles(selectedProgram?.intake), [selectedProgram?.intake]);
 
   useEffect(() => {
     async function loadMeetingInputs() {
@@ -332,6 +477,56 @@ export function ActiveProgramReviewSection() {
     const completed = values.filter(Boolean).length + (review.artifacts.length ? 1 : 0);
     return Math.round((completed / (values.length + 1)) * 100);
   }, [review]);
+
+  const teamRoleUpdates = useMemo(
+    () => normalizeTeamRoleUpdates(review.teamRoleUpdates, activeTeamRoles),
+    [activeTeamRoles, review.teamRoleUpdates]
+  );
+
+  const activeCycleMetadata = useMemo(
+    () => buildCycleMetadata(review.updateCadence === "biweekly" ? "biweekly" : "weekly"),
+    [review.updateCadence]
+  );
+
+  const teamCoverage = useMemo(() => {
+    const submitted = teamRoleUpdates.filter(
+      (role) =>
+        role.progressUpdate.trim() ||
+        role.changesObserved.trim() ||
+        role.activeRisks.trim() ||
+        role.blockers.trim() ||
+        role.decisionsNeeded.trim() ||
+        role.supportNeeded.trim()
+    );
+    return {
+      submitted: submitted.length,
+      total: teamRoleUpdates.length,
+      missing: teamRoleUpdates.filter((role) => !submitted.some((submittedRole) => submittedRole.role === role.role))
+    };
+  }, [teamRoleUpdates]);
+
+  const programSynthesis = useMemo(() => {
+    return [
+      {
+        label: "Cycle status",
+        value: `${activeCycleMetadata.cycleLabel}. ${teamCoverage.submitted}/${teamCoverage.total} roles have submitted this cycle.`
+      },
+      {
+        label: "Delivery pressure",
+        value: review.activeRisks || "No role-level delivery pressure has been captured yet."
+      },
+      {
+        label: "Escalations and decisions",
+        value: review.decisionsPending || "No role-level decisions or escalations are on file yet."
+      },
+      {
+        label: "Missing role inputs",
+        value: teamCoverage.missing.length
+          ? teamCoverage.missing.map((role) => role.role).join(", ")
+          : "All assigned roles have at least one current-cycle signal on file."
+      }
+    ];
+  }, [activeCycleMetadata.cycleLabel, review.activeRisks, review.decisionsPending, teamCoverage]);
 
   const updateImpact = useMemo(() => {
     const missingInputs = [
@@ -378,7 +573,36 @@ export function ActiveProgramReviewSection() {
   }, [review]);
 
   function updateField(field: keyof Omit<ActiveProgramReview, "artifacts">, value: string) {
-    setReview((current) => ({ ...current, [field]: value }));
+    setReview((current) =>
+      normalizeReview(
+        {
+          ...current,
+          [field]: value
+        },
+        selectedProgram?.intake
+      )
+    );
+  }
+
+  function updateRoleField(role: string, field: keyof Omit<TeamRoleUpdate, "role">, value: string) {
+    setReview((current) => {
+      const nextRoleUpdates = normalizeTeamRoleUpdates(current.teamRoleUpdates, activeTeamRoles).map((roleUpdate) =>
+        normalizeProgramLabel(roleUpdate.role) === normalizeProgramLabel(role)
+          ? {
+              ...roleUpdate,
+              [field]: value
+            }
+          : roleUpdate
+      );
+
+      return normalizeReview(
+        {
+          ...current,
+          teamRoleUpdates: nextRoleUpdates
+        },
+        selectedProgram?.intake
+      );
+    });
   }
 
   function selectExistingProgram(programId: string) {
@@ -389,7 +613,7 @@ export function ActiveProgramReviewSection() {
       .filter((update) => update.programId === programId || update.programName === selectedProgram.label)
       .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0];
 
-    setReview(latestForProgram?.review ?? selectedProgram.review);
+    setReview(normalizeReview(latestForProgram?.review ?? selectedProgram.review, selectedProgram.intake));
     setSavedAt(null);
     setSaveState("idle");
     setMeetingSaveState("idle");
@@ -494,29 +718,36 @@ export function ActiveProgramReviewSection() {
     }));
   }
 
-  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
+  async function saveReviewSnapshot(lastUpdatedRole = "") {
     const timestamp = new Date();
     const programId = selectedProgramId || `local-${review.programName.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-") || "active-program"}`;
+    const nextReview = normalizeReview(
+      {
+        ...review,
+        lastUpdatedRole: lastUpdatedRole || review.lastUpdatedRole || ""
+      },
+      selectedProgram?.intake
+    );
     const nextUpdate: ActiveProgramUpdate = {
       id: `${programId}-${timestamp.getTime()}`,
       programId,
-      programName: review.programName || "Untitled active program",
+      programName: nextReview.programName || "Untitled active program",
       createdAt: timestamp.toISOString(),
-      review
+      review: nextReview
     };
     const nextUpdates = [nextUpdate, ...updates].slice(0, 20);
 
     writeStoredUpdates(nextUpdates);
-    window.localStorage.setItem("work-path-active-program-review", JSON.stringify(review));
+    window.localStorage.setItem("work-path-active-program-review", JSON.stringify(nextReview));
     setUpdates(nextUpdates);
+    setReview(nextReview);
     setSaveState("saving");
 
     try {
       const response = await fetch(`/api/programs/${programId}/updates`, {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify(review)
+        body: JSON.stringify(nextReview)
       });
 
       if (!response.ok) throw new Error("Review save failed.");
@@ -526,6 +757,11 @@ export function ActiveProgramReviewSection() {
       setSaveState("error");
       setSavedAt(timestamp.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }));
     }
+  }
+
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    await saveReviewSnapshot("");
   }
 
   async function saveMeetingInput() {
@@ -622,17 +858,206 @@ export function ActiveProgramReviewSection() {
                 />
               </label>
               <div className="grid gap-4 md:grid-cols-2">
-                {reviewFields.map((field) => (
-                  <label key={field.id} className={field.rows > 3 ? "grid gap-2 md:col-span-2" : "grid gap-2"}>
-                    <span className="text-xs font-medium uppercase tracking-[0.18em] text-zinc-300">{field.label}</span>
-                    <textarea
-                      value={review[field.id]}
-                      onChange={(event) => updateField(field.id, event.target.value)}
-                      placeholder={field.placeholder}
-                      rows={field.rows}
-                      className="resize-none rounded-md border border-white/10 bg-zinc-950 px-3 py-3 text-sm leading-6 text-zinc-100 outline-none transition-colors placeholder:text-zinc-300 focus:border-cyan-300/50"
-                    />
-                  </label>
+                <label className="grid gap-2">
+                  <span className="text-xs font-medium uppercase tracking-[0.18em] text-zinc-300">Update cadence</span>
+                  <select
+                    value={review.updateCadence ?? "weekly"}
+                    onChange={(event) =>
+                      updateField("updateCadence", event.target.value as ActiveProgramReview["updateCadence"] & string)
+                    }
+                    className="min-h-11 rounded-md border border-white/10 bg-zinc-950 px-3 py-3 text-sm text-zinc-100 outline-none transition-colors focus:border-cyan-300/50"
+                  >
+                    <option value="weekly">Weekly cycle</option>
+                    <option value="biweekly">Bi-weekly cycle</option>
+                  </select>
+                </label>
+                <label className="grid gap-2">
+                  <span className="text-xs font-medium uppercase tracking-[0.18em] text-zinc-300">Current phase</span>
+                  <textarea
+                    value={review.currentPhase}
+                    onChange={(event) => updateField("currentPhase", event.target.value)}
+                    placeholder="Discovery, build, launch, stabilization, or recovery"
+                    rows={2}
+                    className="resize-none rounded-md border border-white/10 bg-zinc-950 px-3 py-3 text-sm leading-6 text-zinc-100 outline-none transition-colors placeholder:text-zinc-300 focus:border-cyan-300/50"
+                  />
+                </label>
+                <label className="grid gap-2 md:col-span-2">
+                  <span className="text-xs font-medium uppercase tracking-[0.18em] text-zinc-300">Original north star</span>
+                  <textarea
+                    value={review.originalNorthStar}
+                    onChange={(event) => updateField("originalNorthStar", event.target.value)}
+                    placeholder="What outcome is the team still trying to protect as conditions change?"
+                    rows={3}
+                    className="resize-none rounded-md border border-white/10 bg-zinc-950 px-3 py-3 text-sm leading-6 text-zinc-100 outline-none transition-colors placeholder:text-zinc-300 focus:border-cyan-300/50"
+                  />
+                </label>
+                <label className="grid gap-2">
+                  <span className="text-xs font-medium uppercase tracking-[0.18em] text-zinc-300">Stakeholder temperature</span>
+                  <textarea
+                    value={review.stakeholderTemperature}
+                    onChange={(event) => updateField("stakeholderTemperature", event.target.value)}
+                    placeholder="Where are stakeholders aligned, uncertain, frustrated, or split?"
+                    rows={3}
+                    className="resize-none rounded-md border border-white/10 bg-zinc-950 px-3 py-3 text-sm leading-6 text-zinc-100 outline-none transition-colors placeholder:text-zinc-300 focus:border-cyan-300/50"
+                  />
+                </label>
+                <label className="grid gap-2">
+                  <span className="text-xs font-medium uppercase tracking-[0.18em] text-zinc-300">Delivery health</span>
+                  <textarea
+                    value={review.deliveryHealth}
+                    onChange={(event) => updateField("deliveryHealth", event.target.value)}
+                    placeholder="Where does the program feel healthy, overloaded, noisy, or fragile?"
+                    rows={3}
+                    className="resize-none rounded-md border border-white/10 bg-zinc-950 px-3 py-3 text-sm leading-6 text-zinc-100 outline-none transition-colors placeholder:text-zinc-300 focus:border-cyan-300/50"
+                  />
+                </label>
+                <label className="grid gap-2 md:col-span-2">
+                  <span className="text-xs font-medium uppercase tracking-[0.18em] text-zinc-300">Program synthesis note</span>
+                  <textarea
+                    value={review.programSynthesisNote ?? ""}
+                    onChange={(event) => updateField("programSynthesisNote", event.target.value)}
+                    placeholder="Capture the delivery-lead synthesis of how the team inputs change the weekly picture."
+                    rows={3}
+                    className="resize-none rounded-md border border-white/10 bg-zinc-950 px-3 py-3 text-sm leading-6 text-zinc-100 outline-none transition-colors placeholder:text-zinc-300 focus:border-cyan-300/50"
+                  />
+                </label>
+              </div>
+              <div className="rounded-xl border border-cyan-300/20 bg-cyan-300/[0.05] p-4">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <p className="text-xs font-medium uppercase tracking-[0.18em] text-cyan-200">Current team update cycle</p>
+                    <p className="mt-2 text-sm font-medium text-zinc-100">{activeCycleMetadata.cycleLabel}</p>
+                  </div>
+                  <span className="rounded-full border border-cyan-300/20 bg-cyan-300/10 px-3 py-1 text-[11px] font-medium uppercase tracking-[0.16em] text-cyan-100">
+                    {teamCoverage.submitted}/{teamCoverage.total} roles updated
+                  </span>
+                </div>
+                <p className="mt-3 text-sm leading-6 text-zinc-300">
+                  Teams can submit individual role updates throughout the cycle. Each save refreshes the program synthesis and can trigger guided-plan regeneration when the signal materially changes.
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-zinc-950/80">
+            <CardHeader className="border-b border-white/10">
+              <CardTitle className="flex items-center gap-2 text-zinc-50">
+                <Users2 className="h-4 w-4 text-cyan-200" />
+                Team updates this cycle
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="grid gap-4 p-5">
+              <div className="grid gap-4 xl:grid-cols-2">
+                {teamRoleUpdates.map((roleUpdate) => (
+                  <div key={roleUpdate.role} className="rounded-xl border border-white/10 bg-white/[0.035] p-4">
+                    <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
+                      <div>
+                        <p className="text-sm font-medium text-zinc-100">{roleUpdate.role}</p>
+                        <p className="mt-1 text-xs text-zinc-500">
+                          {roleUpdate.lastUpdatedAt ? `Last role update ${formatTimestamp(roleUpdate.lastUpdatedAt)}` : "No role submission yet this cycle"}
+                        </p>
+                      </div>
+                      <span
+                        className={`rounded-full border px-3 py-1 text-[11px] font-medium uppercase tracking-[0.16em] ${
+                          roleUpdate.confidence === "high"
+                            ? "border-emerald-300/20 bg-emerald-300/10 text-emerald-100"
+                            : roleUpdate.confidence === "medium"
+                              ? "border-amber-300/20 bg-amber-300/10 text-amber-100"
+                              : "border-rose-300/20 bg-rose-300/10 text-rose-100"
+                        }`}
+                      >
+                        {roleUpdate.confidence}
+                      </span>
+                    </div>
+                    <div className="grid gap-3">
+                      <label className="grid gap-2">
+                        <span className="text-xs font-medium uppercase tracking-[0.18em] text-zinc-300">Updated by</span>
+                        <input
+                          value={roleUpdate.updatedBy}
+                          onChange={(event) => updateRoleField(roleUpdate.role, "updatedBy", event.target.value)}
+                          placeholder={`${roleUpdate.role} lead or owner`}
+                          className="min-h-11 rounded-md border border-white/10 bg-zinc-950 px-3 py-3 text-sm text-zinc-100 outline-none transition-colors placeholder:text-zinc-500 focus:border-cyan-300/50"
+                        />
+                      </label>
+                      <label className="grid gap-2">
+                        <span className="text-xs font-medium uppercase tracking-[0.18em] text-zinc-300">Progress update</span>
+                        <textarea
+                          value={roleUpdate.progressUpdate}
+                          onChange={(event) => updateRoleField(roleUpdate.role, "progressUpdate", event.target.value)}
+                          placeholder="What changed for this role since the last checkpoint?"
+                          rows={3}
+                          className="resize-none rounded-md border border-white/10 bg-zinc-950 px-3 py-3 text-sm leading-6 text-zinc-100 outline-none transition-colors placeholder:text-zinc-500 focus:border-cyan-300/50"
+                        />
+                      </label>
+                      <label className="grid gap-2">
+                        <span className="text-xs font-medium uppercase tracking-[0.18em] text-zinc-300">Changes observed</span>
+                        <textarea
+                          value={roleUpdate.changesObserved}
+                          onChange={(event) => updateRoleField(roleUpdate.role, "changesObserved", event.target.value)}
+                          placeholder="Scope, sequencing, dependency, or stakeholder changes."
+                          rows={3}
+                          className="resize-none rounded-md border border-white/10 bg-zinc-950 px-3 py-3 text-sm leading-6 text-zinc-100 outline-none transition-colors placeholder:text-zinc-500 focus:border-cyan-300/50"
+                        />
+                      </label>
+                      <div className="grid gap-3 md:grid-cols-2">
+                        <label className="grid gap-2">
+                          <span className="text-xs font-medium uppercase tracking-[0.18em] text-zinc-300">Risks and blockers</span>
+                          <textarea
+                            value={[roleUpdate.activeRisks, roleUpdate.blockers].filter(Boolean).join("\n")}
+                            onChange={(event) => {
+                              const [activeRisks, ...rest] = event.target.value.split("\n");
+                              updateRoleField(roleUpdate.role, "activeRisks", activeRisks ?? "");
+                              updateRoleField(roleUpdate.role, "blockers", rest.join("\n"));
+                            }}
+                            placeholder="Top risk on the first line, blockers beneath it."
+                            rows={4}
+                            className="resize-none rounded-md border border-white/10 bg-zinc-950 px-3 py-3 text-sm leading-6 text-zinc-100 outline-none transition-colors placeholder:text-zinc-500 focus:border-cyan-300/50"
+                          />
+                        </label>
+                        <label className="grid gap-2">
+                          <span className="text-xs font-medium uppercase tracking-[0.18em] text-zinc-300">Decisions and support</span>
+                          <textarea
+                            value={[roleUpdate.decisionsNeeded, roleUpdate.supportNeeded].filter(Boolean).join("\n")}
+                            onChange={(event) => {
+                              const [decisionsNeeded, ...rest] = event.target.value.split("\n");
+                              updateRoleField(roleUpdate.role, "decisionsNeeded", decisionsNeeded ?? "");
+                              updateRoleField(roleUpdate.role, "supportNeeded", rest.join("\n"));
+                            }}
+                            placeholder="Decision needed on the first line, support ask beneath it."
+                            rows={4}
+                            className="resize-none rounded-md border border-white/10 bg-zinc-950 px-3 py-3 text-sm leading-6 text-zinc-100 outline-none transition-colors placeholder:text-zinc-500 focus:border-cyan-300/50"
+                          />
+                        </label>
+                      </div>
+                      <div className="flex flex-wrap items-center justify-between gap-3">
+                        <label className="grid gap-2">
+                          <span className="text-xs font-medium uppercase tracking-[0.18em] text-zinc-300">Confidence</span>
+                          <select
+                            value={roleUpdate.confidence}
+                            onChange={(event) =>
+                              updateRoleField(roleUpdate.role, "confidence", event.target.value as TeamRoleUpdateConfidence)
+                            }
+                            className="min-h-11 rounded-md border border-white/10 bg-zinc-950 px-3 py-3 text-sm text-zinc-100 outline-none transition-colors focus:border-cyan-300/50"
+                          >
+                            {confidenceOptions.map((option) => (
+                              <option key={option.value} value={option.value}>
+                                {option.label}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={() => void saveReviewSnapshot(roleUpdate.role)}
+                          disabled={saveState === "saving"}
+                        >
+                          <Save className="h-4 w-4" />
+                          Save {roleUpdate.role} update
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
                 ))}
               </div>
             </CardContent>
@@ -858,18 +1283,18 @@ export function ActiveProgramReviewSection() {
           <div className="flex flex-col gap-3 sm:flex-row">
             <Button type="submit" size="lg">
               <Save className="h-4 w-4" />
-              {saveState === "saving" ? "Saving..." : "Save active review"}
+              {saveState === "saving" ? "Saving..." : "Save cycle synthesis"}
             </Button>
             <Button
               type="button"
               variant="outline"
               size="lg"
               onClick={() => {
-                setReview(emptyReview);
+                setReview(normalizeReview(emptyReview, selectedProgram?.intake));
                 setSelectedProgramId("");
               }}
             >
-              Clear review
+              Clear cycle
             </Button>
             {savedAt ? (
               <p className={`self-center text-sm ${saveState === "error" ? "text-amber-200" : "text-cyan-200"}`}>
@@ -894,10 +1319,16 @@ export function ActiveProgramReviewSection() {
                     Last updated
                   </p>
                   <p className="mt-2 text-sm text-zinc-100">{formatTimestamp(latestUpdate.createdAt)}</p>
+                  {latestUpdate.review.lastUpdatedRole ? (
+                    <p className="mt-2 text-xs leading-5 text-zinc-400">
+                      Latest role submission: {latestUpdate.review.lastUpdatedRole}
+                    </p>
+                  ) : null}
                 </div>
                 {[
+                  ["Cycle", latestUpdate.review.cycleLabel],
                   ["Current phase", latestUpdate.review.currentPhase],
-                  ["Latest progress", latestUpdate.review.progressSinceLastReview],
+                  ["Program synthesis", latestUpdate.review.programSynthesisNote],
                   ["Active risks", latestUpdate.review.activeRisks],
                   ["Pending decisions", latestUpdate.review.decisionsPending],
                   ["Support needed", latestUpdate.review.supportNeeded]
@@ -947,6 +1378,23 @@ export function ActiveProgramReviewSection() {
               </CardContent>
             </Card>
           ) : null}
+
+          <Card className="bg-zinc-950/80">
+            <CardHeader className="border-b border-white/10">
+              <CardTitle className="flex items-center gap-2 text-zinc-50">
+                <Layers3 className="h-4 w-4 text-cyan-200" />
+                Program synthesis
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="grid gap-3 p-5">
+              {programSynthesis.map((item) => (
+                <div key={item.label} className="rounded-md border border-white/10 bg-white/[0.035] p-3">
+                  <p className="text-xs font-medium uppercase tracking-[0.16em] text-zinc-500">{item.label}</p>
+                  <p className="mt-2 text-sm leading-6 text-zinc-300">{item.value}</p>
+                </div>
+              ))}
+            </CardContent>
+          </Card>
 
           <Card className="bg-zinc-950/80">
             <CardHeader className="border-b border-white/10">
@@ -1019,9 +1467,11 @@ export function ActiveProgramReviewSection() {
                         load
                       </span>
                     </div>
-                    <p className="text-sm font-medium text-zinc-100">{update.review.currentPhase || update.programName}</p>
+                    <p className="text-sm font-medium text-zinc-100">
+                      {update.review.lastUpdatedRole ? `${update.review.lastUpdatedRole} update` : update.review.currentPhase || update.programName}
+                    </p>
                     <p className="mt-1 line-clamp-2 text-xs leading-5 text-zinc-400">
-                      {update.review.progressSinceLastReview || update.review.deliveryHealth || "No summary captured."}
+                      {update.review.programSynthesisNote || update.review.progressSinceLastReview || update.review.deliveryHealth || "No summary captured."}
                     </p>
                   </button>
                 ))

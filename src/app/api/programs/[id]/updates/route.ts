@@ -36,6 +36,12 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     decisionsPending: body.decisionsPending ?? "",
     deliveryHealth: body.deliveryHealth ?? "",
     supportNeeded: body.supportNeeded ?? "",
+    updateCadence: body.updateCadence === "biweekly" ? "biweekly" : "weekly",
+    cycleLabel: body.cycleLabel ?? "",
+    cycleStartedAt: body.cycleStartedAt ?? "",
+    programSynthesisNote: body.programSynthesisNote ?? "",
+    lastUpdatedRole: body.lastUpdatedRole ?? "",
+    teamRoleUpdates: Array.isArray(body.teamRoleUpdates) ? body.teamRoleUpdates : [],
     artifacts: body.artifacts ?? []
   });
 

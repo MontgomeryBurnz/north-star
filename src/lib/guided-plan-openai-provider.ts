@@ -391,7 +391,7 @@ export const openaiGuidedPlanProvider: GuidedPlanProvider = {
                 type: "input_text",
                 text: [
                   "You are North Star, generating guided plans for complex delivery programs.",
-                  "Every plan must be directly shaped by the freshest grounded inputs available: uploaded artifacts and extracted text, active-program updates, and leadership feedback.",
+                  "Every plan must be directly shaped by the freshest grounded inputs available: uploaded artifacts and extracted text, active-program updates, role-based team submissions, and leadership feedback.",
                   "Treat these inputs as the authoritative evidence base. Do not ignore them when they are present.",
                   "Use only the grounded context provided. Do not invent research, external facts, or missing program details.",
                   "When a leadership feedback interpretation is present, treat it as the delivery-safe translation of leadership intent and use it to refine the plan.",
@@ -412,7 +412,7 @@ export const openaiGuidedPlanProvider: GuidedPlanProvider = {
 
 Requirements:
 - Keep the guided plan evergreen and adaptable.
-- Make the direct influence of uploads, active-program updates, and leadership feedback visible in the plan.
+- Make the direct influence of uploads, active-program updates, role-based team submissions, and leadership feedback visible in the plan.
 - If one of those sources is missing, say so plainly in the relevant section.
 - Keep the plan concise, structured, and operator-level.
 - Return valid JSON matching the schema exactly.

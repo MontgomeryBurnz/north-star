@@ -55,6 +55,19 @@ function getArtifactSignals(program: StoredProgram) {
     .slice(0, 3);
 }
 
+function getTeamRoleUpdates(update: StoredProgramUpdate | undefined) {
+  return update?.review.teamRoleUpdates?.filter(
+    (role) =>
+      role.role.trim() &&
+      (role.progressUpdate.trim() ||
+        role.changesObserved.trim() ||
+        role.activeRisks.trim() ||
+        role.blockers.trim() ||
+        role.decisionsNeeded.trim() ||
+        role.supportNeeded.trim())
+  ) ?? [];
+}
+
 function buildRolePlans(
   program: StoredProgram,
   latestUpdate: StoredProgramUpdate | undefined,
@@ -75,25 +88,35 @@ function buildRolePlans(
   const roleNames = Array.from(
     new Set((intake.teamRoles?.length ? intake.teamRoles : [...defaultTeamRoles]).map((role) => role.trim()).filter(Boolean))
   );
+  const roleUpdateMap = new Map(
+    getTeamRoleUpdates(latestUpdate).map((roleUpdate) => [roleUpdate.role.toLowerCase(), roleUpdate])
+  );
 
   return roleNames.map((role) => {
+    const roleUpdate = roleUpdateMap.get(role.toLowerCase());
+    const roleProgress = firstAvailable(roleUpdate?.progressUpdate ?? "", progressFocus);
+    const roleChange = firstAvailable(roleUpdate?.changesObserved ?? "", mitigationFocus);
+    const roleRisk = firstAvailable(roleUpdate?.activeRisks ?? "", roleUpdate?.blockers ?? "", riskFocus);
+    const roleDecision = firstAvailable(roleUpdate?.decisionsNeeded ?? "", decisionFocus);
+    const roleSupport = firstAvailable(roleUpdate?.supportNeeded ?? "", requirementFocus);
+
     if (role === "Product Management") {
       return {
         role,
         actionPlan: [
           `Lock the product path around: ${excerpt(outcomeFocus, 110)}`,
-          `Turn the next major decision into a product checkpoint: ${excerpt(decisionFocus || "define the next product decision.", 110)}`,
+          `Turn the next major decision into a product checkpoint: ${excerpt(roleDecision || "define the next product decision.", 110)}`,
           `Absorb leadership direction into scope posture: ${excerpt(leadershipRoleImpacts.get(role) || leadershipSignalSummary, 110)}`
         ],
         keyFocusAreas: [
           `Outcome clarity and sequencing across stakeholder expectations: ${excerpt(stakeholderFocus || "stakeholder alignment.", 110)}`,
-          `Product scope choices under current constraints: ${excerpt(requirementFocus || "requirements and constraints.", 110)}`
+          `Product scope choices under current constraints: ${excerpt(roleSupport || "requirements and constraints.", 110)}`
         ],
         keyOutcomes: [
-          "A product path that is narrow enough to execute and clear enough to align around.",
-          `Clear decision framing for the next stage of work: ${excerpt(decisionFocus || "next unresolved decision.", 110)}`
+          `A product path that is narrow enough to execute and clear enough to align around: ${excerpt(roleProgress || "current product progress.", 110)}`,
+          `Clear decision framing for the next stage of work: ${excerpt(roleDecision || "next unresolved decision.", 110)}`
         ],
-        risksAndMitigations: [`Risk: ${excerpt(riskFocus || "scope and delivery ambiguity.", 110)}`, `Mitigation: ${excerpt(mitigationFocus, 110)}`]
+        risksAndMitigations: [`Risk: ${excerpt(roleRisk || "scope and delivery ambiguity.", 110)}`, `Mitigation: ${excerpt(roleChange, 110)}`]
       };
     }
 
@@ -101,21 +124,21 @@ function buildRolePlans(
       return {
         role,
         actionPlan: [
-          `Translate ambiguity into structured requirements for: ${excerpt(requirementFocus || "critical requirements and constraints.", 110)}`,
-          `Clarify assumptions, traceability, and decision-ready detail around: ${excerpt(decisionFocus || "the next unresolved decisions.", 110)}`,
+          `Translate ambiguity into structured requirements for: ${excerpt(roleSupport || "critical requirements and constraints.", 110)}`,
+          `Clarify assumptions, traceability, and decision-ready detail around: ${excerpt(roleDecision || "the next unresolved decisions.", 110)}`,
           `Maintain the working source of truth for: ${excerpt(outputFocus, 110)}`,
           `Reflect leadership translation in the requirement path: ${excerpt(leadershipRoleImpacts.get(role) || leadershipSignalSummary, 110)}`
         ],
         keyFocusAreas: [
           "Requirements breakdown, acceptance logic, and dependency tracing.",
-          `Decision support and process clarity tied to: ${excerpt(progressFocus || "current delivery evidence.", 110)}`
+          `Decision support and process clarity tied to: ${excerpt(roleProgress || "current delivery evidence.", 110)}`
         ],
         keyOutcomes: [
           "Decision-ready requirements and reduced interpretation risk across the team.",
           "A maintained record of assumptions, scope boundaries, and required outputs."
         ],
         risksAndMitigations: [
-          `Risk: hidden requirement gaps or unresolved ownership in ${excerpt(stakeholderFocus || "stakeholder expectations.", 110)}`,
+          `Risk: hidden requirement gaps or unresolved ownership in ${excerpt(roleRisk || stakeholderFocus || "stakeholder expectations.", 110)}`,
           "Mitigation: tighten requirement reviews, decision logs, and traceability before execution expands."
         ]
       };
@@ -131,7 +154,7 @@ function buildRolePlans(
         ],
         keyFocusAreas: [
           "Workflow clarity, experience validation, and handoff simplification.",
-          `User-facing risk areas embedded in: ${excerpt(riskFocus || "delivery complexity and ambiguity.", 110)}`
+          `User-facing risk areas embedded in: ${excerpt(roleRisk || "delivery complexity and ambiguity.", 110)}`
         ],
         keyOutcomes: [
           "A validated experience path that supports the operational north star.",
@@ -148,21 +171,21 @@ function buildRolePlans(
       return {
         role,
         actionPlan: [
-          `Frame implementation sequencing and dependency handling for: ${excerpt(requirementFocus || "the current scope and constraints.", 110)}`,
-          `Make engineering decision points explicit around: ${excerpt(decisionFocus || "architecture and delivery sequencing.", 110)}`,
-          `Pressure-test feasibility against current evidence: ${excerpt(progressFocus || "latest delivery movement.", 110)}`,
+          `Frame implementation sequencing and dependency handling for: ${excerpt(roleSupport || "the current scope and constraints.", 110)}`,
+          `Make engineering decision points explicit around: ${excerpt(roleDecision || "architecture and delivery sequencing.", 110)}`,
+          `Pressure-test feasibility against current evidence: ${excerpt(roleProgress || "latest delivery movement.", 110)}`,
           `Apply leadership direction to build sequencing: ${excerpt(leadershipRoleImpacts.get(role) || leadershipSignalSummary, 110)}`
         ],
         keyFocusAreas: [
           "Build sequencing, dependency removal, integration risk, and quality gates.",
-          `Execution risk tied to: ${excerpt(riskFocus || "the current delivery posture.", 110)}`
+          `Execution risk tied to: ${excerpt(roleRisk || "the current delivery posture.", 110)}`
         ],
         keyOutcomes: [
           "An executable build path with clear owners, gates, and technical decisions.",
           "Reduced rework through earlier dependency and implementation clarity."
         ],
         risksAndMitigations: [
-          `Risk: technical execution stalls on unresolved dependencies or unclear ownership in ${excerpt(decisionFocus || "the build path.", 110)}`,
+          `Risk: technical execution stalls on unresolved dependencies or unclear ownership in ${excerpt(roleDecision || "the build path.", 110)}`,
           "Mitigation: isolate decision gates, confirm owners early, and sequence work to produce evidence fast."
         ]
       };
@@ -172,13 +195,13 @@ function buildRolePlans(
       return {
         role,
         actionPlan: [
-          `Clarify data movement, data quality, and integration dependencies for: ${excerpt(requirementFocus || "the scoped solution path.", 110)}`,
-          `Turn data dependencies into explicit execution checkpoints around: ${excerpt(decisionFocus || "the next technical decision.", 110)}`,
+          `Clarify data movement, data quality, and integration dependencies for: ${excerpt(roleSupport || "the scoped solution path.", 110)}`,
+          `Turn data dependencies into explicit execution checkpoints around: ${excerpt(roleDecision || "the next technical decision.", 110)}`,
           `Make data readiness visible before downstream build work accelerates: ${excerpt(leadershipRoleImpacts.get(role) || "surface the evidence required before scale.", 110)}`
         ],
         keyFocusAreas: [
           "Data sourcing, transformation ownership, quality controls, and dependency sequencing.",
-          `Operational risk tied to data flow and evidence quality: ${excerpt(riskFocus || "current delivery risk.", 110)}`
+          `Operational risk tied to data flow and evidence quality: ${excerpt(roleRisk || "current delivery risk.", 110)}`
         ],
         keyOutcomes: [
           "A clear path for data readiness, integration, and operational reliability.",
@@ -196,7 +219,7 @@ function buildRolePlans(
         role,
         actionPlan: [
           `Shape the communication and adoption path around: ${excerpt(stakeholderFocus || "the stakeholder landscape.", 110)}`,
-          `Prepare change messaging for risk and decision points such as: ${excerpt(riskFocus || "major delivery risks.", 110)}`,
+          `Prepare change messaging for risk and decision points such as: ${excerpt(roleRisk || "major delivery risks.", 110)}`,
           `Translate the plan into audience-specific readiness checkpoints and support actions: ${excerpt(leadershipRoleImpacts.get(role) || leadershipSignalSummary, 110)}`
         ],
         keyFocusAreas: [
@@ -222,16 +245,16 @@ function buildRolePlans(
         `Apply leadership and operator context to ${role}: ${excerpt(leadershipRoleImpacts.get(role) || leadershipSignalSummary || progressFocus || "tighten the next role-specific checkpoint.", 110)}`
       ],
       keyFocusAreas: [
-        `${role} focus should stay aligned to: ${excerpt(requirementFocus || "requirements, constraints, and evidence quality.", 110)}`,
-        `${role} should monitor pressure in: ${excerpt(riskFocus || "active program risk and delivery ambiguity.", 110)}`
+        `${role} focus should stay aligned to: ${excerpt(roleSupport || "requirements, constraints, and evidence quality.", 110)}`,
+        `${role} should monitor pressure in: ${excerpt(roleRisk || "active program risk and delivery ambiguity.", 110)}`
       ],
       keyOutcomes: [
-        `${role} has a clear, near-term contribution to the guided plan and team execution path.`,
+        `${role} has a clear, near-term contribution to the guided plan and team execution path: ${excerpt(roleProgress || "no role-specific progress was captured yet.", 110)}`,
         `${role} decisions and outputs are visible enough to reduce ambiguity for the rest of the team.`
       ],
       risksAndMitigations: [
-        `Risk: ${role} is present in the team shape but not yet translated into explicit guidance.`,
-        `Mitigation: define ${role}'s ownership, expected outputs, and decision checkpoints before the next review.`
+        `Risk: ${excerpt(roleRisk || `${role} is present in the team shape but not yet translated into explicit guidance.`, 110)}`,
+        `Mitigation: ${excerpt(roleChange || `define ${role}'s ownership, expected outputs, and decision checkpoints before the next review.`, 110)}`
       ]
     };
   });
@@ -273,11 +296,13 @@ export function generateLocalGuidedPlan(
   const leadershipRoleImpacts = new Map(
     (leadershipInterpretation?.roleImpacts ?? []).map((item) => [item.role, item.focus])
   );
+  const teamRoleUpdates = getTeamRoleUpdates(latestUpdate);
   const artifactSignals = getArtifactSignals(program);
   const latestArtifactSignal = artifactSignals[0];
   const sourceSummaryParts = [
     artifactSignals.length ? sourceLabel(artifactSignals.length, "upload") : "",
     latestUpdate ? "latest active-program update" : "",
+    teamRoleUpdates.length ? sourceLabel(teamRoleUpdates.length, "role submission") : "",
     latestLeadershipFeedback ? "latest leadership feedback" : "",
     latestAssistantConversation
       ? sourceLabel(assistantConversations.length, "guide dialogue turn", "guide dialogue turns")
@@ -294,6 +319,7 @@ export function generateLocalGuidedPlan(
     latestUpdate
       ? `Active-program update shaping this plan: ${excerpt(
           firstAvailable(
+            review?.programSynthesisNote ?? "",
             review?.progressSinceLastReview ?? "",
             review?.planChanges ?? "",
             review?.activeRisks ?? "",
@@ -302,6 +328,12 @@ export function generateLocalGuidedPlan(
           140
         )}`
       : "No active-program update is on file yet. Add one when program conditions change so the guidance can regenerate against current reality.",
+    teamRoleUpdates.length
+      ? `Team role submissions shaping this plan: ${teamRoleUpdates
+          .slice(0, 3)
+          .map((roleUpdate) => `${roleUpdate.role}: ${excerpt(firstAvailable(roleUpdate.progressUpdate, roleUpdate.activeRisks, roleUpdate.decisionsNeeded), 70)}`)
+          .join(" / ")}`
+      : "No role-specific team submissions are on file yet. Capture role updates through Active Program so the guided plan reflects what each function is seeing this cycle.",
     latestLeadershipFeedback
       ? `Leadership feedback shaping this plan: ${excerpt(
           firstAvailable(
@@ -384,6 +416,14 @@ export function generateLocalGuidedPlan(
         ...(latestAssistantConversation
           ? [`Guide dialogue signal: ${excerpt(latestAssistantConversation.response.answer, 140)}`]
           : []),
+        ...(teamRoleUpdates.length
+          ? [
+              `Team update signal: ${teamRoleUpdates
+                .slice(0, 2)
+                .map((roleUpdate) => `${roleUpdate.role} -> ${excerpt(firstAvailable(roleUpdate.progressUpdate, roleUpdate.activeRisks, roleUpdate.decisionsNeeded), 90)}`)
+                .join(" / ")}`
+            ]
+          : []),
         ...(latestMeetingInput ? [`Meeting signal: ${excerpt(latestMeetingInput.summary, 140)}`] : [])
       ]
     },
@@ -423,6 +463,14 @@ export function generateLocalGuidedPlan(
                 latestMeetingInput.recommendedPlanAdjustments.join(" ") || latestMeetingInput.summary,
                 140
               )}`
+            ]
+          : []),
+        ...(teamRoleUpdates.length
+          ? [
+              `Role-derived adjustment: ${teamRoleUpdates
+                .slice(0, 2)
+                .map((roleUpdate) => `${roleUpdate.role}: ${excerpt(firstAvailable(roleUpdate.changesObserved, roleUpdate.supportNeeded, roleUpdate.decisionsNeeded), 90)}`)
+                .join(" / ")}`
             ]
           : []),
         artifactSignals.length

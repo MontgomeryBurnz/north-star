@@ -1,5 +1,20 @@
 import type { ProgramArtifact } from "@/lib/program-intake-types";
 
+export type TeamRoleUpdateConfidence = "high" | "medium" | "low";
+
+export type TeamRoleUpdate = {
+  role: string;
+  updatedBy: string;
+  progressUpdate: string;
+  changesObserved: string;
+  activeRisks: string;
+  blockers: string;
+  decisionsNeeded: string;
+  supportNeeded: string;
+  confidence: TeamRoleUpdateConfidence;
+  lastUpdatedAt?: string;
+};
+
 export type ActiveProgramReview = {
   programName: string;
   originalNorthStar: string;
@@ -11,6 +26,12 @@ export type ActiveProgramReview = {
   decisionsPending: string;
   deliveryHealth: string;
   supportNeeded: string;
+  updateCadence?: "weekly" | "biweekly";
+  cycleLabel?: string;
+  cycleStartedAt?: string;
+  programSynthesisNote?: string;
+  lastUpdatedRole?: string;
+  teamRoleUpdates?: TeamRoleUpdate[];
   artifacts: ProgramArtifact[];
 };
 
