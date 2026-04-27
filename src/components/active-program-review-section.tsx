@@ -561,8 +561,8 @@ export function ActiveProgramReviewSection() {
         value: review.activeRisks || "No role-level delivery pressure has been captured yet."
       },
       {
-        label: "Escalations and decisions",
-        value: review.decisionsPending || "No role-level decisions or escalations are on file yet."
+        label: "Decisions and support",
+        value: review.decisionsPending || "No role-level decisions or support asks are on file yet."
       },
       {
         label: "Missing role inputs",
@@ -589,14 +589,14 @@ export function ActiveProgramReviewSection() {
           : "Capture what changed so the next guided plan can materially shift instead of restating the current path."
       },
       {
-        label: "Decision and escalation focus",
+        label: "Decision focus",
         value:
           review.decisionsPending || review.supportNeeded
             ? `Drive ${firstSignal(review.decisionsPending, "the next key decision")} and route support through ${firstSignal(
                 review.supportNeeded,
-                "the current escalation path"
+                "the current support path"
               )}.`
-            : "Add the next decision and support ask so the system can clarify ownership, escalation, and execution sequence."
+            : "Add the next decision and support ask so the system can clarify ownership and execution sequence."
       },
       {
         label: "What the system will pressure-test",
@@ -1045,15 +1045,10 @@ export function ActiveProgramReviewSection() {
                         >
                           {roleStatusOptions.find((option) => option.value === roleUpdate.status)?.label ?? "On track"}
                         </span>
-                        {roleUpdate.needsLeadershipAttention ? (
-                          <span className="rounded-full border border-fuchsia-300/20 bg-fuchsia-300/10 px-3 py-1 text-[11px] font-medium uppercase tracking-[0.16em] text-fuchsia-100">
-                            Leadership attention
-                          </span>
-                        ) : null}
                       </div>
                     </div>
                     <div className="grid gap-4">
-                      <div className="grid gap-3 lg:grid-cols-3">
+                      <div className="grid gap-3">
                         <label className="grid min-w-0 gap-2">
                           <span className="text-xs font-medium uppercase tracking-[0.18em] text-zinc-300">Role owner</span>
                           <input
@@ -1064,53 +1059,35 @@ export function ActiveProgramReviewSection() {
                           />
                           <span className="text-xs leading-5 text-zinc-500">This persists as the default owner for future cycles.</span>
                         </label>
-                        <label className="grid min-w-0 gap-2">
+                        <div className="grid min-w-0 gap-2">
                           <span className="text-xs font-medium uppercase tracking-[0.18em] text-zinc-300">Status</span>
-                          <select
-                            value={roleUpdate.status}
-                            onChange={(event) =>
-                              updateRoleField(roleUpdate.role, "status", event.target.value as TeamRoleUpdateStatus)
-                            }
-                            className="min-h-11 rounded-md border border-white/10 bg-zinc-950 px-3 py-3 text-sm text-zinc-100 outline-none transition-colors focus:border-cyan-300/50"
-                          >
-                            {roleStatusOptions.map((option) => (
-                              <option key={option.value} value={option.value}>
-                                {option.label}
-                              </option>
-                            ))}
-                          </select>
-                        </label>
-                        <label className="grid min-w-0 gap-2">
-                          <span className="text-xs font-medium uppercase tracking-[0.18em] text-zinc-300">Escalation signal</span>
-                          <button
-                            type="button"
-                            onClick={() =>
-                              updateRoleField(
-                                roleUpdate.role,
-                                "needsLeadershipAttention",
-                                !roleUpdate.needsLeadershipAttention
-                              )
-                            }
-                            className={`flex min-h-11 items-center justify-between rounded-md border px-3 py-3 text-left text-sm transition-colors ${
-                              roleUpdate.needsLeadershipAttention
-                                ? "border-fuchsia-300/30 bg-fuchsia-300/[0.08] text-fuchsia-50"
-                                : "border-white/10 bg-zinc-950 text-zinc-300 hover:border-cyan-300/30"
-                              }`}
-                            >
-                              <span className="min-w-0 pr-3">
-                                {roleUpdate.needsLeadershipAttention ? "Needs leadership attention" : "No escalation needed"}
-                              </span>
-                              <span
-                                className={`rounded-full px-2 py-1 text-[10px] font-medium uppercase tracking-[0.16em] ${
-                                  roleUpdate.needsLeadershipAttention
-                                    ? "bg-fuchsia-300/15 text-fuchsia-100"
-                                    : "bg-white/[0.05] text-zinc-400"
-                              }`}
-                            >
-                              {roleUpdate.needsLeadershipAttention ? "On" : "Off"}
-                            </span>
-                          </button>
-                        </label>
+                          <div className="grid gap-2 sm:grid-cols-3">
+                            {roleStatusOptions.map((option) => {
+                              const selected = roleUpdate.status === option.value;
+                              const selectedClassName =
+                                option.value === "on-track"
+                                  ? "border-emerald-300/30 bg-emerald-300/12 text-emerald-100"
+                                  : option.value === "at-risk"
+                                    ? "border-amber-300/30 bg-amber-300/12 text-amber-100"
+                                    : "border-rose-300/30 bg-rose-300/12 text-rose-100";
+
+                              return (
+                                <button
+                                  key={option.value}
+                                  type="button"
+                                  onClick={() => updateRoleField(roleUpdate.role, "status", option.value as TeamRoleUpdateStatus)}
+                                  className={`min-h-11 rounded-md border px-3 py-2 text-sm font-medium transition-colors ${
+                                    selected
+                                      ? selectedClassName
+                                      : "border-white/10 bg-zinc-950 text-zinc-300 hover:border-cyan-300/30 hover:text-zinc-100"
+                                  }`}
+                                >
+                                  {option.label}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
                       </div>
                       <label className="grid min-w-0 gap-2">
                         <span className="text-xs font-medium uppercase tracking-[0.18em] text-zinc-300">Progress update</span>
