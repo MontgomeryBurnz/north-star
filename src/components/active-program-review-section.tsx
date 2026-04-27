@@ -258,6 +258,42 @@ function joinRoleSignals(roleUpdates: TeamRoleUpdate[], selector: (role: TeamRol
   return items.length ? items.join("\n") : fallback;
 }
 
+function hasRoleSubmission(roleUpdate: TeamRoleUpdate) {
+  return Boolean(
+    roleUpdate.progressUpdate.trim() ||
+      roleUpdate.changesObserved.trim() ||
+      roleUpdate.activeRisks.trim() ||
+      roleUpdate.blockers.trim() ||
+      roleUpdate.decisionsNeeded.trim() ||
+      roleUpdate.supportNeeded.trim()
+  );
+}
+
+function clearCycleReview(review: ActiveProgramReview, intake?: ProgramIntake) {
+  const roles = getProgramTeamRoles(intake);
+  const preservedOwners = normalizeTeamRoleUpdates(review.teamRoleUpdates, roles).map((roleUpdate) =>
+    buildTeamRoleUpdate(roleUpdate.role, {
+      updatedBy: roleUpdate.updatedBy,
+      confidence: roleUpdate.confidence
+    })
+  );
+
+  return normalizeReview(
+    {
+      ...emptyReview,
+      programName: review.programName,
+      originalNorthStar: review.originalNorthStar,
+      currentPhase: review.currentPhase,
+      stakeholderTemperature: review.stakeholderTemperature,
+      deliveryHealth: review.deliveryHealth,
+      updateCadence: review.updateCadence ?? "weekly",
+      teamRoleUpdates: preservedOwners,
+      artifacts: review.artifacts
+    },
+    intake
+  );
+}
+
 function buildSynthesizedReview(review: ActiveProgramReview, roles: string[], lastUpdatedRole = ""): ActiveProgramReview {
   const normalizedRoleUpdates = normalizeTeamRoleUpdates(review.teamRoleUpdates, roles);
   const touchedRoles = normalizedRoleUpdates.filter(
@@ -489,19 +525,19 @@ export function ActiveProgramReviewSection() {
   );
 
   const teamCoverage = useMemo(() => {
-    const submitted = teamRoleUpdates.filter(
-      (role) =>
-        role.progressUpdate.trim() ||
-        role.changesObserved.trim() ||
-        role.activeRisks.trim() ||
-        role.blockers.trim() ||
-        role.decisionsNeeded.trim() ||
-        role.supportNeeded.trim()
-    );
+    const submitted = teamRoleUpdates.filter(hasRoleSubmission);
     return {
       submitted: submitted.length,
       total: teamRoleUpdates.length,
       missing: teamRoleUpdates.filter((role) => !submitted.some((submittedRole) => submittedRole.role === role.role))
+    };
+  }, [teamRoleUpdates]);
+
+  const ownerCoverage = useMemo(() => {
+    const configured = teamRoleUpdates.filter((role) => role.updatedBy.trim()).length;
+    return {
+      configured,
+      total: teamRoleUpdates.length
     };
   }, [teamRoleUpdates]);
 
@@ -819,7 +855,7 @@ export function ActiveProgramReviewSection() {
         </p>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_390px]">
+      <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_360px] xl:grid-cols-[minmax(0,1fr)_380px]">
         <form onSubmit={handleSubmit} className="grid gap-4">
           <Card className="bg-zinc-950/80">
             <CardHeader className="border-b border-white/10">
@@ -828,7 +864,7 @@ export function ActiveProgramReviewSection() {
                 Active program state
               </CardTitle>
             </CardHeader>
-            <CardContent className="grid gap-4 p-5">
+            <CardContent className="grid gap-4 p-4 md:p-5">
               <label className="grid gap-2">
                 <span className="text-xs font-medium uppercase tracking-[0.18em] text-cyan-200">Select existing program</span>
                 <select
@@ -857,7 +893,7 @@ export function ActiveProgramReviewSection() {
                   className="min-h-11 rounded-md border border-white/10 bg-zinc-950 px-3 py-3 text-sm text-zinc-100 outline-none transition-colors placeholder:text-zinc-300 focus:border-cyan-300/50"
                 />
               </label>
-              <div className="grid gap-4 md:grid-cols-2">
+              <div className="grid gap-3 md:grid-cols-2">
                 <label className="grid gap-2">
                   <span className="text-xs font-medium uppercase tracking-[0.18em] text-zinc-300">Update cadence</span>
                   <select
@@ -922,15 +958,20 @@ export function ActiveProgramReviewSection() {
                   />
                 </label>
               </div>
-              <div className="rounded-xl border border-cyan-300/20 bg-cyan-300/[0.05] p-4">
+              <div className="rounded-lg border border-cyan-300/20 bg-cyan-300/[0.05] p-4">
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div>
                     <p className="text-xs font-medium uppercase tracking-[0.18em] text-cyan-200">Current team update cycle</p>
                     <p className="mt-2 text-sm font-medium text-zinc-100">{activeCycleMetadata.cycleLabel}</p>
                   </div>
-                  <span className="rounded-full border border-cyan-300/20 bg-cyan-300/10 px-3 py-1 text-[11px] font-medium uppercase tracking-[0.16em] text-cyan-100">
-                    {teamCoverage.submitted}/{teamCoverage.total} roles updated
-                  </span>
+                  <div className="flex flex-wrap gap-2">
+                    <span className="rounded-full border border-cyan-300/20 bg-cyan-300/10 px-3 py-1 text-[11px] font-medium uppercase tracking-[0.16em] text-cyan-100">
+                      {teamCoverage.submitted}/{teamCoverage.total} roles updated
+                    </span>
+                    <span className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-[11px] font-medium uppercase tracking-[0.16em] text-zinc-200">
+                      {ownerCoverage.configured}/{ownerCoverage.total} owners set
+                    </span>
+                  </div>
                 </div>
                 <p className="mt-3 text-sm leading-6 text-zinc-300">
                   Teams can submit individual role updates throughout the cycle. Each save refreshes the program synthesis and can trigger guided-plan regeneration when the signal materially changes.
@@ -946,47 +987,89 @@ export function ActiveProgramReviewSection() {
                 Team updates this cycle
               </CardTitle>
             </CardHeader>
-            <CardContent className="grid gap-4 p-5">
-              <div className="grid gap-4 xl:grid-cols-2">
+            <CardContent className="grid gap-4 p-4 md:p-5">
+              <div className="rounded-lg border border-white/10 bg-white/[0.03] px-4 py-3">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div>
+                    <p className="text-sm font-medium text-zinc-100">Role ownership stays stable across cycles</p>
+                    <p className="mt-1 text-xs leading-5 text-zinc-400">
+                      Set each role owner once. Future cycles keep those defaults and clear only the weekly signal fields.
+                    </p>
+                  </div>
+                  <span className="rounded-full border border-white/10 bg-black/20 px-3 py-1 text-[11px] font-medium uppercase tracking-[0.16em] text-zinc-300">
+                    {ownerCoverage.configured}/{ownerCoverage.total} mapped
+                  </span>
+                </div>
+              </div>
+              <div className="grid gap-3 2xl:grid-cols-2">
                 {teamRoleUpdates.map((roleUpdate) => (
-                  <div key={roleUpdate.role} className="rounded-xl border border-white/10 bg-white/[0.035] p-4">
-                    <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
+                  <div key={roleUpdate.role} className="rounded-lg border border-white/10 bg-white/[0.03] p-4">
+                    <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
                       <div>
                         <p className="text-sm font-medium text-zinc-100">{roleUpdate.role}</p>
                         <p className="mt-1 text-xs text-zinc-500">
                           {roleUpdate.lastUpdatedAt ? `Last role update ${formatTimestamp(roleUpdate.lastUpdatedAt)}` : "No role submission yet this cycle"}
                         </p>
                       </div>
-                      <span
-                        className={`rounded-full border px-3 py-1 text-[11px] font-medium uppercase tracking-[0.16em] ${
-                          roleUpdate.confidence === "high"
-                            ? "border-emerald-300/20 bg-emerald-300/10 text-emerald-100"
-                            : roleUpdate.confidence === "medium"
-                              ? "border-amber-300/20 bg-amber-300/10 text-amber-100"
-                              : "border-rose-300/20 bg-rose-300/10 text-rose-100"
-                        }`}
-                      >
-                        {roleUpdate.confidence}
-                      </span>
+                      <div className="flex flex-wrap gap-2">
+                        <span
+                          className={`rounded-full border px-3 py-1 text-[11px] font-medium uppercase tracking-[0.16em] ${
+                            hasRoleSubmission(roleUpdate)
+                              ? "border-cyan-300/20 bg-cyan-300/10 text-cyan-100"
+                              : "border-white/10 bg-black/20 text-zinc-400"
+                          }`}
+                        >
+                          {hasRoleSubmission(roleUpdate) ? "signal captured" : "awaiting input"}
+                        </span>
+                        <span
+                          className={`rounded-full border px-3 py-1 text-[11px] font-medium uppercase tracking-[0.16em] ${
+                            roleUpdate.confidence === "high"
+                              ? "border-emerald-300/20 bg-emerald-300/10 text-emerald-100"
+                              : roleUpdate.confidence === "medium"
+                                ? "border-amber-300/20 bg-amber-300/10 text-amber-100"
+                                : "border-rose-300/20 bg-rose-300/10 text-rose-100"
+                          }`}
+                        >
+                          {roleUpdate.confidence}
+                        </span>
+                      </div>
                     </div>
                     <div className="grid gap-3">
-                      <label className="grid gap-2">
-                        <span className="text-xs font-medium uppercase tracking-[0.18em] text-zinc-300">Updated by</span>
-                        <input
-                          value={roleUpdate.updatedBy}
-                          onChange={(event) => updateRoleField(roleUpdate.role, "updatedBy", event.target.value)}
-                          placeholder={`${roleUpdate.role} lead or owner`}
-                          className="min-h-11 rounded-md border border-white/10 bg-zinc-950 px-3 py-3 text-sm text-zinc-100 outline-none transition-colors placeholder:text-zinc-500 focus:border-cyan-300/50"
-                        />
-                      </label>
+                      <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_180px]">
+                        <label className="grid gap-2">
+                          <span className="text-xs font-medium uppercase tracking-[0.18em] text-zinc-300">Role owner</span>
+                          <input
+                            value={roleUpdate.updatedBy}
+                            onChange={(event) => updateRoleField(roleUpdate.role, "updatedBy", event.target.value)}
+                            placeholder={`${roleUpdate.role} lead or owner`}
+                            className="min-h-11 rounded-md border border-white/10 bg-zinc-950 px-3 py-3 text-sm text-zinc-100 outline-none transition-colors placeholder:text-zinc-500 focus:border-cyan-300/50"
+                          />
+                          <span className="text-xs leading-5 text-zinc-500">This persists as the default owner for future cycles.</span>
+                        </label>
+                        <label className="grid gap-2">
+                          <span className="text-xs font-medium uppercase tracking-[0.18em] text-zinc-300">Confidence</span>
+                          <select
+                            value={roleUpdate.confidence}
+                            onChange={(event) =>
+                              updateRoleField(roleUpdate.role, "confidence", event.target.value as TeamRoleUpdateConfidence)
+                            }
+                            className="min-h-11 rounded-md border border-white/10 bg-zinc-950 px-3 py-3 text-sm text-zinc-100 outline-none transition-colors focus:border-cyan-300/50"
+                          >
+                            {confidenceOptions.map((option) => (
+                              <option key={option.value} value={option.value}>
+                                {option.label}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+                      </div>
                       <label className="grid gap-2">
                         <span className="text-xs font-medium uppercase tracking-[0.18em] text-zinc-300">Progress update</span>
-                        <textarea
+                        <input
                           value={roleUpdate.progressUpdate}
                           onChange={(event) => updateRoleField(roleUpdate.role, "progressUpdate", event.target.value)}
-                          placeholder="What changed for this role since the last checkpoint?"
-                          rows={3}
-                          className="resize-none rounded-md border border-white/10 bg-zinc-950 px-3 py-3 text-sm leading-6 text-zinc-100 outline-none transition-colors placeholder:text-zinc-500 focus:border-cyan-300/50"
+                          placeholder="What changed most for this role since the last checkpoint?"
+                          className="min-h-11 rounded-md border border-white/10 bg-zinc-950 px-3 py-3 text-sm text-zinc-100 outline-none transition-colors placeholder:text-zinc-500 focus:border-cyan-300/50"
                         />
                       </label>
                       <label className="grid gap-2">
@@ -999,7 +1082,7 @@ export function ActiveProgramReviewSection() {
                           className="resize-none rounded-md border border-white/10 bg-zinc-950 px-3 py-3 text-sm leading-6 text-zinc-100 outline-none transition-colors placeholder:text-zinc-500 focus:border-cyan-300/50"
                         />
                       </label>
-                      <div className="grid gap-3 md:grid-cols-2">
+                      <div className="grid gap-3 xl:grid-cols-2">
                         <label className="grid gap-2">
                           <span className="text-xs font-medium uppercase tracking-[0.18em] text-zinc-300">Risks and blockers</span>
                           <textarea
@@ -1029,31 +1112,19 @@ export function ActiveProgramReviewSection() {
                           />
                         </label>
                       </div>
-                      <div className="flex flex-wrap items-center justify-between gap-3">
-                        <label className="grid gap-2">
-                          <span className="text-xs font-medium uppercase tracking-[0.18em] text-zinc-300">Confidence</span>
-                          <select
-                            value={roleUpdate.confidence}
-                            onChange={(event) =>
-                              updateRoleField(roleUpdate.role, "confidence", event.target.value as TeamRoleUpdateConfidence)
-                            }
-                            className="min-h-11 rounded-md border border-white/10 bg-zinc-950 px-3 py-3 text-sm text-zinc-100 outline-none transition-colors focus:border-cyan-300/50"
-                          >
-                            {confidenceOptions.map((option) => (
-                              <option key={option.value} value={option.value}>
-                                {option.label}
-                              </option>
-                            ))}
-                          </select>
-                        </label>
+                      <div className="flex flex-wrap items-center justify-between gap-3 border-t border-white/10 pt-2">
+                        <p className="text-xs leading-5 text-zinc-500">
+                          Save the role signal as soon as it changes. The program synthesis and guided plan will absorb it.
+                        </p>
                         <Button
                           type="button"
                           variant="outline"
+                          size="sm"
                           onClick={() => void saveReviewSnapshot(roleUpdate.role)}
                           disabled={saveState === "saving"}
                         >
                           <Save className="h-4 w-4" />
-                          Save {roleUpdate.role} update
+                          Save {roleUpdate.role} signal
                         </Button>
                       </div>
                     </div>
@@ -1290,8 +1361,7 @@ export function ActiveProgramReviewSection() {
               variant="outline"
               size="lg"
               onClick={() => {
-                setReview(normalizeReview(emptyReview, selectedProgram?.intake));
-                setSelectedProgramId("");
+                setReview(clearCycleReview(review, selectedProgram?.intake));
               }}
             >
               Clear cycle
