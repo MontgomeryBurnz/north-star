@@ -273,10 +273,11 @@ type ReviewQueueItem = {
   programName: string;
   leadLabel: string;
   cadence: ReviewCadence;
-  status: "due" | "overdue";
+  status: "due" | "overdue" | "attention";
   badgeLabel: string;
   lastReviewedLabel: string;
   nextReviewLabel: string;
+  attentionRoles: string[];
 };
 
 function formatTimestamp(value: string) {
@@ -335,6 +336,14 @@ function deriveLeadLabel(program: StoredProgram) {
     stakeholderLines[0];
 
   return explicitLead || "Lead not named";
+}
+
+function getEscalatedRoleUpdates(update: StoredProgramUpdate | undefined) {
+  return (
+    update?.review.teamRoleUpdates?.filter(
+      (role) => role.needsLeadershipAttention && role.role.trim()
+    ) ?? []
+  );
 }
 
 function differenceInDays(later: Date, earlier: Date) {
@@ -561,6 +570,10 @@ export function LeadershipReviewConsole() {
   );
   const recentLeadershipSignals = useMemo(() => feedback.slice(0, 3), [feedback]);
   const selectedCadence = (selectedProgram?.intake.leadershipReviewCadence as ReviewCadence | undefined) ?? inferReviewCadence(feedback);
+  const displayedReviewQueue = useMemo(
+    () => (queueMode ? reviewQueue.filter((entry) => entry.status !== "attention") : reviewQueue),
+    [queueMode, reviewQueue]
+  );
   const reviewCycleStatus = useMemo(
     () => buildReviewCycleStatusForCadence(feedback, selectedCadence),
     [feedback, selectedCadence]
@@ -639,14 +652,20 @@ export function LeadershipReviewConsole() {
       const queueEntries = await Promise.all(
         programs.map(async (program) => {
           const cadence = (program.intake.leadershipReviewCadence as ReviewCadence | undefined) ?? "weekly";
-          const programFeedback =
+          const [programFeedback, programUpdates] =
             program.id === seededLeadershipProgram.id
-              ? seededLeadershipFeedback
-              : ((await fetch(`/api/programs/${program.id}/leadership-feedback`).then((response) => response.json())) as {
-                  feedback: LeadershipReviewRecord[];
-                }).feedback;
+              ? [seededLeadershipFeedback, seededLeadershipUpdates]
+              : await Promise.all([
+                  fetch(`/api/programs/${program.id}/leadership-feedback`).then(async (response) =>
+                    response.ok ? (((await response.json()) as { feedback: LeadershipReviewRecord[] }).feedback) : []
+                  ),
+                  fetch(`/api/programs/${program.id}/updates`).then(async (response) =>
+                    response.ok ? (((await response.json()) as { updates: StoredProgramUpdate[] }).updates) : []
+                  )
+                ]);
           const cycleStatus = buildReviewCycleStatusForCadence(programFeedback, cadence);
-          if (cycleStatus.badgeTone === "on-track") {
+          const escalatedRoles = getEscalatedRoleUpdates(programUpdates[0]);
+          if (cycleStatus.badgeTone === "on-track" && !escalatedRoles.length) {
             return null;
           }
 
@@ -655,10 +674,17 @@ export function LeadershipReviewConsole() {
             programName: program.intake.programName,
             leadLabel: deriveLeadLabel(program),
             cadence,
-            status: cycleStatus.badgeTone,
-            badgeLabel: cycleStatus.badgeLabel,
+            status:
+              cycleStatus.badgeTone !== "on-track"
+                ? cycleStatus.badgeTone
+                : "attention",
+            badgeLabel:
+              cycleStatus.badgeTone !== "on-track"
+                ? cycleStatus.badgeLabel
+                : "Leadership attention flagged",
             lastReviewedLabel: cycleStatus.lastReviewedLabel,
-            nextReviewLabel: cycleStatus.nextReviewLabel
+            nextReviewLabel: cycleStatus.nextReviewLabel,
+            attentionRoles: escalatedRoles.map((role) => role.role)
           } satisfies ReviewQueueItem;
         })
       );
@@ -667,7 +693,8 @@ export function LeadershipReviewConsole() {
         .filter((entry) => entry !== null)
         .sort((a, b) => {
           if (a.status !== b.status) {
-            return a.status === "overdue" ? -1 : 1;
+            const order = { attention: 0, overdue: 1, due: 2 };
+            return order[a.status] - order[b.status];
           }
 
           return a.programName.localeCompare(b.programName);
@@ -680,10 +707,10 @@ export function LeadershipReviewConsole() {
   }, [feedback, programs]);
 
   useEffect(() => {
-    if (!queueMode || !reviewQueue.length) return;
-    if (reviewQueue.some((entry) => entry.programId === selectedProgramId)) return;
-    setSelectedProgramId(reviewQueue[0].programId);
-  }, [queueMode, reviewQueue, selectedProgramId]);
+    if (!queueMode || !displayedReviewQueue.length) return;
+    if (displayedReviewQueue.some((entry) => entry.programId === selectedProgramId)) return;
+    setSelectedProgramId(displayedReviewQueue[0].programId);
+  }, [displayedReviewQueue, queueMode, selectedProgramId]);
 
   useEffect(() => {
     async function loadProgramContext() {
@@ -935,6 +962,11 @@ export function LeadershipReviewConsole() {
                   <RefreshCw className="h-4 w-4 text-fuchsia-200" />
                   {queueMode ? "Filtered review due queue" : "Review due queue"}
                 </CardTitle>
+                {displayedReviewQueue.length ? (
+                  <span className="rounded-full border border-fuchsia-300/25 bg-fuchsia-300/[0.1] px-2.5 py-1 text-[11px] font-medium uppercase tracking-[0.14em] text-fuchsia-100">
+                    {displayedReviewQueue.length}
+                  </span>
+                ) : null}
                 {queueMode ? (
                   <Button type="button" variant="ghost" size="sm" className="text-zinc-300" onClick={clearQueueFilter}>
                     Clear queue filter
@@ -949,8 +981,8 @@ export function LeadershipReviewConsole() {
                 </div>
               ) : null}
 
-              {reviewQueue.length ? (
-                reviewQueue.map((entry) => (
+              {displayedReviewQueue.length ? (
+                displayedReviewQueue.map((entry) => (
                   <div
                     key={entry.programId}
                     className={`rounded-md border p-3 transition-colors ${
@@ -970,17 +1002,24 @@ export function LeadershipReviewConsole() {
                         </span>
                         <span
                           className={`rounded-full border px-2.5 py-1 text-[11px] font-medium uppercase tracking-[0.14em] ${
-                            entry.status === "overdue"
+                            entry.status === "attention"
+                              ? "border-fuchsia-300/30 bg-fuchsia-300/10 text-fuchsia-100"
+                              : entry.status === "overdue"
                               ? "border-rose-300/30 bg-rose-300/10 text-rose-100"
                               : "border-amber-300/30 bg-amber-300/10 text-amber-100"
                           }`}
                         >
-                          {entry.status === "overdue" ? "Overdue" : "Due"}
+                          {entry.status === "attention" ? "Attention" : entry.status === "overdue" ? "Overdue" : "Due"}
                         </span>
                       </div>
                     </div>
                     <p className="mt-2 text-xs leading-5 text-zinc-400">{entry.lastReviewedLabel}</p>
                     <p className="mt-1 text-xs leading-5 text-zinc-500">{entry.nextReviewLabel}</p>
+                    {entry.attentionRoles.length ? (
+                      <p className="mt-2 text-xs leading-5 text-fuchsia-100">
+                        Leadership attention flagged by: {entry.attentionRoles.join(", ")}
+                      </p>
+                    ) : null}
                     <div className="mt-3 flex flex-wrap gap-2">
                       <Button
                         type="button"

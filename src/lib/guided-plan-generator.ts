@@ -68,6 +68,28 @@ function getTeamRoleUpdates(update: StoredProgramUpdate | undefined) {
   ) ?? [];
 }
 
+function formatRoleStatus(status: string) {
+  if (status === "on-track") return "On track";
+  if (status === "at-risk") return "At risk";
+  if (status === "blocked") return "Blocked";
+  return "Unstated";
+}
+
+function buildRoleStatusSummary(roleUpdates: ReturnType<typeof getTeamRoleUpdates>) {
+  return roleUpdates
+    .map((roleUpdate) => {
+      const details = [
+        `status ${formatRoleStatus(roleUpdate.status)}`,
+        roleUpdate.needsLeadershipAttention ? "needs leadership attention" : "",
+        firstAvailable(roleUpdate.activeRisks, roleUpdate.blockers, roleUpdate.decisionsNeeded)
+      ]
+        .filter(Boolean)
+        .join("; ");
+      return `${roleUpdate.role}: ${excerpt(details, 110)}`;
+    })
+    .slice(0, 4);
+}
+
 function buildRolePlans(
   program: StoredProgram,
   latestUpdate: StoredProgramUpdate | undefined,
@@ -99,6 +121,10 @@ function buildRolePlans(
     const roleRisk = firstAvailable(roleUpdate?.activeRisks ?? "", roleUpdate?.blockers ?? "", riskFocus);
     const roleDecision = firstAvailable(roleUpdate?.decisionsNeeded ?? "", decisionFocus);
     const roleSupport = firstAvailable(roleUpdate?.supportNeeded ?? "", requirementFocus);
+    const roleStatusLabel = formatRoleStatus(roleUpdate?.status ?? "on-track");
+    const roleEscalation = roleUpdate?.needsLeadershipAttention
+      ? "Leadership attention is requested from this role's current signal."
+      : "No leadership escalation is currently requested from this role.";
 
     if (role === "Product Management") {
       return {
@@ -109,6 +135,7 @@ function buildRolePlans(
           `Absorb leadership direction into scope posture: ${excerpt(leadershipRoleImpacts.get(role) || leadershipSignalSummary, 110)}`
         ],
         keyFocusAreas: [
+          `Operating posture: ${roleStatusLabel}. ${roleEscalation}`,
           `Outcome clarity and sequencing across stakeholder expectations: ${excerpt(stakeholderFocus || "stakeholder alignment.", 110)}`,
           `Product scope choices under current constraints: ${excerpt(roleSupport || "requirements and constraints.", 110)}`
         ],
@@ -130,6 +157,7 @@ function buildRolePlans(
           `Reflect leadership translation in the requirement path: ${excerpt(leadershipRoleImpacts.get(role) || leadershipSignalSummary, 110)}`
         ],
         keyFocusAreas: [
+          `Operating posture: ${roleStatusLabel}. ${roleEscalation}`,
           "Requirements breakdown, acceptance logic, and dependency tracing.",
           `Decision support and process clarity tied to: ${excerpt(roleProgress || "current delivery evidence.", 110)}`
         ],
@@ -153,6 +181,7 @@ function buildRolePlans(
           `Keep user flow decisions visible before execution hardens: ${excerpt(leadershipRoleImpacts.get(role) || "protect workflow clarity and review usability.", 110)}`
         ],
         keyFocusAreas: [
+          `Operating posture: ${roleStatusLabel}. ${roleEscalation}`,
           "Workflow clarity, experience validation, and handoff simplification.",
           `User-facing risk areas embedded in: ${excerpt(roleRisk || "delivery complexity and ambiguity.", 110)}`
         ],
@@ -177,6 +206,7 @@ function buildRolePlans(
           `Apply leadership direction to build sequencing: ${excerpt(leadershipRoleImpacts.get(role) || leadershipSignalSummary, 110)}`
         ],
         keyFocusAreas: [
+          `Operating posture: ${roleStatusLabel}. ${roleEscalation}`,
           "Build sequencing, dependency removal, integration risk, and quality gates.",
           `Execution risk tied to: ${excerpt(roleRisk || "the current delivery posture.", 110)}`
         ],
@@ -200,6 +230,7 @@ function buildRolePlans(
           `Make data readiness visible before downstream build work accelerates: ${excerpt(leadershipRoleImpacts.get(role) || "surface the evidence required before scale.", 110)}`
         ],
         keyFocusAreas: [
+          `Operating posture: ${roleStatusLabel}. ${roleEscalation}`,
           "Data sourcing, transformation ownership, quality controls, and dependency sequencing.",
           `Operational risk tied to data flow and evidence quality: ${excerpt(roleRisk || "current delivery risk.", 110)}`
         ],
@@ -223,6 +254,7 @@ function buildRolePlans(
           `Translate the plan into audience-specific readiness checkpoints and support actions: ${excerpt(leadershipRoleImpacts.get(role) || leadershipSignalSummary, 110)}`
         ],
         keyFocusAreas: [
+          `Operating posture: ${roleStatusLabel}. ${roleEscalation}`,
           "Stakeholder readiness, adoption path, communications cadence, and resistance signals.",
           `Leadership-sensitive changes embedded in the plan: ${excerpt(leadershipSignalSummary, 110)}`
         ],
@@ -245,6 +277,7 @@ function buildRolePlans(
         `Apply leadership and operator context to ${role}: ${excerpt(leadershipRoleImpacts.get(role) || leadershipSignalSummary || progressFocus || "tighten the next role-specific checkpoint.", 110)}`
       ],
       keyFocusAreas: [
+        `Operating posture: ${roleStatusLabel}. ${roleEscalation}`,
         `${role} focus should stay aligned to: ${excerpt(roleSupport || "requirements, constraints, and evidence quality.", 110)}`,
         `${role} should monitor pressure in: ${excerpt(roleRisk || "active program risk and delivery ambiguity.", 110)}`
       ],
@@ -297,6 +330,8 @@ export function generateLocalGuidedPlan(
     (leadershipInterpretation?.roleImpacts ?? []).map((item) => [item.role, item.focus])
   );
   const teamRoleUpdates = getTeamRoleUpdates(latestUpdate);
+  const roleStatusSummary = buildRoleStatusSummary(teamRoleUpdates);
+  const escalatedRoleUpdates = teamRoleUpdates.filter((roleUpdate) => roleUpdate.needsLeadershipAttention);
   const artifactSignals = getArtifactSignals(program);
   const latestArtifactSignal = artifactSignals[0];
   const sourceSummaryParts = [
@@ -331,7 +366,13 @@ export function generateLocalGuidedPlan(
     teamRoleUpdates.length
       ? `Team role submissions shaping this plan: ${teamRoleUpdates
           .slice(0, 3)
-          .map((roleUpdate) => `${roleUpdate.role}: ${excerpt(firstAvailable(roleUpdate.progressUpdate, roleUpdate.activeRisks, roleUpdate.decisionsNeeded), 70)}`)
+          .map(
+            (roleUpdate) =>
+              `${roleUpdate.role}: ${excerpt(
+                `${firstAvailable(roleUpdate.progressUpdate, roleUpdate.activeRisks, roleUpdate.decisionsNeeded)} (${formatRoleStatus(roleUpdate.status)}${roleUpdate.needsLeadershipAttention ? ", leadership attention" : ""})`,
+                84
+              )}`
+          )
           .join(" / ")}`
       : "No role-specific team submissions are on file yet. Capture role updates through Active Program so the guided plan reflects what each function is seeing this cycle.",
     latestLeadershipFeedback
@@ -418,9 +459,14 @@ export function generateLocalGuidedPlan(
           : []),
         ...(teamRoleUpdates.length
           ? [
-              `Team update signal: ${teamRoleUpdates
+              `Team status signal: ${roleStatusSummary.slice(0, 2).join(" / ")}`
+            ]
+          : []),
+        ...(escalatedRoleUpdates.length
+          ? [
+              `Leadership attention signal: ${escalatedRoleUpdates
                 .slice(0, 2)
-                .map((roleUpdate) => `${roleUpdate.role} -> ${excerpt(firstAvailable(roleUpdate.progressUpdate, roleUpdate.activeRisks, roleUpdate.decisionsNeeded), 90)}`)
+                .map((roleUpdate) => `${roleUpdate.role} flagged ${excerpt(firstAvailable(roleUpdate.activeRisks, roleUpdate.blockers, roleUpdate.decisionsNeeded, roleUpdate.supportNeeded), 90)}`)
                 .join(" / ")}`
             ]
           : []),
@@ -469,7 +515,13 @@ export function generateLocalGuidedPlan(
           ? [
               `Role-derived adjustment: ${teamRoleUpdates
                 .slice(0, 2)
-                .map((roleUpdate) => `${roleUpdate.role}: ${excerpt(firstAvailable(roleUpdate.changesObserved, roleUpdate.supportNeeded, roleUpdate.decisionsNeeded), 90)}`)
+                .map(
+                  (roleUpdate) =>
+                    `${roleUpdate.role}: ${excerpt(
+                      `${firstAvailable(roleUpdate.changesObserved, roleUpdate.supportNeeded, roleUpdate.decisionsNeeded)} (${formatRoleStatus(roleUpdate.status)}${roleUpdate.needsLeadershipAttention ? ", leadership attention" : ""})`,
+                      110
+                    )}`
+                )
                 .join(" / ")}`
             ]
           : []),
@@ -509,6 +561,16 @@ export function generateLocalGuidedPlan(
       items: [
         `Risk focus: ${firstAvailable(activeRisks, "Capture the top risks before generating final guidance.")}`,
         `Decision focus: ${firstAvailable(decisions, "Name the decision needed to move the path forward.")}`,
+        ...(roleStatusSummary.length
+          ? [`Role risk posture: ${roleStatusSummary.join(" / ")}`]
+          : []),
+        ...(escalatedRoleUpdates.length
+          ? [
+              `Leadership attention requested by: ${escalatedRoleUpdates
+                .map((roleUpdate) => `${roleUpdate.role} (${formatRoleStatus(roleUpdate.status)})`)
+                .join(", ")}.`
+            ]
+          : []),
         latestLeadershipFeedback
           ? "Leadership review is on file and has been folded into the current risk and support posture."
           : "Leadership feedback has not been captured yet.",

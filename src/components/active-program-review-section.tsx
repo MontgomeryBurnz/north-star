@@ -926,8 +926,8 @@ export function ActiveProgramReviewSection() {
                     value={review.currentPhase}
                     onChange={(event) => updateField("currentPhase", event.target.value)}
                     placeholder="Discovery, build, launch, stabilization, or recovery"
-                    rows={2}
-                    className="resize-none rounded-md border border-white/10 bg-zinc-950 px-3 py-3 text-sm leading-6 text-zinc-100 outline-none transition-colors placeholder:text-zinc-300 focus:border-cyan-300/50"
+                    rows={3}
+                    className="min-h-[92px] resize-none rounded-md border border-white/10 bg-zinc-950 px-3 py-3 text-sm leading-6 text-zinc-100 outline-none transition-colors placeholder:text-zinc-300 focus:border-cyan-300/50"
                   />
                 </label>
                 <label className="grid gap-2 md:col-span-2">
@@ -937,7 +937,7 @@ export function ActiveProgramReviewSection() {
                     onChange={(event) => updateField("originalNorthStar", event.target.value)}
                     placeholder="What outcome is the team still trying to protect as conditions change?"
                     rows={3}
-                    className="resize-none rounded-md border border-white/10 bg-zinc-950 px-3 py-3 text-sm leading-6 text-zinc-100 outline-none transition-colors placeholder:text-zinc-300 focus:border-cyan-300/50"
+                    className="min-h-[112px] resize-none rounded-md border border-white/10 bg-zinc-950 px-3 py-3 text-sm leading-6 text-zinc-100 outline-none transition-colors placeholder:text-zinc-300 focus:border-cyan-300/50"
                   />
                 </label>
                 <label className="grid gap-2">
@@ -947,7 +947,7 @@ export function ActiveProgramReviewSection() {
                     onChange={(event) => updateField("stakeholderTemperature", event.target.value)}
                     placeholder="Where are stakeholders aligned, uncertain, frustrated, or split?"
                     rows={3}
-                    className="resize-none rounded-md border border-white/10 bg-zinc-950 px-3 py-3 text-sm leading-6 text-zinc-100 outline-none transition-colors placeholder:text-zinc-300 focus:border-cyan-300/50"
+                    className="min-h-[112px] resize-none rounded-md border border-white/10 bg-zinc-950 px-3 py-3 text-sm leading-6 text-zinc-100 outline-none transition-colors placeholder:text-zinc-300 focus:border-cyan-300/50"
                   />
                 </label>
                 <label className="grid gap-2">
@@ -957,7 +957,7 @@ export function ActiveProgramReviewSection() {
                     onChange={(event) => updateField("deliveryHealth", event.target.value)}
                     placeholder="Where does the program feel healthy, overloaded, noisy, or fragile?"
                     rows={3}
-                    className="resize-none rounded-md border border-white/10 bg-zinc-950 px-3 py-3 text-sm leading-6 text-zinc-100 outline-none transition-colors placeholder:text-zinc-300 focus:border-cyan-300/50"
+                    className="min-h-[112px] resize-none rounded-md border border-white/10 bg-zinc-950 px-3 py-3 text-sm leading-6 text-zinc-100 outline-none transition-colors placeholder:text-zinc-300 focus:border-cyan-300/50"
                   />
                 </label>
                 <label className="grid gap-2 md:col-span-2">
@@ -967,7 +967,7 @@ export function ActiveProgramReviewSection() {
                     onChange={(event) => updateField("programSynthesisNote", event.target.value)}
                     placeholder="Capture the delivery-lead synthesis of how the team inputs change the weekly picture."
                     rows={3}
-                    className="resize-none rounded-md border border-white/10 bg-zinc-950 px-3 py-3 text-sm leading-6 text-zinc-100 outline-none transition-colors placeholder:text-zinc-300 focus:border-cyan-300/50"
+                    className="min-h-[112px] resize-none rounded-md border border-white/10 bg-zinc-950 px-3 py-3 text-sm leading-6 text-zinc-100 outline-none transition-colors placeholder:text-zinc-300 focus:border-cyan-300/50"
                   />
                 </label>
               </div>
@@ -1016,7 +1016,7 @@ export function ActiveProgramReviewSection() {
               </div>
               <div className="grid gap-3 2xl:grid-cols-2">
                 {teamRoleUpdates.map((roleUpdate) => (
-                  <div key={roleUpdate.role} className="rounded-lg border border-white/10 bg-white/[0.03] p-4">
+                  <div key={roleUpdate.role} className="rounded-lg border border-white/10 bg-white/[0.03] p-3.5">
                     <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
                       <div>
                         <p className="text-sm font-medium text-zinc-100">{roleUpdate.role}</p>
@@ -1053,7 +1053,7 @@ export function ActiveProgramReviewSection() {
                       </div>
                     </div>
                     <div className="grid gap-3">
-                      <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_160px_220px]">
+                      <div className="grid items-start gap-3 md:grid-cols-2 xl:grid-cols-[minmax(0,1fr)_160px_220px]">
                         <label className="grid gap-2">
                           <span className="text-xs font-medium uppercase tracking-[0.18em] text-zinc-300">Role owner</span>
                           <input
@@ -1110,13 +1110,14 @@ export function ActiveProgramReviewSection() {
                           </button>
                         </label>
                       </div>
-                      <label className="grid gap-2">
+                      <label className="grid gap-2 md:col-span-2">
                         <span className="text-xs font-medium uppercase tracking-[0.18em] text-zinc-300">Progress update</span>
-                        <input
+                        <textarea
                           value={roleUpdate.progressUpdate}
                           onChange={(event) => updateRoleField(roleUpdate.role, "progressUpdate", event.target.value)}
                           placeholder="What changed most for this role since the last checkpoint?"
-                          className="min-h-11 rounded-md border border-white/10 bg-zinc-950 px-3 py-3 text-sm text-zinc-100 outline-none transition-colors placeholder:text-zinc-500 focus:border-cyan-300/50"
+                          rows={2}
+                          className="min-h-[88px] resize-none rounded-md border border-white/10 bg-zinc-950 px-3 py-3 text-sm leading-6 text-zinc-100 outline-none transition-colors placeholder:text-zinc-500 focus:border-cyan-300/50"
                         />
                       </label>
                       <label className="grid gap-2">
@@ -1126,7 +1127,7 @@ export function ActiveProgramReviewSection() {
                           onChange={(event) => updateRoleField(roleUpdate.role, "changesObserved", event.target.value)}
                           placeholder="Scope, sequencing, dependency, or stakeholder changes."
                           rows={3}
-                          className="resize-none rounded-md border border-white/10 bg-zinc-950 px-3 py-3 text-sm leading-6 text-zinc-100 outline-none transition-colors placeholder:text-zinc-500 focus:border-cyan-300/50"
+                          className="min-h-[104px] resize-none rounded-md border border-white/10 bg-zinc-950 px-3 py-3 text-sm leading-6 text-zinc-100 outline-none transition-colors placeholder:text-zinc-500 focus:border-cyan-300/50"
                         />
                       </label>
                       <div className="grid gap-3 xl:grid-cols-2">
@@ -1141,7 +1142,7 @@ export function ActiveProgramReviewSection() {
                             }}
                             placeholder="Top risk on the first line, blockers beneath it."
                             rows={4}
-                            className="resize-none rounded-md border border-white/10 bg-zinc-950 px-3 py-3 text-sm leading-6 text-zinc-100 outline-none transition-colors placeholder:text-zinc-500 focus:border-cyan-300/50"
+                            className="min-h-[120px] resize-none rounded-md border border-white/10 bg-zinc-950 px-3 py-3 text-sm leading-6 text-zinc-100 outline-none transition-colors placeholder:text-zinc-500 focus:border-cyan-300/50"
                           />
                         </label>
                         <label className="grid gap-2">
@@ -1155,7 +1156,7 @@ export function ActiveProgramReviewSection() {
                             }}
                             placeholder="Decision needed on the first line, support ask beneath it."
                             rows={4}
-                            className="resize-none rounded-md border border-white/10 bg-zinc-950 px-3 py-3 text-sm leading-6 text-zinc-100 outline-none transition-colors placeholder:text-zinc-500 focus:border-cyan-300/50"
+                            className="min-h-[120px] resize-none rounded-md border border-white/10 bg-zinc-950 px-3 py-3 text-sm leading-6 text-zinc-100 outline-none transition-colors placeholder:text-zinc-500 focus:border-cyan-300/50"
                           />
                         </label>
                       </div>
