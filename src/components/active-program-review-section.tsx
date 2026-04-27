@@ -922,12 +922,11 @@ export function ActiveProgramReviewSection() {
                 </label>
                 <label className="grid gap-2">
                   <span className="text-xs font-medium uppercase tracking-[0.18em] text-zinc-300">Current phase</span>
-                  <textarea
+                  <input
                     value={review.currentPhase}
                     onChange={(event) => updateField("currentPhase", event.target.value)}
                     placeholder="Discovery, build, launch, stabilization, or recovery"
-                    rows={3}
-                    className="min-h-[92px] resize-none rounded-md border border-white/10 bg-zinc-950 px-3 py-3 text-sm leading-6 text-zinc-100 outline-none transition-colors placeholder:text-zinc-300 focus:border-cyan-300/50"
+                    className="min-h-11 rounded-md border border-white/10 bg-zinc-950 px-3 py-3 text-sm text-zinc-100 outline-none transition-colors placeholder:text-zinc-300 focus:border-cyan-300/50"
                   />
                 </label>
                 <label className="grid gap-2 md:col-span-2">
