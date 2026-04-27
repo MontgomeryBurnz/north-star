@@ -1014,11 +1014,11 @@ export function ActiveProgramReviewSection() {
                   </span>
                 </div>
               </div>
-              <div className="grid gap-3 2xl:grid-cols-2">
+              <div className="grid gap-4 xl:grid-cols-2">
                 {teamRoleUpdates.map((roleUpdate) => (
-                  <div key={roleUpdate.role} className="rounded-lg border border-white/10 bg-white/[0.03] p-3.5">
-                    <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
-                      <div>
+                  <div key={roleUpdate.role} className="rounded-lg border border-white/10 bg-white/[0.03] p-4">
+                    <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
+                      <div className="min-w-0">
                         <p className="text-sm font-medium text-zinc-100">{roleUpdate.role}</p>
                         <p className="mt-1 text-xs text-zinc-500">
                           {roleUpdate.lastUpdatedAt ? `Last role update ${formatTimestamp(roleUpdate.lastUpdatedAt)}` : "No role submission yet this cycle"}
@@ -1052,9 +1052,9 @@ export function ActiveProgramReviewSection() {
                         ) : null}
                       </div>
                     </div>
-                    <div className="grid gap-3">
-                      <div className="grid items-start gap-3 md:grid-cols-2 xl:grid-cols-[minmax(0,1fr)_160px_220px]">
-                        <label className="grid gap-2">
+                    <div className="grid gap-4">
+                      <div className="grid gap-3 lg:grid-cols-3">
+                        <label className="grid min-w-0 gap-2">
                           <span className="text-xs font-medium uppercase tracking-[0.18em] text-zinc-300">Role owner</span>
                           <input
                             value={roleUpdate.updatedBy}
@@ -1064,7 +1064,7 @@ export function ActiveProgramReviewSection() {
                           />
                           <span className="text-xs leading-5 text-zinc-500">This persists as the default owner for future cycles.</span>
                         </label>
-                        <label className="grid gap-2">
+                        <label className="grid min-w-0 gap-2">
                           <span className="text-xs font-medium uppercase tracking-[0.18em] text-zinc-300">Status</span>
                           <select
                             value={roleUpdate.status}
@@ -1080,7 +1080,7 @@ export function ActiveProgramReviewSection() {
                             ))}
                           </select>
                         </label>
-                        <label className="grid gap-2">
+                        <label className="grid min-w-0 gap-2">
                           <span className="text-xs font-medium uppercase tracking-[0.18em] text-zinc-300">Escalation signal</span>
                           <button
                             type="button"
@@ -1095,14 +1095,16 @@ export function ActiveProgramReviewSection() {
                               roleUpdate.needsLeadershipAttention
                                 ? "border-fuchsia-300/30 bg-fuchsia-300/[0.08] text-fuchsia-50"
                                 : "border-white/10 bg-zinc-950 text-zinc-300 hover:border-cyan-300/30"
-                            }`}
-                          >
-                            <span>{roleUpdate.needsLeadershipAttention ? "Needs leadership attention" : "No escalation needed"}</span>
-                            <span
-                              className={`rounded-full px-2 py-1 text-[10px] font-medium uppercase tracking-[0.16em] ${
-                                roleUpdate.needsLeadershipAttention
-                                  ? "bg-fuchsia-300/15 text-fuchsia-100"
-                                  : "bg-white/[0.05] text-zinc-400"
+                              }`}
+                            >
+                              <span className="min-w-0 pr-3">
+                                {roleUpdate.needsLeadershipAttention ? "Needs leadership attention" : "No escalation needed"}
+                              </span>
+                              <span
+                                className={`rounded-full px-2 py-1 text-[10px] font-medium uppercase tracking-[0.16em] ${
+                                  roleUpdate.needsLeadershipAttention
+                                    ? "bg-fuchsia-300/15 text-fuchsia-100"
+                                    : "bg-white/[0.05] text-zinc-400"
                               }`}
                             >
                               {roleUpdate.needsLeadershipAttention ? "On" : "Off"}
@@ -1110,7 +1112,7 @@ export function ActiveProgramReviewSection() {
                           </button>
                         </label>
                       </div>
-                      <label className="grid gap-2 md:col-span-2">
+                      <label className="grid min-w-0 gap-2">
                         <span className="text-xs font-medium uppercase tracking-[0.18em] text-zinc-300">Progress update</span>
                         <textarea
                           value={roleUpdate.progressUpdate}
@@ -1120,7 +1122,7 @@ export function ActiveProgramReviewSection() {
                           className="min-h-[88px] resize-none rounded-md border border-white/10 bg-zinc-950 px-3 py-3 text-sm leading-6 text-zinc-100 outline-none transition-colors placeholder:text-zinc-500 focus:border-cyan-300/50"
                         />
                       </label>
-                      <label className="grid gap-2">
+                      <label className="grid min-w-0 gap-2">
                         <span className="text-xs font-medium uppercase tracking-[0.18em] text-zinc-300">Changes observed</span>
                         <textarea
                           value={roleUpdate.changesObserved}
@@ -1130,8 +1132,8 @@ export function ActiveProgramReviewSection() {
                           className="min-h-[104px] resize-none rounded-md border border-white/10 bg-zinc-950 px-3 py-3 text-sm leading-6 text-zinc-100 outline-none transition-colors placeholder:text-zinc-500 focus:border-cyan-300/50"
                         />
                       </label>
-                      <div className="grid gap-3 xl:grid-cols-2">
-                        <label className="grid gap-2">
+                      <div className="grid gap-3 lg:grid-cols-2">
+                        <label className="grid min-w-0 gap-2">
                           <span className="text-xs font-medium uppercase tracking-[0.18em] text-zinc-300">Risks and blockers</span>
                           <textarea
                             value={[roleUpdate.activeRisks, roleUpdate.blockers].filter(Boolean).join("\n")}
@@ -1145,7 +1147,7 @@ export function ActiveProgramReviewSection() {
                             className="min-h-[120px] resize-none rounded-md border border-white/10 bg-zinc-950 px-3 py-3 text-sm leading-6 text-zinc-100 outline-none transition-colors placeholder:text-zinc-500 focus:border-cyan-300/50"
                           />
                         </label>
-                        <label className="grid gap-2">
+                        <label className="grid min-w-0 gap-2">
                           <span className="text-xs font-medium uppercase tracking-[0.18em] text-zinc-300">Decisions and support</span>
                           <textarea
                             value={[roleUpdate.decisionsNeeded, roleUpdate.supportNeeded].filter(Boolean).join("\n")}
