@@ -1,6 +1,6 @@
 import type { ProgramArtifact } from "@/lib/program-intake-types";
 
-export type TeamRoleUpdateConfidence = "high" | "medium" | "low";
+export type TeamRoleUpdateStatus = "on-track" | "at-risk" | "blocked";
 
 export type TeamRoleUpdate = {
   role: string;
@@ -11,7 +11,8 @@ export type TeamRoleUpdate = {
   blockers: string;
   decisionsNeeded: string;
   supportNeeded: string;
-  confidence: TeamRoleUpdateConfidence;
+  status: TeamRoleUpdateStatus;
+  needsLeadershipAttention: boolean;
   lastUpdatedAt?: string;
 };
 

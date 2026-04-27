@@ -2,7 +2,7 @@
 
 import { ChangeEvent, FormEvent, useEffect, useMemo, useState } from "react";
 import { Activity, FileClock, FolderUp, HeartPulse, History, Layers3, MessageSquareQuote, RefreshCw, Save, Trash2, Users2 } from "lucide-react";
-import type { ActiveProgramReview, ActiveProgramUpdate, TeamRoleUpdate, TeamRoleUpdateConfidence } from "@/lib/active-program-types";
+import type { ActiveProgramReview, ActiveProgramUpdate, TeamRoleUpdate, TeamRoleUpdateStatus } from "@/lib/active-program-types";
 import type { DeliveryLeadershipSignal } from "@/lib/leadership-feedback-types";
 import type { ProgramMeetingAttachment, ProgramMeetingInput } from "@/lib/program-intelligence-types";
 import type { ProgramArtifact, ProgramIntake } from "@/lib/program-intake-types";
@@ -86,11 +86,17 @@ const defaultTeamRoles = [
   "Change Management"
 ] as const;
 
-const confidenceOptions: Array<{ value: TeamRoleUpdateConfidence; label: string }> = [
-  { value: "high", label: "High confidence" },
-  { value: "medium", label: "Medium confidence" },
-  { value: "low", label: "Low confidence" }
+const roleStatusOptions: Array<{ value: TeamRoleUpdateStatus; label: string }> = [
+  { value: "on-track", label: "On track" },
+  { value: "at-risk", label: "At risk" },
+  { value: "blocked", label: "Blocked" }
 ];
+
+function mapLegacyConfidenceToStatus(confidence?: string): TeamRoleUpdateStatus {
+  if (confidence === "low") return "blocked";
+  if (confidence === "medium") return "at-risk";
+  return "on-track";
+}
 
 function formatFileSize(size: number) {
   if (size < 1024) return `${size} B`;
@@ -229,6 +235,7 @@ function buildCycleMetadata(cadence: ActiveProgramReview["updateCadence"], date 
 }
 
 function buildTeamRoleUpdate(role: string, existing?: Partial<TeamRoleUpdate>): TeamRoleUpdate {
+  const legacyConfidence = (existing as { confidence?: string } | undefined)?.confidence;
   return {
     role,
     updatedBy: existing?.updatedBy ?? "",
@@ -238,7 +245,8 @@ function buildTeamRoleUpdate(role: string, existing?: Partial<TeamRoleUpdate>): 
     blockers: existing?.blockers ?? "",
     decisionsNeeded: existing?.decisionsNeeded ?? "",
     supportNeeded: existing?.supportNeeded ?? "",
-    confidence: existing?.confidence ?? "medium",
+    status: existing?.status ?? mapLegacyConfidenceToStatus(legacyConfidence),
+    needsLeadershipAttention: existing?.needsLeadershipAttention ?? false,
     lastUpdatedAt: existing?.lastUpdatedAt
   };
 }
@@ -274,7 +282,8 @@ function clearCycleReview(review: ActiveProgramReview, intake?: ProgramIntake) {
   const preservedOwners = normalizeTeamRoleUpdates(review.teamRoleUpdates, roles).map((roleUpdate) =>
     buildTeamRoleUpdate(roleUpdate.role, {
       updatedBy: roleUpdate.updatedBy,
-      confidence: roleUpdate.confidence
+      status: roleUpdate.status,
+      needsLeadershipAttention: roleUpdate.needsLeadershipAttention
     })
   );
 
@@ -620,7 +629,11 @@ export function ActiveProgramReviewSection() {
     );
   }
 
-  function updateRoleField(role: string, field: keyof Omit<TeamRoleUpdate, "role">, value: string) {
+  function updateRoleField<K extends keyof Omit<TeamRoleUpdate, "role">>(
+    role: string,
+    field: K,
+    value: Omit<TeamRoleUpdate, "role">[K]
+  ) {
     setReview((current) => {
       const nextRoleUpdates = normalizeTeamRoleUpdates(current.teamRoleUpdates, activeTeamRoles).map((roleUpdate) =>
         normalizeProgramLabel(roleUpdate.role) === normalizeProgramLabel(role)
@@ -1023,19 +1036,24 @@ export function ActiveProgramReviewSection() {
                         </span>
                         <span
                           className={`rounded-full border px-3 py-1 text-[11px] font-medium uppercase tracking-[0.16em] ${
-                            roleUpdate.confidence === "high"
+                            roleUpdate.status === "on-track"
                               ? "border-emerald-300/20 bg-emerald-300/10 text-emerald-100"
-                              : roleUpdate.confidence === "medium"
+                              : roleUpdate.status === "at-risk"
                                 ? "border-amber-300/20 bg-amber-300/10 text-amber-100"
                                 : "border-rose-300/20 bg-rose-300/10 text-rose-100"
                           }`}
                         >
-                          {roleUpdate.confidence}
+                          {roleStatusOptions.find((option) => option.value === roleUpdate.status)?.label ?? "On track"}
                         </span>
+                        {roleUpdate.needsLeadershipAttention ? (
+                          <span className="rounded-full border border-fuchsia-300/20 bg-fuchsia-300/10 px-3 py-1 text-[11px] font-medium uppercase tracking-[0.16em] text-fuchsia-100">
+                            Leadership attention
+                          </span>
+                        ) : null}
                       </div>
                     </div>
                     <div className="grid gap-3">
-                      <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_180px]">
+                      <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_160px_220px]">
                         <label className="grid gap-2">
                           <span className="text-xs font-medium uppercase tracking-[0.18em] text-zinc-300">Role owner</span>
                           <input
@@ -1047,20 +1065,49 @@ export function ActiveProgramReviewSection() {
                           <span className="text-xs leading-5 text-zinc-500">This persists as the default owner for future cycles.</span>
                         </label>
                         <label className="grid gap-2">
-                          <span className="text-xs font-medium uppercase tracking-[0.18em] text-zinc-300">Confidence</span>
+                          <span className="text-xs font-medium uppercase tracking-[0.18em] text-zinc-300">Status</span>
                           <select
-                            value={roleUpdate.confidence}
+                            value={roleUpdate.status}
                             onChange={(event) =>
-                              updateRoleField(roleUpdate.role, "confidence", event.target.value as TeamRoleUpdateConfidence)
+                              updateRoleField(roleUpdate.role, "status", event.target.value as TeamRoleUpdateStatus)
                             }
                             className="min-h-11 rounded-md border border-white/10 bg-zinc-950 px-3 py-3 text-sm text-zinc-100 outline-none transition-colors focus:border-cyan-300/50"
                           >
-                            {confidenceOptions.map((option) => (
+                            {roleStatusOptions.map((option) => (
                               <option key={option.value} value={option.value}>
                                 {option.label}
                               </option>
                             ))}
                           </select>
+                        </label>
+                        <label className="grid gap-2">
+                          <span className="text-xs font-medium uppercase tracking-[0.18em] text-zinc-300">Escalation signal</span>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              updateRoleField(
+                                roleUpdate.role,
+                                "needsLeadershipAttention",
+                                !roleUpdate.needsLeadershipAttention
+                              )
+                            }
+                            className={`flex min-h-11 items-center justify-between rounded-md border px-3 py-3 text-left text-sm transition-colors ${
+                              roleUpdate.needsLeadershipAttention
+                                ? "border-fuchsia-300/30 bg-fuchsia-300/[0.08] text-fuchsia-50"
+                                : "border-white/10 bg-zinc-950 text-zinc-300 hover:border-cyan-300/30"
+                            }`}
+                          >
+                            <span>{roleUpdate.needsLeadershipAttention ? "Needs leadership attention" : "No escalation needed"}</span>
+                            <span
+                              className={`rounded-full px-2 py-1 text-[10px] font-medium uppercase tracking-[0.16em] ${
+                                roleUpdate.needsLeadershipAttention
+                                  ? "bg-fuchsia-300/15 text-fuchsia-100"
+                                  : "bg-white/[0.05] text-zinc-400"
+                              }`}
+                            >
+                              {roleUpdate.needsLeadershipAttention ? "On" : "Off"}
+                            </span>
+                          </button>
                         </label>
                       </div>
                       <label className="grid gap-2">
