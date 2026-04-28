@@ -56,9 +56,6 @@ export function LeadershipLoginForm({
             </CardTitle>
           </CardHeader>
           <CardContent className="grid gap-4 p-5">
-            <p className="text-sm leading-6 text-zinc-400">
-              Leadership views and leadership feedback are protected because they can contain sensitive sponsor guidance and performance-related input.
-            </p>
             {provider === "env" ? (
               <form onSubmit={handleSubmit} className="grid gap-4">
                 <label className="grid gap-2">
