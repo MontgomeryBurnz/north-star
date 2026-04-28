@@ -100,9 +100,9 @@ function NorthStarThreeMark({ isNav }: { isNav: boolean }) {
       const clock = new THREE.Clock();
       const animate = () => {
         const elapsed = clock.getElapsedTime();
-        group.rotation.x = 0.36 + Math.sin(elapsed * 0.52) * 0.16;
-        group.rotation.y = -elapsed * 0.58;
-        group.rotation.z = -0.08 + Math.sin(elapsed * 0.38) * 0.05;
+        group.rotation.x = 0.18;
+        group.rotation.y = -elapsed * 0.26;
+        group.rotation.z = -0.04;
         renderer.render(scene, camera);
         animationFrame = window.requestAnimationFrame(animate);
       };
