@@ -1,104 +1,134 @@
 "use client";
 
+import { useEffect, useRef } from "react";
+
 import { cn } from "@/lib/utils";
 
-function ExtrudedBeam({
-  left,
-  top,
-  width,
-  height,
-  depth,
-  rotateZ = 0,
-  glow = false
-}: {
-  left: number;
-  top: number;
-  width: number;
-  height: number;
-  depth: number;
-  rotateZ?: number;
-  glow?: boolean;
-}) {
-  const radius = Math.max(1, Math.round(width * 0.08));
+function NorthStarThreeMark({ isNav }: { isNav: boolean }) {
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
-  return (
-    <div
-      className="absolute"
-      style={{
-        left,
-        top,
-        width,
-        height,
-        transform: `rotateZ(${rotateZ}deg)`,
-        transformStyle: "preserve-3d"
-      }}
-    >
-      <div
-        className="absolute inset-0"
-        style={{
-          borderRadius: radius,
-          background:
-            "linear-gradient(155deg, rgba(255,255,255,0.24) 0%, rgba(255,255,255,0.08) 14%, rgba(103,232,249,0.98) 30%, rgba(34,211,238,0.94) 58%, rgba(167,243,208,0.98) 100%)",
-          transform: `translateZ(${depth / 2}px)`,
-          boxShadow: glow ? "0 0 28px rgba(103,232,249,0.34), 0 16px 22px rgba(8,145,178,0.16)" : undefined,
-          backfaceVisibility: "hidden"
-        }}
-      />
-      <div
-        className="absolute inset-0"
-        style={{
-          borderRadius: radius,
-          background: "linear-gradient(145deg, rgba(8,47,73,0.98) 0%, rgba(14,116,144,0.9) 52%, rgba(15,118,110,0.82) 100%)",
-          transform: `translateZ(-${depth / 2}px) rotateY(180deg)`,
-          backfaceVisibility: "hidden"
-        }}
-      />
-      <div
-        className="absolute top-0 bottom-0"
-        style={{
-          left: 0,
-          width: depth,
-          background: "linear-gradient(180deg, rgba(8,47,73,0.98) 0%, rgba(12,74,110,0.9) 100%)",
-          transformOrigin: "left center",
-          transform: `translateZ(-${depth / 2}px) rotateY(-90deg)`,
-          backfaceVisibility: "hidden"
-        }}
-      />
-      <div
-        className="absolute top-0 bottom-0"
-        style={{
-          right: 0,
-          width: depth,
-          background: "linear-gradient(180deg, rgba(15,118,110,0.82) 0%, rgba(20,184,166,0.7) 100%)",
-          transformOrigin: "right center",
-          transform: `translateZ(-${depth / 2}px) rotateY(90deg)`,
-          backfaceVisibility: "hidden"
-        }}
-      />
-      <div
-        className="absolute left-0 right-0"
-        style={{
-          top: 0,
-          height: depth,
-          background: "linear-gradient(90deg, rgba(186,230,253,0.55) 0%, rgba(103,232,249,0.3) 100%)",
-          transformOrigin: "center top",
-          transform: `translateZ(-${depth / 2}px) rotateX(90deg)`,
-          backfaceVisibility: "hidden"
-        }}
-      />
-      <div
-        className="absolute left-0 right-0"
-        style={{
-          bottom: 0,
-          height: depth,
-          background: "linear-gradient(90deg, rgba(8,47,73,0.62) 0%, rgba(15,118,110,0.46) 100%)",
-          transformOrigin: "center bottom",
-          transform: `translateZ(-${depth / 2}px) rotateX(-90deg)`,
-          backfaceVisibility: "hidden"
-        }}
-      />
-    </div>
-  );
+  useEffect(() => {
+    let animationFrame = 0;
+    let disposed = false;
+    let removeResizeListener: (() => void) | undefined;
+    let cleanupThree: (() => void) | undefined;
+
+    import("three").then((THREE) => {
+      if (disposed || !canvasRef.current) {
+        return;
+      }
+
+      const canvas = canvasRef.current;
+      const renderer = new THREE.WebGLRenderer({
+        alpha: true,
+        antialias: true,
+        canvas,
+        powerPreference: "high-performance"
+      });
+      renderer.outputColorSpace = THREE.SRGBColorSpace;
+      renderer.setClearColor(0x000000, 0);
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+
+      const scene = new THREE.Scene();
+      const camera = new THREE.OrthographicCamera(-2.2, 2.2, 2.2, -2.2, 0.1, 100);
+      camera.position.set(0, 0, 6);
+      camera.lookAt(0, 0, 0);
+
+      scene.add(new THREE.AmbientLight(0x5eead4, 1.6));
+
+      const keyLight = new THREE.DirectionalLight(0xffffff, 3.6);
+      keyLight.position.set(3.2, 4.2, 5.2);
+      scene.add(keyLight);
+
+      const sideLight = new THREE.DirectionalLight(0x22d3ee, 2.2);
+      sideLight.position.set(-3.6, 1.8, 3.8);
+      scene.add(sideLight);
+
+      const rimLight = new THREE.PointLight(0xa7f3d0, 6.5, 8);
+      rimLight.position.set(0.2, 1.8, 2.8);
+      scene.add(rimLight);
+
+      const group = new THREE.Group();
+      scene.add(group);
+
+      const faceMaterials = [
+        new THREE.MeshStandardMaterial({ color: 0x0891b2, emissive: 0x0e7490, emissiveIntensity: 0.22, metalness: 0.32, roughness: 0.34 }),
+        new THREE.MeshStandardMaterial({ color: 0x0f766e, emissive: 0x134e4a, emissiveIntensity: 0.18, metalness: 0.24, roughness: 0.46 }),
+        new THREE.MeshStandardMaterial({ color: 0xccfbf1, emissive: 0x5eead4, emissiveIntensity: 0.38, metalness: 0.18, roughness: 0.26 }),
+        new THREE.MeshStandardMaterial({ color: 0x064e3b, emissive: 0x052e2b, emissiveIntensity: 0.12, metalness: 0.18, roughness: 0.58 }),
+        new THREE.MeshStandardMaterial({ color: 0x67e8f9, emissive: 0x0891b2, emissiveIntensity: 0.36, metalness: 0.22, roughness: 0.28 }),
+        new THREE.MeshStandardMaterial({ color: 0x115e59, emissive: 0x0f3f3c, emissiveIntensity: 0.16, metalness: 0.18, roughness: 0.52 })
+      ];
+
+      const verticalGeometry = new THREE.BoxGeometry(0.5, 2.65, 0.95);
+      const diagonalGeometry = new THREE.BoxGeometry(0.52, 3.08, 0.95);
+
+      const left = new THREE.Mesh(verticalGeometry, faceMaterials);
+      left.position.set(-0.78, 0, 0);
+      group.add(left);
+
+      const right = new THREE.Mesh(verticalGeometry, faceMaterials);
+      right.position.set(0.78, 0, 0);
+      group.add(right);
+
+      const diagonal = new THREE.Mesh(diagonalGeometry, faceMaterials);
+      diagonal.rotation.z = -0.58;
+      diagonal.position.set(0, 0, 0.02);
+      group.add(diagonal);
+
+      group.scale.setScalar(isNav ? 0.78 : 1);
+
+      const resize = () => {
+        if (!canvasRef.current) {
+          return;
+        }
+
+        const { width, height } = canvasRef.current.getBoundingClientRect();
+        const safeWidth = Math.max(width, 1);
+        const safeHeight = Math.max(height, 1);
+        renderer.setSize(safeWidth, safeHeight, false);
+
+        const aspect = safeWidth / safeHeight;
+        const frustum = isNav ? 3.55 : 3.8;
+        camera.left = (-frustum * aspect) / 2;
+        camera.right = (frustum * aspect) / 2;
+        camera.top = frustum / 2;
+        camera.bottom = -frustum / 2;
+        camera.updateProjectionMatrix();
+      };
+
+      const clock = new THREE.Clock();
+      const animate = () => {
+        const elapsed = clock.getElapsedTime();
+        group.rotation.x = 0.36 + Math.sin(elapsed * 0.52) * 0.16;
+        group.rotation.y = elapsed * 0.58;
+        group.rotation.z = -0.08 + Math.sin(elapsed * 0.38) * 0.05;
+        renderer.render(scene, camera);
+        animationFrame = window.requestAnimationFrame(animate);
+      };
+
+      resize();
+      window.addEventListener("resize", resize);
+      removeResizeListener = () => window.removeEventListener("resize", resize);
+      animate();
+
+      cleanupThree = () => {
+        renderer.dispose();
+        verticalGeometry.dispose();
+        diagonalGeometry.dispose();
+        faceMaterials.forEach((material) => material.dispose());
+      };
+    });
+
+    return () => {
+      disposed = true;
+      window.cancelAnimationFrame(animationFrame);
+      removeResizeListener?.();
+      cleanupThree?.();
+    };
+  }, [isNav]);
+
+  return <canvas ref={canvasRef} className="absolute inset-0 block h-full w-full" data-north-star-3d aria-hidden="true" />;
 }
 
 export function AnimatedNorthStarMark({
@@ -111,11 +141,6 @@ export function AnimatedNorthStarMark({
   orbitClassName?: string;
 }) {
   const isNav = variant === "nav";
-  const coreSize = isNav ? 32 : 128;
-  const beamWidth = isNav ? 5 : 18;
-  const beamDepth = isNav ? 5 : 18;
-  const beamHeight = isNav ? 22 : 88;
-  const diagonalHeight = isNav ? 24 : 96;
   const trailPixels = isNav
     ? [
         { left: 42, top: 8, size: 2, opacity: 0.22 },
@@ -153,21 +178,8 @@ export function AnimatedNorthStarMark({
           isNav ? "[perspective:900px]" : "[perspective:1400px]"
         )}
       >
-        <div
-          className={cn("relative northstar-core-rotate", isNav ? "h-8 w-8" : "h-32 w-32")}
-          style={{ width: coreSize, height: coreSize, transformStyle: "preserve-3d" }}
-        >
-          <ExtrudedBeam left={isNav ? 7 : 24} top={isNav ? 5 : 20} width={beamWidth} height={beamHeight} depth={beamDepth} glow />
-          <ExtrudedBeam left={isNav ? 20 : 88} top={isNav ? 5 : 20} width={beamWidth} height={beamHeight} depth={beamDepth} glow />
-          <ExtrudedBeam
-            left={isNav ? 14 : 55}
-            top={isNav ? 4 : 16}
-            width={beamWidth}
-            height={diagonalHeight}
-            depth={beamDepth}
-            rotateZ={-36}
-            glow
-          />
+        <div className={cn("relative", isNav ? "h-10 w-10" : "h-36 w-36")}>
+          <NorthStarThreeMark isNav={isNav} />
         </div>
       </div>
 
@@ -250,13 +262,6 @@ export function AnimatedNorthStarMark({
           animation: orbit-spin 14s linear infinite;
         }
 
-        .northstar-core-rotate {
-          animation: northstar-core-rotate 16s linear infinite;
-          transform-style: preserve-3d;
-          will-change: transform;
-          filter: drop-shadow(0 20px 26px rgba(8, 145, 178, 0.22)) drop-shadow(0 0 30px rgba(103, 232, 249, 0.2));
-        }
-
         .trail-pixel {
           animation: trail-pixel-flicker 1.6s ease-in-out infinite;
         }
@@ -268,20 +273,6 @@ export function AnimatedNorthStarMark({
 
           to {
             transform: rotate(360deg);
-          }
-        }
-
-        @keyframes northstar-core-rotate {
-          0% {
-            transform: rotateX(20deg) rotateY(0deg) rotateZ(-5deg);
-          }
-
-          50% {
-            transform: rotateX(-12deg) rotateY(180deg) rotateZ(5deg);
-          }
-
-          100% {
-            transform: rotateX(20deg) rotateY(360deg) rotateZ(-5deg);
           }
         }
 
