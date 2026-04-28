@@ -14,22 +14,22 @@ export function AnimatedNorthStarMark({
   const isNav = variant === "nav";
 
   return (
-    <div className={cn(isNav ? "relative h-10 w-10" : "relative h-44 w-44", className)}>
+    <div className={cn(isNav ? "relative h-12 w-12" : "relative h-44 w-44", className)}>
       <div
         className={cn(
           "absolute border border-cyan-300/20 bg-zinc-950/80 shadow-[0_0_60px_rgba(103,232,249,0.08)]",
-          isNav ? "inset-[2px] rounded-[0.9rem]" : "inset-5 rounded-[2rem]"
+          isNav ? "inset-[3px] rounded-[1rem]" : "inset-5 rounded-[2rem]"
         )}
       />
       <div
         className={cn(
           "absolute border border-white/8 bg-gradient-to-br from-cyan-300/[0.05] via-transparent to-emerald-300/[0.04]",
-          isNav ? "inset-[4px] rounded-[1rem]" : "inset-[18px] rounded-[2.25rem]"
+          isNav ? "inset-[5px] rounded-[1.05rem]" : "inset-[18px] rounded-[2.25rem]"
         )}
       />
 
       <div className="absolute inset-0 flex items-center justify-center">
-        <svg viewBox="0 0 160 160" className={cn(isNav ? "h-7 w-7 overflow-visible" : "h-32 w-32 overflow-visible")} aria-hidden="true">
+        <svg viewBox="0 0 160 160" className={cn(isNav ? "h-8 w-8 overflow-visible" : "h-32 w-32 overflow-visible")} aria-hidden="true">
           <defs>
             <linearGradient id="northstar-login-n" x1="22" y1="126" x2="126" y2="26" gradientUnits="userSpaceOnUse">
               <stop offset="0" stopColor="#67e8f9" />
@@ -65,20 +65,20 @@ export function AnimatedNorthStarMark({
       <div className={cn("pointer-events-none absolute inset-0 orbit-spin", orbitClassName)}>
         <div
           className={cn(
-            "absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full border border-dashed border-cyan-300/15",
-            isNav ? "h-9 w-9" : "h-[152px] w-[152px]"
+            "absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full border border-dashed",
+            isNav ? "h-11 w-11 border-cyan-300/35" : "h-[152px] w-[152px] border-cyan-300/15"
           )}
         />
         <div
           className={cn(
             "absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2",
-            isNav ? "h-9 w-9" : "h-[152px] w-[152px]"
+            isNav ? "h-11 w-11" : "h-[152px] w-[152px]"
           )}
         >
           <div
             className={cn(
               "absolute left-1/2 -translate-x-1/2 rounded-full border border-cyan-200/40 bg-zinc-950 shadow-[0_0_18px_rgba(103,232,249,0.24)]",
-              isNav ? "-top-1 h-2.5 w-2.5" : "-top-2 h-5 w-5"
+              isNav ? "-top-1.5 h-3.5 w-3.5 border-cyan-200/70 shadow-[0_0_20px_rgba(103,232,249,0.45)]" : "-top-2 h-5 w-5"
             )}
           >
             <div className={cn("absolute rounded-full bg-gradient-to-br from-cyan-300 to-emerald-200", isNav ? "inset-px" : "inset-[3px]")} />
