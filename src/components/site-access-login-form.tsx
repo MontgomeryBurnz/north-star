@@ -49,9 +49,6 @@ export function SiteAccessLoginForm({ redirectTo }: { redirectTo: string }) {
           </CardTitle>
           </CardHeader>
           <CardContent className="grid gap-4 p-5">
-            <p className="text-sm leading-6 text-zinc-400">
-              This environment is gated because it can consume paid API credits and contain internal program context, artifacts, guidance, and leadership signal.
-            </p>
             <form onSubmit={handleSubmit} className="grid gap-4">
               <label className="grid gap-2">
                 <span className="text-xs font-medium uppercase tracking-[0.16em] text-zinc-300">Shared alpha password</span>
