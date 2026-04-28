@@ -2,6 +2,99 @@
 
 import { cn } from "@/lib/utils";
 
+function ExtrudedBeam({
+  left,
+  top,
+  width,
+  height,
+  depth,
+  rotateZ = 0,
+  glow = false
+}: {
+  left: number;
+  top: number;
+  width: number;
+  height: number;
+  depth: number;
+  rotateZ?: number;
+  glow?: boolean;
+}) {
+  const radius = Math.max(1, Math.round(width * 0.08));
+
+  return (
+    <div
+      className="absolute"
+      style={{
+        left,
+        top,
+        width,
+        height,
+        transform: `rotateZ(${rotateZ}deg)`,
+        transformStyle: "preserve-3d"
+      }}
+    >
+      <div
+        className="absolute inset-0"
+        style={{
+          borderRadius: radius,
+          background:
+            "linear-gradient(155deg, rgba(255,255,255,0.24) 0%, rgba(255,255,255,0.08) 14%, rgba(103,232,249,0.98) 30%, rgba(34,211,238,0.94) 58%, rgba(167,243,208,0.98) 100%)",
+          transform: `translateZ(${depth / 2}px)`,
+          boxShadow: glow ? "0 0 28px rgba(103,232,249,0.34), 0 16px 22px rgba(8,145,178,0.16)" : undefined
+        }}
+      />
+      <div
+        className="absolute inset-0"
+        style={{
+          borderRadius: radius,
+          background: "linear-gradient(145deg, rgba(8,47,73,0.98) 0%, rgba(14,116,144,0.9) 52%, rgba(15,118,110,0.82) 100%)",
+          transform: `translateZ(-${depth / 2}px) rotateY(180deg)`
+        }}
+      />
+      <div
+        className="absolute top-0 bottom-0"
+        style={{
+          left: 0,
+          width: depth,
+          background: "linear-gradient(180deg, rgba(8,47,73,0.98) 0%, rgba(12,74,110,0.9) 100%)",
+          transformOrigin: "left center",
+          transform: "rotateY(-90deg)"
+        }}
+      />
+      <div
+        className="absolute top-0 bottom-0"
+        style={{
+          right: 0,
+          width: depth,
+          background: "linear-gradient(180deg, rgba(15,118,110,0.82) 0%, rgba(20,184,166,0.7) 100%)",
+          transformOrigin: "right center",
+          transform: "rotateY(90deg)"
+        }}
+      />
+      <div
+        className="absolute left-0 right-0"
+        style={{
+          top: 0,
+          height: depth,
+          background: "linear-gradient(90deg, rgba(186,230,253,0.55) 0%, rgba(103,232,249,0.3) 100%)",
+          transformOrigin: "center top",
+          transform: "rotateX(90deg)"
+        }}
+      />
+      <div
+        className="absolute left-0 right-0"
+        style={{
+          bottom: 0,
+          height: depth,
+          background: "linear-gradient(90deg, rgba(8,47,73,0.62) 0%, rgba(15,118,110,0.46) 100%)",
+          transformOrigin: "center bottom",
+          transform: "rotateX(-90deg)"
+        }}
+      />
+    </div>
+  );
+}
+
 export function AnimatedNorthStarMark({
   variant = "hero",
   className,
@@ -12,8 +105,11 @@ export function AnimatedNorthStarMark({
   orbitClassName?: string;
 }) {
   const isNav = variant === "nav";
-  const northStarClipPath =
-    "polygon(21.25% 77.5%, 21.25% 22.5%, 35% 22.5%, 61.25% 56.25%, 61.25% 22.5%, 78.75% 22.5%, 78.75% 77.5%, 65% 77.5%, 38.75% 43.75%, 38.75% 77.5%)";
+  const coreSize = isNav ? 32 : 128;
+  const beamWidth = isNav ? 5 : 18;
+  const beamDepth = isNav ? 5 : 18;
+  const beamHeight = isNav ? 22 : 88;
+  const diagonalHeight = isNav ? 24 : 96;
   const trailPixels = isNav
     ? [
         { left: 42, top: 8, size: 2, opacity: 0.22 },
@@ -36,21 +132,6 @@ export function AnimatedNorthStarMark({
         { left: 17, top: 9, size: 6, opacity: 0.86 },
         { left: 7, top: 20, size: 6, opacity: 0.96 }
       ];
-  const northStarDepthLayers = isNav
-    ? [
-        { z: 16, x: 5, y: 3, opacity: 0.2 },
-        { z: 12, x: 4, y: 2.5, opacity: 0.28 },
-        { z: 8, x: 3, y: 2, opacity: 0.38 },
-        { z: 4, x: 1.5, y: 1, opacity: 0.52 }
-      ]
-    : [
-        { z: 26, x: 8, y: 5, opacity: 0.18 },
-        { z: 20, x: 6, y: 4, opacity: 0.24 },
-        { z: 14, x: 4.5, y: 3, opacity: 0.34 },
-        { z: 8, x: 3, y: 2, opacity: 0.46 },
-        { z: 4, x: 1.5, y: 1, opacity: 0.6 }
-      ];
-
   return (
     <div className={cn(isNav ? "relative h-12 w-12" : "relative h-44 w-44", className)}>
       <div
@@ -68,40 +149,18 @@ export function AnimatedNorthStarMark({
       >
         <div
           className={cn("relative northstar-core-rotate", isNav ? "h-8 w-8" : "h-32 w-32")}
-          style={{ transformStyle: "preserve-3d" }}
+          style={{ width: coreSize, height: coreSize, transformStyle: "preserve-3d" }}
         >
-          {northStarDepthLayers.map((layer) => (
-            <div
-              key={`${variant}-depth-${layer.z}`}
-              className="absolute inset-0"
-              style={{
-                clipPath: northStarClipPath,
-                background:
-                  "linear-gradient(145deg, rgba(8,47,73,0.96) 0%, rgba(14,116,144,0.92) 40%, rgba(15,118,110,0.84) 100%)",
-                opacity: layer.opacity,
-                transform: `translate3d(${layer.x}px, ${layer.y}px, -${layer.z}px)`
-              }}
-            />
-          ))}
-          <div
-            className="absolute inset-0"
-            style={{
-              clipPath: northStarClipPath,
-              background:
-                "linear-gradient(155deg, rgba(255,255,255,0.28) 0%, rgba(255,255,255,0.12) 14%, rgba(103,232,249,0.96) 30%, rgba(34,211,238,0.92) 56%, rgba(167,243,208,0.98) 100%)",
-              boxShadow:
-                "0 0 28px rgba(103,232,249,0.34), 0 18px 26px rgba(8,145,178,0.18)",
-              transform: isNav ? "translateZ(3px)" : "translateZ(6px)"
-            }}
-          />
-          <div
-            className="absolute inset-0 opacity-90"
-            style={{
-              clipPath: northStarClipPath,
-              background:
-                "linear-gradient(180deg, rgba(255,255,255,0.26) 0%, transparent 24%, transparent 76%, rgba(8,47,73,0.24) 100%)",
-              transform: isNav ? "translateZ(7px)" : "translateZ(12px)"
-            }}
+          <ExtrudedBeam left={isNav ? 7 : 24} top={isNav ? 5 : 20} width={beamWidth} height={beamHeight} depth={beamDepth} glow />
+          <ExtrudedBeam left={isNav ? 20 : 88} top={isNav ? 5 : 20} width={beamWidth} height={beamHeight} depth={beamDepth} glow />
+          <ExtrudedBeam
+            left={isNav ? 14 : 55}
+            top={isNav ? 4 : 16}
+            width={beamWidth}
+            height={diagonalHeight}
+            depth={beamDepth}
+            rotateZ={-36}
+            glow
           />
         </div>
       </div>
@@ -208,15 +267,15 @@ export function AnimatedNorthStarMark({
 
         @keyframes northstar-core-rotate {
           0% {
-            transform: rotateX(22deg) rotateY(0deg) rotateZ(-5deg);
+            transform: rotateX(20deg) rotateY(0deg) rotateZ(-5deg);
           }
 
           50% {
-            transform: rotateX(-14deg) rotateY(180deg) rotateZ(5deg);
+            transform: rotateX(-12deg) rotateY(180deg) rotateZ(5deg);
           }
 
           100% {
-            transform: rotateX(22deg) rotateY(360deg) rotateZ(-5deg);
+            transform: rotateX(20deg) rotateY(360deg) rotateZ(-5deg);
           }
         }
 
