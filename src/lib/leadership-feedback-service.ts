@@ -4,6 +4,7 @@ import type {
   LeadershipRoleImpact
 } from "@/lib/leadership-feedback-types";
 import { asRecord, asStringArray, asTrimmedString, extractOutputText, parseStructuredModelOutput } from "@/lib/openai-structured-output";
+import { firstSignal, normalizeWhitespace } from "@/lib/text-signals";
 
 type OpenAIInterpretationPayload = {
   summary: string;
@@ -43,16 +44,7 @@ function getConfiguredVerbosity() {
 }
 
 function clean(value: string) {
-  return value.replace(/\s+/g, " ").trim();
-}
-
-function firstSignal(value: string, fallback: string) {
-  return (
-    value
-      .split(/\n|,|;/)
-      .map((item) => item.trim())
-      .filter(Boolean)[0] ?? fallback
-  );
+  return normalizeWhitespace(value);
 }
 
 function validateInterpretationPayload(value: unknown): OpenAIInterpretationPayload | null {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { MessageSquareText } from "lucide-react";
 import type { StoredProgramUpdate } from "@/lib/active-program-types";
 import type { AssistantConversationTurn } from "@/lib/assistant-conversation-types";
@@ -8,6 +8,8 @@ import type { GuidedPlan, GuidedPlanRolePlans, GuidedPlanSection } from "@/lib/g
 import type { DeliveryLeadershipSignal } from "@/lib/leadership-feedback-types";
 import type { GuidanceFeedbackFlag, GuidanceJustificationRecord } from "@/lib/program-intelligence-types";
 import type { StoredProgram } from "@/lib/program-intake-types";
+import { useRequestSequence } from "@/hooks/use-request-sequence";
+import { buildProgramGantt } from "@/lib/program-gantt";
 import { Button } from "@/components/ui/button";
 import { GuidedPlanEmptyStateCard } from "@/components/guided-plan-empty-state-card";
 import { GuidedPlanFollowUpCard } from "@/components/guided-plan-follow-up-card";
@@ -102,64 +104,9 @@ function normalizeRolePlans(rolePlans: GuidedPlanRolePlans | undefined): GuidedP
   };
 }
 
-type GanttPhase = {
-  id: string;
-  label: string;
-  description: string;
-  status: "completed" | "current" | "upcoming";
-};
-
-function phaseIndexFromLabel(value: string) {
-  const normalized = value.toLowerCase();
-  if (normalized.includes("discovery")) return 0;
-  if (normalized.includes("design") || normalized.includes("planning")) return 1;
-  if (normalized.includes("build") || normalized.includes("execution")) return 2;
-  if (normalized.includes("recovery") || normalized.includes("stabil")) return 3;
-  if (normalized.includes("launch") || normalized.includes("rollout") || normalized.includes("scale")) return 4;
-  return 2;
-}
-
-function buildProgramGantt(program: StoredProgram | undefined, latestUpdate: StoredProgramUpdate | undefined): GanttPhase[] {
-  const currentPhaseLabel = latestUpdate?.review.currentPhase || program?.intake.currentStatus || "Execution";
-  const currentIndex = phaseIndexFromLabel(currentPhaseLabel);
-
-  return [
-    {
-      id: "discover",
-      label: "Discover",
-      description: "Problem shape, north star, and constraints were framed.",
-      status: currentIndex > 0 ? "completed" : currentIndex === 0 ? "current" : "upcoming"
-    },
-    {
-      id: "design",
-      label: "Design",
-      description: "Decision rights, checkpoints, and work path were structured.",
-      status: currentIndex > 1 ? "completed" : currentIndex === 1 ? "current" : "upcoming"
-    },
-    {
-      id: "execute",
-      label: "Execute",
-      description: "Delivery work is moving and evidence is being produced.",
-      status: currentIndex > 2 ? "completed" : currentIndex === 2 ? "current" : "upcoming"
-    },
-    {
-      id: "stabilize",
-      label: "Stabilize",
-      description: "Risk is being reduced and the path is being tightened.",
-      status: currentIndex > 3 ? "completed" : currentIndex === 3 ? "current" : "upcoming"
-    },
-    {
-      id: "scale",
-      label: "Scale",
-      description: "The operating path is repeatable and ready to widen.",
-      status: currentIndex > 4 ? "completed" : currentIndex === 4 ? "current" : "upcoming"
-    }
-  ];
-}
-
 export function GuidedPlansConsole() {
-  const programsRequestRef = useRef(0);
-  const bundleRequestRef = useRef(0);
+  const programsRequest = useRequestSequence();
+  const bundleRequest = useRequestSequence();
   const [programs, setPrograms] = useState<StoredProgram[]>([]);
   const [selectedProgramId, setSelectedProgramId] = useState("");
   const [plan, setPlan] = useState<GuidedPlan | null>(null);
@@ -198,14 +145,14 @@ export function GuidedPlansConsole() {
 
   const loadPrograms = useCallback(
     async (options?: { silent?: boolean }) => {
-      const requestId = ++programsRequestRef.current;
+      const requestId = programsRequest.beginRequest();
       try {
         const response = await fetch("/api/programs", { cache: "no-store" });
         if (!response.ok) throw new Error("Could not load programs.");
 
         const payload = (await response.json()) as { programs: StoredProgram[] };
         const requestedProgramId = new URLSearchParams(window.location.search).get("program");
-        if (requestId !== programsRequestRef.current) return;
+        if (!programsRequest.isLatestRequest(requestId)) return;
 
         setPrograms(payload.programs);
         setSelectedProgramId((current) => {
@@ -220,12 +167,12 @@ export function GuidedPlansConsole() {
           return payload.programs[0]?.id ?? "";
         });
       } catch {
-        if (!options?.silent && requestId === programsRequestRef.current) {
+        if (!options?.silent && programsRequest.isLatestRequest(requestId)) {
           setStatus("Could not refresh saved programs.");
         }
       }
     },
-    []
+    [programsRequest]
   );
 
   useEffect(() => {
@@ -254,7 +201,7 @@ export function GuidedPlansConsole() {
 
   const loadPlan = useCallback(
     async (options?: { silent?: boolean }) => {
-      const requestId = ++bundleRequestRef.current;
+      const requestId = bundleRequest.beginRequest();
 
       if (!selectedProgramId) {
         setPlan(null);
@@ -282,7 +229,7 @@ export function GuidedPlansConsole() {
           flags: GuidanceFeedbackFlag[];
           fetchedAt: string;
         };
-        if (requestId !== bundleRequestRef.current) return;
+        if (!bundleRequest.isLatestRequest(requestId)) return;
 
         setPlan(payload.plan);
         setUpdates(payload.updates);
@@ -297,12 +244,12 @@ export function GuidedPlansConsole() {
             : "No guided plan generated yet. Save a new program or active-program update to create one automatically."
         );
       } catch {
-        if (!options?.silent && requestId === bundleRequestRef.current) {
+        if (!options?.silent && bundleRequest.isLatestRequest(requestId)) {
           setStatus("Could not load the latest guided plan.");
         }
       }
     },
-    [selectedProgramId]
+    [bundleRequest, selectedProgramId]
   );
 
   useEffect(() => {

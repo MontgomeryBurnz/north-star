@@ -4,6 +4,7 @@ import { FileClock, MessageSquareQuote, Milestone, RefreshCw } from "lucide-reac
 import type { LeadershipReviewInput, LeadershipReviewRecord } from "@/lib/leadership-feedback-types";
 import type { ReviewCadence, ReviewCycleStatus, ReviewQueueItem } from "@/lib/leadership-review-queue";
 import type { StoredProgram } from "@/lib/program-intake-types";
+import { firstSignal } from "@/lib/text-signals";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
@@ -267,14 +268,5 @@ export function LeadershipReviewSidebar({
         </CardContent>
       </Card>
     </aside>
-  );
-}
-
-function firstSignal(value: string, fallback: string) {
-  return (
-    value
-      .split(/\n|,/)
-      .map((item) => item.trim())
-      .filter(Boolean)[0] ?? fallback
   );
 }

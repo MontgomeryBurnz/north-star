@@ -1,6 +1,7 @@
 import "server-only";
 
 import { getLatestGuidedPlan, listLeadershipFeedback, listProgramUpdates, listPrograms } from "@/lib/program-store";
+import { firstNonEmpty, firstSignal } from "@/lib/text-signals";
 
 export type DashboardCallout = {
   id: string;
@@ -51,19 +52,6 @@ function formatDueProgramDetail(cadence: "weekly" | "biweekly", latestReview: st
 
   const daysSinceReview = differenceInDays(new Date(), new Date(latestReview));
   return `${cadence === "weekly" ? "Weekly" : "Bi-weekly"} review last saved ${daysSinceReview}d ago.`;
-}
-
-function firstSignal(value: string, fallback: string) {
-  return (
-    value
-      .split(/\n|,|;/)
-      .map((item) => item.trim())
-      .filter(Boolean)[0] ?? fallback
-  );
-}
-
-function firstNonEmpty(...values: Array<string | null | undefined>) {
-  return values.find((value) => typeof value === "string" && value.trim().length > 0) ?? "";
 }
 
 function hasTimelinePressure(value: string) {

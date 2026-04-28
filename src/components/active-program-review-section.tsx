@@ -1,11 +1,13 @@
 "use client";
 
-import { ChangeEvent, FormEvent, useEffect, useMemo, useRef, useState } from "react";
+import { ChangeEvent, FormEvent, useEffect, useMemo, useState } from "react";
 import { Save } from "lucide-react";
 import type { ActiveProgramReview, ActiveProgramUpdate, TeamRoleUpdate, TeamRoleUpdateStatus } from "@/lib/active-program-types";
+import { useRequestSequence } from "@/hooks/use-request-sequence";
 import type { DeliveryLeadershipSignal } from "@/lib/leadership-feedback-types";
 import type { ProgramMeetingAttachment, ProgramMeetingInput } from "@/lib/program-intelligence-types";
 import type { ProgramArtifact, ProgramIntake } from "@/lib/program-intake-types";
+import { firstSignal, splitLines } from "@/lib/text-signals";
 import { ActiveProgramMeetingIntelligenceCard } from "@/components/active-program-meeting-intelligence-card";
 import { ActiveProgramSidebar } from "@/components/active-program-sidebar";
 import { ActiveProgramStateCard } from "@/components/active-program-state-card";
@@ -102,15 +104,6 @@ function formatFileSize(size: number) {
   return `${(size / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-function firstSignal(value: string, fallback: string) {
-  return (
-    value
-      .split(/\n|,/)
-      .map((item) => item.trim())
-      .filter(Boolean)[0] ?? fallback
-  );
-}
-
 function optionFromSavedIntake(savedIntake: ProgramIntake): ExistingProgramOption | null {
   if (!savedIntake.programName.trim()) return null;
 
@@ -171,13 +164,6 @@ function formatTimestamp(value: string) {
     hour: "numeric",
     minute: "2-digit"
   }).format(new Date(value));
-}
-
-function splitLines(value: string) {
-  return value
-    .split(/\n|,/)
-    .map((item) => item.trim())
-    .filter(Boolean);
 }
 
 function isTextLikeMeetingFile(file: File) {
@@ -369,10 +355,10 @@ function normalizeReview(review: ActiveProgramReview, intake?: ProgramIntake) {
 }
 
 export function ActiveProgramReviewSection() {
-  const programsRequestRef = useRef(0);
-  const updatesRequestRef = useRef(0);
-  const signalRequestRef = useRef(0);
-  const meetingInputsRequestRef = useRef(0);
+  const programsRequest = useRequestSequence();
+  const updatesRequest = useRequestSequence();
+  const signalRequest = useRequestSequence();
+  const meetingInputsRequest = useRequestSequence();
   const [review, setReview] = useState<ActiveProgramReview>(emptyReview);
   const [savedAt, setSavedAt] = useState<string | null>(null);
   const [selectedProgramId, setSelectedProgramId] = useState("");
@@ -387,7 +373,7 @@ export function ActiveProgramReviewSection() {
 
   useEffect(() => {
     async function loadServerPrograms() {
-      const requestId = ++programsRequestRef.current;
+      const requestId = programsRequest.beginRequest();
       try {
         const response = await fetch("/api/programs", { cache: "no-store" });
         if (!response.ok) return;
@@ -411,31 +397,31 @@ export function ActiveProgramReviewSection() {
             )
         }));
 
-        if (requestId !== programsRequestRef.current) return;
+        if (!programsRequest.isLatestRequest(requestId)) return;
         setExistingPrograms(serverPrograms);
         setUpdates(pruneStoredUpdates(serverPrograms.map((program) => program.id)));
         window.localStorage.removeItem(intakeDraftKey);
         window.localStorage.removeItem(reviewDraftKey);
         setSelectedProgramId((current) => (serverPrograms.some((program) => program.id === current) ? current : ""));
       } catch {
-        if (requestId !== programsRequestRef.current) return;
+        if (!programsRequest.isLatestRequest(requestId)) return;
         setExistingPrograms([]);
       }
     }
 
     void loadServerPrograms();
-  }, []);
+  }, [programsRequest]);
 
   useEffect(() => {
     async function loadProgramUpdates() {
       if (!selectedProgramId) return;
-      const requestId = ++updatesRequestRef.current;
+      const requestId = updatesRequest.beginRequest();
 
       try {
         const response = await fetch(`/api/programs/${selectedProgramId}/updates`, { cache: "no-store" });
         if (!response.ok) return;
         const payload = (await response.json()) as { updates: ActiveProgramUpdate[] };
-        if (requestId !== updatesRequestRef.current) return;
+        if (!updatesRequest.isLatestRequest(requestId)) return;
         const normalizedUpdates = payload.updates.map((update) => ({
           ...update,
           review: normalizeReview(
@@ -453,7 +439,7 @@ export function ActiveProgramReviewSection() {
     }
 
     void loadProgramUpdates();
-  }, [existingPrograms, selectedProgramId]);
+  }, [existingPrograms, selectedProgramId, updatesRequest]);
 
   useEffect(() => {
     async function loadLeadershipSignal() {
@@ -461,27 +447,27 @@ export function ActiveProgramReviewSection() {
         setLeadershipSignal(null);
         return;
       }
-      const requestId = ++signalRequestRef.current;
+      const requestId = signalRequest.beginRequest();
 
       try {
         const response = await fetch(`/api/programs/${selectedProgramId}/leadership-signal`, { cache: "no-store" });
         if (!response.ok) {
-          if (requestId !== signalRequestRef.current) return;
+          if (!signalRequest.isLatestRequest(requestId)) return;
           setLeadershipSignal(null);
           return;
         }
 
         const payload = (await response.json()) as { signal: DeliveryLeadershipSignal };
-        if (requestId !== signalRequestRef.current) return;
+        if (!signalRequest.isLatestRequest(requestId)) return;
         setLeadershipSignal(payload.signal);
       } catch {
-        if (requestId !== signalRequestRef.current) return;
+        if (!signalRequest.isLatestRequest(requestId)) return;
         setLeadershipSignal(null);
       }
     }
 
     void loadLeadershipSignal();
-  }, [selectedProgramId, saveState]);
+  }, [selectedProgramId, saveState, signalRequest]);
 
   const selectedProgram = useMemo(
     () => existingPrograms.find((program) => program.id === selectedProgramId),
@@ -496,27 +482,27 @@ export function ActiveProgramReviewSection() {
         setMeetingInputs([]);
         return;
       }
-      const requestId = ++meetingInputsRequestRef.current;
+      const requestId = meetingInputsRequest.beginRequest();
 
       try {
         const response = await fetch(`/api/programs/${selectedProgramId}/meeting-inputs`, { cache: "no-store" });
         if (!response.ok) {
-          if (requestId !== meetingInputsRequestRef.current) return;
+          if (!meetingInputsRequest.isLatestRequest(requestId)) return;
           setMeetingInputs([]);
           return;
         }
 
         const payload = (await response.json()) as { meetingInputs: ProgramMeetingInput[] };
-        if (requestId !== meetingInputsRequestRef.current) return;
+        if (!meetingInputsRequest.isLatestRequest(requestId)) return;
         setMeetingInputs(payload.meetingInputs);
       } catch {
-        if (requestId !== meetingInputsRequestRef.current) return;
+        if (!meetingInputsRequest.isLatestRequest(requestId)) return;
         setMeetingInputs([]);
       }
     }
 
     void loadMeetingInputs();
-  }, [selectedProgramId, saveState]);
+  }, [meetingInputsRequest, selectedProgramId, saveState]);
 
   const selectedProgramHistory = useMemo(() => {
     if (!selectedProgramId && !review.programName) return [];

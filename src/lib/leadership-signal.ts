@@ -1,17 +1,9 @@
 import type { GuidedPlan } from "@/lib/guided-plan-types";
 import type { DeliveryLeadershipSignal, LeadershipReviewRecord } from "@/lib/leadership-feedback-types";
-
-function firstSignal(value: string, fallback: string) {
-  return (
-    value
-      .split(/\n|,|;/)
-      .map((item) => item.trim())
-      .filter(Boolean)[0] ?? fallback
-  );
-}
+import { firstSignal, normalizeWhitespace } from "@/lib/text-signals";
 
 function cleanSignal(value: string) {
-  return value.replace(/\s+/g, " ").trim();
+  return normalizeWhitespace(value);
 }
 
 export function buildDeliveryLeadershipSignal(
