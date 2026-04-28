@@ -46,7 +46,7 @@ export function LeadershipLoginForm({
       <div className="grid w-full gap-10 lg:grid-cols-[minmax(0,1.15fr)_minmax(24rem,30rem)] lg:items-center">
         <LoginBrandMark
           title="Leadership Signal"
-          subtitle="Review the current program posture, absorb the latest signal, and shape the next cycle of guidance from a protected leadership surface."
+          subtitle="Review program posture, progress, and delivery risk in one place."
         />
         <Card className="w-full bg-zinc-950/85">
           <CardHeader className="border-b border-white/10">
