@@ -34,13 +34,13 @@ function NorthStarThreeMark({ isNav }: { isNav: boolean }) {
       camera.position.set(0, 0, 6);
       camera.lookAt(0, 0, 0);
 
-      scene.add(new THREE.AmbientLight(0x5eead4, 1.6));
+      scene.add(new THREE.AmbientLight(0x6ee7b7, 1.7));
 
       const keyLight = new THREE.DirectionalLight(0xffffff, 3.6);
       keyLight.position.set(3.2, 4.2, 5.2);
       scene.add(keyLight);
 
-      const sideLight = new THREE.DirectionalLight(0x22d3ee, 2.2);
+      const sideLight = new THREE.DirectionalLight(0x34d399, 2.3);
       sideLight.position.set(-3.6, 1.8, 3.8);
       scene.add(sideLight);
 
@@ -52,12 +52,12 @@ function NorthStarThreeMark({ isNav }: { isNav: boolean }) {
       scene.add(group);
 
       const faceMaterials = [
-        new THREE.MeshStandardMaterial({ color: 0x0891b2, emissive: 0x0e7490, emissiveIntensity: 0.22, metalness: 0.32, roughness: 0.34 }),
-        new THREE.MeshStandardMaterial({ color: 0x0f766e, emissive: 0x134e4a, emissiveIntensity: 0.18, metalness: 0.24, roughness: 0.46 }),
-        new THREE.MeshStandardMaterial({ color: 0xccfbf1, emissive: 0x5eead4, emissiveIntensity: 0.38, metalness: 0.18, roughness: 0.26 }),
-        new THREE.MeshStandardMaterial({ color: 0x064e3b, emissive: 0x052e2b, emissiveIntensity: 0.12, metalness: 0.18, roughness: 0.58 }),
-        new THREE.MeshStandardMaterial({ color: 0x67e8f9, emissive: 0x0891b2, emissiveIntensity: 0.36, metalness: 0.22, roughness: 0.28 }),
-        new THREE.MeshStandardMaterial({ color: 0x115e59, emissive: 0x0f3f3c, emissiveIntensity: 0.16, metalness: 0.18, roughness: 0.52 })
+        new THREE.MeshStandardMaterial({ color: 0x10b981, emissive: 0x065f46, emissiveIntensity: 0.22, metalness: 0.32, roughness: 0.34 }),
+        new THREE.MeshStandardMaterial({ color: 0x047857, emissive: 0x064e3b, emissiveIntensity: 0.18, metalness: 0.24, roughness: 0.46 }),
+        new THREE.MeshStandardMaterial({ color: 0xd1fae5, emissive: 0x6ee7b7, emissiveIntensity: 0.36, metalness: 0.18, roughness: 0.26 }),
+        new THREE.MeshStandardMaterial({ color: 0x022c22, emissive: 0x022c22, emissiveIntensity: 0.12, metalness: 0.18, roughness: 0.58 }),
+        new THREE.MeshStandardMaterial({ color: 0x34d399, emissive: 0x059669, emissiveIntensity: 0.34, metalness: 0.22, roughness: 0.28 }),
+        new THREE.MeshStandardMaterial({ color: 0x064e3b, emissive: 0x022c22, emissiveIntensity: 0.16, metalness: 0.18, roughness: 0.52 })
       ];
 
       const verticalGeometry = new THREE.BoxGeometry(0.5, 2.65, 0.95);
@@ -101,7 +101,7 @@ function NorthStarThreeMark({ isNav }: { isNav: boolean }) {
       const animate = () => {
         const elapsed = clock.getElapsedTime();
         group.rotation.x = 0.36 + Math.sin(elapsed * 0.52) * 0.16;
-        group.rotation.y = elapsed * 0.58;
+        group.rotation.y = -elapsed * 0.58;
         group.rotation.z = -0.08 + Math.sin(elapsed * 0.38) * 0.05;
         renderer.render(scene, camera);
         animationFrame = window.requestAnimationFrame(animate);
@@ -167,7 +167,7 @@ export function AnimatedNorthStarMark({
     <div className={cn(isNav ? "relative h-12 w-12" : "relative h-44 w-44", className)}>
       <div
         className={cn(
-          "pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[radial-gradient(circle,rgba(103,232,249,0.16)_0%,rgba(167,243,208,0.10)_35%,transparent_72%)]",
+          "pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[radial-gradient(circle,rgba(52,211,153,0.18)_0%,rgba(167,243,208,0.12)_36%,transparent_72%)]",
           isNav ? "h-10 w-10" : "h-32 w-32"
         )}
       />
@@ -198,20 +198,20 @@ export function AnimatedNorthStarMark({
           >
             <div
               className={cn(
-                "absolute top-1/2 -translate-y-1/2 rounded-full bg-gradient-to-l from-cyan-100 via-cyan-200/80 to-transparent blur-[1.6px]",
+                "absolute top-1/2 -translate-y-1/2 rounded-full bg-gradient-to-l from-emerald-100 via-emerald-200/80 to-transparent blur-[1.6px]",
                 isNav ? "right-2 h-[4px] w-12" : "right-3 h-[7px] w-[6rem]"
               )}
             />
             <div
               className={cn(
-                "absolute top-1/2 -translate-y-1/2 rounded-full bg-gradient-to-l from-emerald-200/95 via-cyan-200/65 to-transparent blur-[5px]",
+                "absolute top-1/2 -translate-y-1/2 rounded-full bg-gradient-to-l from-emerald-100 via-emerald-300/70 to-transparent blur-[5px]",
                 isNav ? "right-1 h-[8px] w-14" : "right-2 h-[12px] w-[7rem]"
               )}
             />
             {trailPixels.map((pixel, index) => (
               <span
                 key={`${variant}-trail-${index}`}
-                className="trail-pixel absolute rounded-[1px] bg-cyan-50 shadow-[0_0_16px_rgba(103,232,249,0.9)]"
+                className="trail-pixel absolute rounded-[1px] bg-emerald-50 shadow-[0_0_16px_rgba(52,211,153,0.9)]"
                 style={{
                   left: `${pixel.left}px`,
                   top: `${pixel.top}px`,
@@ -233,14 +233,14 @@ export function AnimatedNorthStarMark({
               <defs>
                 <linearGradient id={`northstar-comet-tail-${variant}`} x1="2" y1="10" x2="16" y2="10" gradientUnits="userSpaceOnUse">
                   <stop offset="0" stopColor="rgba(255,255,255,0)" />
-                  <stop offset="0.42" stopColor="rgba(103,232,249,0.3)" />
+                  <stop offset="0.42" stopColor="rgba(52,211,153,0.3)" />
                   <stop offset="1" stopColor="rgba(167,243,208,0.82)" />
                 </linearGradient>
                 <radialGradient id={`northstar-comet-head-${variant}`} cx="58%" cy="42%" r="62%">
                   <stop offset="0" stopColor="#ffffff" />
                   <stop offset="0.24" stopColor="#d9fdf8" />
                   <stop offset="0.62" stopColor="#a7f3d0" />
-                  <stop offset="1" stopColor="#67e8f9" />
+                  <stop offset="1" stopColor="#34d399" />
                 </radialGradient>
               </defs>
               <g transform="rotate(-18 18 10)">
