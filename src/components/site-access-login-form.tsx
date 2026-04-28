@@ -51,7 +51,7 @@ export function SiteAccessLoginForm({ redirectTo }: { redirectTo: string }) {
           <CardContent className="grid gap-4 p-5">
             <form onSubmit={handleSubmit} className="grid gap-4">
               <label className="grid gap-2">
-                <span className="text-xs font-medium uppercase tracking-[0.16em] text-zinc-300">Shared alpha password</span>
+                <span className="text-xs font-medium uppercase tracking-[0.16em] text-zinc-300">Enter Alpha Password</span>
                 <input
                   type="password"
                   value={password}
