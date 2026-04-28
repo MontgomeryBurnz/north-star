@@ -44,7 +44,7 @@ export function AnimatedNorthStarMark({
             </filter>
           </defs>
 
-          <g className={cn("origin-center northstar-core-spin", isNav ? "[animation-duration:26s]" : "[animation-duration:30s]")}>
+          <g className={cn("origin-center northstar-core-rotate", isNav ? "[animation-duration:9s]" : "[animation-duration:11s]")}>
             <path
               d="M34 120V40h18l38 49V40h36v80h-18L70 70v50z"
               fill="none"
@@ -95,10 +95,11 @@ export function AnimatedNorthStarMark({
           animation: orbit-spin 14s linear infinite;
         }
 
-        .northstar-core-spin {
-          animation: northstar-core-spin 30s linear infinite;
+        .northstar-core-rotate {
+          animation: northstar-core-rotate 11s ease-in-out infinite;
           transform-box: fill-box;
           transform-origin: center;
+          transform-style: preserve-3d;
         }
 
         @keyframes orbit-spin {
@@ -111,13 +112,25 @@ export function AnimatedNorthStarMark({
           }
         }
 
-        @keyframes northstar-core-spin {
-          from {
-            transform: rotate(0deg);
+        @keyframes northstar-core-rotate {
+          0% {
+            transform: perspective(520px) rotateX(8deg) rotateY(-18deg) rotateZ(-2deg);
           }
 
-          to {
-            transform: rotate(360deg);
+          25% {
+            transform: perspective(520px) rotateX(3deg) rotateY(-8deg) rotateZ(0deg);
+          }
+
+          50% {
+            transform: perspective(520px) rotateX(-6deg) rotateY(16deg) rotateZ(2deg);
+          }
+
+          75% {
+            transform: perspective(520px) rotateX(2deg) rotateY(8deg) rotateZ(0deg);
+          }
+
+          100% {
+            transform: perspective(520px) rotateX(8deg) rotateY(-18deg) rotateZ(-2deg);
           }
         }
       `}</style>
