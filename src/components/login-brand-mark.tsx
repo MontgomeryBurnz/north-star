@@ -44,21 +44,23 @@ export function AnimatedNorthStarMark({
             </filter>
           </defs>
 
-          <path
-            d="M34 120V40h18l38 49V40h36v80h-18L70 70v50z"
-            fill="none"
-            stroke="url(#northstar-login-n)"
-            strokeWidth="10"
-            strokeLinejoin="round"
-            filter="url(#northstar-login-glow)"
-          />
+          <g className={cn("origin-center northstar-core-spin", isNav ? "[animation-duration:26s]" : "[animation-duration:30s]")}>
+            <path
+              d="M34 120V40h18l38 49V40h36v80h-18L70 70v50z"
+              fill="none"
+              stroke="url(#northstar-login-n)"
+              strokeWidth="10"
+              strokeLinejoin="round"
+              filter="url(#northstar-login-glow)"
+            />
 
-          <path
-            d="M117 24l3.8 8.8 9.2.9-7 6 2.1 9-8.1-4.8-8.1 4.8 2.1-9-7-6 9.2-.9z"
-            fill="#a7f3d0"
-            opacity="0.95"
-            filter="url(#northstar-login-glow)"
-          />
+            <path
+              d="M117 24l3.8 8.8 9.2.9-7 6 2.1 9-8.1-4.8-8.1 4.8 2.1-9-7-6 9.2-.9z"
+              fill="#a7f3d0"
+              opacity="0.95"
+              filter="url(#northstar-login-glow)"
+            />
+          </g>
         </svg>
       </div>
 
@@ -93,7 +95,23 @@ export function AnimatedNorthStarMark({
           animation: orbit-spin 14s linear infinite;
         }
 
+        .northstar-core-spin {
+          animation: northstar-core-spin 30s linear infinite;
+          transform-box: fill-box;
+          transform-origin: center;
+        }
+
         @keyframes orbit-spin {
+          from {
+            transform: rotate(0deg);
+          }
+
+          to {
+            transform: rotate(360deg);
+          }
+        }
+
+        @keyframes northstar-core-spin {
           from {
             transform: rotate(0deg);
           }
