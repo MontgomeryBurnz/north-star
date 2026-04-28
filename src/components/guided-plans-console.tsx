@@ -1,8 +1,7 @@
 "use client";
 
-import type { ReactNode } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ArrowRight, ChevronDown, ChevronUp, FileCheck2, Flag, MessageSquareText, Plus, RefreshCw } from "lucide-react";
+import { MessageSquareText } from "lucide-react";
 import type { StoredProgramUpdate } from "@/lib/active-program-types";
 import type { AssistantConversationTurn } from "@/lib/assistant-conversation-types";
 import type { GuidedPlan, GuidedPlanRolePlans, GuidedPlanSection } from "@/lib/guided-plan-types";
@@ -10,7 +9,13 @@ import type { DeliveryLeadershipSignal } from "@/lib/leadership-feedback-types";
 import type { GuidanceFeedbackFlag, GuidanceJustificationRecord } from "@/lib/program-intelligence-types";
 import type { StoredProgram } from "@/lib/program-intake-types";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { GuidedPlanEmptyStateCard } from "@/components/guided-plan-empty-state-card";
+import { GuidedPlanFollowUpCard } from "@/components/guided-plan-follow-up-card";
+import { GuidedPlanGanttSummary } from "@/components/guided-plan-gantt-summary";
+import { GuidedPlanJustificationCard } from "@/components/guided-plan-justification-card";
+import { GuidedPlanOverviewCard } from "@/components/guided-plan-overview-card";
+import { GuidedPlansSidebar } from "@/components/guided-plans-sidebar";
+import { PlanSectionCard, RolePlansCard } from "@/components/guided-plan-section-cards";
 import { SectionHeader } from "@/components/section-header";
 
 const defaultTeamRoles = [
@@ -35,135 +40,6 @@ function formatDate(value: string) {
     hour: "numeric",
     minute: "2-digit"
   }).format(new Date(value));
-}
-
-function PlanSectionCard({
-  section,
-  footer
-}: {
-  section: GuidedPlanSection;
-  footer?: ReactNode;
-}) {
-  return (
-    <Card className="bg-zinc-950/75">
-      <CardHeader className="border-b border-white/10">
-        <CardTitle className="text-zinc-50">{section.title}</CardTitle>
-      </CardHeader>
-      <CardContent className="grid gap-2 p-5">
-        {section.items.map((item) => (
-          <p key={item} className="flex gap-2 rounded-md border border-white/10 bg-white/[0.035] px-3 py-2 text-sm leading-6 text-zinc-300">
-            <ArrowRight className="mt-1 h-4 w-4 shrink-0 text-emerald-200" />
-            {item}
-          </p>
-        ))}
-        {footer}
-      </CardContent>
-    </Card>
-  );
-}
-
-function RolePlansCard({
-  rolePlans,
-  selectedRoleFocus,
-  expandedRoleKeys,
-  onToggleRole
-}: {
-  rolePlans: GuidedPlanRolePlans;
-  selectedRoleFocus: string;
-  expandedRoleKeys: Set<string>;
-  onToggleRole: (role: string) => void;
-}) {
-  const sortedRoles =
-    selectedRoleFocus === allRolesOption
-      ? rolePlans.roles
-      : [
-          ...rolePlans.roles.filter((rolePlan) => normalizeRoleKey(rolePlan.role) === normalizeRoleKey(selectedRoleFocus)),
-          ...rolePlans.roles.filter((rolePlan) => normalizeRoleKey(rolePlan.role) !== normalizeRoleKey(selectedRoleFocus))
-        ];
-
-  return (
-    <Card className="bg-zinc-950/75 lg:col-span-2">
-      <CardHeader className="border-b border-white/10">
-        <CardTitle className="text-zinc-50">{rolePlans.title}</CardTitle>
-      </CardHeader>
-      <CardContent className="grid gap-4 p-5 xl:grid-cols-2">
-        {sortedRoles.map((rolePlan) => {
-          const isFocusedRole =
-            selectedRoleFocus !== allRolesOption && normalizeRoleKey(rolePlan.role) === normalizeRoleKey(selectedRoleFocus);
-          const isExpanded = selectedRoleFocus === allRolesOption || isFocusedRole || expandedRoleKeys.has(normalizeRoleKey(rolePlan.role));
-
-          return (
-            <div
-              key={rolePlan.role}
-              className={`rounded-md border bg-white/[0.035] p-4 ${isFocusedRole ? "border-cyan-300/25 xl:col-span-2" : "border-white/10"}`}
-            >
-              <div className="flex items-center justify-between gap-3">
-                <div>
-                  <p className="text-sm font-semibold uppercase tracking-[0.12em] text-zinc-100">{rolePlan.role}</p>
-                  {isFocusedRole ? <p className="mt-1 text-xs text-cyan-200">Focused role view</p> : null}
-                </div>
-                {!isFocusedRole && selectedRoleFocus !== allRolesOption ? (
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    className="h-9 shrink-0 px-2 text-zinc-300 hover:text-zinc-50"
-                    onClick={() => onToggleRole(rolePlan.role)}
-                  >
-                    {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-                  </Button>
-                ) : null}
-              </div>
-              {isExpanded ? (
-                <div className="mt-4 grid gap-4">
-                  <div className="grid gap-2">
-                    <p className="text-xs font-medium uppercase tracking-[0.14em] text-cyan-200">Action Plan</p>
-                    {rolePlan.actionPlan.map((item) => (
-                      <p key={item} className="flex gap-2 text-sm leading-6 text-zinc-300">
-                        <ArrowRight className="mt-1 h-4 w-4 shrink-0 text-cyan-200" />
-                        {item}
-                      </p>
-                    ))}
-                  </div>
-                  <div className="grid gap-2">
-                    <p className="text-xs font-medium uppercase tracking-[0.14em] text-emerald-200">Key Focus Areas</p>
-                    {rolePlan.keyFocusAreas.map((item) => (
-                      <p key={item} className="flex gap-2 text-sm leading-6 text-zinc-300">
-                        <ArrowRight className="mt-1 h-4 w-4 shrink-0 text-emerald-200" />
-                        {item}
-                      </p>
-                    ))}
-                  </div>
-                  <div className="grid gap-2">
-                    <p className="text-xs font-medium uppercase tracking-[0.14em] text-amber-200">Key Outcomes</p>
-                    {rolePlan.keyOutcomes.map((item) => (
-                      <p key={item} className="flex gap-2 text-sm leading-6 text-zinc-300">
-                        <ArrowRight className="mt-1 h-4 w-4 shrink-0 text-amber-200" />
-                        {item}
-                      </p>
-                    ))}
-                  </div>
-                  <div className="grid gap-2">
-                    <p className="text-xs font-medium uppercase tracking-[0.14em] text-rose-200">Risk / Mitigation</p>
-                    {rolePlan.risksAndMitigations.map((item) => (
-                      <p key={item} className="flex gap-2 text-sm leading-6 text-zinc-300">
-                        <ArrowRight className="mt-1 h-4 w-4 shrink-0 text-rose-200" />
-                        {item}
-                      </p>
-                    ))}
-                  </div>
-                </div>
-              ) : (
-                <p className="mt-3 text-sm leading-6 text-zinc-400">
-                  Expand this role to view its action plan, focus areas, outcomes, and mitigations.
-                </p>
-              )}
-            </div>
-          );
-        })}
-      </CardContent>
-    </Card>
-  );
 }
 
 function normalizePlanSection(section: GuidedPlanSection | undefined, fallbackTitle: string, fallbackItems: string[]): GuidedPlanSection {
@@ -691,349 +567,60 @@ export function GuidedPlansConsole() {
       />
 
       <section className="mt-10 grid gap-6 lg:grid-cols-[380px_minmax(0,1fr)]">
-        <aside className="grid gap-4 self-start lg:sticky lg:top-24">
-          <Card className="bg-zinc-950/80">
-            <CardHeader className="border-b border-white/10">
-              <CardTitle className="flex items-center gap-2 text-zinc-50">
-                <FileCheck2 className="h-4 w-4 text-emerald-200" />
-                Program source
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="grid gap-4 p-5">
-              <label className="grid gap-2">
-                <span className="text-xs font-medium uppercase tracking-[0.18em] text-zinc-300">Saved program</span>
-                <select
-                  value={selectedProgramId}
-                  onChange={(event) => setSelectedProgramId(event.target.value)}
-                  className="min-h-11 rounded-md border border-white/10 bg-zinc-950 px-3 py-3 text-sm text-zinc-100 outline-none transition-colors focus:border-emerald-300/50"
-                >
-                  {programs.length ? null : <option value="">No saved programs yet</option>}
-                  {programs.map((program) => (
-                    <option key={program.id} value={program.id}>
-                      {program.intake.programName}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              {selectedProgram ? (
-                <div className="grid gap-3 rounded-md border border-white/10 bg-white/[0.035] p-3">
-                  <p className="text-sm font-medium text-zinc-100">{selectedProgram.intake.programName}</p>
-                  <p className="line-clamp-3 text-xs leading-5 text-zinc-400">
-                    {selectedProgram.intake.vision || selectedProgram.intake.outcomes || "No north star captured yet."}
-                  </p>
-                  <p className="text-xs text-zinc-500">Updated {formatDate(selectedProgram.updatedAt)}</p>
-                </div>
-              ) : (
-                <div className="rounded-md border border-amber-300/20 bg-amber-300/[0.055] p-3 text-sm leading-6 text-amber-100">
-                  Save a New Program first, then return here to generate a guided plan.
-                </div>
-              )}
-              {selectedProgram ? (
-                <div className="grid gap-3 rounded-md border border-white/10 bg-white/[0.035] p-3">
-                  <div>
-                    <p className="text-xs font-medium uppercase tracking-[0.18em] text-zinc-300">Team composition</p>
-                    <p className="mt-2 text-xs leading-5 text-zinc-400">
-                      Add the roles that actually exist on this team. The guided plan will regenerate to include them.
-                    </p>
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    {teamRoles.map((role) => (
-                      <span
-                        key={role}
-                        className="rounded-full border border-cyan-300/20 bg-cyan-300/[0.055] px-3 py-1 text-xs text-cyan-100"
-                      >
-                        {role}
-                      </span>
-                    ))}
-                  </div>
-                  <label className="grid gap-2">
-                    <span className="text-xs font-medium uppercase tracking-[0.18em] text-zinc-300">My role focus</span>
-                    <select
-                      value={selectedRoleFocus}
-                      onChange={(event) => handleRoleFocusChange(event.target.value)}
-                      className="min-h-11 rounded-md border border-white/10 bg-zinc-950 px-3 py-3 text-sm text-zinc-100 outline-none transition-colors focus:border-cyan-300/50"
-                    >
-                      <option value={allRolesOption}>All Roles</option>
-                      {teamRoles.map((role) => (
-                        <option key={role} value={role}>
-                          {role}
-                        </option>
-                      ))}
-                    </select>
-                    <p className="text-xs leading-5 text-zinc-400">
-                      Choose your role to keep that action plan fully expanded while the others stay collapsed until opened.
-                    </p>
-                  </label>
-                  <div className="flex gap-2">
-                    <input
-                      value={newRole}
-                      onChange={(event) => setNewRole(event.target.value)}
-                      onKeyDown={(event) => {
-                        if (event.key === "Enter") {
-                          event.preventDefault();
-                          void addTeamRole();
-                        }
-                      }}
-                      placeholder="Add a team role"
-                      className="min-h-11 flex-1 rounded-md border border-white/10 bg-zinc-950 px-3 py-3 text-sm text-zinc-100 outline-none transition-colors placeholder:text-zinc-500 focus:border-cyan-300/50"
-                    />
-                    <Button type="button" onClick={() => void addTeamRole()} disabled={isSavingRole} className="min-h-11 shrink-0">
-                      <Plus className="mr-2 h-4 w-4" />
-                      Add role
-                    </Button>
-                  </div>
-                </div>
-              ) : null}
-              <div className="rounded-md border border-cyan-300/20 bg-cyan-300/[0.055] p-3">
-                <p className="flex items-center gap-2 text-sm font-medium text-cyan-100">
-                  <RefreshCw className="h-4 w-4" />
-                  Auto-sync enabled
-                </p>
-                <p className="mt-2 text-xs leading-5 text-zinc-300">
-                  New program uploads, active-program saves, and leadership reviews refresh the guided plan automatically.
-                </p>
-                {lastSyncedAt ? <p className="mt-2 text-xs text-zinc-500">Last synced {formatDate(lastSyncedAt)}</p> : null}
-              </div>
-              {status ? <p className="text-sm leading-6 text-zinc-400">{status}</p> : null}
-            </CardContent>
-          </Card>
-        </aside>
+        <GuidedPlansSidebar
+          programs={programs}
+          selectedProgramId={selectedProgramId}
+          selectedProgram={selectedProgram}
+          teamRoles={teamRoles}
+          selectedRoleFocus={selectedRoleFocus}
+          newRole={newRole}
+          isSavingRole={isSavingRole}
+          lastSyncedAt={lastSyncedAt}
+          status={status}
+          allRolesOption={allRolesOption}
+          formatDate={formatDate}
+          onProgramChange={setSelectedProgramId}
+          onRoleFocusChange={handleRoleFocusChange}
+          onNewRoleChange={setNewRole}
+          onAddRole={addTeamRole}
+        />
 
         <section className="grid gap-4">
           {plan ? (
             <>
-              <Card className="bg-zinc-950/85">
-                <CardHeader className="border-b border-white/10">
-                  <div className="flex flex-wrap items-start justify-between gap-3">
-                    <div>
-                      <p className="mb-2 text-xs font-medium uppercase tracking-[0.18em] text-emerald-300">
-                        Current guided plan
-                      </p>
-                      <CardTitle className="text-2xl text-zinc-50">{plan.programName}</CardTitle>
-                      {lastAssistantDialogueAt ? (
-                        <p className="mt-2 text-xs leading-5 text-cyan-200">
-                          Last updated from guide dialogue {formatDate(lastAssistantDialogueAt)}
-                        </p>
-                      ) : null}
-                    </div>
-                    <span className="rounded-md border border-white/10 bg-white/[0.035] px-3 py-1 text-xs text-zinc-400">
-                      {formatDate(plan.createdAt)}
-                    </span>
-                  </div>
-                </CardHeader>
-                <CardContent className="grid gap-4 p-5">
-                  <div className="rounded-md border border-emerald-300/20 bg-emerald-300/[0.055] p-4">
-                    <p className="text-xs font-medium uppercase tracking-[0.18em] text-emerald-200">North star</p>
-                    <p className="mt-2 text-sm leading-6 text-zinc-200">{plan.northStar}</p>
-                  </div>
-                  <p className="text-sm leading-6 text-zinc-400">{plan.summary}</p>
-                  {leadershipSignal && leadershipSignal.status !== "none" ? (
-                    <div className="rounded-md border border-amber-300/20 bg-amber-300/[0.055] p-4">
-                      <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-                        <p className="text-xs font-medium uppercase tracking-[0.18em] text-amber-100">Leadership signal</p>
-                        <span
-                          className={`rounded-full border px-3 py-1 text-[11px] font-medium uppercase tracking-[0.14em] ${
-                            leadershipSignal.status === "new"
-                              ? "border-amber-300/25 bg-amber-300/10 text-amber-100"
-                              : "border-emerald-300/25 bg-emerald-300/10 text-emerald-100"
-                          }`}
-                        >
-                          {leadershipSignal.status === "new" ? "New signal available" : "Incorporated into plan"}
-                        </span>
-                      </div>
-                      <p className="text-sm leading-6 text-zinc-200">{leadershipSignal.summary}</p>
-                    </div>
-                  ) : null}
-                </CardContent>
-              </Card>
+              <GuidedPlanOverviewCard
+                plan={plan}
+                leadershipSignal={leadershipSignal}
+                lastAssistantDialogueAt={lastAssistantDialogueAt}
+                formatDate={formatDate}
+              />
 
               <div className="grid gap-4 lg:grid-cols-2">
                 {latestJustification ? (
-                  <Card className="bg-zinc-950/80 lg:col-span-2">
-                    <CardHeader className="border-b border-white/10">
-                      <div className="flex flex-wrap items-start justify-between gap-3">
-                        <div>
-                          <CardTitle className="text-zinc-50">Why This Changed</CardTitle>
-                          <p className="mt-2 text-sm leading-6 text-zinc-400">{latestJustification.summary}</p>
-                        </div>
-                        <span className="rounded-md border border-white/10 bg-white/[0.035] px-3 py-1 text-xs text-zinc-400">
-                          {pendingFlagCount ? `${pendingFlagCount} pending flag${pendingFlagCount === 1 ? "" : "s"}` : "No pending flags"}
-                        </span>
-                      </div>
-                    </CardHeader>
-                    <CardContent className="grid gap-4 p-5">
-                      <div className="grid gap-3">
-                        {latestJustification.citations.map((citation) => {
-                          const isFlagTarget =
-                            flagTarget?.justificationId === latestJustification.id && flagTarget.citationId === citation.sourceId;
-
-                          return (
-                            <div key={`${citation.sourceId}-${citation.label}`} className="rounded-md border border-white/10 bg-white/[0.035] p-4">
-                              <div className="flex flex-wrap items-start justify-between gap-3">
-                                <div>
-                                  <p className="text-xs font-medium uppercase tracking-[0.16em] text-cyan-200">{citation.label}</p>
-                                  <p className="mt-2 text-sm leading-6 text-zinc-300">{citation.rationale}</p>
-                                </div>
-                                <Button
-                                  type="button"
-                                  variant="ghost"
-                                  size="sm"
-                                  className="text-zinc-300 hover:text-zinc-50"
-                                  onClick={() => {
-                                    setFlagTarget({ justificationId: latestJustification.id, citationId: citation.sourceId, scope: "partial" });
-                                    setFlagReason("");
-                                    setFlagContext("");
-                                  }}
-                                >
-                                  <Flag className="h-4 w-4" />
-                                  Flag
-                                </Button>
-                              </div>
-                              {isFlagTarget ? (
-                                <div className="mt-4 grid gap-3 rounded-md border border-amber-300/20 bg-amber-300/[0.055] p-3">
-                                  <input
-                                    value={flagReason}
-                                    onChange={(event) => setFlagReason(event.target.value)}
-                                    placeholder="Why is this citation inaccurate or incomplete?"
-                                    className="min-h-11 rounded-md border border-white/10 bg-zinc-950 px-3 py-3 text-sm text-zinc-100 outline-none transition-colors placeholder:text-zinc-500 focus:border-amber-300/50"
-                                  />
-                                  <textarea
-                                    value={flagContext}
-                                    onChange={(event) => setFlagContext(event.target.value)}
-                                    rows={4}
-                                    placeholder="Add the operator context leadership should use to review this challenge."
-                                    className="resize-none rounded-md border border-white/10 bg-zinc-950 px-3 py-3 text-sm leading-6 text-zinc-100 outline-none transition-colors placeholder:text-zinc-500 focus:border-amber-300/50"
-                                  />
-                                  <div className="flex gap-3">
-                                    <Button type="button" onClick={() => void submitFlag()} disabled={isSubmittingFlag}>
-                                      {isSubmittingFlag ? "Submitting..." : "Submit flag"}
-                                    </Button>
-                                    <Button type="button" variant="outline" onClick={() => setFlagTarget(null)}>
-                                      Cancel
-                                    </Button>
-                                  </div>
-                                </div>
-                              ) : null}
-                            </div>
-                          );
-                        })}
-                      </div>
-
-                      <div className="rounded-md border border-white/10 bg-black/20 p-4">
-                        <div className="flex flex-wrap items-center justify-between gap-3">
-                          <div>
-                            <p className="text-sm font-medium text-zinc-100">Dispute the whole rationale</p>
-                            <p className="mt-1 text-xs leading-5 text-zinc-400">
-                              Use this when the full explanation is misframed, not just one citation.
-                            </p>
-                          </div>
-                          <Button
-                            type="button"
-                            variant="outline"
-                            onClick={() => {
-                              setFlagTarget({ justificationId: latestJustification.id, scope: "whole" });
-                              setFlagReason("");
-                              setFlagContext("");
-                            }}
-                          >
-                            <Flag className="h-4 w-4" />
-                            Flag rationale
-                          </Button>
-                        </div>
-                        {flagTarget?.justificationId === latestJustification.id && flagTarget.scope === "whole" && !flagTarget.citationId ? (
-                          <div className="mt-4 grid gap-3">
-                            <input
-                              value={flagReason}
-                              onChange={(event) => setFlagReason(event.target.value)}
-                              placeholder="Why is the overall rationale inaccurate?"
-                              className="min-h-11 rounded-md border border-white/10 bg-zinc-950 px-3 py-3 text-sm text-zinc-100 outline-none transition-colors placeholder:text-zinc-500 focus:border-amber-300/50"
-                            />
-                            <textarea
-                              value={flagContext}
-                              onChange={(event) => setFlagContext(event.target.value)}
-                              rows={4}
-                              placeholder="Add the broader program context or correction that should govern this plan."
-                              className="resize-none rounded-md border border-white/10 bg-zinc-950 px-3 py-3 text-sm leading-6 text-zinc-100 outline-none transition-colors placeholder:text-zinc-500 focus:border-amber-300/50"
-                            />
-                            <div className="flex gap-3">
-                              <Button type="button" onClick={() => void submitFlag()} disabled={isSubmittingFlag}>
-                                {isSubmittingFlag ? "Submitting..." : "Submit flag"}
-                              </Button>
-                              <Button type="button" variant="outline" onClick={() => setFlagTarget(null)}>
-                                Cancel
-                              </Button>
-                            </div>
-                          </div>
-                        ) : null}
-                      </div>
-                    </CardContent>
-                  </Card>
+                  <GuidedPlanJustificationCard
+                    justification={latestJustification}
+                    pendingFlagCount={pendingFlagCount}
+                    flagTarget={flagTarget}
+                    flagReason={flagReason}
+                    flagContext={flagContext}
+                    isSubmittingFlag={isSubmittingFlag}
+                    onOpenCitationFlag={(citationId) => {
+                      setFlagTarget({ justificationId: latestJustification.id, citationId, scope: "partial" });
+                      setFlagReason("");
+                      setFlagContext("");
+                    }}
+                    onOpenWholeFlag={() => {
+                      setFlagTarget({ justificationId: latestJustification.id, scope: "whole" });
+                      setFlagReason("");
+                      setFlagContext("");
+                    }}
+                    onFlagReasonChange={setFlagReason}
+                    onFlagContextChange={setFlagContext}
+                    onSubmitFlag={submitFlag}
+                    onCancelFlag={() => setFlagTarget(null)}
+                  />
                 ) : null}
-                <Card className="bg-zinc-950/80 lg:col-span-2">
-                  <CardHeader className="border-b border-white/10">
-                    <CardTitle className="text-zinc-50">Gantt Summary</CardTitle>
-                  </CardHeader>
-                  <CardContent className="grid gap-4 p-5">
-                    <div className="flex flex-wrap items-center justify-between gap-3">
-                      <p className="text-sm text-zinc-300">
-                        Current phase: <span className="font-medium text-zinc-100">{currentPhase.label}</span>
-                      </p>
-                      <span className="rounded-full border border-cyan-300/25 bg-cyan-300/10 px-3 py-1 text-[11px] font-medium uppercase tracking-[0.14em] text-cyan-100">
-                        Today
-                      </span>
-                    </div>
-                    <div className="grid gap-3 md:grid-cols-5">
-                      {ganttPhases.map((phase) => (
-                        <div key={phase.id} className="grid gap-2">
-                          <div
-                            className={`min-h-24 rounded-md border p-3 ${
-                              phase.status === "completed"
-                                ? "border-emerald-300/25 bg-emerald-300/10"
-                                : phase.status === "current"
-                                  ? "border-cyan-300/35 bg-cyan-300/10 shadow-[0_0_0_1px_rgba(103,232,249,0.15)]"
-                                  : "border-white/10 bg-black/20"
-                            }`}
-                          >
-                            <div className="mb-2 flex items-center justify-between gap-2">
-                              <p
-                                className={`text-xs font-medium uppercase tracking-[0.14em] ${
-                                  phase.status === "completed"
-                                    ? "text-emerald-100"
-                                    : phase.status === "current"
-                                      ? "text-cyan-100"
-                                      : "text-zinc-500"
-                                }`}
-                              >
-                                {phase.label}
-                              </p>
-                              <span
-                                className={`h-2.5 w-2.5 rounded-full ${
-                                  phase.status === "completed"
-                                    ? "bg-emerald-300"
-                                    : phase.status === "current"
-                                      ? "bg-cyan-300"
-                                      : "bg-zinc-700"
-                                }`}
-                              />
-                            </div>
-                            <p className="text-xs leading-5 text-zinc-300">{phase.description}</p>
-                          </div>
-                          <div className="h-1 rounded-full bg-zinc-900">
-                            <div
-                              className={`h-full rounded-full ${
-                                phase.status === "completed"
-                                  ? "w-full bg-emerald-300"
-                                  : phase.status === "current"
-                                    ? "w-2/3 bg-cyan-300"
-                                    : "w-1/5 bg-zinc-700"
-                              }`}
-                            />
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </CardContent>
-                </Card>
+                <GuidedPlanGanttSummary currentPhaseLabel={currentPhase.label} ganttPhases={ganttPhases} />
                 {rolePlans ? (
                   <RolePlansCard
                     rolePlans={rolePlans}
@@ -1051,28 +638,10 @@ export function GuidedPlansConsole() {
                 ))}
               </div>
 
-              <Card className="bg-zinc-950/80">
-                <CardHeader className="border-b border-white/10">
-                  <CardTitle className="text-zinc-50">Key Questions and Considerations</CardTitle>
-                </CardHeader>
-                <CardContent className="grid gap-2 p-5">
-                  {plan.followUpQuestions.map((question) => (
-                    <p key={question} className="rounded-md border border-white/10 bg-white/[0.035] px-3 py-2 text-sm text-zinc-300">
-                      {question}
-                    </p>
-                  ))}
-                </CardContent>
-              </Card>
+              <GuidedPlanFollowUpCard questions={plan.followUpQuestions} />
             </>
           ) : (
-            <Card className="bg-zinc-950/80">
-              <CardContent className="p-8">
-                <p className="text-lg font-medium text-zinc-100">No guided plan selected yet.</p>
-                <p className="mt-2 text-sm leading-6 text-zinc-400">
-                  Select a saved program to review the latest guided plan. New intake saves, active-program updates, and leadership reviews will refresh it automatically.
-                </p>
-              </CardContent>
-            </Card>
+            <GuidedPlanEmptyStateCard />
           )}
         </section>
       </section>
