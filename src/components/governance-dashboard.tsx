@@ -2,8 +2,10 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { CheckCircle2, ShieldAlert, XCircle } from "lucide-react";
+import { useForegroundRefresh } from "@/hooks/use-foreground-refresh";
+import { useProgramCatalog } from "@/hooks/use-program-catalog";
+import { useRequestSequence } from "@/hooks/use-request-sequence";
 import type { GuidanceFeedbackFlag, GuidanceJustificationRecord } from "@/lib/program-intelligence-types";
-import type { StoredProgram } from "@/lib/program-intake-types";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { SectionHeader } from "@/components/section-header";
@@ -18,28 +20,19 @@ function formatDate(value: string) {
 }
 
 export function GovernanceDashboard() {
-  const [programs, setPrograms] = useState<StoredProgram[]>([]);
-  const [selectedProgramId, setSelectedProgramId] = useState("");
+  const governanceRequest = useRequestSequence();
   const [flags, setFlags] = useState<GuidanceFeedbackFlag[]>([]);
   const [justifications, setJustifications] = useState<GuidanceJustificationRecord[]>([]);
   const [status, setStatus] = useState<string | null>(null);
   const [reviewState, setReviewState] = useState<Record<string, { disposition: string; saving: boolean }>>({});
-
-  const loadPrograms = useCallback(async () => {
-    const response = await fetch("/api/programs", { cache: "no-store" });
-    if (!response.ok) {
-      throw new Error("Could not load programs.");
-    }
-
-    const payload = (await response.json()) as { programs: StoredProgram[] };
-    setPrograms(payload.programs);
-    setSelectedProgramId((current) => {
-      if (current && payload.programs.some((program) => program.id === current)) return current;
-      return payload.programs[0]?.id ?? "";
-    });
-  }, []);
+  const handleProgramLoadError = useCallback(() => setStatus("Could not load programs for governance review."), []);
+  const { programs, selectedProgramId, setSelectedProgramId, refreshPrograms } = useProgramCatalog({
+    onError: handleProgramLoadError
+  });
 
   const loadGovernance = useCallback(async () => {
+    const requestId = governanceRequest.beginRequest();
+
     if (!selectedProgramId) {
       setFlags([]);
       setJustifications([]);
@@ -57,18 +50,23 @@ export function GovernanceDashboard() {
 
     const flagsPayload = (await flagsResponse.json()) as { flags: GuidanceFeedbackFlag[] };
     const justificationsPayload = (await justificationsResponse.json()) as { justifications: GuidanceJustificationRecord[] };
+    if (!governanceRequest.isLatestRequest(requestId)) return;
 
     setFlags(flagsPayload.flags);
     setJustifications(justificationsPayload.justifications);
-  }, [selectedProgramId]);
-
-  useEffect(() => {
-    void loadPrograms().catch(() => setStatus("Could not load programs for governance review."));
-  }, [loadPrograms]);
+  }, [governanceRequest, selectedProgramId]);
 
   useEffect(() => {
     void loadGovernance().catch(() => setStatus("Could not load governance records."));
   }, [loadGovernance]);
+
+  useForegroundRefresh(
+    () => {
+      void refreshPrograms({ silent: true });
+      void loadGovernance().catch(() => null);
+    },
+    { enabled: true, intervalMs: selectedProgramId ? 15000 : null }
+  );
 
   const justificationsById = useMemo(
     () => new Map(justifications.map((record) => [record.id, record])),

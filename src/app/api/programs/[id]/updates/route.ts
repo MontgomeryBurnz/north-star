@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createGuidedPlan, createProgramUpdate, getLatestGuidedPlan, listProgramUpdates } from "@/lib/program-store";
 import type { ActiveProgramReview } from "@/lib/active-program-types";
+import { saveActiveProgramReview } from "@/lib/program-loop-service";
 import { createSiteAccessDeniedResponse, isSiteAccessRequestAuthorized } from "@/lib/site-access";
 
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -20,36 +21,19 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
   const { id } = await params;
   const body = (await request.json()) as Partial<ActiveProgramReview>;
+  const result = await saveActiveProgramReview(
+    {
+      createProgramUpdate,
+      getLatestGuidedPlan,
+      createGuidedPlan
+    },
+    id,
+    body
+  );
 
-  if (!body.programName?.trim()) {
-    return NextResponse.json({ error: "Program name is required." }, { status: 400 });
+  if (!result.ok) {
+    return NextResponse.json({ error: result.error }, { status: 400 });
   }
 
-  const update = await createProgramUpdate(id, {
-    programName: body.programName,
-    originalNorthStar: body.originalNorthStar ?? "",
-    currentPhase: body.currentPhase ?? "",
-    progressSinceLastReview: body.progressSinceLastReview ?? "",
-    planChanges: body.planChanges ?? "",
-    activeRisks: body.activeRisks ?? "",
-    stakeholderTemperature: body.stakeholderTemperature ?? "",
-    decisionsPending: body.decisionsPending ?? "",
-    deliveryHealth: body.deliveryHealth ?? "",
-    supportNeeded: body.supportNeeded ?? "",
-    updateCadence: body.updateCadence === "biweekly" ? "biweekly" : "weekly",
-    cycleLabel: body.cycleLabel ?? "",
-    cycleStartedAt: body.cycleStartedAt ?? "",
-    programSynthesisNote: body.programSynthesisNote ?? "",
-    lastUpdatedRole: body.lastUpdatedRole ?? "",
-    teamRoleUpdates: Array.isArray(body.teamRoleUpdates) ? body.teamRoleUpdates : [],
-    artifacts: body.artifacts ?? []
-  });
-
-  const latestPlan = await getLatestGuidedPlan(id);
-  const plan =
-    latestPlan?.sourceRecordIds.includes(update.id)
-      ? latestPlan
-      : await createGuidedPlan(id);
-
-  return NextResponse.json({ update, plan });
+  return NextResponse.json({ update: result.record, plan: result.plan });
 }

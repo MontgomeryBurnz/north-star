@@ -1,7 +1,10 @@
 "use client";
 
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { Bot, ChevronDown, ChevronUp, Gauge, Send, Sparkles, UserRound } from "lucide-react";
+import { useForegroundRefresh } from "@/hooks/use-foreground-refresh";
+import { useProgramCatalog } from "@/hooks/use-program-catalog";
+import { useRequestSequence } from "@/hooks/use-request-sequence";
 import { getAssistantApiResponse } from "@/lib/assistant-client";
 import type {
   AssistantMessageInput,
@@ -12,7 +15,6 @@ import type {
   MatchedContent
 } from "@/lib/assistant-types";
 import type { AssistantConversationTurn } from "@/lib/assistant-conversation-types";
-import type { StoredProgram } from "@/lib/program-intake-types";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type { AssistantBriefing } from "@/lib/assistant-briefing";
@@ -93,18 +95,13 @@ function conversationToTurn(conversation: AssistantConversationTurn): Conversati
 }
 
 export function AssistantChat() {
-  const [programs, setPrograms] = useState<StoredProgram[]>([]);
-  const [selectedProgramId, setSelectedProgramId] = useState("");
+  const conversationsRequest = useRequestSequence();
   const [turns, setTurns] = useState<ConversationTurn[]>([]);
   const [input, setInput] = useState("");
   const [isThinking, setIsThinking] = useState(false);
   const [assistantBriefing, setAssistantBriefing] = useState<AssistantBriefing | null>(null);
   const [showReasoningDetail, setShowReasoningDetail] = useState(false);
-
-  const selectedProgram = useMemo(
-    () => programs.find((program) => program.id === selectedProgramId) ?? null,
-    [programs, selectedProgramId]
-  );
+  const { programs, selectedProgram, selectedProgramId, setSelectedProgramId, refreshPrograms } = useProgramCatalog();
   const suggestedPrompts = useMemo(
     () => assistantBriefing?.promptChips?.length ? assistantBriefing.promptChips : buildSuggestedPrompts(selectedProgram?.intake.programName),
     [assistantBriefing?.promptChips, selectedProgram?.intake.programName]
@@ -118,76 +115,43 @@ export function AssistantChat() {
   const understandingLabel =
     understandingScore >= 80 ? "Strong" : understandingScore >= 60 ? "Working" : "Needs more context";
 
-  useEffect(() => {
-    let ignore = false;
+  const loadAssistantConversations = useCallback(async (silent = false) => {
+    const requestId = conversationsRequest.beginRequest();
 
-    async function loadPrograms() {
-      const response = await fetch("/api/programs", { cache: "no-store" });
-      if (!response.ok) return;
-      const payload = (await response.json()) as { programs: StoredProgram[] };
-      if (ignore) return;
-      setPrograms(payload.programs);
-      setSelectedProgramId((current) => current || payload.programs[0]?.id || "");
+    if (!selectedProgramId) {
+      setTurns([]);
+      setAssistantBriefing(null);
+      return;
     }
 
-    void loadPrograms();
+    const [conversationResponse, briefingResponse] = await Promise.all([
+      fetch(`/api/programs/${selectedProgramId}/assistant-conversations`, { cache: "no-store" }),
+      fetch(`/api/programs/${selectedProgramId}/assistant-briefing`, { cache: "no-store" })
+    ]);
+    if (!conversationResponse.ok || !briefingResponse.ok || !conversationsRequest.isLatestRequest(requestId)) return;
 
-    return () => {
-      ignore = true;
-    };
-  }, []);
+    const payload = (await conversationResponse.json()) as { conversations: AssistantConversationTurn[] };
+    const briefingPayload = (await briefingResponse.json()) as { briefing: AssistantBriefing };
+    if (!conversationsRequest.isLatestRequest(requestId)) return;
+
+    setTurns(payload.conversations.reverse().map(conversationToTurn));
+    setAssistantBriefing(briefingPayload.briefing);
+    if (!silent) {
+      setShowReasoningDetail(false);
+    }
+  }, [conversationsRequest, selectedProgramId]);
 
   useEffect(() => {
-    let ignore = false;
-
-    async function loadAssistantConversations(silent = false) {
-      if (!selectedProgramId) {
-        setTurns([]);
-        setAssistantBriefing(null);
-        return;
-      }
-
-      const [conversationResponse, briefingResponse] = await Promise.all([
-        fetch(`/api/programs/${selectedProgramId}/assistant-conversations`, { cache: "no-store" }),
-        fetch(`/api/programs/${selectedProgramId}/assistant-briefing`, { cache: "no-store" })
-      ]);
-      if (!conversationResponse.ok || !briefingResponse.ok) return;
-      const payload = (await conversationResponse.json()) as { conversations: AssistantConversationTurn[] };
-      const briefingPayload = (await briefingResponse.json()) as { briefing: AssistantBriefing };
-      if (ignore) return;
-      setTurns(payload.conversations.reverse().map(conversationToTurn));
-      setAssistantBriefing(briefingPayload.briefing);
-      if (!silent) {
-        setShowReasoningDetail(false);
-      }
-    }
-
     void loadAssistantConversations();
+  }, [loadAssistantConversations]);
 
-    function refreshWhenVisible() {
-      if (document.visibilityState === "visible") {
-        void loadAssistantConversations(true);
-      }
-    }
-
-    function refreshOnFocus() {
+  useForegroundRefresh(
+    () => {
+      void refreshPrograms({ silent: true });
       void loadAssistantConversations(true);
-    }
-
-    const interval = window.setInterval(() => {
-      void loadAssistantConversations(true);
-    }, 15000);
-
-    document.addEventListener("visibilitychange", refreshWhenVisible);
-    window.addEventListener("focus", refreshOnFocus);
-
-    return () => {
-      ignore = true;
-      window.clearInterval(interval);
-      document.removeEventListener("visibilitychange", refreshWhenVisible);
-      window.removeEventListener("focus", refreshOnFocus);
-    };
-  }, [selectedProgramId]);
+    },
+    { enabled: true, intervalMs: selectedProgramId ? 15000 : null }
+  );
 
   async function submitPrompt(prompt: string) {
     const trimmedPrompt = prompt.trim();

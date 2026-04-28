@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getLeadershipAccessContext } from "@/lib/leadership-auth";
 import { createGuidedPlan, createLeadershipFeedback, getLatestGuidedPlan, listLeadershipFeedback } from "@/lib/program-store";
 import type { LeadershipReviewInput } from "@/lib/leadership-feedback-types";
+import { saveLeadershipReview } from "@/lib/program-loop-service";
 import { createSiteAccessDeniedResponse, isSiteAccessRequestAuthorized } from "@/lib/site-access";
 
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -31,26 +32,19 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
   const { id } = await params;
   const body = (await request.json()) as Partial<LeadershipReviewInput>;
+  const result = await saveLeadershipReview(
+    {
+      createLeadershipFeedback,
+      getLatestGuidedPlan,
+      createGuidedPlan
+    },
+    id,
+    body
+  );
 
-  if (!body.programName?.trim()) {
-    return NextResponse.json({ error: "Program name is required." }, { status: 400 });
+  if (!result.ok) {
+    return NextResponse.json({ error: result.error }, { status: 400 });
   }
 
-  const feedback = await createLeadershipFeedback(id, {
-    programName: body.programName,
-    timelineSummary: body.timelineSummary ?? "",
-    progressHighlights: body.progressHighlights ?? "",
-    activeRisks: body.activeRisks ?? "",
-    leadershipGuidance: body.leadershipGuidance ?? "",
-    supportRequests: body.supportRequests ?? "",
-    feedbackToDeliveryLead: body.feedbackToDeliveryLead ?? ""
-  });
-
-  const latestPlan = await getLatestGuidedPlan(id);
-  const plan =
-    latestPlan?.sourceRecordIds.includes(feedback.id)
-      ? latestPlan
-      : await createGuidedPlan(id);
-
-  return NextResponse.json({ feedback, plan });
+  return NextResponse.json({ feedback: result.record, plan: result.plan });
 }

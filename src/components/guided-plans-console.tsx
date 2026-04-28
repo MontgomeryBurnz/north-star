@@ -7,7 +7,8 @@ import type { AssistantConversationTurn } from "@/lib/assistant-conversation-typ
 import type { GuidedPlan, GuidedPlanRolePlans, GuidedPlanSection } from "@/lib/guided-plan-types";
 import type { DeliveryLeadershipSignal } from "@/lib/leadership-feedback-types";
 import type { GuidanceFeedbackFlag, GuidanceJustificationRecord } from "@/lib/program-intelligence-types";
-import type { StoredProgram } from "@/lib/program-intake-types";
+import { useForegroundRefresh } from "@/hooks/use-foreground-refresh";
+import { useProgramCatalog } from "@/hooks/use-program-catalog";
 import { useRequestSequence } from "@/hooks/use-request-sequence";
 import { buildProgramGantt } from "@/lib/program-gantt";
 import { Button } from "@/components/ui/button";
@@ -105,10 +106,7 @@ function normalizeRolePlans(rolePlans: GuidedPlanRolePlans | undefined): GuidedP
 }
 
 export function GuidedPlansConsole() {
-  const programsRequest = useRequestSequence();
   const bundleRequest = useRequestSequence();
-  const [programs, setPrograms] = useState<StoredProgram[]>([]);
-  const [selectedProgramId, setSelectedProgramId] = useState("");
   const [plan, setPlan] = useState<GuidedPlan | null>(null);
   const [updates, setUpdates] = useState<StoredProgramUpdate[]>([]);
   const [assistantConversations, setAssistantConversations] = useState<AssistantConversationTurn[]>([]);
@@ -126,11 +124,15 @@ export function GuidedPlansConsole() {
   const [flagReason, setFlagReason] = useState("");
   const [flagContext, setFlagContext] = useState("");
   const [isSubmittingFlag, setIsSubmittingFlag] = useState(false);
-
-  const selectedProgram = useMemo(
-    () => programs.find((program) => program.id === selectedProgramId),
-    [programs, selectedProgramId]
+  const requestedProgramId = useMemo(
+    () => (typeof window === "undefined" ? null : new URLSearchParams(window.location.search).get("program")),
+    []
   );
+  const handleProgramLoadError = useCallback(() => setStatus("Could not refresh saved programs."), []);
+  const { programs, selectedProgram, selectedProgramId, setSelectedProgramId, refreshPrograms } = useProgramCatalog({
+    requestedProgramId,
+    onError: handleProgramLoadError
+  });
   const latestUpdate = updates[0];
   const ganttPhases = useMemo(() => buildProgramGantt(selectedProgram, latestUpdate), [latestUpdate, selectedProgram]);
   const currentPhase = ganttPhases.find((phase) => phase.status === "current") ?? ganttPhases[ganttPhases.length - 1];
@@ -142,62 +144,6 @@ export function GuidedPlansConsole() {
     () => (selectedProgramId ? `north-star:guided-plans:role-focus:${selectedProgramId}` : ""),
     [selectedProgramId]
   );
-
-  const loadPrograms = useCallback(
-    async (options?: { silent?: boolean }) => {
-      const requestId = programsRequest.beginRequest();
-      try {
-        const response = await fetch("/api/programs", { cache: "no-store" });
-        if (!response.ok) throw new Error("Could not load programs.");
-
-        const payload = (await response.json()) as { programs: StoredProgram[] };
-        const requestedProgramId = new URLSearchParams(window.location.search).get("program");
-        if (!programsRequest.isLatestRequest(requestId)) return;
-
-        setPrograms(payload.programs);
-        setSelectedProgramId((current) => {
-          if (requestedProgramId && payload.programs.some((program) => program.id === requestedProgramId)) {
-            return requestedProgramId;
-          }
-
-          if (current && payload.programs.some((program) => program.id === current)) {
-            return current;
-          }
-
-          return payload.programs[0]?.id ?? "";
-        });
-      } catch {
-        if (!options?.silent && programsRequest.isLatestRequest(requestId)) {
-          setStatus("Could not refresh saved programs.");
-        }
-      }
-    },
-    [programsRequest]
-  );
-
-  useEffect(() => {
-    void loadPrograms();
-  }, [loadPrograms]);
-
-  useEffect(() => {
-    function refreshWhenVisible() {
-      if (document.visibilityState === "visible") {
-        void loadPrograms({ silent: true });
-      }
-    }
-
-    function refreshOnFocus() {
-      void loadPrograms({ silent: true });
-    }
-
-    document.addEventListener("visibilitychange", refreshWhenVisible);
-    window.addEventListener("focus", refreshOnFocus);
-
-    return () => {
-      document.removeEventListener("visibilitychange", refreshWhenVisible);
-      window.removeEventListener("focus", refreshOnFocus);
-    };
-  }, [loadPrograms]);
 
   const loadPlan = useCallback(
     async (options?: { silent?: boolean }) => {
@@ -256,16 +202,11 @@ export function GuidedPlansConsole() {
     void loadPlan();
   }, [loadPlan]);
 
-  useEffect(() => {
-    if (!selectedProgramId) return;
-
-    const interval = window.setInterval(() => {
-      void loadPrograms({ silent: true });
-      void loadPlan({ silent: true });
-    }, 15000);
-
-    return () => window.clearInterval(interval);
-  }, [loadPlan, loadPrograms, selectedProgramId]);
+  const refreshView = useCallback(() => {
+    void refreshPrograms({ silent: true });
+    void loadPlan({ silent: true });
+  }, [loadPlan, refreshPrograms]);
+  useForegroundRefresh(refreshView, { enabled: true, intervalMs: selectedProgramId ? 15000 : null });
 
   useEffect(() => {
     setNewRole("");
@@ -370,7 +311,7 @@ export function GuidedPlansConsole() {
 
       setNewRole("");
       setSelectedRoleFocus(role);
-      await loadPrograms({ silent: true });
+      await refreshPrograms({ silent: true });
       await loadPlan({ silent: true });
       setStatus(`${role} was added and the guided plan was refreshed to include the updated team composition.`);
     } catch {
@@ -378,7 +319,7 @@ export function GuidedPlansConsole() {
     } finally {
       setIsSavingRole(false);
     }
-  }, [loadPlan, loadPrograms, newRole, selectedProgram, teamRoles]);
+  }, [loadPlan, newRole, refreshPrograms, selectedProgram, teamRoles]);
 
   const latestJustification = useMemo(() => {
     if (!plan) return null;
@@ -517,7 +458,7 @@ export function GuidedPlansConsole() {
         <GuidedPlansSidebar
           programs={programs}
           selectedProgramId={selectedProgramId}
-          selectedProgram={selectedProgram}
+          selectedProgram={selectedProgram ?? undefined}
           teamRoles={teamRoles}
           selectedRoleFocus={selectedRoleFocus}
           newRole={newRole}
