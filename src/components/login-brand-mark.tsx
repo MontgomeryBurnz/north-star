@@ -44,20 +44,13 @@ export function AnimatedNorthStarMark({
             </filter>
           </defs>
 
-          <g className={cn("origin-center northstar-core-rotate", isNav ? "[animation-duration:9s]" : "[animation-duration:11s]")}>
+          <g className={cn("origin-center northstar-core-rotate", isNav ? "[animation-duration:12s]" : "[animation-duration:16s]")}>
             <path
               d="M34 120V40h18l38 49V40h36v80h-18L70 70v50z"
               fill="none"
               stroke="url(#northstar-login-n)"
               strokeWidth="10"
               strokeLinejoin="round"
-              filter="url(#northstar-login-glow)"
-            />
-
-            <path
-              d="M117 24l3.8 8.8 9.2.9-7 6 2.1 9-8.1-4.8-8.1 4.8 2.1-9-7-6 9.2-.9z"
-              fill="#a7f3d0"
-              opacity="0.95"
               filter="url(#northstar-login-glow)"
             />
           </g>
@@ -77,16 +70,22 @@ export function AnimatedNorthStarMark({
             isNav ? "h-11 w-11" : "h-[152px] w-[152px]"
           )}
         >
-          <div
+          <svg
+            viewBox="0 0 24 24"
+            aria-hidden="true"
             className={cn(
-              "absolute left-1/2 -translate-x-1/2 rounded-full border border-cyan-200/40 bg-zinc-950 shadow-[0_0_18px_rgba(103,232,249,0.24)]",
-              isNav ? "-top-1.5 h-3.5 w-3.5 border-cyan-200/70 shadow-[0_0_20px_rgba(103,232,249,0.45)]" : "-top-2 h-5 w-5"
+              "absolute left-1/2 -translate-x-1/2 overflow-visible drop-shadow-[0_0_14px_rgba(167,243,208,0.55)]",
+              isNav ? "-top-[7px] h-4 w-4" : "-top-3 h-6 w-6"
             )}
           >
-            <div className={cn("absolute rounded-full bg-gradient-to-br from-cyan-300 to-emerald-200", isNav ? "inset-px" : "inset-[3px]")} />
-            <div className={cn("absolute left-1/2 w-px -translate-x-1/2 bg-zinc-950/60", isNav ? "inset-y-[2px]" : "inset-y-[4px]")} />
-            <div className={cn("absolute top-1/2 h-px -translate-y-1/2 bg-zinc-950/60", isNav ? "inset-x-[2px]" : "inset-x-[4px]")} />
-          </div>
+            <path
+              d="M12 2.5l2.75 6.05 6.6.68-5 4.3 1.52 6.47L12 16.6 6.13 20l1.52-6.47-5-4.3 6.6-.68z"
+              fill="#a7f3d0"
+              stroke="#67e8f9"
+              strokeWidth="0.8"
+              opacity="0.98"
+            />
+          </svg>
         </div>
       </div>
 
@@ -96,7 +95,7 @@ export function AnimatedNorthStarMark({
         }
 
         .northstar-core-rotate {
-          animation: northstar-core-rotate 11s ease-in-out infinite;
+          animation: northstar-core-rotate 16s linear infinite;
           transform-box: fill-box;
           transform-origin: center;
           transform-style: preserve-3d;
@@ -114,23 +113,15 @@ export function AnimatedNorthStarMark({
 
         @keyframes northstar-core-rotate {
           0% {
-            transform: perspective(520px) rotateX(8deg) rotateY(-18deg) rotateZ(-2deg);
-          }
-
-          25% {
-            transform: perspective(520px) rotateX(3deg) rotateY(-8deg) rotateZ(0deg);
+            transform: perspective(520px) rotateX(9deg) rotateY(0deg) rotateZ(-2deg);
           }
 
           50% {
-            transform: perspective(520px) rotateX(-6deg) rotateY(16deg) rotateZ(2deg);
-          }
-
-          75% {
-            transform: perspective(520px) rotateX(2deg) rotateY(8deg) rotateZ(0deg);
+            transform: perspective(520px) rotateX(-7deg) rotateY(180deg) rotateZ(2deg);
           }
 
           100% {
-            transform: perspective(520px) rotateX(8deg) rotateY(-18deg) rotateZ(-2deg);
+            transform: perspective(520px) rotateX(9deg) rotateY(360deg) rotateZ(-2deg);
           }
         }
       `}</style>
