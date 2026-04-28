@@ -146,18 +146,35 @@ export function AnimatedNorthStarMark({
               />
             ))}
             <svg
-              viewBox="0 0 24 24"
+              viewBox="0 0 28 20"
               aria-hidden="true"
               className={cn(
                 "absolute right-0 top-1/2 -translate-y-1/2 overflow-visible drop-shadow-[0_0_14px_rgba(167,243,208,0.55)]",
                 isNav ? "h-4 w-4" : "h-6 w-6"
               )}
             >
-              <path
-                d="M12 2.5l2.75 6.05 6.6.68-5 4.3 1.52 6.47L12 16.6 6.13 20l1.52-6.47-5-4.3 6.6-.68z"
-                fill="#a7f3d0"
-                opacity="0.98"
-              />
+              <defs>
+                <linearGradient id={`northstar-comet-tail-${variant}`} x1="2" y1="10" x2="16" y2="10" gradientUnits="userSpaceOnUse">
+                  <stop offset="0" stopColor="rgba(255,255,255,0)" />
+                  <stop offset="0.42" stopColor="rgba(103,232,249,0.3)" />
+                  <stop offset="1" stopColor="rgba(167,243,208,0.82)" />
+                </linearGradient>
+                <radialGradient id={`northstar-comet-head-${variant}`} cx="58%" cy="42%" r="62%">
+                  <stop offset="0" stopColor="#ffffff" />
+                  <stop offset="0.24" stopColor="#d9fdf8" />
+                  <stop offset="0.62" stopColor="#a7f3d0" />
+                  <stop offset="1" stopColor="#67e8f9" />
+                </radialGradient>
+              </defs>
+              <g transform="rotate(-18 18 10)">
+                <path
+                  d="M3 10c3.9-1.8 7.7-2.8 12.4-3-2 1.2-3.8 2.7-5 4.7-2.7-.2-5.1-.7-7.4-1.7z"
+                  fill={`url(#northstar-comet-tail-${variant})`}
+                  opacity="0.92"
+                />
+                <ellipse cx="18" cy="10" rx="4.7" ry="3.5" fill={`url(#northstar-comet-head-${variant})`} />
+                <circle cx="19.2" cy="8.8" r="1.15" fill="rgba(255,255,255,0.9)" />
+              </g>
             </svg>
           </div>
         </div>
