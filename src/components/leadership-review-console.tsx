@@ -2,21 +2,14 @@
 
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import {
-  ClipboardPen,
-  FileClock,
-  Flag,
-  MessageSquareQuote,
-  RefreshCw,
-  ShieldAlert
-} from "lucide-react";
 import type { StoredProgramUpdate } from "@/lib/active-program-types";
 import type { GuidedPlan } from "@/lib/guided-plan-types";
 import type { LeadershipReviewInput, LeadershipReviewRecord } from "@/lib/leadership-feedback-types";
 import { buildReviewCycleStatusForCadence, type ReviewCadence, type ReviewCycleStatus, type ReviewQueueItem } from "@/lib/leadership-review-queue";
 import type { ProgramIntake, StoredProgram } from "@/lib/program-intake-types";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { LeadershipExecutiveSummary } from "@/components/leadership-executive-summary";
+import { LeadershipProgramTimeline } from "@/components/leadership-program-timeline";
+import { LeadershipReviewWorkbench } from "@/components/leadership-review-workbench";
 import { LeadershipReviewSidebar } from "@/components/leadership-review-sidebar";
 import { SectionHeader } from "@/components/section-header";
 
@@ -486,6 +479,26 @@ export function LeadershipReviewConsole() {
     [feedback, selectedCadence]
   );
   const latestReviewCycle = feedback[0];
+  const clarifyItems = useMemo(
+    () =>
+      splitSignals(
+        firstNonEmpty(
+          latestUpdate?.review.decisionsPending,
+          selectedProgram?.intake.decisionsNeeded,
+          review.supportRequests
+        ),
+        "No decision pressure is currently saved."
+      ),
+    [latestUpdate?.review.decisionsPending, review.supportRequests, selectedProgram?.intake.decisionsNeeded]
+  );
+  const implicationItems = useMemo(
+    () => [
+      review.leadershipGuidance || "Add leadership guidance to shape the next delivery move.",
+      review.supportRequests || "Capture support requests so the delivery lead knows what to escalate.",
+      review.feedbackToDeliveryLead || "Add direct feedback so it can flow into delivery guidance."
+    ],
+    [review.feedbackToDeliveryLead, review.leadershipGuidance, review.supportRequests]
+  );
 
   function focusReviewCycle(programId: string) {
     setSelectedProgramId(programId);
@@ -760,301 +773,42 @@ export function LeadershipReviewConsole() {
         />
 
         <section className="grid gap-6">
-          <Card className="bg-zinc-950/80">
-            <CardHeader className="border-b border-white/10">
-              <CardTitle className="flex items-center gap-2 text-zinc-50">
-                <Flag className="h-4 w-4 text-emerald-200" />
-                Executive summary
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="grid gap-4 p-5">
-              <div className="rounded-md border border-emerald-300/15 bg-emerald-300/[0.07] p-4">
-                <p className="text-xs font-medium uppercase tracking-[0.16em] text-emerald-200">Leader readout</p>
-                <p className="mt-3 text-base leading-7 text-zinc-100">{executiveSummary}</p>
-              </div>
+          <LeadershipExecutiveSummary
+            executiveSummary={executiveSummary}
+            leaderReadout={leaderReadout}
+            quickContextSignals={quickContextSignals}
+          />
 
-              <div className="grid gap-3 lg:grid-cols-2">
-                {leaderReadout.map((item) => (
-                  <div key={item.label} className="rounded-md border border-white/10 bg-white/[0.035] p-4">
-                    <p className="text-xs font-medium uppercase tracking-[0.16em] text-zinc-500">{item.label}</p>
-                    <p className="mt-2 text-sm leading-6 text-zinc-300">{item.value}</p>
-                  </div>
-                ))}
-              </div>
+          <LeadershipProgramTimeline
+            selectedProgram={Boolean(selectedProgram)}
+            currentPhaseLabel={currentPhase.label}
+            ganttPhases={ganttPhases}
+            timeline={timeline}
+            formatTimestamp={formatTimestamp}
+          />
 
-              <div className="grid gap-3 md:grid-cols-3">
-                {quickContextSignals.map((item) => (
-                  <div key={item.label} className="rounded-md border border-white/10 bg-black/20 p-3">
-                    <p className="text-xs font-medium uppercase tracking-[0.16em] text-zinc-500">{item.label}</p>
-                    <p className="mt-2 text-sm leading-6 text-zinc-300">{item.value}</p>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="bg-zinc-950/80">
-            <CardHeader className="border-b border-white/10">
-              <CardTitle className="flex items-center gap-2 text-zinc-50">
-                <FileClock className="h-4 w-4 text-amber-200" />
-                Program timeline
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="grid gap-3 p-5">
-              {selectedProgram ? (
-                <>
-                  <div className="rounded-md border border-white/10 bg-white/[0.035] p-4">
-                    <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-                      <div>
-                        <p className="text-xs font-medium uppercase tracking-[0.16em] text-amber-200">Gantt summary</p>
-                        <p className="mt-2 text-sm text-zinc-300">
-                          Current phase: <span className="font-medium text-zinc-100">{currentPhase.label}</span>
-                        </p>
-                      </div>
-                      <span className="rounded-full border border-cyan-300/25 bg-cyan-300/10 px-3 py-1 text-[11px] font-medium uppercase tracking-[0.14em] text-cyan-100">
-                        Today
-                      </span>
-                    </div>
-                    <div className="grid gap-3 md:grid-cols-5">
-                      {ganttPhases.map((phase) => (
-                        <div key={phase.id} className="grid gap-2">
-                          <div
-                            className={`min-h-24 rounded-md border p-3 ${
-                              phase.status === "completed"
-                                ? "border-emerald-300/25 bg-emerald-300/10"
-                                : phase.status === "current"
-                                  ? "border-cyan-300/35 bg-cyan-300/10 shadow-[0_0_0_1px_rgba(103,232,249,0.15)]"
-                                  : "border-white/10 bg-black/20"
-                            }`}
-                          >
-                            <div className="mb-2 flex items-center justify-between gap-2">
-                              <p
-                                className={`text-xs font-medium uppercase tracking-[0.14em] ${
-                                  phase.status === "completed"
-                                    ? "text-emerald-100"
-                                    : phase.status === "current"
-                                      ? "text-cyan-100"
-                                      : "text-zinc-500"
-                                }`}
-                              >
-                                {phase.label}
-                              </p>
-                              <span
-                                className={`h-2.5 w-2.5 rounded-full ${
-                                  phase.status === "completed"
-                                    ? "bg-emerald-300"
-                                    : phase.status === "current"
-                                      ? "bg-cyan-300"
-                                      : "bg-zinc-700"
-                                }`}
-                              />
-                            </div>
-                            <p className="text-xs leading-5 text-zinc-300">{phase.description}</p>
-                          </div>
-                          <div className="h-1 rounded-full bg-zinc-900">
-                            <div
-                              className={`h-full rounded-full ${
-                                phase.status === "completed"
-                                  ? "w-full bg-emerald-300"
-                                  : phase.status === "current"
-                                    ? "w-2/3 bg-cyan-300"
-                                    : "w-1/5 bg-zinc-700"
-                              }`}
-                            />
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div className="grid gap-3">
-                    {timeline.map((item) => (
-                      <div key={item.id} className="grid gap-2 rounded-md border border-white/10 bg-white/[0.035] p-4">
-                        <div className="flex flex-wrap items-center justify-between gap-3">
-                          <div className="flex items-center gap-2">
-                            <span
-                              className={`rounded-full border px-2 py-1 text-[11px] font-medium uppercase tracking-[0.14em] ${
-                                item.tone === "program"
-                                  ? "border-emerald-300/25 bg-emerald-300/10 text-emerald-100"
-                                  : item.tone === "update"
-                                    ? "border-cyan-300/25 bg-cyan-300/10 text-cyan-100"
-                                    : item.tone === "plan"
-                                      ? "border-amber-300/25 bg-amber-300/10 text-amber-100"
-                                      : "border-fuchsia-300/25 bg-fuchsia-300/10 text-fuchsia-100"
-                              }`}
-                            >
-                              {item.label}
-                            </span>
-                            <span className="text-xs text-zinc-500">{formatTimestamp(item.createdAt)}</span>
-                          </div>
-                        </div>
-                        <p className="text-sm leading-6 text-zinc-300">{item.detail}</p>
-                      </div>
-                    ))}
-                  </div>
-                </>
-              ) : (
-                <div className="rounded-md border border-white/10 bg-white/[0.035] p-4 text-sm leading-6 text-zinc-400">
-                  Select a saved program to view the timeline.
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          <Card className="bg-zinc-950/80">
-            <CardHeader className="border-b border-white/10">
-              <CardTitle className="flex items-center gap-2 text-zinc-50">
-                <ClipboardPen className="h-4 w-4 text-emerald-200" />
-                Fresh leadership guidance
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="p-5">
-              <form id="leadership-review-form" onSubmit={handleSubmit} className="grid gap-4">
-                <div className="rounded-md border border-white/10 bg-white/[0.035] p-4">
-                  <div className="flex flex-wrap items-center justify-between gap-3">
-                    <div>
-                      <p className="text-xs font-medium uppercase tracking-[0.16em] text-emerald-200">
-                        {reviewCycleStatus.ctaLabel}
-                      </p>
-                      <p className="mt-2 text-sm leading-6 text-zinc-300">
-                        {latestReviewCycle
-                          ? `The current leadership record on file was submitted ${formatTimestamp(latestReviewCycle.createdAt)}. Save this form to create the next cadence update and refresh the guided plan.`
-                          : "No review has been captured yet. Save this form to establish the first leadership review cycle and refresh the guided plan."}
-                      </p>
-                    </div>
-                    <span className="rounded-full border border-white/10 bg-black/20 px-3 py-1 text-[11px] font-medium uppercase tracking-[0.14em] text-zinc-400">
-                      {reviewCycleStatus.cadence === "weekly" ? "7-day loop" : "14-day loop"}
-                    </span>
-                  </div>
-                </div>
-
-                <div className="grid gap-3 lg:grid-cols-[1.1fr_0.9fr]">
-                  <div className="grid gap-4">
-                    {leadershipFields.slice(0, 4).map((field) => (
-                      <label key={field.id} className="grid gap-2">
-                        <span className="text-xs font-medium uppercase tracking-[0.16em] text-zinc-300">{field.label}</span>
-                        <textarea
-                          value={review[field.id]}
-                          onChange={(event) => updateField(field.id, event.target.value)}
-                          rows={field.rows}
-                          placeholder={field.placeholder}
-                          className="resize-none rounded-md border border-white/10 bg-zinc-950 px-3 py-3 text-sm leading-6 text-zinc-100 outline-none transition-colors placeholder:text-zinc-400 focus:border-emerald-300/50"
-                        />
-                      </label>
-                    ))}
-                  </div>
-
-                  <div className="grid gap-4">
-                    <div className="rounded-md border border-white/10 bg-white/[0.035] p-4">
-                      <p className="text-xs font-medium uppercase tracking-[0.16em] text-emerald-200">What leaders should clarify</p>
-                      <div className="mt-3 grid gap-2">
-                        {splitSignals(
-                          firstNonEmpty(
-                            latestUpdate?.review.decisionsPending,
-                            selectedProgram?.intake.decisionsNeeded,
-                            review.supportRequests
-                          ),
-                          "No decision pressure is currently saved."
-                        ).map((item) => (
-                          <p key={item} className="text-sm leading-6 text-zinc-300">
-                            {item}
-                          </p>
-                        ))}
-                      </div>
-                    </div>
-
-                    {leadershipFields.slice(4).map((field) => (
-                      <label key={field.id} className="grid gap-2">
-                        <span className="text-xs font-medium uppercase tracking-[0.16em] text-zinc-300">{field.label}</span>
-                        <textarea
-                          value={review[field.id]}
-                          onChange={(event) => updateField(field.id, event.target.value)}
-                          rows={field.rows}
-                          placeholder={field.placeholder}
-                          className="resize-none rounded-md border border-white/10 bg-zinc-950 px-3 py-3 text-sm leading-6 text-zinc-100 outline-none transition-colors placeholder:text-zinc-400 focus:border-emerald-300/50"
-                        />
-                      </label>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="flex flex-wrap gap-3">
-                  <Button type="submit" size="lg" disabled={!selectedProgramId || saveState === "saving"}>
-                    <MessageSquareQuote className="h-4 w-4" />
-                    {saveState === "saving" ? "Saving..." : "Save leadership review"}
-                  </Button>
-                </div>
-              </form>
-            </CardContent>
-          </Card>
-
-          <div className="grid gap-6 lg:grid-cols-2">
-            <Card className="bg-zinc-950/80">
-              <CardHeader className="border-b border-white/10">
-                <CardTitle className="flex items-center gap-2 text-zinc-50">
-                  <ShieldAlert className="h-4 w-4 text-cyan-200" />
-                  Delivery-facing implication
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="grid gap-3 p-5">
-                {[
-                  review.leadershipGuidance || "Add leadership guidance to shape the next delivery move.",
-                  review.supportRequests || "Capture support requests so the delivery lead knows what to escalate.",
-                  review.feedbackToDeliveryLead || "Add direct feedback so it can flow into delivery guidance."
-                ].map((item) => (
-                  <p key={item} className="rounded-md border border-white/10 bg-white/[0.035] px-3 py-2 text-sm leading-6 text-zinc-300">
-                    {item}
-                  </p>
-                ))}
-              </CardContent>
-            </Card>
-
-            <Card className="bg-zinc-950/80">
-              <CardHeader className="border-b border-white/10">
-                <CardTitle className="flex items-center gap-2 text-zinc-50">
-                  <RefreshCw className="h-4 w-4 text-amber-200" />
-                  Review cycle history
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="grid gap-3 p-5">
-                {feedback.length ? (
-                  feedback.slice(0, 5).map((entry) => (
-                    <button
-                      key={entry.id}
-                      type="button"
-                      onClick={() => setReview(entry.feedback)}
-                      className="rounded-md border border-white/10 bg-white/[0.035] p-3 text-left transition-colors hover:border-amber-300/30"
-                    >
-                      <div className="mb-2 flex items-center justify-between gap-3">
-                        <span className="text-xs font-medium uppercase tracking-[0.16em] text-amber-200">
-                          {formatTimestamp(entry.createdAt)}
-                        </span>
-                        <span className="rounded-md border border-white/10 bg-black/20 px-2 py-0.5 text-[11px] uppercase tracking-[0.14em] text-zinc-500">
-                          review cycle
-                        </span>
-                      </div>
-                      <p className="text-sm font-medium text-zinc-100">
-                        {firstSignal(entry.interpretation?.summary ?? entry.feedback.leadershipGuidance, "Leadership review")}
-                      </p>
-                      <p className="mt-1 line-clamp-2 text-xs leading-5 text-zinc-400">
-                        {entry.interpretation?.deliveryLeadMessage ||
-                          entry.feedback.feedbackToDeliveryLead ||
-                          entry.feedback.supportRequests ||
-                          "No detail captured."}
-                      </p>
-                      <p className="mt-3 text-[11px] uppercase tracking-[0.14em] text-zinc-500">
-                        Click to load this review cycle into the guidance form
-                      </p>
-                    </button>
-                  ))
-                ) : (
-                  <div className="rounded-md border border-white/10 bg-white/[0.035] p-3 text-sm leading-6 text-zinc-400">
-                    No leadership reviews saved yet.
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </div>
+          <LeadershipReviewWorkbench
+            review={review}
+            leadershipFields={leadershipFields}
+            reviewCycleStatus={reviewCycleStatus}
+            latestReviewCycle={latestReviewCycle}
+            clarifyItems={clarifyItems}
+            implicationItems={implicationItems}
+            feedback={feedback}
+            saveState={saveState}
+            selectedProgramId={selectedProgramId}
+            formatTimestamp={formatTimestamp}
+            onUpdateField={updateField}
+            onSubmit={handleSubmit}
+            onLoadReview={setReview}
+            summarizeFeedback={(entry) => firstSignal(entry.interpretation?.summary ?? entry.feedback.leadershipGuidance, "Leadership review")}
+            summarizeFeedbackDetail={(entry) =>
+              entry.interpretation?.deliveryLeadMessage ||
+              entry.feedback.feedbackToDeliveryLead ||
+              entry.feedback.supportRequests ||
+              "No detail captured."
+            }
+          />
         </section>
       </section>
     </main>
