@@ -44,7 +44,7 @@ function NorthStarThreeMark({ isNav }: { isNav: boolean }) {
       sideLight.position.set(-3.6, 1.8, 3.8);
       scene.add(sideLight);
 
-      const rimLight = new THREE.PointLight(0xa7f3d0, 6.5, 8);
+      const rimLight = new THREE.PointLight(0xa7f3d0, 7.6, 8);
       rimLight.position.set(0.2, 1.8, 2.8);
       scene.add(rimLight);
 
@@ -76,7 +76,7 @@ function NorthStarThreeMark({ isNav }: { isNav: boolean }) {
       diagonal.position.set(0, 0, 0.02);
       group.add(diagonal);
 
-      group.scale.setScalar(isNav ? 0.78 : 1);
+      group.scale.setScalar(isNav ? 0.7 : 0.88);
 
       const resize = () => {
         if (!canvasRef.current) {
@@ -167,8 +167,14 @@ export function AnimatedNorthStarMark({
     <div className={cn(isNav ? "relative h-12 w-12" : "relative h-44 w-44", className)}>
       <div
         className={cn(
-          "pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[radial-gradient(circle,rgba(52,211,153,0.18)_0%,rgba(167,243,208,0.12)_36%,transparent_72%)]",
-          isNav ? "h-10 w-10" : "h-32 w-32"
+          "pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[radial-gradient(circle,rgba(209,250,229,0.18)_0%,rgba(52,211,153,0.2)_32%,rgba(16,185,129,0.08)_58%,transparent_76%)] blur-sm",
+          isNav ? "h-12 w-12" : "h-40 w-40"
+        )}
+      />
+      <div
+        className={cn(
+          "pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[radial-gradient(circle,rgba(52,211,153,0.16)_0%,rgba(16,185,129,0.08)_42%,transparent_72%)] blur-xl",
+          isNav ? "h-14 w-14" : "h-48 w-48"
         )}
       />
 
@@ -226,7 +232,7 @@ export function AnimatedNorthStarMark({
               viewBox="0 0 28 20"
               aria-hidden="true"
               className={cn(
-                "absolute right-0 top-1/2 -translate-y-1/2 overflow-visible drop-shadow-[0_0_14px_rgba(167,243,208,0.55)]",
+                "absolute right-0 top-1/2 -translate-y-1/2 overflow-visible drop-shadow-[0_0_18px_rgba(167,243,208,0.78)]",
                 isNav ? "h-4 w-4" : "h-6 w-6"
               )}
             >
@@ -242,6 +248,12 @@ export function AnimatedNorthStarMark({
                   <stop offset="0.62" stopColor="#a7f3d0" />
                   <stop offset="1" stopColor="#34d399" />
                 </radialGradient>
+                <radialGradient id={`northstar-comet-burn-${variant}`} cx="72%" cy="40%" r="70%">
+                  <stop offset="0" stopColor="#ffffff" />
+                  <stop offset="0.18" stopColor="#fef9c3" />
+                  <stop offset="0.46" stopColor="#bbf7d0" />
+                  <stop offset="1" stopColor="rgba(52,211,153,0)" />
+                </radialGradient>
               </defs>
               <g transform="rotate(-18 18 10)">
                 <path
@@ -249,8 +261,14 @@ export function AnimatedNorthStarMark({
                   fill={`url(#northstar-comet-tail-${variant})`}
                   opacity="0.92"
                 />
+                <path
+                  d="M15.6 4.5c4.4-1 8.5 1.4 9.7 5.4-1.1 4.1-5.4 6.6-9.7 5.6 1.8-1.4 2.9-3.3 3-5.5-.1-2.2-1.2-4.1-3-5.5z"
+                  fill={`url(#northstar-comet-burn-${variant})`}
+                  opacity="0.96"
+                />
                 <ellipse cx="18" cy="10" rx="4.7" ry="3.5" fill={`url(#northstar-comet-head-${variant})`} />
-                <circle cx="19.2" cy="8.8" r="1.15" fill="rgba(255,255,255,0.9)" />
+                <ellipse cx="20.2" cy="9.1" rx="2.15" ry="1.4" fill="rgba(255,255,255,0.92)" />
+                <circle cx="21.1" cy="8.6" r="0.72" fill="#fef9c3" />
               </g>
             </svg>
           </div>
