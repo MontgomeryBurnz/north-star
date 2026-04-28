@@ -14,31 +14,41 @@ export function AnimatedNorthStarMark({
   const isNav = variant === "nav";
   const trailPixels = isNav
     ? [
-        { left: 22, top: 5, size: 2, opacity: 0.18 },
-        { left: 17, top: 4, size: 2, opacity: 0.28 },
-        { left: 12, top: 6, size: 2, opacity: 0.42 },
-        { left: 7, top: 3, size: 3, opacity: 0.58 }
+        { left: 28, top: 7, size: 2, opacity: 0.16 },
+        { left: 23, top: 5, size: 2, opacity: 0.26 },
+        { left: 19, top: 8, size: 2, opacity: 0.38 },
+        { left: 14, top: 4, size: 3, opacity: 0.52 },
+        { left: 8, top: 9, size: 3, opacity: 0.72 }
       ]
     : [
-        { left: 36, top: 8, size: 3, opacity: 0.12 },
-        { left: 29, top: 6, size: 3, opacity: 0.2 },
-        { left: 23, top: 9, size: 4, opacity: 0.32 },
-        { left: 16, top: 5, size: 4, opacity: 0.46 },
-        { left: 9, top: 10, size: 5, opacity: 0.62 }
+        { left: 52, top: 12, size: 3, opacity: 0.12 },
+        { left: 44, top: 7, size: 3, opacity: 0.18 },
+        { left: 37, top: 13, size: 4, opacity: 0.28 },
+        { left: 29, top: 6, size: 4, opacity: 0.42 },
+        { left: 21, top: 14, size: 5, opacity: 0.58 },
+        { left: 11, top: 8, size: 6, opacity: 0.78 }
+      ];
+  const depthLayers = isNav
+    ? [
+        { dx: 6, dy: 4, opacity: 0.16 },
+        { dx: 4.5, dy: 3, opacity: 0.2 },
+        { dx: 3, dy: 2, opacity: 0.28 },
+        { dx: 1.5, dy: 1, opacity: 0.34 }
+      ]
+    : [
+        { dx: 11, dy: 7, opacity: 0.12 },
+        { dx: 8, dy: 5.5, opacity: 0.18 },
+        { dx: 5.5, dy: 3.5, opacity: 0.24 },
+        { dx: 3, dy: 2, opacity: 0.32 },
+        { dx: 1.5, dy: 1, opacity: 0.4 }
       ];
 
   return (
     <div className={cn(isNav ? "relative h-12 w-12" : "relative h-44 w-44", className)}>
       <div
         className={cn(
-          "absolute border border-cyan-300/20 bg-zinc-950/80 shadow-[0_0_60px_rgba(103,232,249,0.08)]",
-          isNav ? "inset-[3px] rounded-[1rem]" : "inset-5 rounded-[2rem]"
-        )}
-      />
-      <div
-        className={cn(
-          "absolute border border-white/8 bg-gradient-to-br from-cyan-300/[0.05] via-transparent to-emerald-300/[0.04]",
-          isNav ? "inset-[5px] rounded-[1.05rem]" : "inset-[18px] rounded-[2.25rem]"
+          "pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[radial-gradient(circle,rgba(103,232,249,0.16)_0%,rgba(167,243,208,0.10)_35%,transparent_72%)]",
+          isNav ? "h-10 w-10" : "h-32 w-32"
         )}
       />
 
@@ -48,6 +58,10 @@ export function AnimatedNorthStarMark({
             <linearGradient id="northstar-login-n" x1="22" y1="126" x2="126" y2="26" gradientUnits="userSpaceOnUse">
               <stop offset="0" stopColor="#67e8f9" />
               <stop offset="1" stopColor="#a7f3d0" />
+            </linearGradient>
+            <linearGradient id="northstar-login-depth" x1="32" y1="120" x2="130" y2="42" gradientUnits="userSpaceOnUse">
+              <stop offset="0" stopColor="rgba(8,145,178,0.95)" />
+              <stop offset="1" stopColor="rgba(20,184,166,0.92)" />
             </linearGradient>
             <filter id="northstar-login-glow" x="-50%" y="-50%" width="200%" height="200%">
               <feGaussianBlur stdDeviation="5" result="blur" />
@@ -59,6 +73,18 @@ export function AnimatedNorthStarMark({
           </defs>
 
           <g className={cn("origin-center northstar-core-rotate", isNav ? "[animation-duration:12s]" : "[animation-duration:16s]")}>
+            {depthLayers.map((layer) => (
+              <path
+                key={`${variant}-depth-${layer.dx}-${layer.dy}`}
+                d="M34 120V40h18l38 49V40h36v80h-18L70 70v50z"
+                fill="none"
+                stroke="url(#northstar-login-depth)"
+                strokeWidth="10"
+                strokeLinejoin="round"
+                opacity={layer.opacity}
+                transform={`translate(${layer.dx} ${layer.dy})`}
+              />
+            ))}
             <path
               d="M34 120V40h18l38 49V40h36v80h-18L70 70v50z"
               fill="none"
@@ -74,12 +100,6 @@ export function AnimatedNorthStarMark({
       <div className={cn("pointer-events-none absolute inset-0 orbit-spin", orbitClassName)}>
         <div
           className={cn(
-            "absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full border border-dashed",
-            isNav ? "h-11 w-11 border-cyan-300/35" : "h-[152px] w-[152px] border-cyan-300/15"
-          )}
-        />
-        <div
-          className={cn(
             "absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2",
             isNav ? "h-11 w-11" : "h-[152px] w-[152px]"
           )}
@@ -87,13 +107,13 @@ export function AnimatedNorthStarMark({
           <div
             className={cn(
               "absolute left-1/2 -translate-x-1/2",
-              isNav ? "-top-[8px] h-4 w-7" : "-top-[13px] h-6 w-12"
+              isNav ? "-top-[8px] h-4 w-9" : "-top-[13px] h-6 w-16"
             )}
           >
             <div
               className={cn(
-                "absolute top-1/2 -translate-y-1/2 rounded-full bg-gradient-to-l from-cyan-200/55 via-cyan-200/18 to-transparent blur-[1px]",
-                isNav ? "right-2 h-[2px] w-5" : "right-3 h-[3px] w-9"
+                "absolute top-1/2 -translate-y-1/2 rounded-full bg-gradient-to-l from-cyan-200/95 via-cyan-200/45 to-transparent blur-[1.2px]",
+                isNav ? "right-2 h-[3px] w-7" : "right-3 h-[4px] w-12"
               )}
             />
             {trailPixels.map((pixel, index) => (
@@ -140,6 +160,7 @@ export function AnimatedNorthStarMark({
           transform-box: fill-box;
           transform-origin: center;
           transform-style: preserve-3d;
+          filter: drop-shadow(0 0 24px rgba(103, 232, 249, 0.22));
         }
 
         .trail-pixel {
@@ -158,15 +179,15 @@ export function AnimatedNorthStarMark({
 
         @keyframes northstar-core-rotate {
           0% {
-            transform: perspective(520px) rotateX(9deg) rotateY(0deg) rotateZ(-2deg);
+            transform: perspective(720px) rotateX(15deg) rotateY(0deg) rotateZ(-4deg);
           }
 
           50% {
-            transform: perspective(520px) rotateX(-7deg) rotateY(180deg) rotateZ(2deg);
+            transform: perspective(720px) rotateX(-11deg) rotateY(180deg) rotateZ(4deg);
           }
 
           100% {
-            transform: perspective(520px) rotateX(9deg) rotateY(360deg) rotateZ(-2deg);
+            transform: perspective(720px) rotateX(15deg) rotateY(360deg) rotateZ(-4deg);
           }
         }
 
