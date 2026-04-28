@@ -40,7 +40,8 @@ function ExtrudedBeam({
           background:
             "linear-gradient(155deg, rgba(255,255,255,0.24) 0%, rgba(255,255,255,0.08) 14%, rgba(103,232,249,0.98) 30%, rgba(34,211,238,0.94) 58%, rgba(167,243,208,0.98) 100%)",
           transform: `translateZ(${depth / 2}px)`,
-          boxShadow: glow ? "0 0 28px rgba(103,232,249,0.34), 0 16px 22px rgba(8,145,178,0.16)" : undefined
+          boxShadow: glow ? "0 0 28px rgba(103,232,249,0.34), 0 16px 22px rgba(8,145,178,0.16)" : undefined,
+          backfaceVisibility: "hidden"
         }}
       />
       <div
@@ -48,7 +49,8 @@ function ExtrudedBeam({
         style={{
           borderRadius: radius,
           background: "linear-gradient(145deg, rgba(8,47,73,0.98) 0%, rgba(14,116,144,0.9) 52%, rgba(15,118,110,0.82) 100%)",
-          transform: `translateZ(-${depth / 2}px) rotateY(180deg)`
+          transform: `translateZ(-${depth / 2}px) rotateY(180deg)`,
+          backfaceVisibility: "hidden"
         }}
       />
       <div
@@ -58,7 +60,8 @@ function ExtrudedBeam({
           width: depth,
           background: "linear-gradient(180deg, rgba(8,47,73,0.98) 0%, rgba(12,74,110,0.9) 100%)",
           transformOrigin: "left center",
-          transform: "rotateY(-90deg)"
+          transform: `translateZ(-${depth / 2}px) rotateY(-90deg)`,
+          backfaceVisibility: "hidden"
         }}
       />
       <div
@@ -68,7 +71,8 @@ function ExtrudedBeam({
           width: depth,
           background: "linear-gradient(180deg, rgba(15,118,110,0.82) 0%, rgba(20,184,166,0.7) 100%)",
           transformOrigin: "right center",
-          transform: "rotateY(90deg)"
+          transform: `translateZ(-${depth / 2}px) rotateY(90deg)`,
+          backfaceVisibility: "hidden"
         }}
       />
       <div
@@ -78,7 +82,8 @@ function ExtrudedBeam({
           height: depth,
           background: "linear-gradient(90deg, rgba(186,230,253,0.55) 0%, rgba(103,232,249,0.3) 100%)",
           transformOrigin: "center top",
-          transform: "rotateX(90deg)"
+          transform: `translateZ(-${depth / 2}px) rotateX(90deg)`,
+          backfaceVisibility: "hidden"
         }}
       />
       <div
@@ -88,7 +93,8 @@ function ExtrudedBeam({
           height: depth,
           background: "linear-gradient(90deg, rgba(8,47,73,0.62) 0%, rgba(15,118,110,0.46) 100%)",
           transformOrigin: "center bottom",
-          transform: "rotateX(-90deg)"
+          transform: `translateZ(-${depth / 2}px) rotateX(-90deg)`,
+          backfaceVisibility: "hidden"
         }}
       />
     </div>
