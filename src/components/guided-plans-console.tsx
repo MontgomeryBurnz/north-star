@@ -1,7 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ArrowRight, ChevronDown, ChevronUp, FileCheck2, Flag, MessageSquareText, Plus, RefreshCw } from "lucide-react";
 import type { StoredProgramUpdate } from "@/lib/active-program-types";
 import type { AssistantConversationTurn } from "@/lib/assistant-conversation-types";
@@ -282,6 +282,8 @@ function buildProgramGantt(program: StoredProgram | undefined, latestUpdate: Sto
 }
 
 export function GuidedPlansConsole() {
+  const programsRequestRef = useRef(0);
+  const bundleRequestRef = useRef(0);
   const [programs, setPrograms] = useState<StoredProgram[]>([]);
   const [selectedProgramId, setSelectedProgramId] = useState("");
   const [plan, setPlan] = useState<GuidedPlan | null>(null);
@@ -320,12 +322,14 @@ export function GuidedPlansConsole() {
 
   const loadPrograms = useCallback(
     async (options?: { silent?: boolean }) => {
+      const requestId = ++programsRequestRef.current;
       try {
         const response = await fetch("/api/programs", { cache: "no-store" });
         if (!response.ok) throw new Error("Could not load programs.");
 
         const payload = (await response.json()) as { programs: StoredProgram[] };
         const requestedProgramId = new URLSearchParams(window.location.search).get("program");
+        if (requestId !== programsRequestRef.current) return;
 
         setPrograms(payload.programs);
         setSelectedProgramId((current) => {
@@ -340,7 +344,9 @@ export function GuidedPlansConsole() {
           return payload.programs[0]?.id ?? "";
         });
       } catch {
-        setStatus("Could not refresh saved programs.");
+        if (!options?.silent && requestId === programsRequestRef.current) {
+          setStatus("Could not refresh saved programs.");
+        }
       }
     },
     []
@@ -372,6 +378,8 @@ export function GuidedPlansConsole() {
 
   const loadPlan = useCallback(
     async (options?: { silent?: boolean }) => {
+      const requestId = ++bundleRequestRef.current;
+
       if (!selectedProgramId) {
         setPlan(null);
         setUpdates([]);
@@ -385,48 +393,35 @@ export function GuidedPlansConsole() {
       }
 
       try {
-        const [planResponse, updatesResponse, leadershipSignalResponse, assistantConversationsResponse, justificationsResponse, flagsResponse] = await Promise.all([
-          fetch(`/api/programs/${selectedProgramId}/guided-plan`, { cache: "no-store" }),
-          fetch(`/api/programs/${selectedProgramId}/updates`, { cache: "no-store" }),
-          fetch(`/api/programs/${selectedProgramId}/leadership-signal`, { cache: "no-store" }),
-          fetch(`/api/programs/${selectedProgramId}/assistant-conversations`, { cache: "no-store" }),
-          fetch(`/api/programs/${selectedProgramId}/guidance-justifications`, { cache: "no-store" }),
-          fetch(`/api/programs/${selectedProgramId}/guidance-feedback-flags`, { cache: "no-store" })
-        ]);
-
-        if (!planResponse.ok || !updatesResponse.ok || !assistantConversationsResponse.ok || !justificationsResponse.ok || !flagsResponse.ok) {
+        const response = await fetch(`/api/programs/${selectedProgramId}/bundle`, { cache: "no-store" });
+        if (!response.ok) {
           throw new Error("Could not load guided plan.");
         }
-
-        const planPayload = (await planResponse.json()) as { plan: GuidedPlan | null };
-        const updatesPayload = (await updatesResponse.json()) as { updates: StoredProgramUpdate[] };
-        const assistantConversationsPayload = (await assistantConversationsResponse.json()) as {
-          conversations: AssistantConversationTurn[];
-        };
-        const justificationsPayload = (await justificationsResponse.json()) as {
+        const payload = (await response.json()) as {
+          plan: GuidedPlan | null;
+          updates: StoredProgramUpdate[];
+          assistantConversations: AssistantConversationTurn[];
+          leadershipSignal: DeliveryLeadershipSignal;
           justifications: GuidanceJustificationRecord[];
-        };
-        const flagsPayload = (await flagsResponse.json()) as {
           flags: GuidanceFeedbackFlag[];
+          fetchedAt: string;
         };
-        const leadershipSignalPayload = leadershipSignalResponse.ok
-          ? ((await leadershipSignalResponse.json()) as { signal: DeliveryLeadershipSignal })
-          : { signal: null };
+        if (requestId !== bundleRequestRef.current) return;
 
-        setPlan(planPayload.plan);
-        setUpdates(updatesPayload.updates);
-        setAssistantConversations(assistantConversationsPayload.conversations);
-        setLeadershipSignal(leadershipSignalPayload.signal);
-        setJustifications(justificationsPayload.justifications);
-        setGuidanceFlags(flagsPayload.flags);
-        setLastSyncedAt(new Date().toISOString());
+        setPlan(payload.plan);
+        setUpdates(payload.updates);
+        setAssistantConversations(payload.assistantConversations);
+        setLeadershipSignal(payload.leadershipSignal);
+        setJustifications(payload.justifications);
+        setGuidanceFlags(payload.flags);
+        setLastSyncedAt(payload.fetchedAt);
         setStatus(
-          planPayload.plan
+          payload.plan
             ? "This view stays synced with the latest uploads, active-program updates, and leadership feedback."
             : "No guided plan generated yet. Save a new program or active-program update to create one automatically."
         );
       } catch {
-        if (!options?.silent) {
+        if (!options?.silent && requestId === bundleRequestRef.current) {
           setStatus("Could not load the latest guided plan.");
         }
       }

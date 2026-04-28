@@ -23,12 +23,14 @@ type ProgramRepository = {
   getProgram(programId: string): Promise<StoredProgram | null>;
   upsertProgram(intake: ProgramIntake): Promise<StoredProgram>;
   listProgramUpdates(programId: string): Promise<StoredProgramUpdate[]>;
+  listAllProgramUpdates(): Promise<StoredProgramUpdate[]>;
   createProgramUpdate(programId: string, review: ActiveProgramReview): Promise<StoredProgramUpdate>;
   listAssistantConversations(programId: string): Promise<AssistantConversationTurn[]>;
   createAssistantConversation(programId: string, prompt: string, response: AssistantServiceResponse): Promise<AssistantConversationTurn>;
   getLatestGuidedPlan(programId: string): Promise<GuidedPlan | null>;
   createGuidedPlan(programId: string): Promise<GuidedPlan | null>;
   listLeadershipFeedback(programId: string): Promise<LeadershipReviewRecord[]>;
+  listAllLeadershipFeedback(): Promise<LeadershipReviewRecord[]>;
   createLeadershipFeedback(programId: string, feedback: LeadershipReviewInput): Promise<LeadershipReviewRecord>;
   listMeetingInputs(programId: string): Promise<ProgramMeetingInput[]>;
   createMeetingInput(programId: string, input: Omit<ProgramMeetingInput, "id" | "programId" | "programName" | "createdAt" | "updatedAt">): Promise<ProgramMeetingInput>;
@@ -212,6 +214,23 @@ function dedupeLeadershipFeedbacks(records: LeadershipReviewRecord[]) {
   return deduped;
 }
 
+function dedupeLeadershipFeedbacksByProgram(records: LeadershipReviewRecord[]) {
+  const grouped = new Map<string, LeadershipReviewRecord[]>();
+
+  for (const record of records) {
+    const current = grouped.get(record.programId);
+    if (current) {
+      current.push(record);
+    } else {
+      grouped.set(record.programId, [record]);
+    }
+  }
+
+  return sortByUpdatedDesc(
+    Array.from(grouped.values()).flatMap((group) => dedupeLeadershipFeedbacks(group))
+  );
+}
+
 async function ensureFileStore() {
   await mkdir(storeDirectory, { recursive: true });
 }
@@ -274,6 +293,10 @@ const fileRepository: ProgramRepository = {
   async listProgramUpdates(programId) {
     const store = await readFileStore();
     return sortByUpdatedDesc(store.updates.filter((update) => update.programId === programId));
+  },
+  async listAllProgramUpdates() {
+    const store = await readFileStore();
+    return sortByUpdatedDesc(store.updates);
   },
   async createProgramUpdate(programId, review) {
     const store = await readFileStore();
@@ -360,6 +383,10 @@ const fileRepository: ProgramRepository = {
   async listLeadershipFeedback(programId) {
     const store = await readFileStore();
     return dedupeLeadershipFeedbacks(store.leadershipFeedbacks.filter((feedback) => feedback.programId === programId));
+  },
+  async listAllLeadershipFeedback() {
+    const store = await readFileStore();
+    return dedupeLeadershipFeedbacksByProgram(store.leadershipFeedbacks);
   },
   async createLeadershipFeedback(programId, feedback) {
     const store = await readFileStore();
@@ -767,6 +794,17 @@ const postgresRepository: ProgramRepository = {
     );
     return result.rows.map(mapUpdateRow);
   },
+  async listAllProgramUpdates() {
+    await ensurePostgresSchema();
+    const result = await getPool().query(
+      `
+        SELECT id, program_id, program_name, review, created_at, updated_at
+        FROM program_updates
+        ORDER BY created_at DESC
+      `
+    );
+    return result.rows.map(mapUpdateRow);
+  },
   async createProgramUpdate(programId, review) {
     await ensurePostgresSchema();
     const now = new Date();
@@ -888,6 +926,17 @@ const postgresRepository: ProgramRepository = {
       [programId]
     );
     return dedupeLeadershipFeedbacks(result.rows.map(mapLeadershipRow));
+  },
+  async listAllLeadershipFeedback() {
+    await ensurePostgresSchema();
+    const result = await getPool().query(
+      `
+        SELECT id, program_id, program_name, feedback, created_at, updated_at
+        FROM leadership_feedback
+        ORDER BY created_at DESC
+      `
+    );
+    return dedupeLeadershipFeedbacksByProgram(result.rows.map(mapLeadershipRow));
   },
   async createLeadershipFeedback(programId, feedback) {
     await ensurePostgresSchema();

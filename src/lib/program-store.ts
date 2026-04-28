@@ -22,6 +22,10 @@ export async function listProgramUpdates(programId: string) {
   return getProgramRepository().listProgramUpdates(programId);
 }
 
+export async function listAllProgramUpdates() {
+  return getProgramRepository().listAllProgramUpdates();
+}
+
 export async function createProgramUpdate(programId: string, review: ActiveProgramReview) {
   return getProgramRepository().createProgramUpdate(programId, review);
 }
@@ -44,6 +48,10 @@ export async function createGuidedPlan(programId: string) {
 
 export async function listLeadershipFeedback(programId: string) {
   return getProgramRepository().listLeadershipFeedback(programId);
+}
+
+export async function listAllLeadershipFeedback() {
+  return getProgramRepository().listAllLeadershipFeedback();
 }
 
 export async function createLeadershipFeedback(programId: string, feedback: LeadershipReviewInput) {

@@ -1,21 +1,11 @@
 import { composeGroundedAnswer, getRelevantContent } from "@/lib/assistant";
 import type { AssistantProvider, AssistantRequest, AssistantServiceResponse } from "@/lib/assistant-types";
+import { asRecord, asStringArray, asTrimmedString, extractOutputText, parseStructuredModelOutput } from "@/lib/openai-structured-output";
 
 type OpenAIComposedPayload = {
   answer: string;
   bullets: string[];
   sections: Array<{ title: string; items: string[] }>;
-};
-
-type ResponsesApiPayload = {
-  output_text?: string;
-  output?: Array<{
-    content?: Array<{
-      type?: string;
-      text?: string;
-      refusal?: string;
-    }>;
-  }>;
 };
 
 function getConfiguredModel() {
@@ -38,35 +28,29 @@ function getConfiguredVerbosity() {
   return "low";
 }
 
-function safeJsonParse(value: string): OpenAIComposedPayload | null {
-  try {
-    return JSON.parse(value) as OpenAIComposedPayload;
-  } catch {
-    const start = value.indexOf("{");
-    const end = value.lastIndexOf("}");
-    if (start >= 0 && end > start) {
-      try {
-        return JSON.parse(value.slice(start, end + 1)) as OpenAIComposedPayload;
-      } catch {
-        return null;
-      }
-    }
-    return null;
-  }
-}
+function validateComposedPayload(value: unknown): OpenAIComposedPayload | null {
+  const record = asRecord(value);
+  if (!record) return null;
 
-function extractOutputText(payload: ResponsesApiPayload) {
-  if (payload.output_text?.trim()) return payload.output_text;
+  const answer = asTrimmedString(record.answer);
+  const bullets = asStringArray(record.bullets, { min: 1, max: 6 });
+  const sectionsValue = Array.isArray(record.sections) ? record.sections : null;
+  if (!answer || !bullets || !sectionsValue) return null;
 
-  for (const item of payload.output ?? []) {
-    for (const content of item.content ?? []) {
-      if (content.type === "output_text" && content.text?.trim()) {
-        return content.text;
-      }
-    }
-  }
+  const sections = sectionsValue
+    .map((section) => {
+      const sectionRecord = asRecord(section);
+      if (!sectionRecord) return null;
+      const title = asTrimmedString(sectionRecord.title);
+      const items = asStringArray(sectionRecord.items, { min: 1, max: 6 });
+      if (!title || !items) return null;
+      return { title, items };
+    })
+    .filter((section): section is OpenAIComposedPayload["sections"][number] => Boolean(section));
 
-  return "";
+  if (!sections.length) return null;
+
+  return { answer, bullets, sections };
 }
 
 function withModelProfile(
@@ -250,8 +234,8 @@ ${JSON.stringify(
       }, model, reasoningEffort, verbosity);
     }
 
-    const payload = (await response.json()) as ResponsesApiPayload;
-    const parsed = safeJsonParse(extractOutputText(payload));
+    const payload = await response.json();
+    const parsed = parseStructuredModelOutput(extractOutputText(payload), validateComposedPayload);
 
     if (!parsed) {
       return withModelProfile({

@@ -2,6 +2,7 @@ import { randomUUID } from "crypto";
 import { generateLocalGuidedPlan } from "@/lib/guided-plan-generator";
 import type { GuidedPlan, GuidedPlanRolePlan, GuidedPlanSection } from "@/lib/guided-plan-types";
 import type { GuidedPlanGenerationContext, GuidedPlanProvider } from "@/lib/guided-plan-service";
+import { asRecord, asStringArray, asTrimmedString, extractOutputText, parseStructuredModelOutput } from "@/lib/openai-structured-output";
 
 type OpenAIGuidedPlanPayload = {
   northStar: string;
@@ -21,16 +22,6 @@ type OpenAIGuidedPlanPayload = {
     roles: GuidedPlanRolePlan[];
   };
   followUpQuestions: string[];
-};
-
-type ResponsesApiPayload = {
-  output_text?: string;
-  output?: Array<{
-    content?: Array<{
-      type?: string;
-      text?: string;
-    }>;
-  }>;
 };
 
 function getConfiguredModel() {
@@ -53,35 +44,77 @@ function getConfiguredVerbosity() {
   return "low";
 }
 
-function extractOutputText(payload: ResponsesApiPayload) {
-  if (payload.output_text?.trim()) return payload.output_text;
+function validateGuidedPlanPayload(value: unknown): OpenAIGuidedPlanPayload | null {
+  const record = asRecord(value);
+  if (!record) return null;
 
-  for (const item of payload.output ?? []) {
-    for (const content of item.content ?? []) {
-      if (content.type === "output_text" && content.text?.trim()) {
-        return content.text;
-      }
-    }
-  }
+  const northStar = asTrimmedString(record.northStar);
+  const summary = asTrimmedString(record.summary);
+  const followUpQuestions = asStringArray(record.followUpQuestions, { min: 1, max: 4 });
+  const rolePlansRecord = asRecord(record.rolePlans);
+  const rolePlansTitle = rolePlansRecord ? asTrimmedString(rolePlansRecord.title) : null;
+  const rolePlanEntries = rolePlansRecord && Array.isArray(rolePlansRecord.roles) ? rolePlansRecord.roles : null;
+  if (!northStar || !summary || !followUpQuestions || !rolePlansRecord || !rolePlansTitle || !rolePlanEntries) return null;
 
-  return "";
-}
+  const sectionKeys = [
+    "sourceInputs",
+    "assistantDialogue",
+    "signalFromNoise",
+    "workPath",
+    "planningApproach",
+    "keyOutcomes",
+    "criticalRequirements",
+    "keyOutputs",
+    "risksAndDecisions",
+    "leadershipChanges"
+  ] as const;
 
-function safeJsonParse(value: string): OpenAIGuidedPlanPayload | null {
-  try {
-    return JSON.parse(value) as OpenAIGuidedPlanPayload;
-  } catch {
-    const start = value.indexOf("{");
-    const end = value.lastIndexOf("}");
-    if (start >= 0 && end > start) {
-      try {
-        return JSON.parse(value.slice(start, end + 1)) as OpenAIGuidedPlanPayload;
-      } catch {
-        return null;
-      }
-    }
-    return null;
-  }
+  const sections = Object.fromEntries(
+    sectionKeys.map((key) => {
+      const sectionRecord = asRecord(record[key]);
+      const title = sectionRecord ? asTrimmedString(sectionRecord.title) : null;
+      const items = sectionRecord ? asStringArray(sectionRecord.items, { min: 1, max: 6 }) : null;
+      return [key, title && items ? { title, items } : null];
+    })
+  ) as Record<(typeof sectionKeys)[number], GuidedPlanSection | null>;
+
+  if (sectionKeys.some((key) => !sections[key])) return null;
+
+  const roles = rolePlanEntries
+    .map((role) => {
+      const roleRecord = asRecord(role);
+      if (!roleRecord) return null;
+      const roleName = asTrimmedString(roleRecord.role);
+      const actionPlan = asStringArray(roleRecord.actionPlan, { min: 1, max: 6 });
+      const keyFocusAreas = asStringArray(roleRecord.keyFocusAreas, { min: 1, max: 6 });
+      const keyOutcomes = asStringArray(roleRecord.keyOutcomes, { min: 1, max: 6 });
+      const risksAndMitigations = asStringArray(roleRecord.risksAndMitigations, { min: 1, max: 6 });
+      if (!roleName || !actionPlan || !keyFocusAreas || !keyOutcomes || !risksAndMitigations) return null;
+      return { role: roleName, actionPlan, keyFocusAreas, keyOutcomes, risksAndMitigations };
+    })
+    .filter((role): role is GuidedPlanRolePlan => Boolean(role));
+
+  if (!roles.length) return null;
+
+  return {
+    northStar,
+    summary,
+    sourceInputs: sections.sourceInputs!,
+    assistantDialogue: sections.assistantDialogue!,
+    signalFromNoise: sections.signalFromNoise!,
+    workPath: sections.workPath!,
+    planningApproach: sections.planningApproach!,
+    keyOutcomes: sections.keyOutcomes!,
+    criticalRequirements: sections.criticalRequirements!,
+    keyOutputs: sections.keyOutputs!,
+    risksAndDecisions: sections.risksAndDecisions!,
+    leadershipChanges: sections.leadershipChanges!,
+    rolePlans: {
+      title: rolePlansTitle,
+      roles
+    },
+    followUpQuestions
+  };
 }
 
 function sanitizeItems(items: unknown, fallback: string[]) {
@@ -432,7 +465,7 @@ ${toPromptContext(context, baselinePlan)}`
       return baselinePlan;
     }
 
-    const payload = safeJsonParse(extractOutputText((await response.json()) as ResponsesApiPayload));
+    const payload = parseStructuredModelOutput(extractOutputText(await response.json()), validateGuidedPlanPayload);
     if (!payload) {
       return baselinePlan;
     }

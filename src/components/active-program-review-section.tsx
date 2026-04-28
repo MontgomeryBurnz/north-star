@@ -1,6 +1,6 @@
 "use client";
 
-import { ChangeEvent, FormEvent, useEffect, useMemo, useState } from "react";
+import { ChangeEvent, FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { Activity, FileClock, FolderUp, HeartPulse, History, Layers3, MessageSquareQuote, RefreshCw, Save, Trash2, Users2 } from "lucide-react";
 import type { ActiveProgramReview, ActiveProgramUpdate, TeamRoleUpdate, TeamRoleUpdateStatus } from "@/lib/active-program-types";
 import type { DeliveryLeadershipSignal } from "@/lib/leadership-feedback-types";
@@ -371,6 +371,10 @@ function normalizeReview(review: ActiveProgramReview, intake?: ProgramIntake) {
 }
 
 export function ActiveProgramReviewSection() {
+  const programsRequestRef = useRef(0);
+  const updatesRequestRef = useRef(0);
+  const signalRequestRef = useRef(0);
+  const meetingInputsRequestRef = useRef(0);
   const [review, setReview] = useState<ActiveProgramReview>(emptyReview);
   const [savedAt, setSavedAt] = useState<string | null>(null);
   const [selectedProgramId, setSelectedProgramId] = useState("");
@@ -385,6 +389,7 @@ export function ActiveProgramReviewSection() {
 
   useEffect(() => {
     async function loadServerPrograms() {
+      const requestId = ++programsRequestRef.current;
       try {
         const response = await fetch("/api/programs", { cache: "no-store" });
         if (!response.ok) return;
@@ -408,12 +413,14 @@ export function ActiveProgramReviewSection() {
             )
         }));
 
+        if (requestId !== programsRequestRef.current) return;
         setExistingPrograms(serverPrograms);
         setUpdates(pruneStoredUpdates(serverPrograms.map((program) => program.id)));
         window.localStorage.removeItem(intakeDraftKey);
         window.localStorage.removeItem(reviewDraftKey);
         setSelectedProgramId((current) => (serverPrograms.some((program) => program.id === current) ? current : ""));
       } catch {
+        if (requestId !== programsRequestRef.current) return;
         setExistingPrograms([]);
       }
     }
@@ -422,17 +429,15 @@ export function ActiveProgramReviewSection() {
   }, []);
 
   useEffect(() => {
-    setUpdates(readStoredUpdates());
-  }, []);
-
-  useEffect(() => {
     async function loadProgramUpdates() {
       if (!selectedProgramId) return;
+      const requestId = ++updatesRequestRef.current;
 
       try {
         const response = await fetch(`/api/programs/${selectedProgramId}/updates`, { cache: "no-store" });
         if (!response.ok) return;
         const payload = (await response.json()) as { updates: ActiveProgramUpdate[] };
+        if (requestId !== updatesRequestRef.current) return;
         const normalizedUpdates = payload.updates.map((update) => ({
           ...update,
           review: normalizeReview(
@@ -458,17 +463,21 @@ export function ActiveProgramReviewSection() {
         setLeadershipSignal(null);
         return;
       }
+      const requestId = ++signalRequestRef.current;
 
       try {
         const response = await fetch(`/api/programs/${selectedProgramId}/leadership-signal`, { cache: "no-store" });
         if (!response.ok) {
+          if (requestId !== signalRequestRef.current) return;
           setLeadershipSignal(null);
           return;
         }
 
         const payload = (await response.json()) as { signal: DeliveryLeadershipSignal };
+        if (requestId !== signalRequestRef.current) return;
         setLeadershipSignal(payload.signal);
       } catch {
+        if (requestId !== signalRequestRef.current) return;
         setLeadershipSignal(null);
       }
     }
@@ -489,17 +498,21 @@ export function ActiveProgramReviewSection() {
         setMeetingInputs([]);
         return;
       }
+      const requestId = ++meetingInputsRequestRef.current;
 
       try {
         const response = await fetch(`/api/programs/${selectedProgramId}/meeting-inputs`, { cache: "no-store" });
         if (!response.ok) {
+          if (requestId !== meetingInputsRequestRef.current) return;
           setMeetingInputs([]);
           return;
         }
 
         const payload = (await response.json()) as { meetingInputs: ProgramMeetingInput[] };
+        if (requestId !== meetingInputsRequestRef.current) return;
         setMeetingInputs(payload.meetingInputs);
       } catch {
+        if (requestId !== meetingInputsRequestRef.current) return;
         setMeetingInputs([]);
       }
     }

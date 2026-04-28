@@ -1,6 +1,7 @@
 import "server-only";
 
 import { getLatestGuidedPlan, getProgram, listAssistantConversations, listLeadershipFeedback, listProgramUpdates } from "@/lib/program-store";
+import { asRecord, asStringArray, asTrimmedString, extractOutputText, parseStructuredModelOutput } from "@/lib/openai-structured-output";
 
 export type AssistantBriefing = {
   promptChips: string[];
@@ -16,16 +17,6 @@ type OpenAIBriefingPayload = {
   promptQueue: string[];
   understandingScore: number;
   understandingSummary: string;
-};
-
-type ResponsesApiPayload = {
-  output_text?: string;
-  output?: Array<{
-    content?: Array<{
-      type?: string;
-      text?: string;
-    }>;
-  }>;
 };
 
 function getConfiguredModel() {
@@ -48,35 +39,21 @@ function getConfiguredVerbosity() {
   return "low";
 }
 
-function extractOutputText(payload: ResponsesApiPayload) {
-  if (payload.output_text?.trim()) return payload.output_text;
+function validateBriefingPayload(value: unknown): OpenAIBriefingPayload | null {
+  const record = asRecord(value);
+  if (!record) return null;
 
-  for (const item of payload.output ?? []) {
-    for (const content of item.content ?? []) {
-      if (content.type === "output_text" && content.text?.trim()) {
-        return content.text;
-      }
-    }
-  }
+  const promptChips = asStringArray(record.promptChips, { min: 1, max: 4 });
+  const promptQueue = asStringArray(record.promptQueue, { min: 1, max: 4 });
+  const understandingSummary = asTrimmedString(record.understandingSummary);
+  const understandingScore =
+    typeof record.understandingScore === "number" && Number.isFinite(record.understandingScore)
+      ? record.understandingScore
+      : null;
 
-  return "";
-}
+  if (!promptChips || !promptQueue || !understandingSummary || understandingScore === null) return null;
 
-function safeJsonParse(value: string): OpenAIBriefingPayload | null {
-  try {
-    return JSON.parse(value) as OpenAIBriefingPayload;
-  } catch {
-    const start = value.indexOf("{");
-    const end = value.lastIndexOf("}");
-    if (start >= 0 && end > start) {
-      try {
-        return JSON.parse(value.slice(start, end + 1)) as OpenAIBriefingPayload;
-      } catch {
-        return null;
-      }
-    }
-    return null;
-  }
+  return { promptChips, promptQueue, understandingScore, understandingSummary };
 }
 
 function clampScore(value: number) {
@@ -308,7 +285,7 @@ export async function getAssistantBriefing(programId: string): Promise<Assistant
     return { ...localBriefing, missingInputs, model };
   }
 
-  const payload = safeJsonParse(extractOutputText((await response.json()) as ResponsesApiPayload));
+  const payload = parseStructuredModelOutput(extractOutputText(await response.json()), validateBriefingPayload);
   if (!payload) {
     return { ...localBriefing, missingInputs, model };
   }

@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   ClipboardPen,
@@ -14,6 +14,7 @@ import {
 import type { StoredProgramUpdate } from "@/lib/active-program-types";
 import type { GuidedPlan } from "@/lib/guided-plan-types";
 import type { LeadershipReviewInput, LeadershipReviewRecord } from "@/lib/leadership-feedback-types";
+import { buildReviewCycleStatusForCadence, type ReviewCadence, type ReviewCycleStatus, type ReviewQueueItem } from "@/lib/leadership-review-queue";
 import type { ProgramIntake, StoredProgram } from "@/lib/program-intake-types";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -256,30 +257,6 @@ type GanttPhase = {
   status: "completed" | "current" | "upcoming";
 };
 
-type ReviewCadence = "weekly" | "biweekly";
-
-type ReviewCycleStatus = {
-  cadence: ReviewCadence;
-  lastReviewedLabel: string;
-  nextReviewLabel: string;
-  badgeLabel: string;
-  badgeTone: "on-track" | "due" | "overdue";
-  ctaLabel: string;
-  helperText: string;
-};
-
-type ReviewQueueItem = {
-  programId: string;
-  programName: string;
-  leadLabel: string;
-  cadence: ReviewCadence;
-  status: "due" | "overdue" | "attention";
-  badgeLabel: string;
-  lastReviewedLabel: string;
-  nextReviewLabel: string;
-  attentionRoles: string[];
-};
-
 function formatTimestamp(value: string) {
   return new Intl.DateTimeFormat(undefined, {
     month: "short",
@@ -321,31 +298,6 @@ function splitSignals(value: string, fallback: string) {
   return items.length ? items : [fallback];
 }
 
-function deriveLeadLabel(program: StoredProgram) {
-  if (program.intake.programOwner?.trim()) {
-    return program.intake.programOwner.trim();
-  }
-
-  const stakeholderLines = (program.intake.stakeholders || "")
-    .split(/\n|,/)
-    .map((item) => item.trim())
-    .filter(Boolean);
-
-  const explicitLead =
-    stakeholderLines.find((item) => /\b(delivery lead|program lead|owner|engagement lead|program manager)\b/i.test(item)) ??
-    stakeholderLines[0];
-
-  return explicitLead || "Lead not named";
-}
-
-function getEscalatedRoleUpdates(update: StoredProgramUpdate | undefined) {
-  return (
-    update?.review.teamRoleUpdates?.filter(
-      (role) => role.needsLeadershipAttention && role.role.trim()
-    ) ?? []
-  );
-}
-
 function differenceInDays(later: Date, earlier: Date) {
   return Math.floor((later.getTime() - earlier.getTime()) / (1000 * 60 * 60 * 24));
 }
@@ -366,54 +318,6 @@ function formatRelativeDays(days: number) {
 function buildReviewCycleStatus(entries: LeadershipReviewRecord[]): ReviewCycleStatus {
   const cadence = inferReviewCadence(entries);
   return buildReviewCycleStatusForCadence(entries, cadence);
-}
-
-function buildReviewCycleStatusForCadence(entries: LeadershipReviewRecord[], cadence: ReviewCadence): ReviewCycleStatus {
-  const cadenceDays = cadence === "weekly" ? 7 : 14;
-
-  if (!entries.length) {
-    return {
-      cadence,
-      lastReviewedLabel: "No review on file",
-      nextReviewLabel: cadence === "weekly" ? "Start the first weekly review" : "Start the first bi-weekly review",
-      badgeLabel: "Review needed",
-      badgeTone: "due",
-      ctaLabel: "Start new review cycle",
-      helperText: "No leadership review has been saved for this program yet."
-    };
-  }
-
-  const latestDate = new Date(entries[0].createdAt);
-  const now = new Date();
-  const daysSinceReview = differenceInDays(now, latestDate);
-  const nextReviewDate = new Date(latestDate);
-  nextReviewDate.setDate(nextReviewDate.getDate() + cadenceDays);
-  const daysUntilNextReview = differenceInDays(nextReviewDate, now);
-
-  let badgeTone: ReviewCycleStatus["badgeTone"] = "on-track";
-  let badgeLabel = `${cadence === "weekly" ? "Weekly" : "Bi-weekly"} review on track`;
-  if (daysUntilNextReview < 0) {
-    badgeTone = "overdue";
-      badgeLabel = `${cadence === "weekly" ? "Weekly" : "Bi-weekly"} review overdue`;
-  } else if (daysUntilNextReview <= 1) {
-    badgeTone = "due";
-      badgeLabel = `${cadence === "weekly" ? "Weekly" : "Bi-weekly"} review due`;
-  }
-
-  return {
-    cadence,
-    lastReviewedLabel: `${formatTimestamp(entries[0].createdAt)} (${daysSinceReview === 0 ? "today" : `${daysSinceReview}d ago`})`,
-    nextReviewLabel: `${formatTimestamp(nextReviewDate.toISOString())} (${daysUntilNextReview < 0 ? `${Math.abs(daysUntilNextReview)}d overdue` : formatRelativeDays(daysUntilNextReview)})`,
-    badgeLabel,
-    badgeTone,
-    ctaLabel: daysSinceReview < 2 ? "Update this review cycle" : "Start new review cycle",
-    helperText:
-      badgeTone === "overdue"
-        ? "Leadership input is past the expected review cadence for this program."
-        : badgeTone === "due"
-          ? "A new leadership review should be entered now so guidance stays current."
-          : "The current leadership review is still within the expected review window."
-  };
 }
 
 function buildProgramGantt(program: StoredProgram | null, latestUpdate: StoredProgramUpdate | undefined): GanttPhase[] {
@@ -459,6 +363,9 @@ export function LeadershipReviewConsole() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const queueMode = searchParams.get("queue") === "due";
+  const programsRequestRef = useRef(0);
+  const queueRequestRef = useRef(0);
+  const contextRequestRef = useRef(0);
   const [programs, setPrograms] = useState<StoredProgram[]>([seededLeadershipProgram]);
   const [selectedProgramId, setSelectedProgramId] = useState(seededLeadershipProgram.id);
   const [updates, setUpdates] = useState<StoredProgramUpdate[]>(seededLeadershipUpdates);
@@ -628,12 +535,24 @@ export function LeadershipReviewConsole() {
 
   useEffect(() => {
     async function loadPrograms() {
-      const response = await fetch("/api/programs");
-      const payload = (await response.json()) as { programs: StoredProgram[] };
-      if (payload.programs.length) {
-        setPrograms(payload.programs);
-        setSelectedProgramId(payload.programs[0].id);
-      } else {
+      const requestId = ++programsRequestRef.current;
+
+      try {
+        const response = await fetch("/api/programs", { cache: "no-store" });
+        const payload = (await response.json()) as { programs: StoredProgram[] };
+        if (requestId !== programsRequestRef.current) return;
+
+        if (payload.programs.length) {
+          setPrograms(payload.programs);
+          setSelectedProgramId((current) =>
+            payload.programs.some((program) => program.id === current) ? current : payload.programs[0].id
+          );
+        } else {
+          setPrograms([seededLeadershipProgram]);
+          setSelectedProgramId(seededLeadershipProgram.id);
+        }
+      } catch {
+        if (requestId !== programsRequestRef.current) return;
         setPrograms([seededLeadershipProgram]);
         setSelectedProgramId(seededLeadershipProgram.id);
       }
@@ -649,58 +568,18 @@ export function LeadershipReviewConsole() {
         return;
       }
 
-      const queueEntries = await Promise.all(
-        programs.map(async (program) => {
-          const cadence = (program.intake.leadershipReviewCadence as ReviewCadence | undefined) ?? "weekly";
-          const [programFeedback, programUpdates] =
-            program.id === seededLeadershipProgram.id
-              ? [seededLeadershipFeedback, seededLeadershipUpdates]
-              : await Promise.all([
-                  fetch(`/api/programs/${program.id}/leadership-feedback`).then(async (response) =>
-                    response.ok ? (((await response.json()) as { feedback: LeadershipReviewRecord[] }).feedback) : []
-                  ),
-                  fetch(`/api/programs/${program.id}/updates`).then(async (response) =>
-                    response.ok ? (((await response.json()) as { updates: StoredProgramUpdate[] }).updates) : []
-                  )
-                ]);
-          const cycleStatus = buildReviewCycleStatusForCadence(programFeedback, cadence);
-          const escalatedRoles = getEscalatedRoleUpdates(programUpdates[0]);
-          if (cycleStatus.badgeTone === "on-track" && !escalatedRoles.length) {
-            return null;
-          }
+      const requestId = ++queueRequestRef.current;
 
-          return {
-            programId: program.id,
-            programName: program.intake.programName,
-            leadLabel: deriveLeadLabel(program),
-            cadence,
-            status:
-              cycleStatus.badgeTone !== "on-track"
-                ? cycleStatus.badgeTone
-                : "attention",
-            badgeLabel:
-              cycleStatus.badgeTone !== "on-track"
-                ? cycleStatus.badgeLabel
-                : "Leadership attention flagged",
-            lastReviewedLabel: cycleStatus.lastReviewedLabel,
-            nextReviewLabel: cycleStatus.nextReviewLabel,
-            attentionRoles: escalatedRoles.map((role) => role.role)
-          } satisfies ReviewQueueItem;
-        })
-      );
-
-      const dueQueue: ReviewQueueItem[] = queueEntries
-        .filter((entry) => entry !== null)
-        .sort((a, b) => {
-          if (a.status !== b.status) {
-            const order = { attention: 0, overdue: 1, due: 2 };
-            return order[a.status] - order[b.status];
-          }
-
-          return a.programName.localeCompare(b.programName);
-        });
-
-      setReviewQueue(dueQueue);
+      try {
+        const response = await fetch("/api/leadership/review-queue", { cache: "no-store" });
+        if (!response.ok) return;
+        const payload = (await response.json()) as { reviewQueue: ReviewQueueItem[] };
+        if (requestId !== queueRequestRef.current) return;
+        setReviewQueue(payload.reviewQueue);
+      } catch {
+        if (requestId !== queueRequestRef.current) return;
+        setReviewQueue([]);
+      }
     }
 
     void loadReviewQueue();
@@ -715,8 +594,10 @@ export function LeadershipReviewConsole() {
   useEffect(() => {
     async function loadProgramContext() {
       if (!selectedProgramId || !selectedProgram) return;
+      const requestId = ++contextRequestRef.current;
 
       if (selectedProgramId === seededLeadershipProgram.id) {
+        if (requestId !== contextRequestRef.current) return;
         setUpdates(seededLeadershipUpdates);
         setPlan(seededLeadershipPlan);
         setFeedback(seededLeadershipFeedback);
@@ -726,38 +607,45 @@ export function LeadershipReviewConsole() {
         return;
       }
 
-      const [updatesResponse, planResponse, feedbackResponse] = await Promise.all([
-        fetch(`/api/programs/${selectedProgramId}/updates`),
-        fetch(`/api/programs/${selectedProgramId}/guided-plan`),
-        fetch(`/api/programs/${selectedProgramId}/leadership-feedback`)
-      ]);
+      try {
+        const [updatesResponse, planResponse, feedbackResponse] = await Promise.all([
+          fetch(`/api/programs/${selectedProgramId}/updates`, { cache: "no-store" }),
+          fetch(`/api/programs/${selectedProgramId}/guided-plan`, { cache: "no-store" }),
+          fetch(`/api/programs/${selectedProgramId}/leadership-feedback`, { cache: "no-store" })
+        ]);
 
-      const updatesPayload = (await updatesResponse.json()) as { updates: StoredProgramUpdate[] };
-      const planPayload = (await planResponse.json()) as { plan: GuidedPlan | null };
-      const feedbackPayload = (await feedbackResponse.json()) as { feedback: LeadershipReviewRecord[] };
-      const latestSavedFeedback = feedbackPayload.feedback[0];
+        const updatesPayload = (await updatesResponse.json()) as { updates: StoredProgramUpdate[] };
+        const planPayload = (await planResponse.json()) as { plan: GuidedPlan | null };
+        const feedbackPayload = (await feedbackResponse.json()) as { feedback: LeadershipReviewRecord[] };
+        if (requestId !== contextRequestRef.current) return;
 
-      setUpdates(updatesPayload.updates);
-      setPlan(planPayload.plan);
-      setFeedback(feedbackPayload.feedback);
-      setReview((current) => ({
-        ...current,
-        programName: selectedProgram.intake.programName,
-        timelineSummary:
-          latestSavedFeedback?.feedback.timelineSummary ??
-          firstSignal(selectedProgram.intake.currentStatus || updatesPayload.updates[0]?.review.currentPhase || "", ""),
-        progressHighlights:
-          latestSavedFeedback?.feedback.progressHighlights ??
-          firstSignal(updatesPayload.updates[0]?.review.progressSinceLastReview || selectedProgram.intake.outcomes || "", ""),
-        activeRisks:
-          latestSavedFeedback?.feedback.activeRisks ??
-          firstSignal(updatesPayload.updates[0]?.review.activeRisks || selectedProgram.intake.risks || "", ""),
-        leadershipGuidance: latestSavedFeedback?.feedback.leadershipGuidance ?? "",
-        supportRequests: latestSavedFeedback?.feedback.supportRequests ?? "",
-        feedbackToDeliveryLead: latestSavedFeedback?.feedback.feedbackToDeliveryLead ?? ""
-      }));
-      setStatus(planPayload.plan ? "Leadership view synced with latest saved plan and program signals." : "Leadership view synced with saved program signals.");
-      setSaveState("idle");
+        const latestSavedFeedback = feedbackPayload.feedback[0];
+
+        setUpdates(updatesPayload.updates);
+        setPlan(planPayload.plan);
+        setFeedback(feedbackPayload.feedback);
+        setReview((current) => ({
+          ...current,
+          programName: selectedProgram.intake.programName,
+          timelineSummary:
+            latestSavedFeedback?.feedback.timelineSummary ??
+            firstSignal(selectedProgram.intake.currentStatus || updatesPayload.updates[0]?.review.currentPhase || "", ""),
+          progressHighlights:
+            latestSavedFeedback?.feedback.progressHighlights ??
+            firstSignal(updatesPayload.updates[0]?.review.progressSinceLastReview || selectedProgram.intake.outcomes || "", ""),
+          activeRisks:
+            latestSavedFeedback?.feedback.activeRisks ??
+            firstSignal(updatesPayload.updates[0]?.review.activeRisks || selectedProgram.intake.risks || "", ""),
+          leadershipGuidance: latestSavedFeedback?.feedback.leadershipGuidance ?? "",
+          supportRequests: latestSavedFeedback?.feedback.supportRequests ?? "",
+          feedbackToDeliveryLead: latestSavedFeedback?.feedback.feedbackToDeliveryLead ?? ""
+        }));
+        setStatus(planPayload.plan ? "Leadership view synced with latest saved plan and program signals." : "Leadership view synced with saved program signals.");
+        setSaveState("idle");
+      } catch {
+        if (requestId !== contextRequestRef.current) return;
+        setStatus("Leadership view could not load the latest program context.");
+      }
     }
 
     void loadProgramContext();

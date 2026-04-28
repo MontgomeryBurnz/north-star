@@ -3,6 +3,7 @@ import type {
   LeadershipReviewInput,
   LeadershipRoleImpact
 } from "@/lib/leadership-feedback-types";
+import { asRecord, asStringArray, asTrimmedString, extractOutputText, parseStructuredModelOutput } from "@/lib/openai-structured-output";
 
 type OpenAIInterpretationPayload = {
   summary: string;
@@ -10,16 +11,6 @@ type OpenAIInterpretationPayload = {
   planImpacts: string[];
   riskAdjustments: string[];
   roleImpacts: LeadershipRoleImpact[];
-};
-
-type ResponsesApiPayload = {
-  output_text?: string;
-  output?: Array<{
-    content?: Array<{
-      type?: string;
-      text?: string;
-    }>;
-  }>;
 };
 
 const deliveryRoles: LeadershipRoleImpact["role"][] = [
@@ -64,35 +55,31 @@ function firstSignal(value: string, fallback: string) {
   );
 }
 
-function extractOutputText(payload: ResponsesApiPayload) {
-  if (payload.output_text?.trim()) return payload.output_text;
+function validateInterpretationPayload(value: unknown): OpenAIInterpretationPayload | null {
+  const record = asRecord(value);
+  if (!record) return null;
 
-  for (const item of payload.output ?? []) {
-    for (const content of item.content ?? []) {
-      if (content.type === "output_text" && content.text?.trim()) {
-        return content.text;
-      }
-    }
-  }
+  const summary = asTrimmedString(record.summary);
+  const deliveryLeadMessage = asTrimmedString(record.deliveryLeadMessage);
+  const planImpacts = asStringArray(record.planImpacts, { min: 1, max: 6 });
+  const riskAdjustments = asStringArray(record.riskAdjustments, { min: 1, max: 6 });
+  const roleImpactsValue = Array.isArray(record.roleImpacts) ? record.roleImpacts : null;
+  if (!summary || !deliveryLeadMessage || !planImpacts || !riskAdjustments || !roleImpactsValue) return null;
 
-  return "";
-}
+  const roleImpacts = roleImpactsValue
+    .map((item) => {
+      const itemRecord = asRecord(item);
+      if (!itemRecord) return null;
+      const role = asTrimmedString(itemRecord.role);
+      const focus = asTrimmedString(itemRecord.focus);
+      if (!role || !focus || !deliveryRoles.includes(role as LeadershipRoleImpact["role"])) return null;
+      return { role: role as LeadershipRoleImpact["role"], focus };
+    })
+    .filter((item): item is LeadershipRoleImpact => Boolean(item));
 
-function safeJsonParse(value: string): OpenAIInterpretationPayload | null {
-  try {
-    return JSON.parse(value) as OpenAIInterpretationPayload;
-  } catch {
-    const start = value.indexOf("{");
-    const end = value.lastIndexOf("}");
-    if (start >= 0 && end > start) {
-      try {
-        return JSON.parse(value.slice(start, end + 1)) as OpenAIInterpretationPayload;
-      } catch {
-        return null;
-      }
-    }
-    return null;
-  }
+  if (!roleImpacts.length) return null;
+
+  return { summary, deliveryLeadMessage, planImpacts, riskAdjustments, roleImpacts };
 }
 
 function sanitizeStringArray(items: unknown, fallback: string[]) {
@@ -297,6 +284,6 @@ export async function enhanceLeadershipFeedback(feedback: LeadershipReviewInput)
     return fallback;
   }
 
-  const payload = safeJsonParse(extractOutputText((await response.json()) as ResponsesApiPayload));
+  const payload = parseStructuredModelOutput(extractOutputText(await response.json()), validateInterpretationPayload);
   return mergeOpenAIInterpretation(payload, fallback, model);
 }
