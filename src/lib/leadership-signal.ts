@@ -1,6 +1,6 @@
-import type { GuidedPlan } from "@/lib/guided-plan-types";
-import type { DeliveryLeadershipSignal, LeadershipReviewRecord } from "@/lib/leadership-feedback-types";
-import { firstSignal, normalizeWhitespace } from "@/lib/text-signals";
+import type { GuidedPlan } from "./guided-plan-types.ts";
+import type { DeliveryLeadershipSignal, LeadershipReviewRecord } from "./leadership-feedback-types.ts";
+import { firstSignal, normalizeWhitespace } from "./text-signals.ts";
 
 function cleanSignal(value: string) {
   return normalizeWhitespace(value);

@@ -1,8 +1,9 @@
 "use client";
 
-import { ChangeEvent, FormEvent, useEffect, useMemo, useState } from "react";
+import { ChangeEvent, FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { Save } from "lucide-react";
 import type { ActiveProgramReview, ActiveProgramUpdate, TeamRoleUpdate, TeamRoleUpdateStatus } from "@/lib/active-program-types";
+import { useForegroundRefresh } from "@/hooks/use-foreground-refresh";
 import { useRequestSequence } from "@/hooks/use-request-sequence";
 import type { DeliveryLeadershipSignal } from "@/lib/leadership-feedback-types";
 import type { ProgramMeetingAttachment, ProgramMeetingInput } from "@/lib/program-intelligence-types";
@@ -371,103 +372,103 @@ export function ActiveProgramReviewSection() {
   const [meetingSaveState, setMeetingSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const [meetingUploadState, setMeetingUploadState] = useState<"idle" | "uploading" | "uploaded" | "error">("idle");
 
-  useEffect(() => {
-    async function loadServerPrograms() {
-      const requestId = programsRequest.beginRequest();
-      try {
-        const response = await fetch("/api/programs", { cache: "no-store" });
-        if (!response.ok) return;
-        const payload = (await response.json()) as {
-          programs: Array<{ id: string; intake: ProgramIntake }>;
-        };
-        const serverPrograms: ExistingProgramOption[] = payload.programs.map((program) => ({
-          id: program.id,
-          label: program.intake.programName,
-          source: "local",
-          intake: program.intake,
-          review:
-            optionFromSavedIntake(program.intake)?.review ??
-            normalizeReview(
-              {
-                ...emptyReview,
-                programName: program.intake.programName,
-                updateCadence: program.intake.leadershipReviewCadence === "biweekly" ? "biweekly" : "weekly"
-              },
-              program.intake
-            )
-        }));
+  const loadServerPrograms = useCallback(async () => {
+    const requestId = programsRequest.beginRequest();
+    try {
+      const response = await fetch("/api/programs", { cache: "no-store" });
+      if (!response.ok) return;
+      const payload = (await response.json()) as {
+        programs: Array<{ id: string; intake: ProgramIntake }>;
+      };
+      const serverPrograms: ExistingProgramOption[] = payload.programs.map((program) => ({
+        id: program.id,
+        label: program.intake.programName,
+        source: "local",
+        intake: program.intake,
+        review:
+          optionFromSavedIntake(program.intake)?.review ??
+          normalizeReview(
+            {
+              ...emptyReview,
+              programName: program.intake.programName,
+              updateCadence: program.intake.leadershipReviewCadence === "biweekly" ? "biweekly" : "weekly"
+            },
+            program.intake
+          )
+      }));
 
-        if (!programsRequest.isLatestRequest(requestId)) return;
-        setExistingPrograms(serverPrograms);
-        setUpdates(pruneStoredUpdates(serverPrograms.map((program) => program.id)));
-        window.localStorage.removeItem(intakeDraftKey);
-        window.localStorage.removeItem(reviewDraftKey);
-        setSelectedProgramId((current) => (serverPrograms.some((program) => program.id === current) ? current : ""));
-      } catch {
-        if (!programsRequest.isLatestRequest(requestId)) return;
-        setExistingPrograms([]);
-      }
+      if (!programsRequest.isLatestRequest(requestId)) return;
+      setExistingPrograms(serverPrograms);
+      setUpdates(pruneStoredUpdates(serverPrograms.map((program) => program.id)));
+      window.localStorage.removeItem(intakeDraftKey);
+      window.localStorage.removeItem(reviewDraftKey);
+      setSelectedProgramId((current) => (serverPrograms.some((program) => program.id === current) ? current : ""));
+    } catch {
+      if (!programsRequest.isLatestRequest(requestId)) return;
+      setExistingPrograms([]);
     }
-
-    void loadServerPrograms();
   }, [programsRequest]);
 
   useEffect(() => {
-    async function loadProgramUpdates() {
-      if (!selectedProgramId) return;
-      const requestId = updatesRequest.beginRequest();
+    void loadServerPrograms();
+  }, [loadServerPrograms]);
 
-      try {
-        const response = await fetch(`/api/programs/${selectedProgramId}/updates`, { cache: "no-store" });
-        if (!response.ok) return;
-        const payload = (await response.json()) as { updates: ActiveProgramUpdate[] };
-        if (!updatesRequest.isLatestRequest(requestId)) return;
-        const normalizedUpdates = payload.updates.map((update) => ({
-          ...update,
-          review: normalizeReview(
-            update.review,
-            existingPrograms.find((program) => program.id === selectedProgramId)?.intake
-          )
-        }));
-        setUpdates((current) => {
-          const currentOtherPrograms = current.filter((update) => update.programId !== selectedProgramId);
-          return [...normalizedUpdates, ...currentOtherPrograms];
-        });
-      } catch {
-        return;
-      }
+  const loadProgramUpdates = useCallback(async () => {
+    if (!selectedProgramId) return;
+    const requestId = updatesRequest.beginRequest();
+
+    try {
+      const response = await fetch(`/api/programs/${selectedProgramId}/updates`, { cache: "no-store" });
+      if (!response.ok) return;
+      const payload = (await response.json()) as { updates: ActiveProgramUpdate[] };
+      if (!updatesRequest.isLatestRequest(requestId)) return;
+      const normalizedUpdates = payload.updates.map((update) => ({
+        ...update,
+        review: normalizeReview(
+          update.review,
+          existingPrograms.find((program) => program.id === selectedProgramId)?.intake
+        )
+      }));
+      setUpdates((current) => {
+        const currentOtherPrograms = current.filter((update) => update.programId !== selectedProgramId);
+        return [...normalizedUpdates, ...currentOtherPrograms];
+      });
+    } catch {
+      return;
     }
-
-    void loadProgramUpdates();
   }, [existingPrograms, selectedProgramId, updatesRequest]);
 
   useEffect(() => {
-    async function loadLeadershipSignal() {
-      if (!selectedProgramId) {
+    void loadProgramUpdates();
+  }, [loadProgramUpdates]);
+
+  const loadLeadershipSignal = useCallback(async () => {
+    if (!selectedProgramId) {
+      setLeadershipSignal(null);
+      return;
+    }
+    const requestId = signalRequest.beginRequest();
+
+    try {
+      const response = await fetch(`/api/programs/${selectedProgramId}/leadership-signal`, { cache: "no-store" });
+      if (!response.ok) {
+        if (!signalRequest.isLatestRequest(requestId)) return;
         setLeadershipSignal(null);
         return;
       }
-      const requestId = signalRequest.beginRequest();
 
-      try {
-        const response = await fetch(`/api/programs/${selectedProgramId}/leadership-signal`, { cache: "no-store" });
-        if (!response.ok) {
-          if (!signalRequest.isLatestRequest(requestId)) return;
-          setLeadershipSignal(null);
-          return;
-        }
-
-        const payload = (await response.json()) as { signal: DeliveryLeadershipSignal };
-        if (!signalRequest.isLatestRequest(requestId)) return;
-        setLeadershipSignal(payload.signal);
-      } catch {
-        if (!signalRequest.isLatestRequest(requestId)) return;
-        setLeadershipSignal(null);
-      }
+      const payload = (await response.json()) as { signal: DeliveryLeadershipSignal };
+      if (!signalRequest.isLatestRequest(requestId)) return;
+      setLeadershipSignal(payload.signal);
+    } catch {
+      if (!signalRequest.isLatestRequest(requestId)) return;
+      setLeadershipSignal(null);
     }
+  }, [selectedProgramId, signalRequest]);
 
+  useEffect(() => {
     void loadLeadershipSignal();
-  }, [selectedProgramId, saveState, signalRequest]);
+  }, [loadLeadershipSignal, saveState]);
 
   const selectedProgram = useMemo(
     () => existingPrograms.find((program) => program.id === selectedProgramId),
@@ -476,33 +477,41 @@ export function ActiveProgramReviewSection() {
 
   const activeTeamRoles = useMemo(() => getProgramTeamRoles(selectedProgram?.intake), [selectedProgram?.intake]);
 
-  useEffect(() => {
-    async function loadMeetingInputs() {
-      if (!selectedProgramId) {
+  const loadMeetingInputs = useCallback(async () => {
+    if (!selectedProgramId) {
+      setMeetingInputs([]);
+      return;
+    }
+    const requestId = meetingInputsRequest.beginRequest();
+
+    try {
+      const response = await fetch(`/api/programs/${selectedProgramId}/meeting-inputs`, { cache: "no-store" });
+      if (!response.ok) {
+        if (!meetingInputsRequest.isLatestRequest(requestId)) return;
         setMeetingInputs([]);
         return;
       }
-      const requestId = meetingInputsRequest.beginRequest();
 
-      try {
-        const response = await fetch(`/api/programs/${selectedProgramId}/meeting-inputs`, { cache: "no-store" });
-        if (!response.ok) {
-          if (!meetingInputsRequest.isLatestRequest(requestId)) return;
-          setMeetingInputs([]);
-          return;
-        }
-
-        const payload = (await response.json()) as { meetingInputs: ProgramMeetingInput[] };
-        if (!meetingInputsRequest.isLatestRequest(requestId)) return;
-        setMeetingInputs(payload.meetingInputs);
-      } catch {
-        if (!meetingInputsRequest.isLatestRequest(requestId)) return;
-        setMeetingInputs([]);
-      }
+      const payload = (await response.json()) as { meetingInputs: ProgramMeetingInput[] };
+      if (!meetingInputsRequest.isLatestRequest(requestId)) return;
+      setMeetingInputs(payload.meetingInputs);
+    } catch {
+      if (!meetingInputsRequest.isLatestRequest(requestId)) return;
+      setMeetingInputs([]);
     }
+  }, [meetingInputsRequest, selectedProgramId]);
 
+  useEffect(() => {
     void loadMeetingInputs();
-  }, [meetingInputsRequest, selectedProgramId, saveState]);
+  }, [loadMeetingInputs, saveState]);
+
+  const refreshActiveProgramView = useCallback(() => {
+    void loadServerPrograms();
+    void loadProgramUpdates();
+    void loadLeadershipSignal();
+    void loadMeetingInputs();
+  }, [loadLeadershipSignal, loadMeetingInputs, loadProgramUpdates, loadServerPrograms]);
+  useForegroundRefresh(refreshActiveProgramView, { enabled: true, intervalMs: selectedProgramId ? 15000 : null });
 
   const selectedProgramHistory = useMemo(() => {
     if (!selectedProgramId && !review.programName) return [];

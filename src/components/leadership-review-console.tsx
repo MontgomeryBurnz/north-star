@@ -1,14 +1,16 @@
 "use client";
 
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import type { StoredProgramUpdate } from "@/lib/active-program-types";
 import type { GuidedPlan } from "@/lib/guided-plan-types";
 import type { LeadershipReviewInput, LeadershipReviewRecord } from "@/lib/leadership-feedback-types";
+import { useForegroundRefresh } from "@/hooks/use-foreground-refresh";
+import { useProgramCatalog } from "@/hooks/use-program-catalog";
 import { useRequestSequence } from "@/hooks/use-request-sequence";
 import { buildReviewCycleStatusForCadence, type ReviewCadence, type ReviewCycleStatus, type ReviewQueueItem } from "@/lib/leadership-review-queue";
 import { buildProgramGantt } from "@/lib/program-gantt";
-import type { ProgramIntake, StoredProgram } from "@/lib/program-intake-types";
+import type { StoredProgram } from "@/lib/program-intake-types";
 import { firstNonEmpty, firstSignal, splitSignals } from "@/lib/text-signals";
 import { LeadershipExecutiveSummary } from "@/components/leadership-executive-summary";
 import { LeadershipProgramTimeline } from "@/components/leadership-program-timeline";
@@ -282,11 +284,8 @@ export function LeadershipReviewConsole() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const queueMode = searchParams.get("queue") === "due";
-  const programsRequest = useRequestSequence();
   const queueRequest = useRequestSequence();
   const contextRequest = useRequestSequence();
-  const [programs, setPrograms] = useState<StoredProgram[]>([seededLeadershipProgram]);
-  const [selectedProgramId, setSelectedProgramId] = useState(seededLeadershipProgram.id);
   const [updates, setUpdates] = useState<StoredProgramUpdate[]>(seededLeadershipUpdates);
   const [plan, setPlan] = useState<GuidedPlan | null>(seededLeadershipPlan);
   const [feedback, setFeedback] = useState<LeadershipReviewRecord[]>(seededLeadershipFeedback);
@@ -294,11 +293,14 @@ export function LeadershipReviewConsole() {
   const [review, setReview] = useState<LeadershipReviewInput>(emptyLeadershipReview);
   const [status, setStatus] = useState<string | null>(null);
   const [saveState, setSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle");
-
-  const selectedProgram = useMemo(
-    () => programs.find((program) => program.id === selectedProgramId) ?? null,
-    [programs, selectedProgramId]
-  );
+  const handleProgramLoadError = useCallback(() => setStatus("Leadership program catalog could not be refreshed."), []);
+  const { programs, setPrograms, selectedProgram, selectedProgramId, setSelectedProgramId, refreshPrograms } = useProgramCatalog({
+    initialPrograms: [seededLeadershipProgram],
+    initialSelectedProgramId: seededLeadershipProgram.id,
+    fallbackPrograms: [seededLeadershipProgram],
+    fallbackSelectedProgramId: seededLeadershipProgram.id,
+    onError: handleProgramLoadError
+  });
   const latestUpdate = updates[0];
   const latestFeedback = feedback[0];
   const ganttPhases = useMemo(() => buildProgramGantt(selectedProgram, latestUpdate), [latestUpdate, selectedProgram]);
@@ -472,57 +474,29 @@ export function LeadershipReviewConsole() {
     ].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
   }, [feedback, plan, selectedProgram, updates]);
 
-  useEffect(() => {
-    async function loadPrograms() {
-      const requestId = programsRequest.beginRequest();
-
-      try {
-        const response = await fetch("/api/programs", { cache: "no-store" });
-        const payload = (await response.json()) as { programs: StoredProgram[] };
-        if (!programsRequest.isLatestRequest(requestId)) return;
-
-        if (payload.programs.length) {
-          setPrograms(payload.programs);
-          setSelectedProgramId((current) =>
-            payload.programs.some((program) => program.id === current) ? current : payload.programs[0].id
-          );
-        } else {
-          setPrograms([seededLeadershipProgram]);
-          setSelectedProgramId(seededLeadershipProgram.id);
-        }
-      } catch {
-        if (!programsRequest.isLatestRequest(requestId)) return;
-        setPrograms([seededLeadershipProgram]);
-        setSelectedProgramId(seededLeadershipProgram.id);
-      }
+  const loadReviewQueue = useCallback(async () => {
+    if (!programs.length) {
+      setReviewQueue([]);
+      return;
     }
 
-    void loadPrograms();
-  }, [programsRequest]);
+    const requestId = queueRequest.beginRequest();
+
+    try {
+      const response = await fetch("/api/leadership/review-queue", { cache: "no-store" });
+      if (!response.ok) return;
+      const payload = (await response.json()) as { reviewQueue: ReviewQueueItem[] };
+      if (!queueRequest.isLatestRequest(requestId)) return;
+      setReviewQueue(payload.reviewQueue);
+    } catch {
+      if (!queueRequest.isLatestRequest(requestId)) return;
+      setReviewQueue([]);
+    }
+  }, [programs.length, queueRequest]);
 
   useEffect(() => {
-    async function loadReviewQueue() {
-      if (!programs.length) {
-        setReviewQueue([]);
-        return;
-      }
-
-      const requestId = queueRequest.beginRequest();
-
-      try {
-        const response = await fetch("/api/leadership/review-queue", { cache: "no-store" });
-        if (!response.ok) return;
-        const payload = (await response.json()) as { reviewQueue: ReviewQueueItem[] };
-        if (!queueRequest.isLatestRequest(requestId)) return;
-        setReviewQueue(payload.reviewQueue);
-      } catch {
-        if (!queueRequest.isLatestRequest(requestId)) return;
-        setReviewQueue([]);
-      }
-    }
-
     void loadReviewQueue();
-  }, [feedback, programs, queueRequest]);
+  }, [loadReviewQueue]);
 
   useEffect(() => {
     if (!queueMode || !displayedReviewQueue.length) return;
@@ -530,65 +504,72 @@ export function LeadershipReviewConsole() {
     setSelectedProgramId(displayedReviewQueue[0].programId);
   }, [displayedReviewQueue, queueMode, selectedProgramId]);
 
-  useEffect(() => {
-    async function loadProgramContext() {
-      if (!selectedProgramId || !selectedProgram) return;
-      const requestId = contextRequest.beginRequest();
+  const loadProgramContext = useCallback(async () => {
+    if (!selectedProgramId || !selectedProgram) return;
+    const requestId = contextRequest.beginRequest();
 
-      if (selectedProgramId === seededLeadershipProgram.id) {
-        if (!contextRequest.isLatestRequest(requestId)) return;
-        setUpdates(seededLeadershipUpdates);
-        setPlan(seededLeadershipPlan);
-        setFeedback(seededLeadershipFeedback);
-        setReview(seededLeadershipFeedback[0].feedback);
-        setStatus("Showing seeded leadership scenario. Save real programs to replace it with live data.");
-        setSaveState("idle");
-        return;
-      }
-
-      try {
-        const [updatesResponse, planResponse, feedbackResponse] = await Promise.all([
-          fetch(`/api/programs/${selectedProgramId}/updates`, { cache: "no-store" }),
-          fetch(`/api/programs/${selectedProgramId}/guided-plan`, { cache: "no-store" }),
-          fetch(`/api/programs/${selectedProgramId}/leadership-feedback`, { cache: "no-store" })
-        ]);
-
-        const updatesPayload = (await updatesResponse.json()) as { updates: StoredProgramUpdate[] };
-        const planPayload = (await planResponse.json()) as { plan: GuidedPlan | null };
-        const feedbackPayload = (await feedbackResponse.json()) as { feedback: LeadershipReviewRecord[] };
-        if (!contextRequest.isLatestRequest(requestId)) return;
-
-        const latestSavedFeedback = feedbackPayload.feedback[0];
-
-        setUpdates(updatesPayload.updates);
-        setPlan(planPayload.plan);
-        setFeedback(feedbackPayload.feedback);
-        setReview((current) => ({
-          ...current,
-          programName: selectedProgram.intake.programName,
-          timelineSummary:
-            latestSavedFeedback?.feedback.timelineSummary ??
-            firstSignal(selectedProgram.intake.currentStatus || updatesPayload.updates[0]?.review.currentPhase || "", ""),
-          progressHighlights:
-            latestSavedFeedback?.feedback.progressHighlights ??
-            firstSignal(updatesPayload.updates[0]?.review.progressSinceLastReview || selectedProgram.intake.outcomes || "", ""),
-          activeRisks:
-            latestSavedFeedback?.feedback.activeRisks ??
-            firstSignal(updatesPayload.updates[0]?.review.activeRisks || selectedProgram.intake.risks || "", ""),
-          leadershipGuidance: latestSavedFeedback?.feedback.leadershipGuidance ?? "",
-          supportRequests: latestSavedFeedback?.feedback.supportRequests ?? "",
-          feedbackToDeliveryLead: latestSavedFeedback?.feedback.feedbackToDeliveryLead ?? ""
-        }));
-        setStatus(planPayload.plan ? "Leadership view synced with latest saved plan and program signals." : "Leadership view synced with saved program signals.");
-        setSaveState("idle");
-      } catch {
-        if (!contextRequest.isLatestRequest(requestId)) return;
-        setStatus("Leadership view could not load the latest program context.");
-      }
+    if (selectedProgramId === seededLeadershipProgram.id) {
+      if (!contextRequest.isLatestRequest(requestId)) return;
+      setUpdates(seededLeadershipUpdates);
+      setPlan(seededLeadershipPlan);
+      setFeedback(seededLeadershipFeedback);
+      setReview(seededLeadershipFeedback[0].feedback);
+      setStatus("Showing seeded leadership scenario. Save real programs to replace it with live data.");
+      setSaveState("idle");
+      return;
     }
 
-    void loadProgramContext();
+    try {
+      const [updatesResponse, planResponse, feedbackResponse] = await Promise.all([
+        fetch(`/api/programs/${selectedProgramId}/updates`, { cache: "no-store" }),
+        fetch(`/api/programs/${selectedProgramId}/guided-plan`, { cache: "no-store" }),
+        fetch(`/api/programs/${selectedProgramId}/leadership-feedback`, { cache: "no-store" })
+      ]);
+
+      const updatesPayload = (await updatesResponse.json()) as { updates: StoredProgramUpdate[] };
+      const planPayload = (await planResponse.json()) as { plan: GuidedPlan | null };
+      const feedbackPayload = (await feedbackResponse.json()) as { feedback: LeadershipReviewRecord[] };
+      if (!contextRequest.isLatestRequest(requestId)) return;
+
+      const latestSavedFeedback = feedbackPayload.feedback[0];
+
+      setUpdates(updatesPayload.updates);
+      setPlan(planPayload.plan);
+      setFeedback(feedbackPayload.feedback);
+      setReview((current) => ({
+        ...current,
+        programName: selectedProgram.intake.programName,
+        timelineSummary:
+          latestSavedFeedback?.feedback.timelineSummary ??
+          firstSignal(selectedProgram.intake.currentStatus || updatesPayload.updates[0]?.review.currentPhase || "", ""),
+        progressHighlights:
+          latestSavedFeedback?.feedback.progressHighlights ??
+          firstSignal(updatesPayload.updates[0]?.review.progressSinceLastReview || selectedProgram.intake.outcomes || "", ""),
+        activeRisks:
+          latestSavedFeedback?.feedback.activeRisks ??
+          firstSignal(updatesPayload.updates[0]?.review.activeRisks || selectedProgram.intake.risks || "", ""),
+        leadershipGuidance: latestSavedFeedback?.feedback.leadershipGuidance ?? "",
+        supportRequests: latestSavedFeedback?.feedback.supportRequests ?? "",
+        feedbackToDeliveryLead: latestSavedFeedback?.feedback.feedbackToDeliveryLead ?? ""
+      }));
+      setStatus(planPayload.plan ? "Leadership view synced with latest saved plan and program signals." : "Leadership view synced with saved program signals.");
+      setSaveState("idle");
+    } catch {
+      if (!contextRequest.isLatestRequest(requestId)) return;
+      setStatus("Leadership view could not load the latest program context.");
+    }
   }, [contextRequest, selectedProgram, selectedProgramId]);
+
+  useEffect(() => {
+    void loadProgramContext();
+  }, [loadProgramContext]);
+
+  const refreshLeadershipView = useCallback(() => {
+    void refreshPrograms({ silent: true });
+    void loadReviewQueue();
+    void loadProgramContext();
+  }, [loadProgramContext, loadReviewQueue, refreshPrograms]);
+  useForegroundRefresh(refreshLeadershipView, { enabled: true, intervalMs: selectedProgramId ? 15000 : null });
 
   function updateField(field: keyof LeadershipReviewInput, value: string) {
     setReview((current) => ({ ...current, [field]: value }));
@@ -611,7 +592,7 @@ export function LeadershipReviewConsole() {
         : program
     );
 
-    setPrograms(nextPrograms);
+    setPrograms(nextPrograms, selectedProgram.id);
     setStatus("Saving review cadence...");
 
     try {
@@ -626,10 +607,10 @@ export function LeadershipReviewConsole() {
 
       if (!response.ok) throw new Error("Cadence save failed.");
       const payload = (await response.json()) as { program: StoredProgram };
-      setPrograms((current) => current.map((program) => (program.id === payload.program.id ? payload.program : program)));
+      setPrograms((current) => current.map((program) => (program.id === payload.program.id ? payload.program : program)), payload.program.id);
       setStatus("Leadership review cadence saved.");
     } catch {
-      setPrograms(previousPrograms);
+      setPrograms(previousPrograms, selectedProgram.id);
       setStatus("Leadership review cadence could not be saved.");
     }
   }
@@ -660,6 +641,7 @@ export function LeadershipReviewConsole() {
       setFeedback((current) => [payload.feedback, ...current.filter((entry) => entry.id !== payload.feedback.id)]);
       setPlan(payload.plan);
       setSaveState("saved");
+      void loadReviewQueue();
       setStatus(
         payload.plan
           ? "Leadership review saved. Guidance was regenerated with leadership signal translated into the current plan."

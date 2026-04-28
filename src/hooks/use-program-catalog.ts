@@ -55,7 +55,12 @@ export function useProgramCatalog(options: UseProgramCatalogOptions = {}) {
   );
 
   const applyPrograms = useCallback(
-    (nextPrograms: StoredProgram[], nextSelectedProgramId?: string) => {
+    (
+      nextProgramsOrUpdater: StoredProgram[] | ((currentPrograms: StoredProgram[]) => StoredProgram[]),
+      nextSelectedProgramId?: string
+    ) => {
+      const nextPrograms =
+        typeof nextProgramsOrUpdater === "function" ? nextProgramsOrUpdater(programs) : nextProgramsOrUpdater;
       setPrograms(nextPrograms);
       setSelectedProgramId((current) =>
         resolveSelectedProgramId({
@@ -66,7 +71,7 @@ export function useProgramCatalog(options: UseProgramCatalogOptions = {}) {
         })
       );
     },
-    [fallbackSelectedProgramId, requestedProgramId]
+    [fallbackSelectedProgramId, programs, requestedProgramId]
   );
 
   const refreshPrograms = useCallback(
