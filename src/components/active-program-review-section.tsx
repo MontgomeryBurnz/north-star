@@ -1,13 +1,17 @@
 "use client";
 
 import { ChangeEvent, FormEvent, useEffect, useMemo, useRef, useState } from "react";
-import { Activity, FileClock, FolderUp, HeartPulse, History, Layers3, MessageSquareQuote, RefreshCw, Save, Trash2, Users2 } from "lucide-react";
+import { Save } from "lucide-react";
 import type { ActiveProgramReview, ActiveProgramUpdate, TeamRoleUpdate, TeamRoleUpdateStatus } from "@/lib/active-program-types";
 import type { DeliveryLeadershipSignal } from "@/lib/leadership-feedback-types";
 import type { ProgramMeetingAttachment, ProgramMeetingInput } from "@/lib/program-intelligence-types";
 import type { ProgramArtifact, ProgramIntake } from "@/lib/program-intake-types";
+import { ActiveProgramMeetingIntelligenceCard } from "@/components/active-program-meeting-intelligence-card";
+import { ActiveProgramSidebar } from "@/components/active-program-sidebar";
+import { ActiveProgramStateCard } from "@/components/active-program-state-card";
+import { ActiveProgramStatusArtifactsCard } from "@/components/active-program-status-artifacts-card";
+import { ActiveProgramTeamUpdatesCard } from "@/components/active-program-team-updates-card";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 const emptyReview: ActiveProgramReview = {
   programName: "",
@@ -85,12 +89,6 @@ const defaultTeamRoles = [
   "Data Engineering",
   "Change Management"
 ] as const;
-
-const roleStatusOptions: Array<{ value: TeamRoleUpdateStatus; label: string }> = [
-  { value: "on-track", label: "On track" },
-  { value: "at-risk", label: "At risk" },
-  { value: "blocked", label: "Blocked" }
-];
 
 function mapLegacyConfidenceToStatus(confidence?: string): TeamRoleUpdateStatus {
   if (confidence === "low") return "blocked";
@@ -883,512 +881,43 @@ export function ActiveProgramReviewSection() {
 
       <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_360px] xl:grid-cols-[minmax(0,1fr)_380px]">
         <form onSubmit={handleSubmit} className="grid gap-4">
-          <Card className="bg-zinc-950/80">
-            <CardHeader className="border-b border-white/10">
-              <CardTitle className="flex items-center gap-2 text-zinc-50">
-                <Activity className="h-4 w-4 text-cyan-200" />
-                Active program state
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="grid gap-4 p-4 md:p-5">
-              <label className="grid gap-2">
-                <span className="text-xs font-medium uppercase tracking-[0.18em] text-cyan-200">Select existing program</span>
-                <select
-                  value={selectedProgramId}
-                  onChange={(event) => selectExistingProgram(event.target.value)}
-                  className="min-h-11 rounded-md border border-cyan-300/20 bg-zinc-950 px-3 py-3 text-sm text-zinc-100 outline-none transition-colors focus:border-cyan-300/50"
-                >
-                  <option value="">Choose a program to review...</option>
-                  {existingPrograms.map((program) => (
-                    <option key={program.id} value={program.id}>
-                      {program.label}
-                    </option>
-                  ))}
-                </select>
-                <span className="text-xs leading-5 text-zinc-500">
-                  Selecting a program prefills the review with its north star, current risks, decisions, and delivery context.
-                </span>
-              </label>
+          <ActiveProgramStateCard
+            selectedProgramId={selectedProgramId}
+            programOptions={existingPrograms.map((program) => ({ id: program.id, label: program.label }))}
+            review={review}
+            cycleLabel={activeCycleMetadata.cycleLabel}
+            teamCoverage={{ submitted: teamCoverage.submitted, total: teamCoverage.total }}
+            ownerCoverage={ownerCoverage}
+            onSelectProgram={selectExistingProgram}
+            onFieldChange={updateField}
+          />
 
-              <label className="grid gap-2">
-                <span className="text-xs font-medium uppercase tracking-[0.18em] text-zinc-300">Program name</span>
-                <input
-                  value={review.programName}
-                  onChange={(event) => updateField("programName", event.target.value)}
-                  placeholder="Active program, client, initiative, or workstream name"
-                  className="min-h-11 rounded-md border border-white/10 bg-zinc-950 px-3 py-3 text-sm text-zinc-100 outline-none transition-colors placeholder:text-zinc-300 focus:border-cyan-300/50"
-                />
-              </label>
-              <div className="grid gap-3 md:grid-cols-2">
-                <label className="grid gap-2">
-                  <span className="text-xs font-medium uppercase tracking-[0.18em] text-zinc-300">Update cadence</span>
-                  <select
-                    value={review.updateCadence ?? "weekly"}
-                    onChange={(event) =>
-                      updateField("updateCadence", event.target.value as ActiveProgramReview["updateCadence"] & string)
-                    }
-                    className="min-h-11 rounded-md border border-white/10 bg-zinc-950 px-3 py-3 text-sm text-zinc-100 outline-none transition-colors focus:border-cyan-300/50"
-                  >
-                    <option value="weekly">Weekly cycle</option>
-                    <option value="biweekly">Bi-weekly cycle</option>
-                  </select>
-                </label>
-                <label className="grid gap-2">
-                  <span className="text-xs font-medium uppercase tracking-[0.18em] text-zinc-300">Current phase</span>
-                  <input
-                    value={review.currentPhase}
-                    onChange={(event) => updateField("currentPhase", event.target.value)}
-                    placeholder="Discovery, build, launch, stabilization, or recovery"
-                    className="min-h-11 rounded-md border border-white/10 bg-zinc-950 px-3 py-3 text-sm text-zinc-100 outline-none transition-colors placeholder:text-zinc-300 focus:border-cyan-300/50"
-                  />
-                </label>
-                <label className="grid gap-2 md:col-span-2">
-                  <span className="text-xs font-medium uppercase tracking-[0.18em] text-zinc-300">Original north star</span>
-                  <textarea
-                    value={review.originalNorthStar}
-                    onChange={(event) => updateField("originalNorthStar", event.target.value)}
-                    placeholder="What outcome is the team still trying to protect as conditions change?"
-                    rows={3}
-                    className="min-h-[112px] resize-none rounded-md border border-white/10 bg-zinc-950 px-3 py-3 text-sm leading-6 text-zinc-100 outline-none transition-colors placeholder:text-zinc-300 focus:border-cyan-300/50"
-                  />
-                </label>
-                <label className="grid gap-2">
-                  <span className="text-xs font-medium uppercase tracking-[0.18em] text-zinc-300">Stakeholder temperature</span>
-                  <textarea
-                    value={review.stakeholderTemperature}
-                    onChange={(event) => updateField("stakeholderTemperature", event.target.value)}
-                    placeholder="Where are stakeholders aligned, uncertain, frustrated, or split?"
-                    rows={3}
-                    className="min-h-[112px] resize-none rounded-md border border-white/10 bg-zinc-950 px-3 py-3 text-sm leading-6 text-zinc-100 outline-none transition-colors placeholder:text-zinc-300 focus:border-cyan-300/50"
-                  />
-                </label>
-                <label className="grid gap-2">
-                  <span className="text-xs font-medium uppercase tracking-[0.18em] text-zinc-300">Delivery health</span>
-                  <textarea
-                    value={review.deliveryHealth}
-                    onChange={(event) => updateField("deliveryHealth", event.target.value)}
-                    placeholder="Where does the program feel healthy, overloaded, noisy, or fragile?"
-                    rows={3}
-                    className="min-h-[112px] resize-none rounded-md border border-white/10 bg-zinc-950 px-3 py-3 text-sm leading-6 text-zinc-100 outline-none transition-colors placeholder:text-zinc-300 focus:border-cyan-300/50"
-                  />
-                </label>
-                <label className="grid gap-2 md:col-span-2">
-                  <span className="text-xs font-medium uppercase tracking-[0.18em] text-zinc-300">Program synthesis note</span>
-                  <textarea
-                    value={review.programSynthesisNote ?? ""}
-                    onChange={(event) => updateField("programSynthesisNote", event.target.value)}
-                    placeholder="Capture the delivery-lead synthesis of how the team inputs change the weekly picture."
-                    rows={3}
-                    className="min-h-[112px] resize-none rounded-md border border-white/10 bg-zinc-950 px-3 py-3 text-sm leading-6 text-zinc-100 outline-none transition-colors placeholder:text-zinc-300 focus:border-cyan-300/50"
-                  />
-                </label>
-              </div>
-              <div className="rounded-lg border border-cyan-300/20 bg-cyan-300/[0.05] p-4">
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <div>
-                    <p className="text-xs font-medium uppercase tracking-[0.18em] text-cyan-200">Current team update cycle</p>
-                    <p className="mt-2 text-sm font-medium text-zinc-100">{activeCycleMetadata.cycleLabel}</p>
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    <span className="rounded-full border border-cyan-300/20 bg-cyan-300/10 px-3 py-1 text-[11px] font-medium uppercase tracking-[0.16em] text-cyan-100">
-                      {teamCoverage.submitted}/{teamCoverage.total} roles updated
-                    </span>
-                    <span className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-[11px] font-medium uppercase tracking-[0.16em] text-zinc-200">
-                      {ownerCoverage.configured}/{ownerCoverage.total} owners set
-                    </span>
-                  </div>
-                </div>
-                <p className="mt-3 text-sm leading-6 text-zinc-300">
-                  Teams can submit individual role updates throughout the cycle. Each save refreshes the program synthesis and can trigger guided-plan regeneration when the signal materially changes.
-                </p>
-              </div>
-            </CardContent>
-          </Card>
+          <ActiveProgramTeamUpdatesCard
+            teamRoleUpdates={teamRoleUpdates}
+            ownerCoverage={ownerCoverage}
+            saveState={saveState}
+            formatTimestamp={formatTimestamp}
+            onUpdateRoleField={(role, field, value) => updateRoleField(role, field, value as never)}
+            onSaveRoleSignal={saveReviewSnapshot}
+          />
 
-          <Card className="bg-zinc-950/80">
-            <CardHeader className="border-b border-white/10">
-              <CardTitle className="flex items-center gap-2 text-zinc-50">
-                <Users2 className="h-4 w-4 text-cyan-200" />
-                Team updates this cycle
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="grid gap-4 p-4 md:p-5">
-              <div className="rounded-lg border border-white/10 bg-white/[0.03] px-4 py-3">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <div>
-                    <p className="text-sm font-medium text-zinc-100">Role ownership stays stable across cycles</p>
-                    <p className="mt-1 text-xs leading-5 text-zinc-400">
-                      Set each role owner once. Future cycles keep those defaults and clear only the weekly signal fields.
-                    </p>
-                  </div>
-                  <span className="rounded-full border border-white/10 bg-black/20 px-3 py-1 text-[11px] font-medium uppercase tracking-[0.16em] text-zinc-300">
-                    {ownerCoverage.configured}/{ownerCoverage.total} mapped
-                  </span>
-                </div>
-              </div>
-              <div className="grid gap-4 xl:grid-cols-2">
-                {teamRoleUpdates.map((roleUpdate) => (
-                  <div key={roleUpdate.role} className="rounded-lg border border-white/10 bg-white/[0.03] p-4">
-                    <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
-                      <div className="min-w-0">
-                        <p className="text-sm font-medium text-zinc-100">{roleUpdate.role}</p>
-                        <p className="mt-1 text-xs text-zinc-500">
-                          {roleUpdate.lastUpdatedAt ? `Last role update ${formatTimestamp(roleUpdate.lastUpdatedAt)}` : "No role submission yet this cycle"}
-                        </p>
-                      </div>
-                      <div className="flex flex-wrap gap-2">
-                        <span
-                          className={`rounded-full border px-3 py-1 text-[11px] font-medium uppercase tracking-[0.16em] ${
-                            hasRoleSubmission(roleUpdate)
-                              ? "border-cyan-300/20 bg-cyan-300/10 text-cyan-100"
-                              : "border-white/10 bg-black/20 text-zinc-400"
-                          }`}
-                        >
-                          {hasRoleSubmission(roleUpdate) ? "signal captured" : "awaiting input"}
-                        </span>
-                        <span
-                          className={`rounded-full border px-3 py-1 text-[11px] font-medium uppercase tracking-[0.16em] ${
-                            roleUpdate.status === "on-track"
-                              ? "border-emerald-300/20 bg-emerald-300/10 text-emerald-100"
-                              : roleUpdate.status === "at-risk"
-                                ? "border-amber-300/20 bg-amber-300/10 text-amber-100"
-                                : "border-rose-300/20 bg-rose-300/10 text-rose-100"
-                          }`}
-                        >
-                          {roleStatusOptions.find((option) => option.value === roleUpdate.status)?.label ?? "On track"}
-                        </span>
-                      </div>
-                    </div>
-                    <div className="grid gap-4">
-                      <div className="grid gap-3">
-                        <label className="grid min-w-0 gap-2">
-                          <span className="text-xs font-medium uppercase tracking-[0.18em] text-zinc-300">Role owner</span>
-                          <input
-                            value={roleUpdate.updatedBy}
-                            onChange={(event) => updateRoleField(roleUpdate.role, "updatedBy", event.target.value)}
-                            placeholder={`${roleUpdate.role} lead or owner`}
-                            className="min-h-11 rounded-md border border-white/10 bg-zinc-950 px-3 py-3 text-sm text-zinc-100 outline-none transition-colors placeholder:text-zinc-500 focus:border-cyan-300/50"
-                          />
-                          <span className="text-xs leading-5 text-zinc-500">This persists as the default owner for future cycles.</span>
-                        </label>
-                        <div className="grid min-w-0 gap-2">
-                          <span className="text-xs font-medium uppercase tracking-[0.18em] text-zinc-300">Status</span>
-                          <div className="grid gap-2 sm:grid-cols-3">
-                            {roleStatusOptions.map((option) => {
-                              const selected = roleUpdate.status === option.value;
-                              const selectedClassName =
-                                option.value === "on-track"
-                                  ? "border-emerald-300/30 bg-emerald-300/12 text-emerald-100"
-                                  : option.value === "at-risk"
-                                    ? "border-amber-300/30 bg-amber-300/12 text-amber-100"
-                                    : "border-rose-300/30 bg-rose-300/12 text-rose-100";
+          <ActiveProgramMeetingIntelligenceCard
+            meetingInputDraft={meetingInputDraft}
+            meetingSaveState={meetingSaveState}
+            meetingUploadState={meetingUploadState}
+            onDraftChange={(patch) => setMeetingInputDraft((current) => ({ ...current, ...patch }))}
+            onAttachmentsChange={handleMeetingAttachments}
+            onRemoveAttachment={removeMeetingAttachment}
+            onSave={saveMeetingInput}
+            formatFileSize={formatFileSize}
+          />
 
-                              return (
-                                <button
-                                  key={option.value}
-                                  type="button"
-                                  onClick={() => updateRoleField(roleUpdate.role, "status", option.value as TeamRoleUpdateStatus)}
-                                  className={`min-h-11 rounded-md border px-3 py-2 text-sm font-medium transition-colors ${
-                                    selected
-                                      ? selectedClassName
-                                      : "border-white/10 bg-zinc-950 text-zinc-300 hover:border-cyan-300/30 hover:text-zinc-100"
-                                  }`}
-                                >
-                                  {option.label}
-                                </button>
-                              );
-                            })}
-                          </div>
-                        </div>
-                      </div>
-                      <label className="grid min-w-0 gap-2">
-                        <span className="text-xs font-medium uppercase tracking-[0.18em] text-zinc-300">Progress update</span>
-                        <textarea
-                          value={roleUpdate.progressUpdate}
-                          onChange={(event) => updateRoleField(roleUpdate.role, "progressUpdate", event.target.value)}
-                          placeholder="What changed most for this role since the last checkpoint?"
-                          rows={2}
-                          className="min-h-[88px] resize-none rounded-md border border-white/10 bg-zinc-950 px-3 py-3 text-sm leading-6 text-zinc-100 outline-none transition-colors placeholder:text-zinc-500 focus:border-cyan-300/50"
-                        />
-                      </label>
-                      <label className="grid min-w-0 gap-2">
-                        <span className="text-xs font-medium uppercase tracking-[0.18em] text-zinc-300">Changes observed</span>
-                        <textarea
-                          value={roleUpdate.changesObserved}
-                          onChange={(event) => updateRoleField(roleUpdate.role, "changesObserved", event.target.value)}
-                          placeholder="Scope, sequencing, dependency, or stakeholder changes."
-                          rows={3}
-                          className="min-h-[104px] resize-none rounded-md border border-white/10 bg-zinc-950 px-3 py-3 text-sm leading-6 text-zinc-100 outline-none transition-colors placeholder:text-zinc-500 focus:border-cyan-300/50"
-                        />
-                      </label>
-                      <div className="grid gap-3 lg:grid-cols-2">
-                        <label className="grid min-w-0 gap-2">
-                          <span className="text-xs font-medium uppercase tracking-[0.18em] text-zinc-300">Risks and blockers</span>
-                          <textarea
-                            value={[roleUpdate.activeRisks, roleUpdate.blockers].filter(Boolean).join("\n")}
-                            onChange={(event) => {
-                              const [activeRisks, ...rest] = event.target.value.split("\n");
-                              updateRoleField(roleUpdate.role, "activeRisks", activeRisks ?? "");
-                              updateRoleField(roleUpdate.role, "blockers", rest.join("\n"));
-                            }}
-                            placeholder="Top risk on the first line, blockers beneath it."
-                            rows={4}
-                            className="min-h-[120px] resize-none rounded-md border border-white/10 bg-zinc-950 px-3 py-3 text-sm leading-6 text-zinc-100 outline-none transition-colors placeholder:text-zinc-500 focus:border-cyan-300/50"
-                          />
-                        </label>
-                        <label className="grid min-w-0 gap-2">
-                          <span className="text-xs font-medium uppercase tracking-[0.18em] text-zinc-300">Decisions and support</span>
-                          <textarea
-                            value={[roleUpdate.decisionsNeeded, roleUpdate.supportNeeded].filter(Boolean).join("\n")}
-                            onChange={(event) => {
-                              const [decisionsNeeded, ...rest] = event.target.value.split("\n");
-                              updateRoleField(roleUpdate.role, "decisionsNeeded", decisionsNeeded ?? "");
-                              updateRoleField(roleUpdate.role, "supportNeeded", rest.join("\n"));
-                            }}
-                            placeholder="Decision needed on the first line, support ask beneath it."
-                            rows={4}
-                            className="min-h-[120px] resize-none rounded-md border border-white/10 bg-zinc-950 px-3 py-3 text-sm leading-6 text-zinc-100 outline-none transition-colors placeholder:text-zinc-500 focus:border-cyan-300/50"
-                          />
-                        </label>
-                      </div>
-                      <div className="flex flex-wrap items-center justify-between gap-3 border-t border-white/10 pt-2">
-                        <p className="text-xs leading-5 text-zinc-500">
-                          Save the role signal as soon as it changes. The program synthesis and guided plan will absorb it.
-                        </p>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          onClick={() => void saveReviewSnapshot(roleUpdate.role)}
-                          disabled={saveState === "saving"}
-                        >
-                          <Save className="h-4 w-4" />
-                          Save {roleUpdate.role} signal
-                        </Button>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="bg-zinc-950/80">
-            <CardHeader className="border-b border-white/10">
-              <CardTitle className="flex items-center gap-2 text-zinc-50">
-                <MessageSquareQuote className="h-4 w-4 text-cyan-200" />
-                Meeting intelligence
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="grid gap-4 p-5">
-              <div className="grid gap-4 md:grid-cols-2">
-                <label className="grid gap-2 md:col-span-2">
-                  <span className="text-xs font-medium uppercase tracking-[0.18em] text-zinc-300">Meeting title</span>
-                  <input
-                    value={meetingInputDraft.title}
-                    onChange={(event) => setMeetingInputDraft((current) => ({ ...current, title: event.target.value }))}
-                    placeholder="SteerCo, sprint review, working session, stakeholder sync"
-                    className="min-h-11 rounded-md border border-white/10 bg-zinc-950 px-3 py-3 text-sm text-zinc-100 outline-none transition-colors placeholder:text-zinc-500 focus:border-cyan-300/50"
-                  />
-                </label>
-                <div className="grid gap-3 md:col-span-2">
-                  <span className="text-xs font-medium uppercase tracking-[0.18em] text-zinc-300">Meeting recording or transcript</span>
-                  <label className="flex cursor-pointer flex-col items-center justify-center rounded-lg border border-dashed border-cyan-300/30 bg-cyan-300/[0.045] px-4 py-6 text-center transition-colors hover:border-cyan-300/60">
-                    <FolderUp className="mb-3 h-7 w-7 text-cyan-200" />
-                    <span className="text-sm font-medium text-zinc-100">Upload Teams, Zoom, Meet, transcript, or recap files</span>
-                    <span className="mt-2 text-xs leading-5 text-zinc-500">
-                      We store the recording or transcript reference with this meeting input. Text-based uploads can prefill the transcript excerpt.
-                    </span>
-                    <input
-                      className="hidden"
-                      type="file"
-                      multiple
-                      accept="audio/*,video/*,.txt,.md,.csv,.rtf,.doc,.docx,.pdf"
-                      onChange={(event) => void handleMeetingAttachments(event)}
-                    />
-                  </label>
-                  <p className={`text-xs leading-5 ${meetingUploadState === "error" ? "text-amber-200" : "text-zinc-500"}`}>
-                    {meetingUploadState === "uploading"
-                      ? "Uploading meeting files..."
-                      : meetingUploadState === "uploaded"
-                        ? "Meeting file uploaded and attached to this input."
-                        : "Use this for raw recordings, exported transcripts, or meeting recaps that should stay attached to the program signal."}
-                  </p>
-                  {meetingInputDraft.attachments.length ? (
-                    <div className="grid gap-2">
-                      {meetingInputDraft.attachments.map((attachment) => (
-                        <div
-                          key={attachment.id}
-                          className="flex items-center justify-between gap-3 rounded-md border border-white/10 bg-white/[0.035] p-3"
-                        >
-                          <div className="min-w-0">
-                            <p className="truncate text-sm font-medium text-zinc-100">{attachment.fileName}</p>
-                            <p className="mt-1 text-xs text-zinc-500">
-                              {attachment.mimeType || "unknown"} / {formatFileSize(attachment.sizeBytes)}
-                            </p>
-                          </div>
-                          <button
-                            type="button"
-                            onClick={() => removeMeetingAttachment(attachment.id)}
-                            className="rounded-md border border-white/10 bg-black/20 p-2 text-zinc-400 transition-colors hover:border-red-300/30 hover:text-red-200"
-                            aria-label={`Remove ${attachment.fileName}`}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  ) : null}
-                </div>
-                <label className="grid gap-2">
-                  <span className="text-xs font-medium uppercase tracking-[0.18em] text-zinc-300">Input type</span>
-                  <select
-                    value={meetingInputDraft.sourceType}
-                    onChange={(event) =>
-                      setMeetingInputDraft((current) => ({
-                        ...current,
-                        sourceType: event.target.value as ProgramMeetingInput["sourceType"]
-                      }))
-                    }
-                    className="min-h-11 rounded-md border border-white/10 bg-zinc-950 px-3 py-3 text-sm text-zinc-100 outline-none transition-colors focus:border-cyan-300/50"
-                  >
-                    <option value="meeting-notes">Meeting notes</option>
-                    <option value="transcript">Transcript summary</option>
-                    <option value="recording">Recording recap</option>
-                  </select>
-                </label>
-                <label className="grid gap-2">
-                  <span className="text-xs font-medium uppercase tracking-[0.18em] text-zinc-300">Capture source</span>
-                  <select
-                    value={meetingInputDraft.sourceProvider}
-                    onChange={(event) =>
-                      setMeetingInputDraft((current) => ({
-                        ...current,
-                        sourceProvider: event.target.value as ProgramMeetingInput["sourceProvider"]
-                      }))
-                    }
-                    className="min-h-11 rounded-md border border-white/10 bg-zinc-950 px-3 py-3 text-sm text-zinc-100 outline-none transition-colors focus:border-cyan-300/50"
-                  >
-                    <option value="manual">Manual summary</option>
-                    <option value="upload">Uploaded recording / transcript</option>
-                    <option value="linked-series">Linked meeting series</option>
-                  </select>
-                </label>
-                <label className="grid gap-2">
-                  <span className="text-xs font-medium uppercase tracking-[0.18em] text-zinc-300">Captured at</span>
-                  <input
-                    type="datetime-local"
-                    value={meetingInputDraft.capturedAt}
-                    onChange={(event) => setMeetingInputDraft((current) => ({ ...current, capturedAt: event.target.value }))}
-                    className="min-h-11 rounded-md border border-white/10 bg-zinc-950 px-3 py-3 text-sm text-zinc-100 outline-none transition-colors focus:border-cyan-300/50"
-                  />
-                </label>
-                <label className="grid gap-2 md:col-span-2">
-                  <span className="text-xs font-medium uppercase tracking-[0.18em] text-zinc-300">Meeting summary</span>
-                  <textarea
-                    value={meetingInputDraft.summary}
-                    onChange={(event) => setMeetingInputDraft((current) => ({ ...current, summary: event.target.value }))}
-                    rows={4}
-                    placeholder="Summarize the material program signal from this meeting."
-                    className="resize-none rounded-md border border-white/10 bg-zinc-950 px-3 py-3 text-sm leading-6 text-zinc-100 outline-none transition-colors placeholder:text-zinc-500 focus:border-cyan-300/50"
-                  />
-                </label>
-                <label className="grid gap-2 md:col-span-2">
-                  <span className="text-xs font-medium uppercase tracking-[0.18em] text-zinc-300">Transcript excerpt</span>
-                  <textarea
-                    value={meetingInputDraft.transcriptExcerpt}
-                    onChange={(event) => setMeetingInputDraft((current) => ({ ...current, transcriptExcerpt: event.target.value }))}
-                    rows={3}
-                    placeholder="Paste the most useful excerpt if a transcript or recording summary exists."
-                    className="resize-none rounded-md border border-white/10 bg-zinc-950 px-3 py-3 text-sm leading-6 text-zinc-100 outline-none transition-colors placeholder:text-zinc-500 focus:border-cyan-300/50"
-                  />
-                </label>
-                <label className="grid gap-2">
-                  <span className="text-xs font-medium uppercase tracking-[0.18em] text-zinc-300">Signals detected</span>
-                  <textarea
-                    value={meetingInputDraft.extractedSignals}
-                    onChange={(event) =>
-                      setMeetingInputDraft((current) => ({ ...current, extractedSignals: event.target.value }))
-                    }
-                    rows={4}
-                    placeholder="One per line: sponsor concern, dependency risk, decision gap, scope pressure"
-                    className="resize-none rounded-md border border-white/10 bg-zinc-950 px-3 py-3 text-sm leading-6 text-zinc-100 outline-none transition-colors placeholder:text-zinc-500 focus:border-cyan-300/50"
-                  />
-                </label>
-                <label className="grid gap-2">
-                  <span className="text-xs font-medium uppercase tracking-[0.18em] text-zinc-300">Recommended plan adjustments</span>
-                  <textarea
-                    value={meetingInputDraft.recommendedPlanAdjustments}
-                    onChange={(event) =>
-                      setMeetingInputDraft((current) => ({
-                        ...current,
-                        recommendedPlanAdjustments: event.target.value
-                      }))
-                    }
-                    rows={4}
-                    placeholder="One per line: tighten decision gate, escalate API dependency, change checkpoint cadence"
-                    className="resize-none rounded-md border border-white/10 bg-zinc-950 px-3 py-3 text-sm leading-6 text-zinc-100 outline-none transition-colors placeholder:text-zinc-500 focus:border-cyan-300/50"
-                  />
-                </label>
-              </div>
-              <div className="flex flex-wrap items-center gap-3">
-                <Button type="button" onClick={() => void saveMeetingInput()} disabled={meetingSaveState === "saving"}>
-                  <Save className="h-4 w-4" />
-                  {meetingSaveState === "saving" ? "Saving meeting input..." : "Save meeting input"}
-                </Button>
-                <p className={`text-sm ${meetingSaveState === "error" ? "text-amber-200" : "text-zinc-400"}`}>
-                  {meetingSaveState === "saved"
-                    ? "Saved to server and refreshed guided plan."
-                    : "Saving meeting inputs here should refresh the guided plan when the context justifies a change."}
-                </p>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="bg-zinc-950/80">
-            <CardHeader className="border-b border-white/10">
-              <CardTitle className="flex items-center gap-2 text-zinc-50">
-                <FolderUp className="h-4 w-4 text-emerald-200" />
-                Status artifacts
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="grid gap-4 p-5">
-              <label className="flex cursor-pointer flex-col items-center justify-center rounded-lg border border-dashed border-emerald-300/30 bg-emerald-300/[0.045] px-4 py-8 text-center transition-colors hover:border-emerald-300/60">
-                <FileClock className="mb-3 h-7 w-7 text-emerald-200" />
-                <span className="text-sm font-medium text-zinc-100">Add status report, RAID log, meeting notes, or plan update</span>
-                <span className="mt-2 text-xs leading-5 text-zinc-500">
-                  Local metadata only for now. These will later be stored, parsed, and used for grounded guidance.
-                </span>
-                <input className="hidden" type="file" multiple onChange={handleArtifacts} />
-              </label>
-
-              {review.artifacts.length ? (
-                <div className="grid gap-2">
-                  {review.artifacts.map((artifact) => (
-                    <div
-                      key={artifact.id}
-                      className="flex items-center justify-between gap-3 rounded-md border border-white/10 bg-white/[0.035] p-3"
-                    >
-                      <div className="min-w-0">
-                        <p className="truncate text-sm font-medium text-zinc-100">{artifact.name}</p>
-                        <p className="mt-1 text-xs text-zinc-500">
-                          {artifact.type} / {formatFileSize(artifact.size)}
-                        </p>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => removeArtifact(artifact.id)}
-                        className="rounded-md border border-white/10 bg-black/20 p-2 text-zinc-400 transition-colors hover:border-red-300/30 hover:text-red-200"
-                        aria-label={`Remove ${artifact.name}`}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              ) : null}
-            </CardContent>
-          </Card>
+          <ActiveProgramStatusArtifactsCard
+            artifacts={review.artifacts}
+            onArtifactsChange={handleArtifacts}
+            onRemoveArtifact={removeArtifact}
+            formatFileSize={formatFileSize}
+          />
 
           <div className="flex flex-col gap-3 sm:flex-row">
             <Button type="submit" size="lg">
@@ -1413,225 +942,17 @@ export function ActiveProgramReviewSection() {
           </div>
         </form>
 
-        <aside className="grid gap-4 self-start lg:sticky lg:top-24">
-          {latestUpdate ? (
-            <Card className="bg-zinc-950/80">
-              <CardHeader className="border-b border-white/10">
-                <CardTitle className="flex items-center gap-2 text-zinc-50">
-                  <FileClock className="h-4 w-4 text-emerald-200" />
-                  Latest update snapshot
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="grid gap-3 p-5">
-                <div className="rounded-md border border-emerald-300/20 bg-emerald-300/[0.055] p-3">
-                  <p className="text-xs font-medium uppercase tracking-[0.16em] text-emerald-200">
-                    Last updated
-                  </p>
-                  <p className="mt-2 text-sm text-zinc-100">{formatTimestamp(latestUpdate.createdAt)}</p>
-                  {latestUpdate.review.lastUpdatedRole ? (
-                    <p className="mt-2 text-xs leading-5 text-zinc-400">
-                      Latest role submission: {latestUpdate.review.lastUpdatedRole}
-                    </p>
-                  ) : null}
-                </div>
-                {[
-                  ["Cycle", latestUpdate.review.cycleLabel],
-                  ["Current phase", latestUpdate.review.currentPhase],
-                  ["Program synthesis", latestUpdate.review.programSynthesisNote],
-                  ["Active risks", latestUpdate.review.activeRisks],
-                  ["Pending decisions", latestUpdate.review.decisionsPending],
-                  ["Support needed", latestUpdate.review.supportNeeded]
-                ].map(([label, value]) => (
-                  <div key={label} className="rounded-md border border-white/10 bg-white/[0.035] p-3">
-                    <p className="text-xs font-medium uppercase tracking-[0.16em] text-zinc-500">{label}</p>
-                    <p className="mt-2 line-clamp-3 text-sm leading-6 text-zinc-300">{value || "No update captured."}</p>
-                  </div>
-                ))}
-              </CardContent>
-            </Card>
-          ) : null}
-
-          {leadershipSignal && leadershipSignal.status !== "none" ? (
-            <Card className="bg-zinc-950/80">
-              <CardHeader className="border-b border-white/10">
-                <CardTitle className="flex items-center gap-2 text-zinc-50">
-                  <RefreshCw className="h-4 w-4 text-amber-200" />
-                  Leadership signal
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="grid gap-3 p-5">
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <span
-                    className={`rounded-full border px-3 py-1 text-[11px] font-medium uppercase tracking-[0.14em] ${
-                      leadershipSignal.status === "new"
-                        ? "border-amber-300/25 bg-amber-300/10 text-amber-100"
-                        : "border-emerald-300/25 bg-emerald-300/10 text-emerald-100"
-                    }`}
-                  >
-                    {leadershipSignal.status === "new" ? "New leadership signal" : "Leadership signal incorporated"}
-                  </span>
-                  {leadershipSignal.updatedAt ? (
-                    <span className="text-xs text-zinc-500">{formatTimestamp(leadershipSignal.updatedAt)}</span>
-                  ) : null}
-                </div>
-                <div className="rounded-md border border-amber-300/20 bg-amber-300/[0.055] p-3">
-                  <p className="text-sm leading-6 text-zinc-200">{leadershipSignal.summary}</p>
-                </div>
-                <div className="grid gap-2">
-                  {leadershipSignal.highlights.map((highlight) => (
-                    <div key={highlight} className="rounded-md border border-white/10 bg-white/[0.035] p-3">
-                      <p className="text-sm leading-6 text-zinc-300">{highlight}</p>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          ) : null}
-
-          <Card className="bg-zinc-950/80">
-            <CardHeader className="border-b border-white/10">
-              <CardTitle className="flex items-center gap-2 text-zinc-50">
-                <Layers3 className="h-4 w-4 text-cyan-200" />
-                Program synthesis
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="grid gap-3 p-5">
-              {programSynthesis.map((item) => (
-                <div key={item.label} className="rounded-md border border-white/10 bg-white/[0.035] p-3">
-                  <p className="text-xs font-medium uppercase tracking-[0.16em] text-zinc-500">{item.label}</p>
-                  <p className="mt-2 text-sm leading-6 text-zinc-300">{item.value}</p>
-                </div>
-              ))}
-            </CardContent>
-          </Card>
-
-          <Card className="bg-zinc-950/80">
-            <CardHeader className="border-b border-white/10">
-              <CardTitle className="flex items-center gap-2 text-zinc-50">
-                <HeartPulse className="h-4 w-4 text-cyan-200" />
-                Review readiness
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="grid gap-4 p-5">
-              <div className="rounded-md border border-white/10 bg-white/[0.035] p-3">
-                <div className="mb-2 flex items-center justify-between text-sm">
-                  <span className="text-zinc-400">Active context captured</span>
-                  <span className="font-medium text-zinc-100">{completion}%</span>
-                </div>
-                <div className="h-2 overflow-hidden rounded-full bg-zinc-900">
-                  <div className="h-full bg-cyan-300 transition-all" style={{ width: `${completion}%` }} />
-                </div>
-              </div>
-              <div className="rounded-md border border-cyan-300/20 bg-cyan-300/[0.055] p-3">
-                <p className="flex items-center gap-2 text-sm font-medium text-cyan-100">
-                  <RefreshCw className="h-4 w-4" />
-                  Iteration mode
-                </p>
-                <p className="mt-2 text-xs leading-5 text-zinc-400">
-                  This flow is for programs already moving. It should generate plan adjustments, recovery moves,
-                  escalation guidance, and updated next steps.
-                </p>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="bg-zinc-950/80">
-            <CardHeader className="border-b border-white/10">
-              <CardTitle className="flex items-center gap-2 text-zinc-50">
-                <FileClock className="h-4 w-4 text-emerald-200" />
-                Update impact
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="grid gap-3 p-5">
-              {updateImpact.map((item) => (
-                <div key={item.label} className="rounded-md border border-white/10 bg-white/[0.035] p-3">
-                  <p className="text-xs font-medium uppercase tracking-[0.16em] text-zinc-500">{item.label}</p>
-                  <p className="mt-2 text-sm leading-6 text-zinc-300">{item.value}</p>
-                </div>
-              ))}
-            </CardContent>
-          </Card>
-
-          <Card className="bg-zinc-950/80">
-            <CardHeader className="border-b border-white/10">
-              <CardTitle className="flex items-center gap-2 text-zinc-50">
-                <History className="h-4 w-4 text-amber-200" />
-                Update history
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="grid gap-3 p-5">
-              {selectedProgramHistory.length ? (
-                selectedProgramHistory.slice(0, 5).map((update) => (
-                  <button
-                    key={update.id}
-                    type="button"
-                    onClick={() => setReview(update.review)}
-                    className="rounded-md border border-white/10 bg-white/[0.035] p-3 text-left transition-colors hover:border-amber-300/30"
-                  >
-                    <div className="mb-2 flex items-center justify-between gap-3">
-                      <span className="text-xs font-medium uppercase tracking-[0.16em] text-amber-200">
-                        {formatTimestamp(update.createdAt)}
-                      </span>
-                      <span className="rounded-md border border-white/10 bg-black/20 px-2 py-0.5 text-[11px] text-zinc-500">
-                        load
-                      </span>
-                    </div>
-                    <p className="text-sm font-medium text-zinc-100">
-                      {update.review.lastUpdatedRole ? `${update.review.lastUpdatedRole} update` : update.review.currentPhase || update.programName}
-                    </p>
-                    <p className="mt-1 line-clamp-2 text-xs leading-5 text-zinc-400">
-                      {update.review.programSynthesisNote || update.review.progressSinceLastReview || update.review.deliveryHealth || "No summary captured."}
-                    </p>
-                  </button>
-                ))
-              ) : (
-                <div className="rounded-md border border-white/10 bg-white/[0.035] p-3">
-                  <p className="text-sm leading-6 text-zinc-400">
-                    No saved updates yet. Save this review to create the first timestamped program update.
-                  </p>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          <Card className="bg-zinc-950/80">
-            <CardHeader className="border-b border-white/10">
-              <CardTitle className="flex items-center gap-2 text-zinc-50">
-                <MessageSquareQuote className="h-4 w-4 text-cyan-200" />
-                Recent meeting inputs
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="grid gap-3 p-5">
-              {meetingInputs.length ? (
-                meetingInputs.slice(0, 3).map((input) => (
-                  <div key={input.id} className="rounded-md border border-white/10 bg-white/[0.035] p-3">
-                    <div className="mb-2 flex items-center justify-between gap-3">
-                      <p className="text-sm font-medium text-zinc-100">{input.title}</p>
-                      <span className="text-xs text-zinc-500">{formatTimestamp(input.capturedAt)}</span>
-                    </div>
-                    <p className="text-sm leading-6 text-zinc-300">{input.summary}</p>
-                    {input.attachments.length ? (
-                      <p className="mt-2 text-xs leading-5 text-zinc-500">
-                        Attachments: {input.attachments.map((attachment) => attachment.fileName).join(", ")}
-                      </p>
-                    ) : null}
-                    {input.recommendedPlanAdjustments.length ? (
-                      <p className="mt-2 text-xs leading-5 text-cyan-200">
-                        Next adjustment: {input.recommendedPlanAdjustments[0]}
-                      </p>
-                    ) : null}
-                  </div>
-                ))
-              ) : (
-                <div className="rounded-md border border-white/10 bg-white/[0.035] p-3">
-                  <p className="text-sm leading-6 text-zinc-400">
-                    No meeting intelligence is on file yet. Add a meeting summary or transcript signal to let the next guided plan adapt to recurring delivery discussions.
-                  </p>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </aside>
+        <ActiveProgramSidebar
+          latestUpdate={latestUpdate}
+          leadershipSignal={leadershipSignal}
+          programSynthesis={programSynthesis}
+          completion={completion}
+          updateImpact={updateImpact}
+          selectedProgramHistory={selectedProgramHistory}
+          meetingInputs={meetingInputs}
+          formatTimestamp={formatTimestamp}
+          onLoadUpdate={(update) => setReview(update.review)}
+        />
       </div>
     </section>
   );
