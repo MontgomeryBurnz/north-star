@@ -39,7 +39,7 @@ export function SiteAccessLoginForm({ redirectTo }: { redirectTo: string }) {
       <div className="grid w-full gap-10 lg:grid-cols-[minmax(0,1.15fr)_minmax(24rem,30rem)] lg:items-center">
         <LoginBrandMark
           title="Find True North"
-          subtitle="North Star aligns programs, guidance, and leadership signal around the clearest path forward. Access is gated before internal context and live AI workflows are exposed."
+          subtitle="Where people, intelligence, and data move as one."
         />
         <Card className="w-full bg-zinc-950/85">
           <CardHeader className="border-b border-white/10">
