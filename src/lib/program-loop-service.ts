@@ -12,7 +12,10 @@ type ProgramLoopStore = {
   createLeadershipFeedback: (programId: string, feedback: LeadershipReviewInput) => Promise<LeadershipReviewRecord>;
   createGuidanceFeedbackFlag: (
     programId: string,
-    input: Pick<GuidanceFeedbackFlag, "guidanceJustificationId" | "citationId" | "scope" | "userReason" | "userContext">
+    input: Pick<
+      GuidanceFeedbackFlag,
+      "guidanceJustificationId" | "citationId" | "targetType" | "targetLabel" | "targetRole" | "scope" | "userReason" | "userContext"
+    >
   ) => Promise<GuidanceFeedbackFlag>;
   getLatestGuidedPlan: (programId: string) => Promise<GuidedPlan | null>;
   createGuidedPlan: (programId: string) => Promise<GuidedPlan | null>;
@@ -67,7 +70,10 @@ function normalizeLeadershipReview(review: Partial<LeadershipReviewInput>): Muta
 }
 
 function normalizeGuidanceFlag(flag: Partial<GuidanceFeedbackFlag>): MutationResult<
-  Pick<GuidanceFeedbackFlag, "guidanceJustificationId" | "citationId" | "scope" | "userReason" | "userContext">
+  Pick<
+    GuidanceFeedbackFlag,
+    "guidanceJustificationId" | "citationId" | "targetType" | "targetLabel" | "targetRole" | "scope" | "userReason" | "userContext"
+  >
 > {
   if (!flag.guidanceJustificationId?.trim()) {
     return { ok: false, error: "Guidance justification is required." };
@@ -81,12 +87,23 @@ function normalizeGuidanceFlag(flag: Partial<GuidanceFeedbackFlag>): MutationRes
     return { ok: false, error: "User context is required." };
   }
 
+  const scope = flag.scope === "partial" ? "partial" : "whole";
+  const targetType =
+    flag.targetType === "team-action-plan" || flag.targetType === "source-citation" || flag.targetType === "whole-rationale"
+      ? flag.targetType
+      : scope === "whole"
+        ? "whole-rationale"
+        : "source-citation";
+
   return {
     ok: true,
     record: {
       guidanceJustificationId: flag.guidanceJustificationId,
       citationId: flag.citationId?.trim() || undefined,
-      scope: flag.scope === "partial" ? "partial" : "whole",
+      targetType,
+      targetLabel: flag.targetLabel?.trim() || undefined,
+      targetRole: flag.targetRole?.trim() || undefined,
+      scope,
       userReason: flag.userReason,
       userContext: flag.userContext
     }

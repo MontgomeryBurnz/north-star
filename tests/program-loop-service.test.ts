@@ -4,6 +4,7 @@ import type { ActiveProgramUpdate } from "../src/lib/active-program-types.ts";
 import type { GuidedPlan } from "../src/lib/guided-plan-types.ts";
 import type { GuidanceFeedbackFlag } from "../src/lib/program-intelligence-types.ts";
 import type { LeadershipReviewRecord } from "../src/lib/leadership-feedback-types.ts";
+import { buildTeamActionPlanFlagSourceId } from "../src/lib/guidance-feedback-flag-sources.ts";
 import { createGovernanceFlag, saveActiveProgramReview, saveLeadershipReview } from "../src/lib/program-loop-service.ts";
 
 function buildPlan(sourceRecordIds: string[]): GuidedPlan {
@@ -154,4 +155,44 @@ test("createGovernanceFlag validates required fields and normalizes scope and ci
   assert.equal(valid.ok, true);
   if (!valid.ok) return;
   assert.equal(valid.record.citationId, "citation-1");
+  assert.equal(valid.record.targetType, "source-citation");
+});
+
+test("createGovernanceFlag preserves Team Action Plan dispute metadata", async () => {
+  const sourceId = buildTeamActionPlanFlagSourceId("Scrum Master");
+  const result = await createGovernanceFlag(
+    {
+      async createGuidanceFeedbackFlag(programId, flag) {
+        assert.equal(programId, "program-1");
+        assert.equal(flag.citationId, sourceId);
+        assert.equal(flag.targetType, "team-action-plan");
+        assert.equal(flag.targetLabel, "Scrum Master Team Action Plan");
+        assert.equal(flag.targetRole, "Scrum Master");
+        return {
+          id: "flag-2",
+          programId,
+          programName: "Compass Compliance Hub Alpha",
+          status: "pending",
+          createdAt: "2026-04-28T10:00:00.000Z",
+          updatedAt: "2026-04-28T10:00:00.000Z",
+          ...flag
+        } satisfies GuidanceFeedbackFlag;
+      }
+    },
+    "program-1",
+    {
+      guidanceJustificationId: "justification-1",
+      citationId: sourceId,
+      targetType: "team-action-plan",
+      targetLabel: " Scrum Master Team Action Plan ",
+      targetRole: " Scrum Master ",
+      scope: "partial",
+      userReason: "The action plan assigns facilitation work to the wrong role.",
+      userContext: "This team uses the Scrum Master as the owner for ceremony health and impediment removal."
+    }
+  );
+
+  assert.equal(result.ok, true);
+  if (!result.ok) return;
+  assert.equal(result.record.targetType, "team-action-plan");
 });

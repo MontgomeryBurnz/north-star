@@ -5,6 +5,7 @@ import { CheckCircle2, ShieldAlert, XCircle } from "lucide-react";
 import { useForegroundRefresh } from "@/hooks/use-foreground-refresh";
 import { useProgramCatalog } from "@/hooks/use-program-catalog";
 import { useRequestSequence } from "@/hooks/use-request-sequence";
+import { isTeamActionPlanFlagSourceId, roleFromTeamActionPlanFlagSourceId } from "@/lib/guidance-feedback-flag-sources";
 import type { GuidanceFeedbackFlag, GuidanceJustificationRecord } from "@/lib/program-intelligence-types";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -17,6 +18,43 @@ function formatDate(value: string) {
     hour: "numeric",
     minute: "2-digit"
   }).format(new Date(value));
+}
+
+function getFlagTarget(flag: GuidanceFeedbackFlag, justification?: GuidanceJustificationRecord) {
+  const citation = justification?.citations.find((item) => item.sourceId === flag.citationId);
+  const isTeamActionPlan = flag.targetType === "team-action-plan" || isTeamActionPlanFlagSourceId(flag.citationId);
+  const teamRole = flag.targetRole || roleFromTeamActionPlanFlagSourceId(flag.citationId);
+
+  if (isTeamActionPlan) {
+    return {
+      eyebrow: "Team Action Plan disputed",
+      title: flag.targetLabel || `${teamRole || "Team role"} Team Action Plan`,
+      detail: teamRole ? `Role-specific dispute for ${teamRole}.` : "Role-specific dispute.",
+      citation
+    };
+  }
+
+  if (flag.scope === "whole") {
+    return {
+      eyebrow: "Whole rationale disputed",
+      title: flag.targetLabel || justification?.summary || "Guidance rationale review",
+      detail: "The user is challenging the full explanation behind the guidance change.",
+      citation
+    };
+  }
+
+  return {
+    eyebrow: "Source citation disputed",
+    title: flag.targetLabel || citation?.label || justification?.summary || "Guidance source review",
+    detail: "The user is challenging one source or citation used by the guided plan.",
+    citation
+  };
+}
+
+function getStatusClassName(status: GuidanceFeedbackFlag["status"]) {
+  if (status === "approved") return "border-emerald-300/25 bg-emerald-300/10 text-emerald-100";
+  if (status === "denied") return "border-rose-300/25 bg-rose-300/10 text-rose-100";
+  return "border-amber-300/25 bg-amber-300/10 text-amber-100";
 }
 
 export function GovernanceDashboard() {
@@ -77,7 +115,16 @@ export function GovernanceDashboard() {
     () => ({
       pending: flags.filter((flag) => flag.status === "pending").length,
       approved: flags.filter((flag) => flag.status === "approved").length,
-      denied: flags.filter((flag) => flag.status === "denied").length
+      denied: flags.filter((flag) => flag.status === "denied").length,
+      teamActionPlan: flags.filter((flag) => flag.targetType === "team-action-plan" || isTeamActionPlanFlagSourceId(flag.citationId)).length
+    }),
+    [flags]
+  );
+
+  const flagGroups = useMemo(
+    () => ({
+      pending: flags.filter((flag) => flag.status === "pending"),
+      resolved: flags.filter((flag) => flag.status !== "pending")
     }),
     [flags]
   );
@@ -125,6 +172,97 @@ export function GovernanceDashboard() {
     }
   }
 
+  function renderFlagCard(flag: GuidanceFeedbackFlag) {
+    const justification = justificationsById.get(flag.guidanceJustificationId);
+    const target = getFlagTarget(flag, justification);
+    const currentReview = reviewState[flag.id] ?? { disposition: flag.leadershipDisposition ?? "", saving: false };
+
+    return (
+      <Card key={flag.id} className="bg-zinc-950/80">
+        <CardHeader className="border-b border-white/10">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <p className="mb-2 text-xs font-medium uppercase tracking-[0.18em] text-amber-200">{target.eyebrow}</p>
+              <CardTitle className="text-zinc-50">{target.title}</CardTitle>
+              <p className="mt-2 text-sm leading-6 text-zinc-400">{target.detail}</p>
+            </div>
+            <span className={`rounded-full border px-3 py-1 text-[11px] font-medium uppercase tracking-[0.14em] ${getStatusClassName(flag.status)}`}>
+              {flag.status}
+            </span>
+          </div>
+        </CardHeader>
+        <CardContent className="grid gap-4 p-5">
+          <div className="grid gap-3 md:grid-cols-2">
+            <div className="rounded-md border border-white/10 bg-white/[0.035] p-3">
+              <p className="text-xs font-medium uppercase tracking-[0.16em] text-zinc-500">User reason</p>
+              <p className="mt-2 text-sm leading-6 text-zinc-200">{flag.userReason}</p>
+            </div>
+            <div className="rounded-md border border-white/10 bg-white/[0.035] p-3">
+              <p className="text-xs font-medium uppercase tracking-[0.16em] text-zinc-500">User context</p>
+              <p className="mt-2 text-sm leading-6 text-zinc-200">{flag.userContext}</p>
+            </div>
+          </div>
+
+          {justification ? (
+            <div className="rounded-md border border-cyan-300/20 bg-cyan-300/[0.055] p-4">
+              <p className="text-xs font-medium uppercase tracking-[0.16em] text-cyan-200">Original guidance rationale</p>
+              <p className="mt-2 text-sm leading-6 text-zinc-200">{justification.summary}</p>
+              {target.citation ? (
+                <div className="mt-3 rounded-md border border-white/10 bg-black/20 p-3">
+                  <p className="text-xs font-medium uppercase tracking-[0.16em] text-zinc-500">Disputed source</p>
+                  <p className="mt-2 text-sm font-medium text-zinc-100">{target.citation.label}</p>
+                  <p className="mt-2 text-sm leading-6 text-zinc-300">{target.citation.rationale}</p>
+                </div>
+              ) : null}
+            </div>
+          ) : null}
+
+          <div className="grid gap-2">
+            <label className="grid gap-2">
+              <span className="text-xs font-medium uppercase tracking-[0.16em] text-zinc-300">Leadership disposition</span>
+              <textarea
+                value={currentReview.disposition}
+                onChange={(event) =>
+                  setReviewState((current) => ({
+                    ...current,
+                    [flag.id]: { disposition: event.target.value, saving: currentReview.saving }
+                  }))
+                }
+                rows={4}
+                placeholder="Approve or deny this flag with the cross-functional rationale that should govern this program."
+                className="resize-none rounded-md border border-white/10 bg-zinc-950 px-3 py-3 text-sm leading-6 text-zinc-100 outline-none transition-colors placeholder:text-zinc-500 focus:border-amber-300/50"
+              />
+            </label>
+          </div>
+
+          <div className="flex flex-wrap gap-3">
+            <Button
+              type="button"
+              onClick={() => void reviewFlag(flag, "approved")}
+              disabled={currentReview.saving || flag.status === "approved"}
+            >
+              <CheckCircle2 className="h-4 w-4" />
+              Approve
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => void reviewFlag(flag, "denied")}
+              disabled={currentReview.saving || flag.status === "denied"}
+            >
+              <XCircle className="h-4 w-4" />
+              Deny
+            </Button>
+            <span className="self-center text-xs text-zinc-500">
+              Flagged {formatDate(flag.createdAt)}
+              {flag.reviewedBy ? ` • reviewed by ${flag.reviewedBy}` : ""}
+            </span>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
   return (
     <main className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
       <SectionHeader
@@ -159,7 +297,8 @@ export function GovernanceDashboard() {
                 {[
                   ["Pending flags", counts.pending],
                   ["Approved corrections", counts.approved],
-                  ["Denied flags", counts.denied]
+                  ["Denied flags", counts.denied],
+                  ["Team Action Plan disputes", counts.teamActionPlan]
                 ].map(([label, value]) => (
                   <div key={String(label)} className="rounded-md border border-white/10 bg-white/[0.035] p-3">
                     <p className="text-xs font-medium uppercase tracking-[0.16em] text-zinc-500">{label}</p>
@@ -174,108 +313,34 @@ export function GovernanceDashboard() {
 
         <section className="grid gap-4">
           {flags.length ? (
-            flags.map((flag) => {
-              const justification = justificationsById.get(flag.guidanceJustificationId);
-              const citation = justification?.citations.find((item) => item.sourceId === flag.citationId);
-              const currentReview = reviewState[flag.id] ?? { disposition: flag.leadershipDisposition ?? "", saving: false };
+            <div className="grid gap-6">
+              <section className="grid gap-3">
+                <div className="flex flex-wrap items-end justify-between gap-3">
+                  <div>
+                    <p className="text-xs font-medium uppercase tracking-[0.18em] text-amber-200">Review queue</p>
+                    <h2 className="text-2xl font-semibold text-zinc-50">Pending adjudication</h2>
+                  </div>
+                  <span className="text-sm text-zinc-400">{flagGroups.pending.length} open</span>
+                </div>
+                {flagGroups.pending.length ? flagGroups.pending.map(renderFlagCard) : (
+                  <Card className="bg-zinc-950/80">
+                    <CardContent className="p-6 text-sm leading-6 text-zinc-400">
+                      No disputed guidance is currently waiting for this program.
+                    </CardContent>
+                  </Card>
+                )}
+              </section>
 
-              return (
-                <Card key={flag.id} className="bg-zinc-950/80">
-                  <CardHeader className="border-b border-white/10">
-                    <div className="flex flex-wrap items-start justify-between gap-3">
-                      <div>
-                        <p className="mb-2 text-xs font-medium uppercase tracking-[0.18em] text-amber-200">
-                          {flag.scope === "whole" ? "Whole rationale flagged" : "Citation flagged"}
-                        </p>
-                        <CardTitle className="text-zinc-50">
-                          {citation?.label ?? justification?.summary ?? "Guidance rationale review"}
-                        </CardTitle>
-                      </div>
-                      <span
-                        className={`rounded-full border px-3 py-1 text-[11px] font-medium uppercase tracking-[0.14em] ${
-                          flag.status === "approved"
-                            ? "border-emerald-300/25 bg-emerald-300/10 text-emerald-100"
-                            : flag.status === "denied"
-                              ? "border-rose-300/25 bg-rose-300/10 text-rose-100"
-                              : "border-amber-300/25 bg-amber-300/10 text-amber-100"
-                        }`}
-                      >
-                        {flag.status}
-                      </span>
-                    </div>
-                  </CardHeader>
-                  <CardContent className="grid gap-4 p-5">
-                    <div className="grid gap-3 md:grid-cols-2">
-                      <div className="rounded-md border border-white/10 bg-white/[0.035] p-3">
-                        <p className="text-xs font-medium uppercase tracking-[0.16em] text-zinc-500">User reason</p>
-                        <p className="mt-2 text-sm leading-6 text-zinc-200">{flag.userReason}</p>
-                      </div>
-                      <div className="rounded-md border border-white/10 bg-white/[0.035] p-3">
-                        <p className="text-xs font-medium uppercase tracking-[0.16em] text-zinc-500">User context</p>
-                        <p className="mt-2 text-sm leading-6 text-zinc-200">{flag.userContext}</p>
-                      </div>
-                    </div>
-
-                    {justification ? (
-                      <div className="rounded-md border border-cyan-300/20 bg-cyan-300/[0.055] p-4">
-                        <p className="text-xs font-medium uppercase tracking-[0.16em] text-cyan-200">Guidance justification</p>
-                        <p className="mt-2 text-sm leading-6 text-zinc-200">{justification.summary}</p>
-                        <div className="mt-3 grid gap-2">
-                          {justification.citations.map((item) => (
-                            <div key={`${item.sourceId}-${item.label}`} className="rounded-md border border-white/10 bg-black/20 p-3">
-                              <p className="text-xs font-medium uppercase tracking-[0.16em] text-zinc-500">{item.label}</p>
-                              <p className="mt-2 text-sm leading-6 text-zinc-300">{item.rationale}</p>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    ) : null}
-
-                    <div className="grid gap-2">
-                      <label className="grid gap-2">
-                        <span className="text-xs font-medium uppercase tracking-[0.16em] text-zinc-300">Leadership disposition</span>
-                        <textarea
-                          value={currentReview.disposition}
-                          onChange={(event) =>
-                            setReviewState((current) => ({
-                              ...current,
-                              [flag.id]: { disposition: event.target.value, saving: currentReview.saving }
-                            }))
-                          }
-                          rows={4}
-                          placeholder="Approve or deny this flag with the cross-functional rationale that should govern this program."
-                          className="resize-none rounded-md border border-white/10 bg-zinc-950 px-3 py-3 text-sm leading-6 text-zinc-100 outline-none transition-colors placeholder:text-zinc-500 focus:border-amber-300/50"
-                        />
-                      </label>
-                    </div>
-
-                    <div className="flex flex-wrap gap-3">
-                      <Button
-                        type="button"
-                        onClick={() => void reviewFlag(flag, "approved")}
-                        disabled={currentReview.saving || flag.status === "approved"}
-                      >
-                        <CheckCircle2 className="h-4 w-4" />
-                        Approve
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        onClick={() => void reviewFlag(flag, "denied")}
-                        disabled={currentReview.saving || flag.status === "denied"}
-                      >
-                        <XCircle className="h-4 w-4" />
-                        Deny
-                      </Button>
-                      <span className="self-center text-xs text-zinc-500">
-                        Flagged {formatDate(flag.createdAt)}
-                        {flag.reviewedBy ? ` • reviewed by ${flag.reviewedBy}` : ""}
-                      </span>
-                    </div>
-                  </CardContent>
-                </Card>
-              );
-            })
+              {flagGroups.resolved.length ? (
+                <section className="grid gap-3">
+                  <div>
+                    <p className="text-xs font-medium uppercase tracking-[0.18em] text-zinc-500">Governed decisions</p>
+                    <h2 className="text-2xl font-semibold text-zinc-50">Resolved guidance flags</h2>
+                  </div>
+                  {flagGroups.resolved.map(renderFlagCard)}
+                </section>
+              ) : null}
+            </div>
           ) : (
             <Card className="bg-zinc-950/80">
               <CardContent className="p-8">
@@ -284,7 +349,7 @@ export function GovernanceDashboard() {
                   <p className="text-lg font-medium">No flagged guidance is waiting for governance review.</p>
                 </div>
                 <p className="mt-3 text-sm leading-6 text-zinc-400">
-                  When delivery leads dispute a justification or citation on a guided plan, it will appear here for program-scoped review.
+                  When delivery leads dispute a rationale, source citation, or Team Action Plan on a guided plan, it will appear here for program-scoped review.
                 </p>
               </CardContent>
             </Card>

@@ -6,10 +6,11 @@ import type { StoredProgramUpdate } from "@/lib/active-program-types";
 import type { AssistantConversationTurn } from "@/lib/assistant-conversation-types";
 import type { GuidedPlan, GuidedPlanRolePlans, GuidedPlanSection } from "@/lib/guided-plan-types";
 import type { DeliveryLeadershipSignal } from "@/lib/leadership-feedback-types";
-import type { GuidanceFeedbackFlag, GuidanceJustificationRecord } from "@/lib/program-intelligence-types";
+import type { GuidanceFeedbackFlag, GuidanceFeedbackFlagTargetType, GuidanceJustificationRecord } from "@/lib/program-intelligence-types";
 import { useForegroundRefresh } from "@/hooks/use-foreground-refresh";
 import { useProgramCatalog } from "@/hooks/use-program-catalog";
 import { useRequestSequence } from "@/hooks/use-request-sequence";
+import { buildTeamActionPlanFlagSourceId } from "@/lib/guidance-feedback-flag-sources";
 import { buildProgramGantt } from "@/lib/program-gantt";
 import { Button } from "@/components/ui/button";
 import { GuidedPlanEmptyStateCard } from "@/components/guided-plan-empty-state-card";
@@ -35,6 +36,15 @@ const allRolesOption = "__all_roles__";
 function normalizeRoleKey(role: string) {
   return role.trim().toLowerCase();
 }
+
+type FlagTarget = {
+  justificationId: string;
+  citationId?: string;
+  targetType?: GuidanceFeedbackFlagTargetType;
+  targetLabel?: string;
+  targetRole?: string;
+  scope: "partial" | "whole";
+};
 
 function formatDate(value: string) {
   return new Intl.DateTimeFormat(undefined, {
@@ -120,7 +130,7 @@ export function GuidedPlansConsole() {
   const [isSavingRole, setIsSavingRole] = useState(false);
   const [selectedRoleFocus, setSelectedRoleFocus] = useState(allRolesOption);
   const [expandedRoleKeys, setExpandedRoleKeys] = useState<Set<string>>(new Set());
-  const [flagTarget, setFlagTarget] = useState<{ justificationId: string; citationId?: string; scope: "partial" | "whole" } | null>(null);
+  const [flagTarget, setFlagTarget] = useState<FlagTarget | null>(null);
   const [flagReason, setFlagReason] = useState("");
   const [flagContext, setFlagContext] = useState("");
   const [isSubmittingFlag, setIsSubmittingFlag] = useState(false);
@@ -350,6 +360,9 @@ export function GuidedPlansConsole() {
         body: JSON.stringify({
           guidanceJustificationId: flagTarget.justificationId,
           citationId: flagTarget.citationId,
+          targetType: flagTarget.targetType,
+          targetLabel: flagTarget.targetLabel,
+          targetRole: flagTarget.targetRole,
           scope: flagTarget.scope,
           userReason: flagReason,
           userContext: flagContext
@@ -364,7 +377,7 @@ export function GuidedPlansConsole() {
       setFlagTarget(null);
       setFlagReason("");
       setFlagContext("");
-      setStatus("Guidance flag submitted. Leadership can now review it in Governance.");
+      setStatus("Guidance flag submitted. Governance can now review and adjudicate it.");
     } catch {
       setStatus("Could not submit the guidance flag.");
     } finally {
@@ -492,13 +505,24 @@ export function GuidedPlansConsole() {
                     flagReason={flagReason}
                     flagContext={flagContext}
                     isSubmittingFlag={isSubmittingFlag}
-                    onOpenCitationFlag={(citationId) => {
-                      setFlagTarget({ justificationId: latestJustification.id, citationId, scope: "partial" });
+                    onOpenCitationFlag={(citationId, citationLabel) => {
+                      setFlagTarget({
+                        justificationId: latestJustification.id,
+                        citationId,
+                        targetType: "source-citation",
+                        targetLabel: citationLabel,
+                        scope: "partial"
+                      });
                       setFlagReason("");
                       setFlagContext("");
                     }}
                     onOpenWholeFlag={() => {
-                      setFlagTarget({ justificationId: latestJustification.id, scope: "whole" });
+                      setFlagTarget({
+                        justificationId: latestJustification.id,
+                        targetType: "whole-rationale",
+                        targetLabel: "Why This Changed rationale",
+                        scope: "whole"
+                      });
                       setFlagReason("");
                       setFlagContext("");
                     }}
@@ -514,7 +538,33 @@ export function GuidedPlansConsole() {
                     rolePlans={rolePlans}
                     selectedRoleFocus={selectedRoleFocus}
                     expandedRoleKeys={expandedRoleKeys}
+                    canFlagGuidance={Boolean(latestJustification)}
+                    flagTarget={flagTarget}
+                    flagReason={flagReason}
+                    flagContext={flagContext}
+                    isSubmittingFlag={isSubmittingFlag}
                     onToggleRole={toggleExpandedRole}
+                    onOpenRoleFlag={(role) => {
+                      if (!latestJustification) {
+                        setStatus("A saved guidance rationale is required before a Team Action Plan can be disputed.");
+                        return;
+                      }
+
+                      setFlagTarget({
+                        justificationId: latestJustification.id,
+                        citationId: buildTeamActionPlanFlagSourceId(role),
+                        targetType: "team-action-plan",
+                        targetLabel: `${role} Team Action Plan`,
+                        targetRole: role,
+                        scope: "partial"
+                      });
+                      setFlagReason("");
+                      setFlagContext("");
+                    }}
+                    onFlagReasonChange={setFlagReason}
+                    onFlagContextChange={setFlagContext}
+                    onSubmitFlag={submitFlag}
+                    onCancelFlag={() => setFlagTarget(null)}
                   />
                 ) : null}
                 {planSections.map((section) => (

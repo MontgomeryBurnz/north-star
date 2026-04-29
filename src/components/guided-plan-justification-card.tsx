@@ -1,13 +1,17 @@
 "use client";
 
 import { Flag } from "lucide-react";
-import type { GuidanceJustificationRecord } from "@/lib/program-intelligence-types";
+import type { GuidanceFeedbackFlagTargetType, GuidanceJustificationRecord } from "@/lib/program-intelligence-types";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { GuidanceFlagForm } from "@/components/guidance-flag-form";
 
 type FlagTarget = {
   justificationId: string;
   citationId?: string;
+  targetType?: GuidanceFeedbackFlagTargetType;
+  targetLabel?: string;
+  targetRole?: string;
   scope: "partial" | "whole";
 };
 
@@ -18,7 +22,7 @@ type GuidedPlanJustificationCardProps = {
   flagReason: string;
   flagContext: string;
   isSubmittingFlag: boolean;
-  onOpenCitationFlag: (citationId: string) => void;
+  onOpenCitationFlag: (citationId: string, citationLabel: string) => void;
   onOpenWholeFlag: () => void;
   onFlagReasonChange: (value: string) => void;
   onFlagContextChange: (value: string) => void;
@@ -60,90 +64,66 @@ export function GuidedPlanJustificationCard({
               flagTarget?.justificationId === justification.id && flagTarget.citationId === citation.sourceId;
 
             return (
-              <div key={`${citation.sourceId}-${citation.label}`} className="rounded-md border border-white/10 bg-white/[0.035] p-4">
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div>
-                    <p className="text-xs font-medium uppercase tracking-[0.16em] text-cyan-200">{citation.label}</p>
-                    <p className="mt-2 text-sm leading-6 text-zinc-300">{citation.rationale}</p>
-                  </div>
+              <div key={`${citation.sourceId}-${citation.label}`} className="grid gap-3 rounded-md border border-white/10 bg-white/[0.035] p-4">
+                <div>
+                  <p className="text-xs font-medium uppercase tracking-[0.16em] text-cyan-200">{citation.label}</p>
+                  <p className="mt-2 text-sm leading-6 text-zinc-300">{citation.rationale}</p>
+                </div>
+                <div className="flex justify-end border-t border-white/10 pt-3">
                   <Button
                     type="button"
                     variant="ghost"
                     size="sm"
                     className="text-zinc-300 hover:text-zinc-50"
-                    onClick={() => onOpenCitationFlag(citation.sourceId)}
+                    onClick={() => onOpenCitationFlag(citation.sourceId, citation.label)}
                   >
                     <Flag className="h-4 w-4" />
-                    Flag
+                    Flag citation
                   </Button>
                 </div>
                 {isFlagTarget ? (
-                  <div className="mt-4 grid gap-3 rounded-md border border-amber-300/20 bg-amber-300/[0.055] p-3">
-                    <input
-                      value={flagReason}
-                      onChange={(event) => onFlagReasonChange(event.target.value)}
-                      placeholder="Why is this citation inaccurate or incomplete?"
-                      className="min-h-11 rounded-md border border-white/10 bg-zinc-950 px-3 py-3 text-sm text-zinc-100 outline-none transition-colors placeholder:text-zinc-500 focus:border-amber-300/50"
-                    />
-                    <textarea
-                      value={flagContext}
-                      onChange={(event) => onFlagContextChange(event.target.value)}
-                      rows={4}
-                      placeholder="Add the operator context leadership should use to review this challenge."
-                      className="resize-none rounded-md border border-white/10 bg-zinc-950 px-3 py-3 text-sm leading-6 text-zinc-100 outline-none transition-colors placeholder:text-zinc-500 focus:border-amber-300/50"
-                    />
-                    <div className="flex gap-3">
-                      <Button type="button" onClick={() => void onSubmitFlag()} disabled={isSubmittingFlag}>
-                        {isSubmittingFlag ? "Submitting..." : "Submit flag"}
-                      </Button>
-                      <Button type="button" variant="outline" onClick={onCancelFlag}>
-                        Cancel
-                      </Button>
-                    </div>
-                  </div>
+                  <GuidanceFlagForm
+                    reason={flagReason}
+                    context={flagContext}
+                    isSubmitting={isSubmittingFlag}
+                    reasonPlaceholder="Why is this citation inaccurate or incomplete?"
+                    contextPlaceholder="Add the operator context governance should use to review this challenge."
+                    onReasonChange={onFlagReasonChange}
+                    onContextChange={onFlagContextChange}
+                    onSubmit={onSubmitFlag}
+                    onCancel={onCancelFlag}
+                  />
                 ) : null}
               </div>
             );
           })}
         </div>
 
-        <div className="rounded-md border border-white/10 bg-black/20 p-4">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <p className="text-sm font-medium text-zinc-100">Dispute the whole rationale</p>
-              <p className="mt-1 text-xs leading-5 text-zinc-400">
-                Use this when the full explanation is misframed, not just one citation.
-              </p>
-            </div>
+        <div className="grid gap-3 rounded-md border border-white/10 bg-black/20 p-4">
+          <div>
+            <p className="text-sm font-medium text-zinc-100">Dispute the whole rationale</p>
+            <p className="mt-1 text-xs leading-5 text-zinc-400">
+              Use this when the full explanation is misframed, not just one source citation.
+            </p>
+          </div>
+          <div className="flex justify-end border-t border-white/10 pt-3">
             <Button type="button" variant="outline" onClick={onOpenWholeFlag}>
               <Flag className="h-4 w-4" />
               Flag rationale
             </Button>
           </div>
           {flagTarget?.justificationId === justification.id && flagTarget.scope === "whole" && !flagTarget.citationId ? (
-            <div className="mt-4 grid gap-3">
-              <input
-                value={flagReason}
-                onChange={(event) => onFlagReasonChange(event.target.value)}
-                placeholder="Why is the overall rationale inaccurate?"
-                className="min-h-11 rounded-md border border-white/10 bg-zinc-950 px-3 py-3 text-sm text-zinc-100 outline-none transition-colors placeholder:text-zinc-500 focus:border-amber-300/50"
-              />
-              <textarea
-                value={flagContext}
-                onChange={(event) => onFlagContextChange(event.target.value)}
-                rows={4}
-                placeholder="Add the broader program context or correction that should govern this plan."
-                className="resize-none rounded-md border border-white/10 bg-zinc-950 px-3 py-3 text-sm leading-6 text-zinc-100 outline-none transition-colors placeholder:text-zinc-500 focus:border-amber-300/50"
-              />
-              <div className="flex gap-3">
-                <Button type="button" onClick={() => void onSubmitFlag()} disabled={isSubmittingFlag}>
-                  {isSubmittingFlag ? "Submitting..." : "Submit flag"}
-                </Button>
-                <Button type="button" variant="outline" onClick={onCancelFlag}>
-                  Cancel
-                </Button>
-              </div>
-            </div>
+            <GuidanceFlagForm
+              reason={flagReason}
+              context={flagContext}
+              isSubmitting={isSubmittingFlag}
+              reasonPlaceholder="Why is the overall rationale inaccurate?"
+              contextPlaceholder="Add the broader program context or correction that should govern this plan."
+              onReasonChange={onFlagReasonChange}
+              onContextChange={onFlagContextChange}
+              onSubmit={onSubmitFlag}
+              onCancel={onCancelFlag}
+            />
           ) : null}
         </div>
       </CardContent>

@@ -55,12 +55,17 @@ export type GuidanceJustificationRecord = {
   createdAt: string;
 };
 
+export type GuidanceFeedbackFlagTargetType = "source-citation" | "whole-rationale" | "team-action-plan";
+
 export type GuidanceFeedbackFlag = {
   id: string;
   programId: string;
   programName: string;
   guidanceJustificationId: string;
   citationId?: string;
+  targetType?: GuidanceFeedbackFlagTargetType;
+  targetLabel?: string;
+  targetRole?: string;
   status: "pending" | "approved" | "denied";
   scope: "partial" | "whole";
   userReason: string;

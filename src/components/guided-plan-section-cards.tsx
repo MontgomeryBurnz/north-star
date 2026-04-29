@@ -1,16 +1,28 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { ArrowRight, ChevronDown, ChevronUp } from "lucide-react";
+import { ArrowRight, ChevronDown, ChevronUp, Flag } from "lucide-react";
 import type { GuidedPlanRolePlans, GuidedPlanSection } from "@/lib/guided-plan-types";
+import type { GuidanceFeedbackFlagTargetType } from "@/lib/program-intelligence-types";
+import { buildTeamActionPlanFlagSourceId } from "@/lib/guidance-feedback-flag-sources";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { GuidanceFlagForm } from "@/components/guidance-flag-form";
 
 const allRolesOption = "__all_roles__";
 
 function normalizeRoleKey(role: string) {
   return role.trim().toLowerCase();
 }
+
+type FlagTarget = {
+  justificationId: string;
+  citationId?: string;
+  targetType?: GuidanceFeedbackFlagTargetType;
+  targetLabel?: string;
+  targetRole?: string;
+  scope: "partial" | "whole";
+};
 
 export function PlanSectionCard({
   section,
@@ -41,12 +53,32 @@ export function RolePlansCard({
   rolePlans,
   selectedRoleFocus,
   expandedRoleKeys,
-  onToggleRole
+  canFlagGuidance,
+  flagTarget,
+  flagReason,
+  flagContext,
+  isSubmittingFlag,
+  onToggleRole,
+  onOpenRoleFlag,
+  onFlagReasonChange,
+  onFlagContextChange,
+  onSubmitFlag,
+  onCancelFlag
 }: {
   rolePlans: GuidedPlanRolePlans;
   selectedRoleFocus: string;
   expandedRoleKeys: Set<string>;
+  canFlagGuidance: boolean;
+  flagTarget: FlagTarget | null;
+  flagReason: string;
+  flagContext: string;
+  isSubmittingFlag: boolean;
   onToggleRole: (role: string) => void;
+  onOpenRoleFlag: (role: string) => void;
+  onFlagReasonChange: (value: string) => void;
+  onFlagContextChange: (value: string) => void;
+  onSubmitFlag: () => void | Promise<void>;
+  onCancelFlag: () => void;
 }) {
   const sortedRoles =
     selectedRoleFocus === allRolesOption
@@ -66,6 +98,8 @@ export function RolePlansCard({
           const isFocusedRole =
             selectedRoleFocus !== allRolesOption && normalizeRoleKey(rolePlan.role) === normalizeRoleKey(selectedRoleFocus);
           const isExpanded = selectedRoleFocus === allRolesOption || isFocusedRole || expandedRoleKeys.has(normalizeRoleKey(rolePlan.role));
+          const roleFlagSourceId = buildTeamActionPlanFlagSourceId(rolePlan.role);
+          const isFlagTarget = flagTarget?.citationId === roleFlagSourceId;
 
           return (
             <div
@@ -127,6 +161,31 @@ export function RolePlansCard({
                       </p>
                     ))}
                   </div>
+                  <div className="flex justify-end border-t border-white/10 pt-4">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      disabled={!canFlagGuidance}
+                      onClick={() => onOpenRoleFlag(rolePlan.role)}
+                    >
+                      <Flag className="h-4 w-4" />
+                      Flag guidance
+                    </Button>
+                  </div>
+                  {isFlagTarget ? (
+                    <GuidanceFlagForm
+                      reason={flagReason}
+                      context={flagContext}
+                      isSubmitting={isSubmittingFlag}
+                      reasonPlaceholder={`What feels inaccurate or misaligned for ${rolePlan.role}?`}
+                      contextPlaceholder="Add the role-specific context governance should consider before accepting or denying this dispute."
+                      onReasonChange={onFlagReasonChange}
+                      onContextChange={onFlagContextChange}
+                      onSubmit={onSubmitFlag}
+                      onCancel={onCancelFlag}
+                    />
+                  ) : null}
                 </div>
               ) : (
                 <p className="mt-3 text-sm leading-6 text-zinc-400">
