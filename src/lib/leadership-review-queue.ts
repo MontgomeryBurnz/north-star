@@ -23,6 +23,12 @@ type QueueProgramUpdate = {
 
 export type ReviewCadence = "weekly" | "biweekly";
 
+const leadershipDateFormatter = new Intl.DateTimeFormat("en-US", {
+  month: "short",
+  day: "numeric",
+  timeZone: "America/New_York"
+});
+
 export type ReviewCycleStatus = {
   cadence: ReviewCadence;
   lastReviewedLabel: string;
@@ -104,7 +110,7 @@ export function buildReviewCycleStatusForCadence(entries: QueueLeadershipReviewR
 
   return {
     cadence,
-    lastReviewedLabel: `Last reviewed ${latest.toLocaleDateString(undefined, { month: "short", day: "numeric" })}`,
+    lastReviewedLabel: `Last reviewed ${leadershipDateFormatter.format(latest)}`,
     nextReviewLabel: overdue
       ? `${Math.abs(daysUntilNext)} day${Math.abs(daysUntilNext) === 1 ? "" : "s"} overdue`
       : `Next review ${formatRelativeDays(daysUntilNext)}`,

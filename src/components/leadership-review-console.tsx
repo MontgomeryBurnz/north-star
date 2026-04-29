@@ -248,13 +248,16 @@ type TimelineItem = {
   tone: "program" | "update" | "plan" | "leadership";
 };
 
+const leadershipTimestampFormatter = new Intl.DateTimeFormat("en-US", {
+  month: "short",
+  day: "numeric",
+  hour: "numeric",
+  minute: "2-digit",
+  timeZone: "America/New_York"
+});
+
 function formatTimestamp(value: string) {
-  return new Intl.DateTimeFormat(undefined, {
-    month: "short",
-    day: "numeric",
-    hour: "numeric",
-    minute: "2-digit"
-  }).format(new Date(value));
+  return leadershipTimestampFormatter.format(new Date(value));
 }
 
 function differenceInDays(later: Date, earlier: Date) {
