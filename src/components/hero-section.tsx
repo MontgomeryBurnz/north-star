@@ -70,11 +70,11 @@ export function HeroSection({ metrics }: { metrics: DashboardMetrics }) {
             Console onboarding
           </div>
           <h1 className="text-5xl font-semibold tracking-normal text-zinc-50 sm:text-6xl lg:text-7xl">
-            Learn North Star in one pass.
+            Turn program signal into aligned action.
           </h1>
           <p className="mt-6 max-w-2xl text-base leading-8 text-zinc-300 md:text-lg">
-            Use this page as the front door for alpha testing. It shows where to start, what each surface does, and how
-            program inputs become guided plans, team actions, leadership feedback, and governance decisions.
+            Start here to see how North Star converts intake, artifacts, team updates, leadership feedback, and
+            governance signals into living guidance your team can trust and act on.
           </p>
           <div className="mt-8 flex flex-col gap-3 sm:flex-row">
             <Button asChild size="lg">
