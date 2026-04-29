@@ -1,26 +1,54 @@
 import Link from "next/link";
-import { ArrowRight, Gauge, Info, Layers3, Radio, Sparkles } from "lucide-react";
+import { ArrowRight, BookOpenCheck, FilePlus2, Gauge, Info, Layers3, ListChecks, MessageSquareText, Sparkles } from "lucide-react";
+
 import { MotionDiv } from "@/components/motion";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type { DashboardMetrics } from "@/lib/dashboard-metrics";
 
+const quickStartActions = [
+  {
+    href: "/new-program",
+    icon: FilePlus2,
+    label: "Create a program",
+    detail: "Start with a program name, outcomes, stakeholders, roles, and source artifacts."
+  },
+  {
+    href: "/active-program",
+    icon: ListChecks,
+    label: "Update program status",
+    detail: "Capture weekly team updates, risks, blockers, decisions, artifacts, and meeting context."
+  },
+  {
+    href: "/systems",
+    icon: Layers3,
+    label: "Review guided plans",
+    detail: "Use the refreshed plan, team action plans, risks, decisions, and change justifications."
+  },
+  {
+    href: "/assistant",
+    icon: MessageSquareText,
+    label: "Open Guide",
+    detail: "Ask program-specific questions and let the dialogue improve the guidance context."
+  }
+];
+
 export function HeroSection({ metrics }: { metrics: DashboardMetrics }) {
   const stats = [
-    { label: "Active programs", value: String(metrics.activePrograms).padStart(2, "0") },
-    { label: "Guided plans", value: String(metrics.guidedPlans).padStart(2, "0") },
+    { label: "Programs", value: String(metrics.activePrograms).padStart(2, "0") },
+    { label: "Plans", value: String(metrics.guidedPlans).padStart(2, "0") },
     {
       label: "Risks",
       value: String(metrics.riskCount).padStart(2, "0"),
       help: metrics.riskHelp
     },
     {
-      label: "Decisions needed",
+      label: "Decisions",
       value: String(metrics.decisionCount).padStart(2, "0"),
       help: metrics.decisionHelp
     },
     {
-      label: "Reviews due",
+      label: "Reviews",
       value: String(metrics.leadershipReviewsDue).padStart(2, "0"),
       help: metrics.leadershipReviewHelp
     }
@@ -30,7 +58,7 @@ export function HeroSection({ metrics }: { metrics: DashboardMetrics }) {
     <section className="relative overflow-hidden border-b border-white/10">
       <div className="absolute inset-0 bg-[linear-gradient(to_right,rgba(255,255,255,0.055)_1px,transparent_1px),linear-gradient(to_bottom,rgba(255,255,255,0.055)_1px,transparent_1px)] bg-[size:64px_64px]" />
       <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,rgba(16,185,129,0.18),transparent_42%),linear-gradient(180deg,rgba(9,9,11,0.4),#09090b_88%)]" />
-      <div className="relative mx-auto grid min-h-[calc(100vh-4rem)] max-w-7xl items-center gap-10 px-4 py-16 sm:px-6 lg:grid-cols-[1.05fr_0.95fr] lg:px-8">
+      <div className="relative mx-auto grid min-h-[calc(100vh-4rem)] max-w-7xl items-center gap-10 px-4 py-16 sm:px-6 lg:grid-cols-[1fr_1.05fr] lg:px-8">
         <MotionDiv
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
@@ -39,23 +67,24 @@ export function HeroSection({ metrics }: { metrics: DashboardMetrics }) {
         >
           <div className="mb-5 inline-flex items-center gap-2 rounded-md border border-white/10 bg-white/[0.04] px-3 py-1 text-xs text-zinc-300">
             <Sparkles className="h-3.5 w-3.5 text-emerald-200" />
-            Console
+            Console onboarding
           </div>
           <h1 className="text-5xl font-semibold tracking-normal text-zinc-50 sm:text-6xl lg:text-7xl">
-            Finding True North.
+            Learn North Star in one pass.
           </h1>
           <p className="mt-6 max-w-2xl text-base leading-8 text-zinc-300 md:text-lg">
-            See the programs, guidance surfaces, and decision paths that shape the work ahead. This console helps teams orient quickly, reduce noise, and hold to the clearest direction as conditions change.
+            Use this page as the front door for alpha testing. It shows where to start, what each surface does, and how
+            program inputs become guided plans, team actions, leadership feedback, and governance decisions.
           </p>
           <div className="mt-8 flex flex-col gap-3 sm:flex-row">
             <Button asChild size="lg">
-              <Link href="/assistant">
-                Find the work path
+              <Link href="/new-program">
+                Start a program
                 <ArrowRight className="h-4 w-4" />
               </Link>
             </Button>
             <Button asChild variant="outline" size="lg">
-              <Link href="/#guidance-flow">See how it works</Link>
+              <Link href="/#how-to-use">See the workflow</Link>
             </Button>
           </div>
         </MotionDiv>
@@ -71,8 +100,8 @@ export function HeroSection({ metrics }: { metrics: DashboardMetrics }) {
             <div className="absolute inset-0 animate-scan bg-gradient-to-b from-transparent via-white/[0.035] to-transparent" />
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-zinc-50">
-                <Gauge className="h-4 w-4 text-emerald-200" />
-                North Star console
+                <BookOpenCheck className="h-4 w-4 text-emerald-200" />
+                Quick start path
               </CardTitle>
             </CardHeader>
             <CardContent className="grid gap-4">
@@ -94,23 +123,38 @@ export function HeroSection({ metrics }: { metrics: DashboardMetrics }) {
                   </div>
                 ))}
               </div>
-              <div className="rounded-md border border-emerald-300/20 bg-emerald-300/[0.055] p-4">
-                <div className="flex items-center gap-2 text-sm font-medium text-emerald-100">
-                  <Layers3 className="h-4 w-4" />
-                Operating focus
+
+              <div className="grid gap-3">
+                {quickStartActions.map((action, index) => (
+                  <Link
+                    key={action.href}
+                    href={action.href}
+                    className="group grid grid-cols-[auto_1fr_auto] items-start gap-3 rounded-md border border-white/10 bg-white/[0.035] p-4 transition-colors hover:border-emerald-300/35 hover:bg-emerald-300/[0.055]"
+                  >
+                    <span className="flex h-8 w-8 items-center justify-center rounded-md border border-emerald-300/20 bg-emerald-300/10 text-sm font-semibold text-emerald-100">
+                      {index + 1}
+                    </span>
+                    <span>
+                      <span className="flex items-center gap-2 text-sm font-medium text-zinc-50">
+                        <action.icon className="h-4 w-4 text-emerald-200" />
+                        {action.label}
+                      </span>
+                      <span className="mt-1 block text-xs leading-5 text-zinc-500">{action.detail}</span>
+                    </span>
+                    <ArrowRight className="mt-1 h-4 w-4 text-zinc-600 transition-colors group-hover:text-emerald-200" />
+                  </Link>
+                ))}
+              </div>
+
+              <div className="rounded-md border border-cyan-300/20 bg-cyan-300/[0.055] p-4">
+                <div className="flex items-center gap-2 text-sm font-medium text-cyan-100">
+                  <Gauge className="h-4 w-4" />
+                  What to validate first
                 </div>
                 <p className="mt-3 text-sm leading-6 text-zinc-300">
-                  Program inputs, leadership signal, and delivery updates are translated into the next practical path.
+                  Create one realistic program, add one artifact, save one active update, submit one leadership review,
+                  and confirm the guided plan changes without a manual regenerate step.
                 </p>
-              </div>
-              <div className="grid grid-cols-[auto_1fr] gap-3 rounded-md border border-cyan-300/20 bg-cyan-300/[0.055] p-4">
-                <Radio className="mt-0.5 h-4 w-4 text-cyan-200" />
-                <div>
-                  <p className="text-sm font-medium text-cyan-100">Current watchlist</p>
-                  <p className="mt-2 text-sm leading-6 text-zinc-300">
-                    Delivery risk, timing pressure, unresolved decisions, and blockers that can pull programs off path.
-                  </p>
-                </div>
               </div>
             </CardContent>
           </Card>
