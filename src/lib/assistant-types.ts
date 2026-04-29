@@ -1,3 +1,5 @@
+import type { OpenAIUsageMetadata } from "@/lib/program-intelligence-types";
+
 export type AssistantMode = "direct" | "retrieval" | "fallback";
 
 export type AssistantContentType = "initiative" | "framework" | "aiProduct" | "experiment" | "faq" | "profile" | "program";
@@ -39,6 +41,7 @@ export type AssistantDebug = {
     model?: string;
     reasoningEffort?: string;
     verbosity?: string;
+    usage?: OpenAIUsageMetadata;
   };
 };
 

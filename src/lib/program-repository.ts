@@ -13,6 +13,8 @@ import type { LeadershipReviewInput, LeadershipReviewRecord } from "@/lib/leader
 import type {
   GuidanceFeedbackFlag,
   GuidanceJustificationRecord,
+  OpenAIUsageRecord,
+  OpenAIUsageRecordInput,
   ProgramMeetingInput
 } from "@/lib/program-intelligence-types";
 import type { ProgramIntake, StoredProgram } from "@/lib/program-intake-types";
@@ -39,6 +41,8 @@ type ProgramRepository = {
   listGuidanceFeedbackFlags(programId: string): Promise<GuidanceFeedbackFlag[]>;
   createGuidanceFeedbackFlag(programId: string, flag: Omit<GuidanceFeedbackFlag, "id" | "programId" | "programName" | "createdAt" | "updatedAt" | "status">): Promise<GuidanceFeedbackFlag>;
   reviewGuidanceFeedbackFlag(programId: string, flagId: string, review: { status: "approved" | "denied"; reviewedBy: string; leadershipDisposition: string }): Promise<GuidanceFeedbackFlag | null>;
+  listOpenAIUsageRecords(programId: string): Promise<OpenAIUsageRecord[]>;
+  createOpenAIUsageRecord(programId: string, usage: OpenAIUsageRecordInput): Promise<OpenAIUsageRecord>;
 };
 
 type ProgramStoreFile = {
@@ -50,6 +54,7 @@ type ProgramStoreFile = {
   meetingInputs: ProgramMeetingInput[];
   guidanceJustifications: GuidanceJustificationRecord[];
   guidanceFeedbackFlags: GuidanceFeedbackFlag[];
+  openAIUsageRecords: OpenAIUsageRecord[];
 };
 
 const emptyFileStore: ProgramStoreFile = {
@@ -60,7 +65,8 @@ const emptyFileStore: ProgramStoreFile = {
   leadershipFeedbacks: [],
   meetingInputs: [],
   guidanceJustifications: [],
-  guidanceFeedbackFlags: []
+  guidanceFeedbackFlags: [],
+  openAIUsageRecords: []
 };
 
 function buildGuidanceJustificationRecord(input: {
@@ -231,6 +237,21 @@ function dedupeLeadershipFeedbacksByProgram(records: LeadershipReviewRecord[]) {
   );
 }
 
+function buildOpenAIUsageRecord(input: {
+  programId: string;
+  programName: string;
+  usage: OpenAIUsageRecordInput;
+  createdAt?: string;
+}): OpenAIUsageRecord {
+  return {
+    id: randomUUID(),
+    programId: input.programId,
+    programName: input.programName,
+    createdAt: input.createdAt ?? new Date().toISOString(),
+    ...input.usage
+  };
+}
+
 async function ensureFileStore() {
   await mkdir(storeDirectory, { recursive: true });
 }
@@ -340,6 +361,17 @@ const fileRepository: ProgramRepository = {
     };
 
     store.assistantConversations = [record, ...store.assistantConversations];
+    if (response.debug.modelProfile?.usage) {
+      store.openAIUsageRecords = [
+        buildOpenAIUsageRecord({
+          programId,
+          programName: record.programName,
+          usage: { ...response.debug.modelProfile.usage, sourceId: record.id },
+          createdAt: now
+        }),
+        ...store.openAIUsageRecords
+      ];
+    }
     store.programs = store.programs.map((item) => (item.id === programId ? { ...item, updatedAt: now } : item));
     await writeFileStore(store);
     return record;
@@ -366,6 +398,17 @@ const fileRepository: ProgramRepository = {
     const plan = await generateGuidedPlan({ program, updates, leadershipFeedbacks, assistantConversations, meetingInputs });
 
     store.guidedPlans = [plan, ...store.guidedPlans];
+    if (plan.modelUsage) {
+      store.openAIUsageRecords = [
+        buildOpenAIUsageRecord({
+          programId,
+          programName: plan.programName,
+          usage: { ...plan.modelUsage, sourceId: plan.id },
+          createdAt: plan.createdAt
+        }),
+        ...store.openAIUsageRecords
+      ];
+    }
     const justification = buildGuidanceJustificationRecord({
       programId,
       programName: plan.programName,
@@ -404,7 +447,7 @@ const fileRepository: ProgramRepository = {
       return existingLatest;
     }
 
-    const interpretation = await enhanceLeadershipFeedback(normalizedFeedback);
+    const interpretation = await enhanceLeadershipFeedback(normalizedFeedback, { programId });
 
     const record: LeadershipReviewRecord = {
       id: randomUUID(),
@@ -417,6 +460,17 @@ const fileRepository: ProgramRepository = {
     };
 
     store.leadershipFeedbacks = [record, ...store.leadershipFeedbacks];
+    if (interpretation.modelUsage) {
+      store.openAIUsageRecords = [
+        buildOpenAIUsageRecord({
+          programId,
+          programName: record.programName,
+          usage: { ...interpretation.modelUsage, sourceId: record.id },
+          createdAt: now
+        }),
+        ...store.openAIUsageRecords
+      ];
+    }
     store.programs = store.programs.map((item) => (item.id === programId ? { ...item, updatedAt: now } : item));
     await writeFileStore(store);
     return record;
@@ -490,6 +544,22 @@ const fileRepository: ProgramRepository = {
     store.guidanceFeedbackFlags = store.guidanceFeedbackFlags.map((record) => (record.id === flagId ? updated : record));
     await writeFileStore(store);
     return updated;
+  },
+  async listOpenAIUsageRecords(programId) {
+    const store = await readFileStore();
+    return sortByUpdatedDesc(store.openAIUsageRecords.filter((record) => record.programId === programId));
+  },
+  async createOpenAIUsageRecord(programId, usage) {
+    const store = await readFileStore();
+    const program = store.programs.find((item) => item.id === programId);
+    const record = buildOpenAIUsageRecord({
+      programId,
+      programName: program?.intake.programName || "Untitled program",
+      usage
+    });
+    store.openAIUsageRecords = [record, ...store.openAIUsageRecords];
+    await writeFileStore(store);
+    return record;
   }
 };
 
@@ -605,6 +675,16 @@ async function ensurePostgresSchema() {
             updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
           );
 
+          CREATE TABLE IF NOT EXISTS openai_usage_records (
+            id TEXT PRIMARY KEY,
+            program_id TEXT NOT NULL REFERENCES programs(id) ON DELETE CASCADE,
+            program_name TEXT NOT NULL,
+            workflow TEXT NOT NULL,
+            source_id TEXT,
+            record JSONB NOT NULL,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+          );
+
           CREATE INDEX IF NOT EXISTS idx_program_updates_program_id_created_at
             ON program_updates(program_id, created_at DESC);
           CREATE INDEX IF NOT EXISTS idx_guided_plans_program_id_created_at
@@ -623,6 +703,10 @@ async function ensurePostgresSchema() {
             ON guidance_feedback_flags(program_id, created_at DESC);
           CREATE INDEX IF NOT EXISTS idx_guidance_feedback_flags_justification_id_created_at
             ON guidance_feedback_flags(guidance_justification_id, created_at DESC);
+          CREATE INDEX IF NOT EXISTS idx_openai_usage_records_program_id_created_at
+            ON openai_usage_records(program_id, created_at DESC);
+          CREATE INDEX IF NOT EXISTS idx_openai_usage_records_program_id_workflow_created_at
+            ON openai_usage_records(program_id, workflow, created_at DESC);
         `);
       } finally {
         client.release();
@@ -723,6 +807,10 @@ function mapGuidanceJustificationRow(row: { record: GuidanceJustificationRecord 
 }
 
 function mapGuidanceFeedbackFlagRow(row: { record: GuidanceFeedbackFlag }): GuidanceFeedbackFlag {
+  return row.record;
+}
+
+function mapOpenAIUsageRecordRow(row: { record: OpenAIUsageRecord }): OpenAIUsageRecord {
   return row.record;
 }
 
@@ -866,6 +954,9 @@ const postgresRepository: ProgramRepository = {
       `,
       [record.id, programId, record.programName, prompt, JSON.stringify(response), now]
     );
+    if (response.debug.modelProfile?.usage) {
+      await this.createOpenAIUsageRecord(programId, { ...response.debug.modelProfile.usage, sourceId: record.id });
+    }
     await getPool().query("UPDATE programs SET updated_at = $2 WHERE id = $1", [programId, now]);
     return record;
   },
@@ -901,6 +992,9 @@ const postgresRepository: ProgramRepository = {
       `,
       [plan.id, programId, plan.programName, JSON.stringify(plan), new Date(plan.createdAt)]
     );
+    if (plan.modelUsage) {
+      await this.createOpenAIUsageRecord(programId, { ...plan.modelUsage, sourceId: plan.id });
+    }
     const justification = buildGuidanceJustificationRecord({
       programId,
       programName: plan.programName,
@@ -951,7 +1045,7 @@ const postgresRepository: ProgramRepository = {
       return latestExisting[0];
     }
 
-    const interpretation = await enhanceLeadershipFeedback(normalizedFeedback);
+    const interpretation = await enhanceLeadershipFeedback(normalizedFeedback, { programId });
     const record: LeadershipReviewRecord = {
       id: randomUUID(),
       programId,
@@ -969,6 +1063,9 @@ const postgresRepository: ProgramRepository = {
       `,
       [record.id, programId, record.programName, JSON.stringify(record), now]
     );
+    if (interpretation.modelUsage) {
+      await this.createOpenAIUsageRecord(programId, { ...interpretation.modelUsage, sourceId: record.id });
+    }
     await getPool().query("UPDATE programs SET updated_at = $2 WHERE id = $1", [programId, now]);
     return record;
   },
@@ -1102,6 +1199,39 @@ const postgresRepository: ProgramRepository = {
       [programId, flagId, JSON.stringify(updated), new Date(updated.updatedAt)]
     );
     return updated;
+  },
+  async listOpenAIUsageRecords(programId) {
+    await ensurePostgresSchema();
+    const result = await getPool().query(
+      `
+        SELECT record
+        FROM openai_usage_records
+        WHERE program_id = $1
+        ORDER BY created_at DESC
+      `,
+      [programId]
+    );
+    return result.rows.map(mapOpenAIUsageRecordRow);
+  },
+  async createOpenAIUsageRecord(programId, usage) {
+    await ensurePostgresSchema();
+    const now = new Date();
+    const program = await this.getProgram(programId);
+    const record = buildOpenAIUsageRecord({
+      programId,
+      programName: program?.intake.programName || "Untitled program",
+      usage,
+      createdAt: now.toISOString()
+    });
+
+    await getPool().query(
+      `
+        INSERT INTO openai_usage_records (id, program_id, program_name, workflow, source_id, record, created_at)
+        VALUES ($1, $2, $3, $4, $5, $6::jsonb, $7)
+      `,
+      [record.id, programId, record.programName, record.workflow, record.sourceId ?? null, JSON.stringify(record), now]
+    );
+    return record;
   }
 };
 

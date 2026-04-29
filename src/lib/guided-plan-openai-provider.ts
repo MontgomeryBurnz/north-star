@@ -4,6 +4,7 @@ import type { GuidedPlan, GuidedPlanRolePlan, GuidedPlanSection } from "@/lib/gu
 import type { GuidedPlanGenerationContext, GuidedPlanProvider } from "@/lib/guided-plan-service";
 import { getNorthStarPromptCacheKey } from "@/lib/openai-prompt-cache";
 import { asRecord, asStringArray, asTrimmedString, extractOutputText, parseStructuredModelOutput } from "@/lib/openai-structured-output";
+import { extractOpenAIUsageMetadata } from "@/lib/openai-usage";
 
 type OpenAIGuidedPlanPayload = {
   northStar: string;
@@ -255,6 +256,7 @@ export const openaiGuidedPlanProvider: GuidedPlanProvider = {
     if (!apiKey || !model) {
       return baselinePlan;
     }
+    const promptCacheKey = getNorthStarPromptCacheKey("guided-plan", context.program.id);
 
     const response = await fetch("https://api.openai.com/v1/responses", {
       method: "POST",
@@ -265,7 +267,7 @@ export const openaiGuidedPlanProvider: GuidedPlanProvider = {
       body: JSON.stringify({
         model,
         store: false,
-        prompt_cache_key: getNorthStarPromptCacheKey("guided-plan", context.program.id),
+        prompt_cache_key: promptCacheKey,
         reasoning: {
           effort: reasoningEffort
         },
@@ -467,11 +469,19 @@ ${toPromptContext(context, baselinePlan)}`
       return baselinePlan;
     }
 
-    const payload = parseStructuredModelOutput(extractOutputText(await response.json()), validateGuidedPlanPayload);
+    const responsePayload = await response.json();
+    const modelUsage = extractOpenAIUsageMetadata({
+      payload: responsePayload,
+      workflow: "guided-plan",
+      model,
+      reasoningEffort,
+      cacheKey: promptCacheKey
+    });
+    const payload = parseStructuredModelOutput(extractOutputText(responsePayload), validateGuidedPlanPayload);
     if (!payload) {
-      return baselinePlan;
+      return { ...baselinePlan, modelUsage: modelUsage ?? undefined };
     }
 
-    return mergeWithBaseline(payload, baselinePlan);
+    return { ...mergeWithBaseline(payload, baselinePlan), modelUsage: modelUsage ?? undefined };
   }
 };

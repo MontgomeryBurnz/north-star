@@ -5,6 +5,8 @@ import type {
 } from "@/lib/leadership-feedback-types";
 import { getNorthStarPromptCacheKey } from "@/lib/openai-prompt-cache";
 import { asRecord, asStringArray, asTrimmedString, extractOutputText, parseStructuredModelOutput } from "@/lib/openai-structured-output";
+import { extractOpenAIUsageMetadata } from "@/lib/openai-usage";
+import type { OpenAIUsageMetadata } from "@/lib/program-intelligence-types";
 import { firstSignal, normalizeWhitespace } from "@/lib/text-signals";
 
 type OpenAIInterpretationPayload = {
@@ -153,13 +155,15 @@ function buildLocalInterpretation(feedback: LeadershipReviewInput): LeadershipFe
 function mergeOpenAIInterpretation(
   payload: OpenAIInterpretationPayload | null,
   fallback: LeadershipFeedbackInterpretation,
-  model: string
+  model: string,
+  modelUsage?: OpenAIUsageMetadata
 ): LeadershipFeedbackInterpretation {
   if (!payload) {
     return {
       ...fallback,
       provider: "openai",
-      model
+      model,
+      modelUsage
     };
   }
 
@@ -188,11 +192,15 @@ function mergeOpenAIInterpretation(
     deliveryLeadMessage: clean(payload.deliveryLeadMessage || fallback.deliveryLeadMessage),
     planImpacts: sanitizeStringArray(payload.planImpacts, fallback.planImpacts),
     riskAdjustments: sanitizeStringArray(payload.riskAdjustments, fallback.riskAdjustments),
-    roleImpacts: roleImpacts.length ? roleImpacts : fallback.roleImpacts
+    roleImpacts: roleImpacts.length ? roleImpacts : fallback.roleImpacts,
+    modelUsage
   };
 }
 
-export async function enhanceLeadershipFeedback(feedback: LeadershipReviewInput): Promise<LeadershipFeedbackInterpretation> {
+export async function enhanceLeadershipFeedback(
+  feedback: LeadershipReviewInput,
+  options: { programId?: string } = {}
+): Promise<LeadershipFeedbackInterpretation> {
   const fallback = buildLocalInterpretation(feedback);
   const apiKey = process.env.OPENAI_API_KEY?.trim();
   const model = getConfiguredModel();
@@ -200,6 +208,8 @@ export async function enhanceLeadershipFeedback(feedback: LeadershipReviewInput)
   if (!apiKey || !model) {
     return fallback;
   }
+  const reasoningEffort = getConfiguredReasoningEffort();
+  const promptCacheKey = getNorthStarPromptCacheKey("leadership-feedback", options.programId ?? feedback.programName);
 
   const response = await fetch("https://api.openai.com/v1/responses", {
     method: "POST",
@@ -210,9 +220,9 @@ export async function enhanceLeadershipFeedback(feedback: LeadershipReviewInput)
     body: JSON.stringify({
       model,
       store: false,
-      prompt_cache_key: getNorthStarPromptCacheKey("leadership-feedback", feedback.programName),
+      prompt_cache_key: promptCacheKey,
       reasoning: {
-        effort: getConfiguredReasoningEffort()
+        effort: reasoningEffort
       },
       text: {
         verbosity: getConfiguredVerbosity(),
@@ -278,6 +288,14 @@ export async function enhanceLeadershipFeedback(feedback: LeadershipReviewInput)
     return fallback;
   }
 
-  const payload = parseStructuredModelOutput(extractOutputText(await response.json()), validateInterpretationPayload);
-  return mergeOpenAIInterpretation(payload, fallback, model);
+  const responsePayload = await response.json();
+  const modelUsage = extractOpenAIUsageMetadata({
+    payload: responsePayload,
+    workflow: "leadership-feedback",
+    model,
+    reasoningEffort,
+    cacheKey: promptCacheKey
+  });
+  const payload = parseStructuredModelOutput(extractOutputText(responsePayload), validateInterpretationPayload);
+  return mergeOpenAIInterpretation(payload, fallback, model, modelUsage ?? undefined);
 }

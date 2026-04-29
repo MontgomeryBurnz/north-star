@@ -2,6 +2,8 @@ import { composeGroundedAnswer, getRelevantContent } from "@/lib/assistant";
 import type { AssistantProvider, AssistantRequest, AssistantServiceResponse } from "@/lib/assistant-types";
 import { getNorthStarPromptCacheKey } from "@/lib/openai-prompt-cache";
 import { asRecord, asStringArray, asTrimmedString, extractOutputText, parseStructuredModelOutput } from "@/lib/openai-structured-output";
+import { extractOpenAIUsageMetadata } from "@/lib/openai-usage";
+import type { OpenAIUsageMetadata } from "@/lib/program-intelligence-types";
 
 type OpenAIComposedPayload = {
   answer: string;
@@ -58,7 +60,8 @@ function withModelProfile(
   response: AssistantServiceResponse,
   model: string,
   reasoningEffort: string,
-  verbosity: string
+  verbosity: string,
+  usage?: OpenAIUsageMetadata
 ): AssistantServiceResponse {
   return {
     ...response,
@@ -68,7 +71,8 @@ function withModelProfile(
         provider: "openai",
         model,
         reasoningEffort,
-        verbosity
+        verbosity,
+        usage
       }
     }
   };
@@ -111,6 +115,7 @@ export const openaiAssistantProvider: AssistantProvider = {
       .slice(-6)
       .map((message) => `${message.role.toUpperCase()}: ${message.content}`)
       .join("\n");
+    const promptCacheKey = getNorthStarPromptCacheKey("guide", request.selectedProgramId);
 
     const response = await fetch("https://api.openai.com/v1/responses", {
       method: "POST",
@@ -121,7 +126,7 @@ export const openaiAssistantProvider: AssistantProvider = {
       body: JSON.stringify({
         model,
         store: false,
-        prompt_cache_key: getNorthStarPromptCacheKey("guide", request.selectedProgramId),
+        prompt_cache_key: promptCacheKey,
         reasoning: {
           effort: reasoningEffort
         },
@@ -237,6 +242,13 @@ ${JSON.stringify(
     }
 
     const payload = await response.json();
+    const modelUsage = extractOpenAIUsageMetadata({
+      payload,
+      workflow: "guide",
+      model,
+      reasoningEffort,
+      cacheKey: promptCacheKey
+    });
     const parsed = parseStructuredModelOutput(extractOutputText(payload), validateComposedPayload);
 
     if (!parsed) {
@@ -251,7 +263,7 @@ ${JSON.stringify(
         ],
         sources: [...localGroundedResponse.sources, "provider: openai-parse-fallback"],
         provider: "openai"
-      }, model, reasoningEffort, verbosity);
+      }, model, reasoningEffort, verbosity, modelUsage ?? undefined);
     }
 
     return withModelProfile({
@@ -265,6 +277,6 @@ ${JSON.stringify(
       matches,
       debug: localGroundedResponse.debug,
       provider: "openai"
-    }, model, reasoningEffort, verbosity);
+    }, model, reasoningEffort, verbosity, modelUsage ?? undefined);
   }
 };

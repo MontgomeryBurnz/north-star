@@ -1,4 +1,5 @@
 import type { DeliveryLeadershipSignal } from "@/lib/leadership-feedback-types";
+import type { OpenAIUsageMetadata } from "@/lib/program-intelligence-types";
 
 export type GuidedPlanSection = {
   title: string;
@@ -39,4 +40,5 @@ export type GuidedPlan = {
   leadershipSignal: DeliveryLeadershipSignal;
   followUpQuestions: string[];
   sourceRecordIds: string[];
+  modelUsage?: OpenAIUsageMetadata;
 };

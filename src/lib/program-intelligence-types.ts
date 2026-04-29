@@ -37,6 +37,35 @@ export type ProgramMeetingInput = {
   updatedAt: string;
 };
 
+export type OpenAIUsageWorkflow = "guided-plan" | "guide" | "assistant-briefing" | "leadership-feedback";
+
+export type OpenAIUsageMetadata = {
+  provider: "openai";
+  workflow: OpenAIUsageWorkflow;
+  model: string;
+  reasoningEffort?: string;
+  cacheKey?: string;
+  responseId?: string;
+  inputTokens: number;
+  cachedInputTokens: number;
+  outputTokens: number;
+  totalTokens: number;
+  reasoningOutputTokens?: number;
+  estimatedCostUsd: number;
+  estimatedCachedInputSavingsUsd: number;
+  pricingAsOf?: string;
+};
+
+export type OpenAIUsageRecord = OpenAIUsageMetadata & {
+  id: string;
+  programId: string;
+  programName: string;
+  sourceId?: string;
+  createdAt: string;
+};
+
+export type OpenAIUsageRecordInput = Omit<OpenAIUsageRecord, "id" | "programId" | "programName" | "createdAt">;
+
 export type GuidanceCitation = {
   sourceType: "artifact" | "active-update" | "leadership-feedback" | "assistant-dialogue" | "meeting-input";
   sourceId: string;

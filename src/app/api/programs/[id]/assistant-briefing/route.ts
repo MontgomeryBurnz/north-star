@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getAssistantBriefing } from "@/lib/assistant-briefing";
+import { createOpenAIUsageRecord } from "@/lib/program-store";
 import { createSiteAccessDeniedResponse, isSiteAccessRequestAuthorized } from "@/lib/site-access";
 
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -9,5 +10,11 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
 
   const { id } = await params;
   const briefing = await getAssistantBriefing(id);
-  return NextResponse.json({ briefing });
+  const { modelUsage, ...publicBriefing } = briefing;
+
+  if (modelUsage) {
+    await createOpenAIUsageRecord(id, { ...modelUsage, sourceId: `${id}:assistant-briefing` });
+  }
+
+  return NextResponse.json({ briefing: publicBriefing });
 }

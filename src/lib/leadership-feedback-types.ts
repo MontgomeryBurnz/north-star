@@ -1,3 +1,5 @@
+import type { OpenAIUsageMetadata } from "@/lib/program-intelligence-types";
+
 export type LeadershipReviewInput = {
   programName: string;
   timelineSummary: string;
@@ -22,6 +24,7 @@ export type LeadershipFeedbackInterpretation = {
   planImpacts: string[];
   riskAdjustments: string[];
   roleImpacts: LeadershipRoleImpact[];
+  modelUsage?: OpenAIUsageMetadata;
 };
 
 export type LeadershipReviewRecord = {

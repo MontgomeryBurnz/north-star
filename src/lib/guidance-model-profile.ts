@@ -1,13 +1,7 @@
 import { getConfiguredGuidedPlanProvider, type GuidedPlanProviderId } from "@/lib/guided-plan-service";
+import { getOpenAIModelPricing, type OpenAIModelPricing } from "@/lib/openai-pricing";
 
-export type GuidanceModelPricing = {
-  inputPerMillionTokens: string;
-  cachedInputPerMillionTokens: string;
-  outputPerMillionTokens: string;
-  sourceUrl: string;
-  sourceLabel: string;
-  asOf: string;
-};
+export type GuidanceModelPricing = OpenAIModelPricing;
 
 export type GuidanceModelProfile = {
   provider: GuidedPlanProviderId;
@@ -21,17 +15,6 @@ export type GuidanceModelProfile = {
     sourceLabel: string;
   };
   pricing: GuidanceModelPricing | null;
-};
-
-const pricingByModel: Record<string, GuidanceModelPricing> = {
-  "gpt-5.5": {
-    inputPerMillionTokens: "$5.00",
-    cachedInputPerMillionTokens: "$0.50",
-    outputPerMillionTokens: "$30.00",
-    sourceUrl: "https://openai.com/api/pricing/",
-    sourceLabel: "OpenAI API pricing",
-    asOf: "April 29, 2026"
-  }
 };
 
 export function getGuidanceModelProfile(): GuidanceModelProfile {
@@ -49,6 +32,6 @@ export function getGuidanceModelProfile(): GuidanceModelProfile {
       sourceUrl: "https://platform.openai.com/docs/guides/prompt-caching",
       sourceLabel: "OpenAI prompt caching"
     },
-    pricing: pricingByModel[model] ?? null
+    pricing: getOpenAIModelPricing(model)
   };
 }

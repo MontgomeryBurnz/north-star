@@ -2,7 +2,12 @@ import "server-only";
 import type { ActiveProgramReview } from "@/lib/active-program-types";
 import type { AssistantServiceResponse } from "@/lib/assistant-types";
 import type { LeadershipReviewInput } from "@/lib/leadership-feedback-types";
-import type { GuidanceFeedbackFlag, GuidanceJustificationRecord, ProgramMeetingInput } from "@/lib/program-intelligence-types";
+import type {
+  GuidanceFeedbackFlag,
+  GuidanceJustificationRecord,
+  OpenAIUsageRecordInput,
+  ProgramMeetingInput
+} from "@/lib/program-intelligence-types";
 import type { ProgramIntake } from "@/lib/program-intake-types";
 import { getProgramRepository } from "@/lib/program-repository";
 
@@ -94,4 +99,12 @@ export async function reviewGuidanceFeedbackFlag(
   review: { status: "approved" | "denied"; reviewedBy: string; leadershipDisposition: string }
 ) {
   return getProgramRepository().reviewGuidanceFeedbackFlag(programId, flagId, review);
+}
+
+export async function listOpenAIUsageRecords(programId: string) {
+  return getProgramRepository().listOpenAIUsageRecords(programId);
+}
+
+export async function createOpenAIUsageRecord(programId: string, usage: OpenAIUsageRecordInput) {
+  return getProgramRepository().createOpenAIUsageRecord(programId, usage);
 }

@@ -2,7 +2,9 @@ import "server-only";
 
 import { getLatestGuidedPlan, getProgram, listAssistantConversations, listLeadershipFeedback, listProgramUpdates } from "@/lib/program-store";
 import { getNorthStarPromptCacheKey } from "@/lib/openai-prompt-cache";
+import { extractOpenAIUsageMetadata } from "@/lib/openai-usage";
 import { asRecord, asStringArray, asTrimmedString, extractOutputText, parseStructuredModelOutput } from "@/lib/openai-structured-output";
+import type { OpenAIUsageMetadata } from "@/lib/program-intelligence-types";
 
 export type AssistantBriefing = {
   promptChips: string[];
@@ -11,6 +13,7 @@ export type AssistantBriefing = {
   understandingSummary: string;
   missingInputs: string[];
   model?: string;
+  modelUsage?: OpenAIUsageMetadata;
 };
 
 type OpenAIBriefingPayload = {
@@ -207,6 +210,7 @@ export async function getAssistantBriefing(programId: string): Promise<Assistant
 
   const reasoningEffort = getConfiguredReasoningEffort();
   const verbosity = getConfiguredVerbosity();
+  const promptCacheKey = getNorthStarPromptCacheKey("assistant-briefing", program.id);
 
   const response = await fetch("https://api.openai.com/v1/responses", {
     method: "POST",
@@ -217,7 +221,7 @@ export async function getAssistantBriefing(programId: string): Promise<Assistant
     body: JSON.stringify({
       model,
       store: false,
-      prompt_cache_key: getNorthStarPromptCacheKey("assistant-briefing", program.id),
+      prompt_cache_key: promptCacheKey,
       reasoning: {
         effort: reasoningEffort
       },
@@ -288,9 +292,17 @@ export async function getAssistantBriefing(programId: string): Promise<Assistant
     return { ...localBriefing, missingInputs, model };
   }
 
-  const payload = parseStructuredModelOutput(extractOutputText(await response.json()), validateBriefingPayload);
+  const responsePayload = await response.json();
+  const modelUsage = extractOpenAIUsageMetadata({
+    payload: responsePayload,
+    workflow: "assistant-briefing",
+    model,
+    reasoningEffort,
+    cacheKey: promptCacheKey
+  });
+  const payload = parseStructuredModelOutput(extractOutputText(responsePayload), validateBriefingPayload);
   if (!payload) {
-    return { ...localBriefing, missingInputs, model };
+    return { ...localBriefing, missingInputs, model, modelUsage: modelUsage ?? undefined };
   }
 
   return {
@@ -299,6 +311,7 @@ export async function getAssistantBriefing(programId: string): Promise<Assistant
     understandingScore: clampScore(payload.understandingScore),
     understandingSummary: payload.understandingSummary.trim() || localBriefing.understandingSummary,
     missingInputs,
-    model
+    model,
+    modelUsage: modelUsage ?? undefined
   };
 }
