@@ -5,6 +5,7 @@ function isPublicPath(pathname: string) {
   if (
     pathname === "/login" ||
     pathname.startsWith("/api/auth/site-access/login") ||
+    pathname.startsWith("/api/security/supabase-rls-check") ||
     pathname.startsWith("/_next/") ||
     pathname === "/favicon.ico"
   ) {

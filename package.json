@@ -8,6 +8,8 @@
     "start": "next start",
     "lint": "eslint . --max-warnings=0",
     "test": "node --experimental-strip-types --test tests/**/*.test.ts",
+    "security:supabase-logs": "node scripts/review-supabase-api-logs.mjs",
+    "security:supabase-rls": "node scripts/check-supabase-rls.mjs",
     "prisma:generate": "prisma generate",
     "prisma:studio": "prisma studio"
   },

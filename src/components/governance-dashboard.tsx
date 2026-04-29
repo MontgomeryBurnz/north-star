@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { CheckCircle2, ShieldAlert, XCircle } from "lucide-react";
+import { CheckCircle2, ChevronDown, ShieldAlert, XCircle } from "lucide-react";
 import { useForegroundRefresh } from "@/hooks/use-foreground-refresh";
 import { useProgramCatalog } from "@/hooks/use-program-catalog";
 import { useRequestSequence } from "@/hooks/use-request-sequence";
@@ -444,18 +444,21 @@ export function GovernanceDashboard({ guidanceModelProfile }: GovernanceDashboar
             <CardContent className="grid gap-4 p-5">
               <label className="grid gap-2">
                 <span className="text-xs font-medium uppercase tracking-[0.18em] text-zinc-300">Active program</span>
-                <select
-                  value={selectedProgramId}
-                  onChange={(event) => setSelectedProgramId(event.target.value)}
-                  className="min-h-11 rounded-md border border-white/10 bg-zinc-950 px-3 py-3 text-sm text-zinc-100 outline-none transition-colors focus:border-emerald-300/50"
-                >
-                  {programs.length ? null : <option value="">No programs available</option>}
-                  {programs.map((program) => (
-                    <option key={program.id} value={program.id}>
-                      {program.intake.programName}
-                    </option>
-                  ))}
-                </select>
+                <span className="relative block">
+                  <select
+                    value={selectedProgramId}
+                    onChange={(event) => setSelectedProgramId(event.target.value)}
+                    className="h-12 w-full appearance-none rounded-md border border-white/10 bg-zinc-950 px-4 pr-11 text-base leading-none text-zinc-100 outline-none transition-colors focus:border-emerald-300/50 focus:ring-2 focus:ring-emerald-300/15"
+                  >
+                    {programs.length ? null : <option value="">No programs available</option>}
+                    {programs.map((program) => (
+                      <option key={program.id} value={program.id}>
+                        {program.intake.programName}
+                      </option>
+                    ))}
+                  </select>
+                  <ChevronDown className="pointer-events-none absolute right-4 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400" />
+                </span>
               </label>
               <div className="grid gap-3">
                 {[

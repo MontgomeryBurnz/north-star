@@ -1,0 +1,9 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "crons": [
+    {
+      "path": "/api/security/supabase-rls-check",
+      "schedule": "17 12 * * *"
+    }
+  ]
+}
