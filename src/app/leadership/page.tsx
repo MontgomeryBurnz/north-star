@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { LeadershipReviewConsole } from "@/components/leadership-review-console";
+import { getGuidanceModelProfile } from "@/lib/guidance-model-profile";
 import { getLeadershipAccessContext } from "@/lib/leadership-auth";
 import { requireSiteAccessPage } from "@/lib/site-access";
 
@@ -10,5 +11,5 @@ export default async function LeadershipPage() {
     redirect("/leadership/login?redirect=/leadership");
   }
 
-  return <LeadershipReviewConsole />;
+  return <LeadershipReviewConsole guidanceModelProfile={getGuidanceModelProfile()} />;
 }
