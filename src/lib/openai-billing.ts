@@ -1,5 +1,6 @@
 import "server-only";
 import type { OpenAIBillingReconciliation } from "@/lib/openai-billing-types";
+import { getOpenAIModelPricing } from "@/lib/openai-pricing";
 import type { OpenAIUsageRecord } from "@/lib/program-intelligence-types";
 
 type OpenAICostsResponse = {
@@ -45,6 +46,27 @@ function getOpenAIAdminKey() {
 
 function getOpenAIProjectId() {
   return process.env.OPENAI_BILLING_PROJECT_ID?.trim();
+}
+
+function getConfiguredOpenAIModel() {
+  return process.env.OPENAI_MODEL?.trim() || "gpt-5.5";
+}
+
+function estimateUsageCost(input: {
+  inputTokens: number;
+  cachedInputTokens: number;
+  outputTokens: number;
+  model?: string;
+}) {
+  const pricing = getOpenAIModelPricing(input.model || getConfiguredOpenAIModel());
+  if (!pricing) return 0;
+
+  const uncachedInputTokens = Math.max(0, input.inputTokens - input.cachedInputTokens);
+  return (
+    (uncachedInputTokens / 1_000_000) * pricing.inputPerMillionTokensUsd +
+    (input.cachedInputTokens / 1_000_000) * pricing.cachedInputPerMillionTokensUsd +
+    (input.outputTokens / 1_000_000) * pricing.outputPerMillionTokensUsd
+  );
 }
 
 async function fetchOpenAIJson<T>(path: string, params: URLSearchParams, adminKey: string) {
@@ -106,6 +128,7 @@ async function fetchOpenAICompletionsUsage(input: {
   let cachedInputTokens = 0;
   let outputTokens = 0;
   let requests = 0;
+  let estimatedSpendUsd = 0;
 
   do {
     const params = new URLSearchParams({
@@ -115,6 +138,7 @@ async function fetchOpenAICompletionsUsage(input: {
       limit: "31"
     });
     if (input.projectId) params.append("project_ids", input.projectId);
+    params.append("group_by", "model");
     if (page) params.set("page", page);
 
     const payload = await fetchOpenAIJson<OpenAICompletionsUsageResponse>(
@@ -124,10 +148,19 @@ async function fetchOpenAICompletionsUsage(input: {
     );
     for (const bucket of payload.data ?? []) {
       for (const result of bucket.results ?? []) {
-        inputTokens += asNumber(result.input_tokens);
-        cachedInputTokens += asNumber(result.input_cached_tokens);
-        outputTokens += asNumber(result.output_tokens);
+        const resultInputTokens = asNumber(result.input_tokens);
+        const resultCachedInputTokens = asNumber(result.input_cached_tokens);
+        const resultOutputTokens = asNumber(result.output_tokens);
+        inputTokens += resultInputTokens;
+        cachedInputTokens += resultCachedInputTokens;
+        outputTokens += resultOutputTokens;
         requests += asNumber(result.num_model_requests);
+        estimatedSpendUsd += estimateUsageCost({
+          inputTokens: resultInputTokens,
+          cachedInputTokens: resultCachedInputTokens,
+          outputTokens: resultOutputTokens,
+          model: typeof result.model === "string" ? result.model : undefined
+        });
       }
     }
 
@@ -140,7 +173,8 @@ async function fetchOpenAICompletionsUsage(input: {
     outputTokens,
     totalTokens: inputTokens + outputTokens,
     requests,
-    cacheHitRate: inputTokens ? cachedInputTokens / inputTokens : 0
+    cacheHitRate: inputTokens ? cachedInputTokens / inputTokens : 0,
+    estimatedSpendUsd
   };
 }
 
@@ -182,6 +216,9 @@ export async function getOpenAIBillingReconciliation(
       configured: false,
       connected: false,
       actualSpendUsd: null,
+      costsApiSpendUsd: null,
+      usageEstimatedSpendUsd: null,
+      spendSource: null,
       actualInputTokens: null,
       actualCachedInputTokens: null,
       actualOutputTokens: null,
@@ -198,19 +235,23 @@ export async function getOpenAIBillingReconciliation(
       fetchOpenAICosts({ adminKey, startTime, endTime, projectId }),
       fetchOpenAICompletionsUsage({ adminKey, startTime, endTime, projectId })
     ]);
+    const reconciledSpendUsd = actualSpendUsd > 0 ? actualSpendUsd : usage.estimatedSpendUsd;
 
     return {
       ...base,
       configured: true,
       connected: true,
-      actualSpendUsd,
+      actualSpendUsd: reconciledSpendUsd,
+      costsApiSpendUsd: actualSpendUsd,
+      usageEstimatedSpendUsd: usage.estimatedSpendUsd,
+      spendSource: actualSpendUsd > 0 ? "costs-api" : "usage-estimate",
       actualInputTokens: usage.inputTokens,
       actualCachedInputTokens: usage.cachedInputTokens,
       actualOutputTokens: usage.outputTokens,
       actualTotalTokens: usage.totalTokens,
       actualRequests: usage.requests,
       actualCacheHitRate: usage.cacheHitRate,
-      unallocatedSpendUsd: actualSpendUsd - local.spendUsd
+      unallocatedSpendUsd: reconciledSpendUsd - local.spendUsd
     };
   } catch (error) {
     return {
@@ -218,6 +259,9 @@ export async function getOpenAIBillingReconciliation(
       configured: true,
       connected: false,
       actualSpendUsd: null,
+      costsApiSpendUsd: null,
+      usageEstimatedSpendUsd: null,
+      spendSource: null,
       actualInputTokens: null,
       actualCachedInputTokens: null,
       actualOutputTokens: null,

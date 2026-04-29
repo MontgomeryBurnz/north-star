@@ -521,11 +521,17 @@ export function GovernanceDashboard({ guidanceModelProfile }: GovernanceDashboar
                 <>
                   <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-1">
                     <div className="rounded-md border border-emerald-300/20 bg-emerald-300/[0.055] p-3">
-                      <p className="text-xs font-medium uppercase tracking-[0.16em] text-emerald-200">OpenAI actual spend</p>
+                      <p className="text-xs font-medium uppercase tracking-[0.16em] text-emerald-200">
+                        {billingReconciliation.spendSource === "usage-estimate" ? "Usage-estimated spend" : "OpenAI actual spend"}
+                      </p>
                       <p className="mt-2 text-2xl font-semibold text-zinc-50">
                         {formatCurrency(billingReconciliation.actualSpendUsd ?? 0)}
                       </p>
-                      <p className="mt-1 text-xs text-zinc-500">Month-to-date from OpenAI Costs API</p>
+                      <p className="mt-1 text-xs leading-5 text-zinc-500">
+                        {billingReconciliation.spendSource === "usage-estimate"
+                          ? "OpenAI Costs API returned $0, so this uses Usage API tokens and configured model rates."
+                          : "Month-to-date from OpenAI Costs API"}
+                      </p>
                     </div>
                     <div className="rounded-md border border-cyan-300/20 bg-cyan-300/[0.055] p-3">
                       <p className="text-xs font-medium uppercase tracking-[0.16em] text-cyan-200">North Star tracked</p>
@@ -546,12 +552,12 @@ export function GovernanceDashboard({ guidanceModelProfile }: GovernanceDashboar
                     </p>
                   </div>
 
-                  {billingReconciliation.actualSpendUsd === 0 ? (
+                  {billingReconciliation.spendSource === "usage-estimate" ? (
                     <div className="rounded-md border border-amber-300/20 bg-amber-300/[0.055] p-3">
-                      <p className="text-xs font-medium uppercase tracking-[0.16em] text-amber-200">No OpenAI spend returned</p>
+                      <p className="text-xs font-medium uppercase tracking-[0.16em] text-amber-200">Costs API returned $0</p>
                       <p className="mt-2 text-sm leading-6 text-zinc-300">
-                        OpenAI returned $0 for this UTC billing window. If the OpenAI dashboard shows spend, verify the admin key belongs to
-                        the same OpenAI organization and remove any incorrect `OPENAI_BILLING_PROJECT_ID` filter.
+                        Governance is using OpenAI Usage API token totals as the spend estimate until the Costs API returns a non-zero value.
+                        Costs API value: {formatCurrency(billingReconciliation.costsApiSpendUsd ?? 0)}.
                       </p>
                     </div>
                   ) : null}

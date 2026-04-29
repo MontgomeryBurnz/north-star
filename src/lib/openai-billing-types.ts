@@ -6,6 +6,9 @@ export type OpenAIBillingReconciliation = {
   windowEnd: string;
   projectId?: string;
   actualSpendUsd: number | null;
+  costsApiSpendUsd: number | null;
+  usageEstimatedSpendUsd: number | null;
+  spendSource: "costs-api" | "usage-estimate" | null;
   actualInputTokens: number | null;
   actualCachedInputTokens: number | null;
   actualOutputTokens: number | null;
