@@ -42,6 +42,7 @@ type ProgramRepository = {
   createGuidanceFeedbackFlag(programId: string, flag: Omit<GuidanceFeedbackFlag, "id" | "programId" | "programName" | "createdAt" | "updatedAt" | "status">): Promise<GuidanceFeedbackFlag>;
   reviewGuidanceFeedbackFlag(programId: string, flagId: string, review: { status: "approved" | "denied"; reviewedBy: string; leadershipDisposition: string }): Promise<GuidanceFeedbackFlag | null>;
   listOpenAIUsageRecords(programId: string): Promise<OpenAIUsageRecord[]>;
+  listAllOpenAIUsageRecords(): Promise<OpenAIUsageRecord[]>;
   createOpenAIUsageRecord(programId: string, usage: OpenAIUsageRecordInput): Promise<OpenAIUsageRecord>;
 };
 
@@ -548,6 +549,10 @@ const fileRepository: ProgramRepository = {
   async listOpenAIUsageRecords(programId) {
     const store = await readFileStore();
     return sortByUpdatedDesc(store.openAIUsageRecords.filter((record) => record.programId === programId));
+  },
+  async listAllOpenAIUsageRecords() {
+    const store = await readFileStore();
+    return sortByUpdatedDesc(store.openAIUsageRecords);
   },
   async createOpenAIUsageRecord(programId, usage) {
     const store = await readFileStore();
@@ -1252,6 +1257,15 @@ const postgresRepository: ProgramRepository = {
       `,
       [programId]
     );
+    return result.rows.map(mapOpenAIUsageRecordRow);
+  },
+  async listAllOpenAIUsageRecords() {
+    await ensurePostgresSchema();
+    const result = await getPool().query(`
+      SELECT record
+      FROM openai_usage_records
+      ORDER BY created_at DESC
+    `);
     return result.rows.map(mapOpenAIUsageRecordRow);
   },
   async createOpenAIUsageRecord(programId, usage) {

@@ -105,6 +105,10 @@ export async function listOpenAIUsageRecords(programId: string) {
   return getProgramRepository().listOpenAIUsageRecords(programId);
 }
 
+export async function listAllOpenAIUsageRecords() {
+  return getProgramRepository().listAllOpenAIUsageRecords();
+}
+
 export async function createOpenAIUsageRecord(programId: string, usage: OpenAIUsageRecordInput) {
   return getProgramRepository().createOpenAIUsageRecord(programId, usage);
 }

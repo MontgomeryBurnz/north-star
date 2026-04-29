@@ -7,6 +7,7 @@ import { useProgramCatalog } from "@/hooks/use-program-catalog";
 import { useRequestSequence } from "@/hooks/use-request-sequence";
 import type { GuidanceModelProfile } from "@/lib/guidance-model-profile";
 import { isTeamActionPlanFlagSourceId, roleFromTeamActionPlanFlagSourceId } from "@/lib/guidance-feedback-flag-sources";
+import type { OpenAIBillingReconciliation } from "@/lib/openai-billing-types";
 import type { GuidanceFeedbackFlag, GuidanceJustificationRecord, OpenAIUsageRecord } from "@/lib/program-intelligence-types";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -22,7 +23,16 @@ function formatDate(value: string) {
   }).format(new Date(value));
 }
 
-function formatCurrency(value: number) {
+function formatUtcDate(value: string) {
+  return new Intl.DateTimeFormat(undefined, {
+    month: "short",
+    day: "numeric",
+    timeZone: "UTC"
+  }).format(new Date(value));
+}
+
+function formatCurrency(value: number): string {
+  if (value < 0) return `-${formatCurrency(Math.abs(value))}`;
   if (value <= 0) return "$0.00";
   if (value < 0.01) return `$${value.toFixed(4)}`;
   if (value < 1) return `$${value.toFixed(3)}`;
@@ -108,6 +118,8 @@ export function GovernanceDashboard({ guidanceModelProfile }: GovernanceDashboar
   const [flags, setFlags] = useState<GuidanceFeedbackFlag[]>([]);
   const [justifications, setJustifications] = useState<GuidanceJustificationRecord[]>([]);
   const [usageRecords, setUsageRecords] = useState<OpenAIUsageRecord[]>([]);
+  const [billingReconciliation, setBillingReconciliation] = useState<OpenAIBillingReconciliation | null>(null);
+  const [billingStatus, setBillingStatus] = useState<string | null>(null);
   const [status, setStatus] = useState<string | null>(null);
   const [reviewState, setReviewState] = useState<Record<string, { disposition: string; saving: boolean }>>({});
   const handleProgramLoadError = useCallback(() => setStatus("Could not load programs for governance review."), []);
@@ -115,6 +127,17 @@ export function GovernanceDashboard({ guidanceModelProfile }: GovernanceDashboar
     autoSelectFirstProgram: false,
     onError: handleProgramLoadError
   });
+
+  const loadBillingReconciliation = useCallback(async () => {
+    const response = await fetch("/api/openai-billing", { cache: "no-store" });
+    if (!response.ok) {
+      throw new Error("Could not sync OpenAI billing.");
+    }
+
+    const payload = (await response.json()) as { billing: OpenAIBillingReconciliation };
+    setBillingReconciliation(payload.billing);
+    setBillingStatus(null);
+  }, []);
 
   const loadGovernance = useCallback(async () => {
     const requestId = governanceRequest.beginRequest();
@@ -150,12 +173,17 @@ export function GovernanceDashboard({ guidanceModelProfile }: GovernanceDashboar
     void loadGovernance().catch(() => setStatus("Could not load governance records."));
   }, [loadGovernance]);
 
+  useEffect(() => {
+    void loadBillingReconciliation().catch(() => setBillingStatus("Could not sync OpenAI billing."));
+  }, [loadBillingReconciliation]);
+
   useForegroundRefresh(
     () => {
       void refreshPrograms({ silent: true });
+      void loadBillingReconciliation().catch(() => null);
       void loadGovernance().catch(() => null);
     },
-    { enabled: true, intervalMs: selectedProgramId ? 15000 : null }
+    { enabled: true, intervalMs: selectedProgramId ? 15000 : 60000 }
   );
 
   const justificationsById = useMemo(
@@ -480,6 +508,77 @@ export function GovernanceDashboard({ guidanceModelProfile }: GovernanceDashboar
             </CardContent>
           </Card>
 
+          <Card className="bg-zinc-950/80">
+            <CardHeader className="border-b border-white/10">
+              <CardTitle className="text-zinc-50">OpenAI billing sync</CardTitle>
+            </CardHeader>
+            <CardContent className="grid gap-4 p-5">
+              {!billingReconciliation ? (
+                <p className="rounded-md border border-white/10 bg-white/[0.035] p-3 text-sm leading-6 text-zinc-400">
+                  {billingStatus ?? "Loading OpenAI billing reconciliation..."}
+                </p>
+              ) : billingReconciliation.connected ? (
+                <>
+                  <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-1">
+                    <div className="rounded-md border border-emerald-300/20 bg-emerald-300/[0.055] p-3">
+                      <p className="text-xs font-medium uppercase tracking-[0.16em] text-emerald-200">OpenAI actual spend</p>
+                      <p className="mt-2 text-2xl font-semibold text-zinc-50">
+                        {formatCurrency(billingReconciliation.actualSpendUsd ?? 0)}
+                      </p>
+                      <p className="mt-1 text-xs text-zinc-500">Month-to-date from OpenAI Costs API</p>
+                    </div>
+                    <div className="rounded-md border border-cyan-300/20 bg-cyan-300/[0.055] p-3">
+                      <p className="text-xs font-medium uppercase tracking-[0.16em] text-cyan-200">North Star tracked</p>
+                      <p className="mt-2 text-2xl font-semibold text-zinc-50">
+                        {formatCurrency(billingReconciliation.localTrackedSpendUsd)}
+                      </p>
+                      <p className="mt-1 text-xs text-zinc-500">{billingReconciliation.localTrackedCalls} app calls allocated</p>
+                    </div>
+                  </div>
+
+                  <div className="rounded-md border border-amber-300/20 bg-amber-300/[0.055] p-3">
+                    <p className="text-xs font-medium uppercase tracking-[0.16em] text-amber-200">Unallocated spend</p>
+                    <p className="mt-2 text-lg font-semibold text-zinc-100">
+                      {formatCurrency(billingReconciliation.unallocatedSpendUsd ?? 0)}
+                    </p>
+                    <p className="mt-1 text-xs leading-5 text-zinc-500">
+                      Actual OpenAI spend minus app-recorded usage. Historical usage, other API keys, and non-North Star calls land here.
+                    </p>
+                  </div>
+
+                  <div className="rounded-md border border-white/10 bg-white/[0.035] p-3">
+                    <p className="text-xs font-medium uppercase tracking-[0.16em] text-zinc-500">OpenAI usage volume</p>
+                    <div className="mt-3 grid gap-2 text-sm text-zinc-300">
+                      <p>Requests: {formatTokenCount(billingReconciliation.actualRequests ?? 0)}</p>
+                      <p>Total tokens: {formatTokenCount(billingReconciliation.actualTotalTokens ?? 0)}</p>
+                      <p>Cached input: {formatTokenCount(billingReconciliation.actualCachedInputTokens ?? 0)}</p>
+                      <p>Cache rate: {formatPercent(billingReconciliation.actualCacheHitRate ?? 0)}</p>
+                    </div>
+                  </div>
+
+                  <p className="text-xs leading-5 text-zinc-500">
+                    Source of truth: OpenAI Costs API. North Star records allocate app usage by program and workflow for governance review.
+                    {billingReconciliation.projectId ? ` Filtered to project ${billingReconciliation.projectId}.` : " No project filter is configured."}
+                    {` Window: ${formatUtcDate(billingReconciliation.windowStart)} - ${formatUtcDate(billingReconciliation.windowEnd)} UTC.`}
+                  </p>
+                </>
+              ) : (
+                <div className="rounded-md border border-amber-300/20 bg-amber-300/[0.055] p-3">
+                  <p className="text-xs font-medium uppercase tracking-[0.16em] text-amber-200">
+                    {billingReconciliation.configured ? "Sync error" : "Not connected"}
+                  </p>
+                  <p className="mt-2 text-sm leading-6 text-zinc-300">
+                    {billingReconciliation.error ??
+                      "Add an OpenAI admin billing key in Vercel so Governance can reconcile app usage with OpenAI billing."}
+                  </p>
+                  <p className="mt-2 text-xs leading-5 text-zinc-500">
+                    Until connected, this page can only show locally recorded North Star usage, not the billing dashboard total.
+                  </p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
           <GuidanceModelProfileCard
             guidanceModelProfile={guidanceModelProfile}
             usageDescription="Used by governance to monitor model choice, reasoning level, cost basis, and cache posture while deciding which flags should influence future guidance."
@@ -487,14 +586,14 @@ export function GovernanceDashboard({ guidanceModelProfile }: GovernanceDashboar
 
           <Card className="bg-zinc-950/80">
             <CardHeader className="border-b border-white/10">
-              <CardTitle className="text-zinc-50">Alpha cost forecast</CardTitle>
+              <CardTitle className="text-zinc-50">Selected program usage</CardTitle>
             </CardHeader>
             <CardContent className="grid gap-4 p-5">
               <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-1">
                 <div className="rounded-md border border-emerald-300/20 bg-emerald-300/[0.055] p-3">
-                  <p className="text-xs font-medium uppercase tracking-[0.16em] text-emerald-200">Recorded spend</p>
+                  <p className="text-xs font-medium uppercase tracking-[0.16em] text-emerald-200">Program spend</p>
                   <p className="mt-2 text-2xl font-semibold text-zinc-50">{formatCurrency(usageSummary.estimatedCostUsd)}</p>
-                  <p className="mt-1 text-xs text-zinc-500">{usageRecords.length} OpenAI calls logged for this program</p>
+                  <p className="mt-1 text-xs text-zinc-500">{usageRecords.length} North Star calls logged for this program</p>
                 </div>
                 <div className="rounded-md border border-cyan-300/20 bg-cyan-300/[0.055] p-3">
                   <p className="text-xs font-medium uppercase tracking-[0.16em] text-cyan-200">Projected 30-day</p>

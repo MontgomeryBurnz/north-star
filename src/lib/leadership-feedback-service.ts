@@ -4,6 +4,7 @@ import type {
   LeadershipRoleImpact
 } from "@/lib/leadership-feedback-types";
 import { getNorthStarPromptCacheKey } from "@/lib/openai-prompt-cache";
+import { buildOpenAIRequestMetadata } from "@/lib/openai-request-metadata";
 import { asRecord, asStringArray, asTrimmedString, extractOutputText, parseStructuredModelOutput } from "@/lib/openai-structured-output";
 import { extractOpenAIUsageMetadata } from "@/lib/openai-usage";
 import type { OpenAIUsageMetadata } from "@/lib/program-intelligence-types";
@@ -221,6 +222,11 @@ export async function enhanceLeadershipFeedback(
       model,
       store: false,
       prompt_cache_key: promptCacheKey,
+      metadata: buildOpenAIRequestMetadata({
+        workflow: "leadership-feedback",
+        programId: options.programId,
+        programName: feedback.programName
+      }),
       reasoning: {
         effort: reasoningEffort
       },

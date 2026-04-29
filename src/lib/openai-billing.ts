@@ -1,0 +1,231 @@
+import "server-only";
+import type { OpenAIBillingReconciliation } from "@/lib/openai-billing-types";
+import type { OpenAIUsageRecord } from "@/lib/program-intelligence-types";
+
+type OpenAICostsResponse = {
+  data?: Array<{
+    results?: Array<{
+      amount?: {
+        value?: number;
+        currency?: string;
+      };
+    }>;
+  }>;
+  has_more?: boolean;
+  next_page?: string | null;
+};
+
+type OpenAICompletionsUsageResponse = {
+  data?: Array<{
+    results?: Array<Record<string, unknown>>;
+  }>;
+  has_more?: boolean;
+  next_page?: string | null;
+};
+
+function getBillingWindow() {
+  const now = new Date();
+  const start = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1, 0, 0, 0));
+
+  return {
+    start,
+    end: now,
+    startTime: Math.floor(start.getTime() / 1000),
+    endTime: Math.floor(now.getTime() / 1000)
+  };
+}
+
+function asNumber(value: unknown) {
+  return typeof value === "number" && Number.isFinite(value) ? value : 0;
+}
+
+function getOpenAIAdminKey() {
+  return process.env.OPENAI_ADMIN_KEY?.trim() || process.env.OPENAI_BILLING_API_KEY?.trim();
+}
+
+function getOpenAIProjectId() {
+  return process.env.OPENAI_BILLING_PROJECT_ID?.trim() || process.env.OPENAI_PROJECT_ID?.trim();
+}
+
+async function fetchOpenAIJson<T>(path: string, params: URLSearchParams, adminKey: string) {
+  const response = await fetch(`https://api.openai.com${path}?${params.toString()}`, {
+    headers: {
+      authorization: `Bearer ${adminKey}`,
+      "content-type": "application/json"
+    },
+    cache: "no-store"
+  });
+
+  if (!response.ok) {
+    throw new Error(`OpenAI billing sync failed with HTTP ${response.status}.`);
+  }
+
+  return (await response.json()) as T;
+}
+
+async function fetchOpenAICosts(input: {
+  adminKey: string;
+  startTime: number;
+  endTime: number;
+  projectId?: string;
+}) {
+  let page: string | null | undefined;
+  let total = 0;
+
+  do {
+    const params = new URLSearchParams({
+      start_time: String(input.startTime),
+      end_time: String(input.endTime),
+      bucket_width: "1d",
+      limit: "180"
+    });
+    if (input.projectId) params.append("project_ids", input.projectId);
+    if (page) params.set("page", page);
+
+    const payload = await fetchOpenAIJson<OpenAICostsResponse>("/v1/organization/costs", params, input.adminKey);
+    for (const bucket of payload.data ?? []) {
+      for (const result of bucket.results ?? []) {
+        total += result.amount?.currency === "usd" ? asNumber(result.amount.value) : 0;
+      }
+    }
+
+    page = payload.has_more ? payload.next_page : null;
+  } while (page);
+
+  return total;
+}
+
+async function fetchOpenAICompletionsUsage(input: {
+  adminKey: string;
+  startTime: number;
+  endTime: number;
+  projectId?: string;
+}) {
+  let page: string | null | undefined;
+  let inputTokens = 0;
+  let cachedInputTokens = 0;
+  let outputTokens = 0;
+  let requests = 0;
+
+  do {
+    const params = new URLSearchParams({
+      start_time: String(input.startTime),
+      end_time: String(input.endTime),
+      bucket_width: "1d",
+      limit: "31"
+    });
+    if (input.projectId) params.append("project_ids", input.projectId);
+    if (page) params.set("page", page);
+
+    const payload = await fetchOpenAIJson<OpenAICompletionsUsageResponse>(
+      "/v1/organization/usage/completions",
+      params,
+      input.adminKey
+    );
+    for (const bucket of payload.data ?? []) {
+      for (const result of bucket.results ?? []) {
+        inputTokens += asNumber(result.input_tokens);
+        cachedInputTokens += asNumber(result.input_cached_tokens);
+        outputTokens += asNumber(result.output_tokens);
+        requests += asNumber(result.num_model_requests);
+      }
+    }
+
+    page = payload.has_more ? payload.next_page : null;
+  } while (page);
+
+  return {
+    inputTokens,
+    cachedInputTokens,
+    outputTokens,
+    totalTokens: inputTokens + outputTokens,
+    requests,
+    cacheHitRate: inputTokens ? cachedInputTokens / inputTokens : 0
+  };
+}
+
+function summarizeLocalUsage(records: OpenAIUsageRecord[], start: Date, end: Date) {
+  const startTime = start.getTime();
+  const endTime = end.getTime();
+  const recordsInWindow = records.filter((record) => {
+    const createdAt = Date.parse(record.createdAt);
+    return Number.isFinite(createdAt) && createdAt >= startTime && createdAt <= endTime;
+  });
+
+  return {
+    spendUsd: recordsInWindow.reduce((sum, record) => sum + record.estimatedCostUsd, 0),
+    calls: recordsInWindow.length,
+    tokens: recordsInWindow.reduce((sum, record) => sum + record.totalTokens, 0)
+  };
+}
+
+export async function getOpenAIBillingReconciliation(
+  localUsageRecords: OpenAIUsageRecord[]
+): Promise<OpenAIBillingReconciliation> {
+  const { start, end, startTime, endTime } = getBillingWindow();
+  const local = summarizeLocalUsage(localUsageRecords, start, end);
+  const adminKey = getOpenAIAdminKey();
+  const projectId = getOpenAIProjectId() || undefined;
+  const base = {
+    source: "openai-costs-api" as const,
+    windowStart: start.toISOString(),
+    windowEnd: end.toISOString(),
+    projectId,
+    localTrackedSpendUsd: local.spendUsd,
+    localTrackedCalls: local.calls,
+    localTrackedTokens: local.tokens
+  };
+
+  if (!adminKey) {
+    return {
+      ...base,
+      configured: false,
+      connected: false,
+      actualSpendUsd: null,
+      actualInputTokens: null,
+      actualCachedInputTokens: null,
+      actualOutputTokens: null,
+      actualTotalTokens: null,
+      actualRequests: null,
+      actualCacheHitRate: null,
+      unallocatedSpendUsd: null,
+      error: "Add OPENAI_ADMIN_KEY or OPENAI_BILLING_API_KEY to sync with OpenAI billing."
+    };
+  }
+
+  try {
+    const [actualSpendUsd, usage] = await Promise.all([
+      fetchOpenAICosts({ adminKey, startTime, endTime, projectId }),
+      fetchOpenAICompletionsUsage({ adminKey, startTime, endTime, projectId })
+    ]);
+
+    return {
+      ...base,
+      configured: true,
+      connected: true,
+      actualSpendUsd,
+      actualInputTokens: usage.inputTokens,
+      actualCachedInputTokens: usage.cachedInputTokens,
+      actualOutputTokens: usage.outputTokens,
+      actualTotalTokens: usage.totalTokens,
+      actualRequests: usage.requests,
+      actualCacheHitRate: usage.cacheHitRate,
+      unallocatedSpendUsd: actualSpendUsd - local.spendUsd
+    };
+  } catch (error) {
+    return {
+      ...base,
+      configured: true,
+      connected: false,
+      actualSpendUsd: null,
+      actualInputTokens: null,
+      actualCachedInputTokens: null,
+      actualOutputTokens: null,
+      actualTotalTokens: null,
+      actualRequests: null,
+      actualCacheHitRate: null,
+      unallocatedSpendUsd: null,
+      error: error instanceof Error ? error.message : "OpenAI billing sync failed."
+    };
+  }
+}

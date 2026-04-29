@@ -1,6 +1,7 @@
 import { composeGroundedAnswer, getRelevantContent } from "@/lib/assistant";
 import type { AssistantProvider, AssistantRequest, AssistantServiceResponse } from "@/lib/assistant-types";
 import { getNorthStarPromptCacheKey } from "@/lib/openai-prompt-cache";
+import { buildOpenAIRequestMetadata } from "@/lib/openai-request-metadata";
 import { asRecord, asStringArray, asTrimmedString, extractOutputText, parseStructuredModelOutput } from "@/lib/openai-structured-output";
 import { extractOpenAIUsageMetadata } from "@/lib/openai-usage";
 import type { OpenAIUsageMetadata } from "@/lib/program-intelligence-types";
@@ -127,6 +128,10 @@ export const openaiAssistantProvider: AssistantProvider = {
         model,
         store: false,
         prompt_cache_key: promptCacheKey,
+        metadata: buildOpenAIRequestMetadata({
+          workflow: "guide",
+          programId: request.selectedProgramId
+        }),
         reasoning: {
           effort: reasoningEffort
         },

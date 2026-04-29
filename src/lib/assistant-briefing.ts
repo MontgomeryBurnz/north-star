@@ -2,6 +2,7 @@ import "server-only";
 
 import { getLatestGuidedPlan, getProgram, listAssistantConversations, listLeadershipFeedback, listProgramUpdates } from "@/lib/program-store";
 import { getNorthStarPromptCacheKey } from "@/lib/openai-prompt-cache";
+import { buildOpenAIRequestMetadata } from "@/lib/openai-request-metadata";
 import { extractOpenAIUsageMetadata } from "@/lib/openai-usage";
 import { asRecord, asStringArray, asTrimmedString, extractOutputText, parseStructuredModelOutput } from "@/lib/openai-structured-output";
 import type { OpenAIUsageMetadata } from "@/lib/program-intelligence-types";
@@ -222,6 +223,11 @@ export async function getAssistantBriefing(programId: string): Promise<Assistant
       model,
       store: false,
       prompt_cache_key: promptCacheKey,
+      metadata: buildOpenAIRequestMetadata({
+        workflow: "assistant-briefing",
+        programId: program.id,
+        programName: program.intake.programName
+      }),
       reasoning: {
         effort: reasoningEffort
       },

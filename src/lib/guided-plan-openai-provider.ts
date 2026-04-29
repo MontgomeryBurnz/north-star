@@ -3,6 +3,7 @@ import { generateLocalGuidedPlan } from "@/lib/guided-plan-generator";
 import type { GuidedPlan, GuidedPlanRolePlan, GuidedPlanSection } from "@/lib/guided-plan-types";
 import type { GuidedPlanGenerationContext, GuidedPlanProvider } from "@/lib/guided-plan-service";
 import { getNorthStarPromptCacheKey } from "@/lib/openai-prompt-cache";
+import { buildOpenAIRequestMetadata } from "@/lib/openai-request-metadata";
 import { asRecord, asStringArray, asTrimmedString, extractOutputText, parseStructuredModelOutput } from "@/lib/openai-structured-output";
 import { extractOpenAIUsageMetadata } from "@/lib/openai-usage";
 
@@ -268,6 +269,11 @@ export const openaiGuidedPlanProvider: GuidedPlanProvider = {
         model,
         store: false,
         prompt_cache_key: promptCacheKey,
+        metadata: buildOpenAIRequestMetadata({
+          workflow: "guided-plan",
+          programId: context.program.id,
+          programName: context.program.intake.programName
+        }),
         reasoning: {
           effort: reasoningEffort
         },

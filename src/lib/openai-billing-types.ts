@@ -1,0 +1,20 @@
+export type OpenAIBillingReconciliation = {
+  configured: boolean;
+  connected: boolean;
+  source: "openai-costs-api";
+  windowStart: string;
+  windowEnd: string;
+  projectId?: string;
+  actualSpendUsd: number | null;
+  actualInputTokens: number | null;
+  actualCachedInputTokens: number | null;
+  actualOutputTokens: number | null;
+  actualTotalTokens: number | null;
+  actualRequests: number | null;
+  actualCacheHitRate: number | null;
+  localTrackedSpendUsd: number;
+  localTrackedCalls: number;
+  localTrackedTokens: number;
+  unallocatedSpendUsd: number | null;
+  error?: string;
+};
