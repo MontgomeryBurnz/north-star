@@ -70,6 +70,8 @@ const seededLeadershipProgram: StoredProgram = {
   }
 };
 
+const seededLeadershipPrograms = [seededLeadershipProgram];
+
 const seededLeadershipUpdates: StoredProgramUpdate[] = [
   {
     id: "seeded-update-1",
@@ -339,9 +341,9 @@ export function LeadershipReviewConsole() {
   const [selectedLane, setSelectedLane] = useState(allSponsorLanesValue);
   const handleProgramLoadError = useCallback(() => setStatus("Leadership program catalog could not be refreshed."), []);
   const { programs, setPrograms, selectedProgram, selectedProgramId, setSelectedProgramId, refreshPrograms } = useProgramCatalog({
-    initialPrograms: [seededLeadershipProgram],
+    initialPrograms: seededLeadershipPrograms,
     initialSelectedProgramId: seededLeadershipProgram.id,
-    fallbackPrograms: [seededLeadershipProgram],
+    fallbackPrograms: seededLeadershipPrograms,
     fallbackSelectedProgramId: seededLeadershipProgram.id,
     onError: handleProgramLoadError
   });

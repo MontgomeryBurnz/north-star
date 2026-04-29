@@ -89,7 +89,11 @@ function LeadershipProgramPicker({ programs, selectedProgramId, onProgramChange 
                 type="button"
                 role="option"
                 aria-selected={selected}
-                onClick={() => onProgramChange(program.id)}
+                onMouseDown={(event) => event.preventDefault()}
+                onClick={() => {
+                  onProgramChange(program.id);
+                  setOpen(false);
+                }}
                 className={`w-full rounded-md px-3 py-3 text-left transition-colors ${
                   selected ? "border border-emerald-300/25 bg-emerald-300/10" : "border border-transparent hover:bg-white/[0.055]"
                 }`}

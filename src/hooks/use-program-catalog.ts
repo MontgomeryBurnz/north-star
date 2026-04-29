@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, type SetStateAction } from "react";
 import { useRequestSequence } from "@/hooks/use-request-sequence";
 import type { StoredProgram } from "@/lib/program-intake-types";
 
@@ -13,6 +13,8 @@ type UseProgramCatalogOptions = {
   autoSelectFirstProgram?: boolean;
   onError?: () => void;
 };
+
+const emptyProgramList: StoredProgram[] = [];
 
 function resolveSelectedProgramId(input: {
   requestedProgramId?: string | null;
@@ -40,17 +42,20 @@ function resolveSelectedProgramId(input: {
 
 export function useProgramCatalog(options: UseProgramCatalogOptions = {}) {
   const {
-    initialPrograms = [],
+    initialPrograms = emptyProgramList,
     initialSelectedProgramId = "",
-    fallbackPrograms = [],
+    fallbackPrograms = emptyProgramList,
     fallbackSelectedProgramId = "",
     requestedProgramId,
     autoSelectFirstProgram = true,
     onError
   } = options;
   const request = useRequestSequence();
-  const [programs, setPrograms] = useState<StoredProgram[]>(initialPrograms);
-  const [selectedProgramId, setSelectedProgramId] = useState(initialSelectedProgramId);
+  const [catalog, setCatalog] = useState(() => ({
+    programs: initialPrograms,
+    selectedProgramId: initialSelectedProgramId
+  }));
+  const { programs, selectedProgramId } = catalog;
 
   const selectedProgram = useMemo(
     () => programs.find((program) => program.id === selectedProgramId) ?? null,
@@ -62,21 +67,34 @@ export function useProgramCatalog(options: UseProgramCatalogOptions = {}) {
       nextProgramsOrUpdater: StoredProgram[] | ((currentPrograms: StoredProgram[]) => StoredProgram[]),
       nextSelectedProgramId?: string
     ) => {
-      const nextPrograms =
-        typeof nextProgramsOrUpdater === "function" ? nextProgramsOrUpdater(programs) : nextProgramsOrUpdater;
-      setPrograms(nextPrograms);
-      setSelectedProgramId((current) =>
-        resolveSelectedProgramId({
-          requestedProgramId,
-          currentProgramId: nextSelectedProgramId ?? current,
+      setCatalog((current) => {
+        const nextPrograms =
+          typeof nextProgramsOrUpdater === "function" ? nextProgramsOrUpdater(current.programs) : nextProgramsOrUpdater;
+
+        return {
           programs: nextPrograms,
-          fallbackSelectedProgramId,
-          autoSelectFirstProgram
-        })
-      );
+          selectedProgramId: resolveSelectedProgramId({
+            requestedProgramId,
+            currentProgramId: nextSelectedProgramId ?? current.selectedProgramId,
+            programs: nextPrograms,
+            fallbackSelectedProgramId,
+            autoSelectFirstProgram
+          })
+        };
+      });
     },
-    [autoSelectFirstProgram, fallbackSelectedProgramId, programs, requestedProgramId]
+    [autoSelectFirstProgram, fallbackSelectedProgramId, requestedProgramId]
   );
+
+  const updateSelectedProgramId = useCallback((nextSelectedProgramId: SetStateAction<string>) => {
+    setCatalog((current) => ({
+      ...current,
+      selectedProgramId:
+        typeof nextSelectedProgramId === "function"
+          ? nextSelectedProgramId(current.selectedProgramId)
+          : nextSelectedProgramId
+    }));
+  }, []);
 
   const refreshPrograms = useCallback(
     async (refreshOptions?: { silent?: boolean }) => {
@@ -117,7 +135,7 @@ export function useProgramCatalog(options: UseProgramCatalogOptions = {}) {
     setPrograms: applyPrograms,
     selectedProgram,
     selectedProgramId,
-    setSelectedProgramId,
+    setSelectedProgramId: updateSelectedProgramId,
     refreshPrograms
   };
 }

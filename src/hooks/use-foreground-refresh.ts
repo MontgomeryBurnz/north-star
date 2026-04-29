@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 
 type ForegroundRefreshOptions = {
   enabled?: boolean;
@@ -9,21 +9,26 @@ type ForegroundRefreshOptions = {
 
 export function useForegroundRefresh(refresh: () => void | Promise<void>, options: ForegroundRefreshOptions = {}) {
   const { enabled = true, intervalMs = null } = options;
+  const refreshRef = useRef(refresh);
+
+  useEffect(() => {
+    refreshRef.current = refresh;
+  }, [refresh]);
 
   useEffect(() => {
     if (!enabled) return;
 
     function refreshWhenVisible() {
       if (document.visibilityState === "visible") {
-        void refresh();
+        void refreshRef.current();
       }
     }
 
     function refreshOnFocus() {
-      void refresh();
+      void refreshRef.current();
     }
 
-    const intervalId = intervalMs ? window.setInterval(() => void refresh(), intervalMs) : null;
+    const intervalId = intervalMs ? window.setInterval(() => void refreshRef.current(), intervalMs) : null;
 
     document.addEventListener("visibilitychange", refreshWhenVisible);
     window.addEventListener("focus", refreshOnFocus);
@@ -35,5 +40,5 @@ export function useForegroundRefresh(refresh: () => void | Promise<void>, option
       document.removeEventListener("visibilitychange", refreshWhenVisible);
       window.removeEventListener("focus", refreshOnFocus);
     };
-  }, [enabled, intervalMs, refresh]);
+  }, [enabled, intervalMs]);
 }
