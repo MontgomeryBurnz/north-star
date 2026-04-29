@@ -49,8 +49,11 @@ type ActiveProgramTeamUpdatesCardProps = {
     total: number;
   };
   saveState: "idle" | "saving" | "saved" | "error";
+  ownershipSaveState: "idle" | "dirty" | "saving" | "saved" | "error";
+  ownershipSavedAt: string | null;
   formatTimestamp: (value: string) => string;
   onUpdateRoleField: (role: string, field: keyof Omit<TeamRoleUpdate, "role">, value: string | boolean) => void;
+  onSaveOwnership: () => void | Promise<void>;
   onSaveRoleSignal: (role: string) => void | Promise<void>;
 };
 
@@ -58,11 +61,34 @@ export function ActiveProgramTeamUpdatesCard({
   teamRoleUpdates,
   ownerCoverage,
   saveState,
+  ownershipSaveState,
+  ownershipSavedAt,
   formatTimestamp,
   onUpdateRoleField,
+  onSaveOwnership,
   onSaveRoleSignal
 }: ActiveProgramTeamUpdatesCardProps) {
   const [expandedRole, setExpandedRole] = useState<string | null>(null);
+  const ownershipStatus =
+    ownershipSaveState === "saving"
+      ? "Saving..."
+      : ownershipSaveState === "saved"
+        ? ownershipSavedAt
+          ? `Saved at ${ownershipSavedAt}`
+          : "Saved"
+        : ownershipSaveState === "error"
+          ? "Save failed"
+          : ownershipSaveState === "dirty"
+            ? "Unsaved changes"
+            : "Not saved yet";
+  const ownershipStatusClassName =
+    ownershipSaveState === "saved"
+      ? "border-emerald-300/25 bg-emerald-300/10 text-emerald-100"
+      : ownershipSaveState === "dirty"
+        ? "border-amber-300/25 bg-amber-300/10 text-amber-100"
+        : ownershipSaveState === "error"
+          ? "border-rose-300/25 bg-rose-300/10 text-rose-100"
+          : "border-white/10 bg-black/20 text-zinc-300";
 
   return (
     <Card className="bg-zinc-950/80">
@@ -78,12 +104,17 @@ export function ActiveProgramTeamUpdatesCard({
             <div>
               <p className="text-sm font-medium text-zinc-100">Team ownership</p>
               <p className="mt-1 text-xs leading-5 text-zinc-500">
-                Map the regular owner once. Save the cycle synthesis when ownership changes.
+                Map the regular owner once. Save ownership here or save the full cycle synthesis below.
               </p>
             </div>
-            <span className="rounded-full border border-white/10 bg-black/20 px-3 py-1 text-[11px] font-medium uppercase tracking-[0.16em] text-zinc-300">
-              {ownerCoverage.configured}/{ownerCoverage.total} mapped
-            </span>
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="rounded-full border border-white/10 bg-black/20 px-3 py-1 text-[11px] font-medium uppercase tracking-[0.16em] text-zinc-300">
+                {ownerCoverage.configured}/{ownerCoverage.total} mapped
+              </span>
+              <span className={`rounded-full border px-3 py-1 text-[11px] font-medium uppercase tracking-[0.14em] ${ownershipStatusClassName}`}>
+                {ownershipStatus}
+              </span>
+            </div>
           </div>
           <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
             {teamRoleUpdates.map((roleUpdate) => (
@@ -97,6 +128,27 @@ export function ActiveProgramTeamUpdatesCard({
                 />
               </label>
             ))}
+          </div>
+          <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-white/10 pt-3">
+            <p className="text-xs leading-5 text-zinc-500">
+              Owner names are retained as the default updater for future team signals.
+            </p>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => void onSaveOwnership()}
+              disabled={ownershipSaveState === "saving" || ownershipSaveState === "idle" || ownershipSaveState === "saved"}
+            >
+              <Save className="h-4 w-4" />
+              {ownershipSaveState === "saving"
+                ? "Saving..."
+                : ownershipSaveState === "saved"
+                  ? "Ownership saved"
+                  : ownershipSaveState === "error"
+                    ? "Try again"
+                    : "Save ownership"}
+            </Button>
           </div>
         </div>
 

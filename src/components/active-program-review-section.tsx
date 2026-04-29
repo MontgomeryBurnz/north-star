@@ -222,6 +222,12 @@ function normalizeTeamRoleUpdates(roleUpdates: TeamRoleUpdate[] | undefined, rol
   return roles.map((role) => buildTeamRoleUpdate(role, byRole.get(normalizeProgramLabel(role))));
 }
 
+function buildOwnershipSignature(roleUpdates: TeamRoleUpdate[] | undefined, roles: string[]) {
+  return normalizeTeamRoleUpdates(roleUpdates, roles)
+    .map((roleUpdate) => `${normalizeProgramLabel(roleUpdate.role)}:${roleUpdate.updatedBy.trim()}`)
+    .join("|");
+}
+
 function joinRoleSignals(roleUpdates: TeamRoleUpdate[], selector: (role: TeamRoleUpdate) => string, fallback: string) {
   const items = roleUpdates
     .map((role) => {
@@ -345,6 +351,8 @@ export function ActiveProgramReviewSection() {
   const meetingInputsRequest = useRequestSequence();
   const [review, setReview] = useState<ActiveProgramReview>(emptyReview);
   const [savedAt, setSavedAt] = useState<string | null>(null);
+  const [savedOwnershipSignature, setSavedOwnershipSignature] = useState("");
+  const [ownershipSavedAt, setOwnershipSavedAt] = useState<string | null>(null);
   const [selectedProgramId, setSelectedProgramId] = useState("");
   const [existingPrograms, setExistingPrograms] = useState<ExistingProgramOption[]>([]);
   const [updates, setUpdates] = useState<ActiveProgramUpdate[]>([]);
@@ -539,6 +547,17 @@ export function ActiveProgramReviewSection() {
       total: teamRoleUpdates.length
     };
   }, [teamRoleUpdates]);
+  const ownershipSignature = useMemo(
+    () => buildOwnershipSignature(review.teamRoleUpdates, activeTeamRoles),
+    [activeTeamRoles, review.teamRoleUpdates]
+  );
+  const ownershipHasEntries = ownerCoverage.configured > 0;
+  const ownershipSaveState = useMemo(() => {
+    if (saveState === "saving" && ownershipSignature !== savedOwnershipSignature) return "saving";
+    if (saveState === "error" && ownershipSignature !== savedOwnershipSignature) return "error";
+    if (!ownershipHasEntries && !savedOwnershipSignature) return "idle";
+    return ownershipSignature === savedOwnershipSignature ? "saved" : "dirty";
+  }, [ownershipHasEntries, ownershipSignature, saveState, savedOwnershipSignature]);
 
   const programSynthesis = useMemo(() => {
     return [
@@ -653,7 +672,11 @@ export function ActiveProgramReviewSection() {
       .filter((update) => !isOwnerOnlyRoleSnapshot(update.review))
       .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0];
 
-    setReview(normalizeReview(latestForProgram?.review ?? selectedProgram.review, selectedProgram.intake));
+    const nextReview = normalizeReview(latestForProgram?.review ?? selectedProgram.review, selectedProgram.intake);
+    const nextRoles = getProgramTeamRoles(selectedProgram.intake);
+    setReview(nextReview);
+    setSavedOwnershipSignature(buildOwnershipSignature(nextReview.teamRoleUpdates, nextRoles));
+    setOwnershipSavedAt(null);
     setSavedAt(null);
     setSaveState("idle");
     setMeetingSaveState("idle");
@@ -811,7 +834,10 @@ export function ActiveProgramReviewSection() {
 
       if (!response.ok) throw new Error("Review save failed.");
       setSaveState("saved");
-      setSavedAt(timestamp.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }));
+      const savedTime = timestamp.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+      setSavedAt(savedTime);
+      setSavedOwnershipSignature(buildOwnershipSignature(nextReview.teamRoleUpdates, activeTeamRoles));
+      setOwnershipSavedAt(savedTime);
     } catch {
       setSaveState("error");
       setSavedAt(timestamp.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }));
@@ -906,8 +932,11 @@ export function ActiveProgramReviewSection() {
               teamRoleUpdates={teamRoleUpdates}
               ownerCoverage={ownerCoverage}
               saveState={saveState}
+              ownershipSaveState={ownershipSaveState}
+              ownershipSavedAt={ownershipSavedAt}
               formatTimestamp={formatTimestamp}
               onUpdateRoleField={(role, field, value) => updateRoleField(role, field, value as never)}
+              onSaveOwnership={saveReviewSnapshot}
               onSaveRoleSignal={saveReviewSnapshot}
             />
 
