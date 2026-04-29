@@ -9,6 +9,7 @@ import type { DeliveryLeadershipSignal } from "@/lib/leadership-feedback-types";
 import type { ProgramMeetingAttachment, ProgramMeetingInput } from "@/lib/program-intelligence-types";
 import type { ProgramArtifact, ProgramIntake } from "@/lib/program-intake-types";
 import { firstSignal, splitLines } from "@/lib/text-signals";
+import { ActiveProgramCockpitCard } from "@/components/active-program-cockpit-card";
 import { ActiveProgramMeetingIntelligenceCard } from "@/components/active-program-meeting-intelligence-card";
 import { ActiveProgramSidebar } from "@/components/active-program-sidebar";
 import { ActiveProgramStateCard } from "@/components/active-program-state-card";
@@ -873,8 +874,22 @@ export function ActiveProgramReviewSection() {
         <p className="mb-3 text-xs font-medium uppercase tracking-[0.22em] text-cyan-300">Active program review</p>
         <h2 className="text-3xl font-semibold text-zinc-50 md:text-4xl">Keep the program aligned as reality changes.</h2>
         <p className="mt-4 text-sm leading-7 text-zinc-400">
-          Update progress, risks, decisions, and delivery conditions as the work moves. The system regenerates tailored guidance and surfaces leadership signal in a direct, concise form so the delivery lead can manage, mitigate, and execute with clarity.
+          Use the cockpit to see the current picture, capture team updates, and keep guided plans pointed at the next move.
         </p>
+      </div>
+
+      <div className="mb-5">
+        <ActiveProgramCockpitCard
+          review={review}
+          teamRoleUpdates={teamRoleUpdates}
+          teamCoverage={{ submitted: teamCoverage.submitted, total: teamCoverage.total }}
+          ownerCoverage={ownerCoverage}
+          cycleLabel={activeCycleMetadata.cycleLabel}
+          latestUpdate={latestUpdate}
+          leadershipSignal={leadershipSignal}
+          meetingInputsCount={meetingInputs.length}
+          formatTimestamp={formatTimestamp}
+        />
       </div>
 
       <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_360px] xl:grid-cols-[minmax(0,1fr)_380px]">
@@ -883,9 +898,6 @@ export function ActiveProgramReviewSection() {
             selectedProgramId={selectedProgramId}
             programOptions={existingPrograms.map((program) => ({ id: program.id, label: program.label }))}
             review={review}
-            cycleLabel={activeCycleMetadata.cycleLabel}
-            teamCoverage={{ submitted: teamCoverage.submitted, total: teamCoverage.total }}
-            ownerCoverage={ownerCoverage}
             onSelectProgram={selectExistingProgram}
             onFieldChange={updateField}
           />

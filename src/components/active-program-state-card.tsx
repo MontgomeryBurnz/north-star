@@ -13,15 +13,6 @@ type ActiveProgramStateCardProps = {
   selectedProgramId: string;
   programOptions: ProgramOption[];
   review: ActiveProgramReview;
-  cycleLabel: string;
-  teamCoverage: {
-    submitted: number;
-    total: number;
-  };
-  ownerCoverage: {
-    configured: number;
-    total: number;
-  };
   onSelectProgram: (programId: string) => void;
   onFieldChange: (field: keyof Omit<ActiveProgramReview, "artifacts">, value: string) => void;
 };
@@ -30,9 +21,6 @@ export function ActiveProgramStateCard({
   selectedProgramId,
   programOptions,
   review,
-  cycleLabel,
-  teamCoverage,
-  ownerCoverage,
   onSelectProgram,
   onFieldChange
 }: ActiveProgramStateCardProps) {
@@ -41,7 +29,7 @@ export function ActiveProgramStateCard({
       <CardHeader className="border-b border-white/10">
         <CardTitle className="flex items-center gap-2 text-zinc-50">
           <Activity className="h-4 w-4 text-cyan-200" />
-          Active program state
+          Program setup
         </CardTitle>
       </CardHeader>
       <CardContent className="grid gap-4 p-4 md:p-5">
@@ -142,25 +130,6 @@ export function ActiveProgramStateCard({
           </label>
         </div>
 
-        <div className="rounded-lg border border-cyan-300/20 bg-cyan-300/[0.05] p-4">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <p className="text-xs font-medium uppercase tracking-[0.18em] text-cyan-200">Current team update cycle</p>
-              <p className="mt-2 text-sm font-medium text-zinc-100">{cycleLabel}</p>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              <span className="rounded-full border border-cyan-300/20 bg-cyan-300/10 px-3 py-1 text-[11px] font-medium uppercase tracking-[0.16em] text-cyan-100">
-                {teamCoverage.submitted}/{teamCoverage.total} roles updated
-              </span>
-              <span className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-[11px] font-medium uppercase tracking-[0.16em] text-zinc-200">
-                {ownerCoverage.configured}/{ownerCoverage.total} owners set
-              </span>
-            </div>
-          </div>
-          <p className="mt-3 text-sm leading-6 text-zinc-300">
-            Teams can submit individual role updates throughout the cycle. Each save refreshes the program synthesis and can trigger guided-plan regeneration when the signal materially changes.
-          </p>
-        </div>
       </CardContent>
     </Card>
   );

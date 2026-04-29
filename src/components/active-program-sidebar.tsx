@@ -171,30 +171,33 @@ export function ActiveProgramSidebar({
         <CardHeader className="border-b border-white/10">
           <CardTitle className="flex items-center gap-2 text-zinc-50">
             <History className="h-4 w-4 text-amber-200" />
-            Update history
+            Cycle timeline
           </CardTitle>
         </CardHeader>
-        <CardContent className="grid gap-3 p-5">
+        <CardContent className="p-5">
           {selectedProgramHistory.length ? (
-            selectedProgramHistory.slice(0, 5).map((update) => (
-              <button
-                key={update.id}
-                type="button"
-                onClick={() => onLoadUpdate(update)}
-                className="rounded-md border border-white/10 bg-white/[0.035] p-3 text-left transition-colors hover:border-amber-300/30"
-              >
-                <div className="mb-2 flex items-center justify-between gap-3">
-                  <span className="text-xs font-medium uppercase tracking-[0.16em] text-amber-200">{formatTimestamp(update.createdAt)}</span>
-                  <span className="rounded-md border border-white/10 bg-black/20 px-2 py-0.5 text-[11px] text-zinc-500">load</span>
-                </div>
-                <p className="text-sm font-medium text-zinc-100">
-                  {update.review.lastUpdatedRole ? `${update.review.lastUpdatedRole} update` : update.review.currentPhase || update.programName}
-                </p>
-                <p className="mt-1 line-clamp-2 text-xs leading-5 text-zinc-400">
-                  {update.review.programSynthesisNote || update.review.progressSinceLastReview || update.review.deliveryHealth || "No summary captured."}
-                </p>
-              </button>
-            ))
+            <div className="relative grid gap-0 before:absolute before:left-[7px] before:top-2 before:h-[calc(100%-1rem)] before:w-px before:bg-white/10">
+              {selectedProgramHistory.slice(0, 6).map((update) => (
+                <button
+                  key={update.id}
+                  type="button"
+                  onClick={() => onLoadUpdate(update)}
+                  className="relative grid gap-2 py-3 pl-7 text-left transition-colors hover:text-zinc-50"
+                >
+                  <span className="absolute left-0 top-5 h-3.5 w-3.5 rounded-full border border-amber-300/40 bg-zinc-950 shadow-[0_0_18px_rgba(251,191,36,0.18)]" />
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <span className="text-xs font-medium uppercase tracking-[0.16em] text-amber-200">{formatTimestamp(update.createdAt)}</span>
+                    <span className="rounded-md border border-white/10 bg-black/20 px-2 py-0.5 text-[11px] text-zinc-500">load</span>
+                  </div>
+                  <p className="text-sm font-medium text-zinc-100">
+                    {update.review.lastUpdatedRole ? `${update.review.lastUpdatedRole} update` : update.review.currentPhase || update.programName}
+                  </p>
+                  <p className="line-clamp-2 text-xs leading-5 text-zinc-400">
+                    {update.review.programSynthesisNote || update.review.progressSinceLastReview || update.review.deliveryHealth || "No summary captured."}
+                  </p>
+                </button>
+              ))}
+            </div>
           ) : (
             <div className="rounded-md border border-white/10 bg-white/[0.035] p-3">
               <p className="text-sm leading-6 text-zinc-400">
