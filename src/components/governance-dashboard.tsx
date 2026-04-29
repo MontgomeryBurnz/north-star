@@ -40,6 +40,157 @@ function formatPercent(value: number) {
   return `${Math.round(value * 100)}%`;
 }
 
+function formatMultiplier(value: number) {
+  if (!Number.isFinite(value) || value <= 0) return "0x";
+  if (value < 10) return `${value.toFixed(1)}x`;
+  return `${Math.round(value)}x`;
+}
+
+const millisecondsPerDay = 24 * 60 * 60 * 1000;
+
+function getBillingWindowDays(reconciliation: OpenAIBillingReconciliation) {
+  const start = Date.parse(reconciliation.windowStart);
+  const end = Date.parse(reconciliation.windowEnd);
+
+  if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start) {
+    return 1;
+  }
+
+  return Math.max(1, (end - start) / millisecondsPerDay);
+}
+
+type BillingExpenseForecast = {
+  observedSpendUsd: number;
+  observedRequests: number;
+  observedTotalTokens: number;
+  observedDays: number;
+  dailyRunRateUsd: number;
+  projectedThirtyDaySpendUsd: number;
+  projectedNinetyDaySpendUsd: number;
+  averageRequestCostUsd: number;
+  averageMillionTokenCostUsd: number;
+  basisLabel: string;
+};
+
+function getBillingExpenseForecast(reconciliation: OpenAIBillingReconciliation | null): BillingExpenseForecast | null {
+  if (!reconciliation?.connected) return null;
+
+  const observedSpendUsd = reconciliation.actualSpendUsd ?? reconciliation.usageEstimatedSpendUsd ?? 0;
+  const observedRequests = reconciliation.actualRequests ?? 0;
+  const observedTotalTokens = reconciliation.actualTotalTokens ?? 0;
+  const observedDays = getBillingWindowDays(reconciliation);
+  const dailyRunRateUsd = observedSpendUsd / observedDays;
+
+  return {
+    observedSpendUsd,
+    observedRequests,
+    observedTotalTokens,
+    observedDays,
+    dailyRunRateUsd,
+    projectedThirtyDaySpendUsd: dailyRunRateUsd * 30,
+    projectedNinetyDaySpendUsd: dailyRunRateUsd * 90,
+    averageRequestCostUsd: observedRequests ? observedSpendUsd / observedRequests : 0,
+    averageMillionTokenCostUsd: observedTotalTokens ? (observedSpendUsd / observedTotalTokens) * 1_000_000 : 0,
+    basisLabel:
+      reconciliation.spendSource === "usage-estimate"
+        ? "OpenAI Usage API tokens and configured model rates"
+        : "OpenAI Costs API actual spend"
+  };
+}
+
+type UsageSummary = {
+  inputTokens: number;
+  cachedInputTokens: number;
+  outputTokens: number;
+  totalTokens: number;
+  estimatedCostUsd: number;
+  estimatedCachedInputSavingsUsd: number;
+  cacheHitRate: number;
+  projectedThirtyDayCostUsd: number;
+  lastSevenDayCostUsd: number;
+  workflowBreakdown: Array<[OpenAIUsageRecord["workflow"], { calls: number; estimatedCostUsd: number; totalTokens: number }]>;
+  latestRecord: OpenAIUsageRecord | null;
+};
+
+type GovernanceCounts = {
+  pending: number;
+  approved: number;
+  denied: number;
+  teamActionPlan: number;
+};
+
+type ModelFitRecommendation = {
+  recommendedModel: string;
+  headline: string;
+  confidenceLabel: string;
+  summary: string;
+  factors: Array<{ label: string; value: string; detail: string }>;
+  optimization: string;
+};
+
+function getModelFitRecommendation(input: {
+  billingForecast: BillingExpenseForecast | null;
+  billingReconciliation: OpenAIBillingReconciliation | null;
+  counts: GovernanceCounts;
+  guidanceModelProfile: GuidanceModelProfile;
+  selectedProgramId: string;
+  usageSummary: UsageSummary;
+}): ModelFitRecommendation {
+  const { billingForecast, billingReconciliation, counts, guidanceModelProfile, selectedProgramId, usageSummary } = input;
+  const model = guidanceModelProfile.model === "unconfigured" ? "Configure an OpenAI model" : guidanceModelProfile.model;
+  const globalTokens = billingReconciliation?.actualTotalTokens ?? 0;
+  const observedTokens = Math.max(globalTokens, usageSummary.totalTokens);
+  const cacheRate = billingReconciliation?.actualCacheHitRate ?? usageSummary.cacheHitRate;
+  const hasGovernanceRisk = counts.pending > 0 || counts.approved > 0 || counts.teamActionPlan > 0;
+  const isHighContext = observedTokens >= 1_000_000 || usageSummary.totalTokens >= 250_000;
+  const hasMultiWorkflowUsage = usageSummary.workflowBreakdown.length >= 3;
+  const shouldKeepBestModel = guidanceModelProfile.provider === "openai" && (isHighContext || hasGovernanceRisk || hasMultiWorkflowUsage);
+
+  const confidenceLabel =
+    billingReconciliation?.connected && selectedProgramId
+      ? "High telemetry"
+      : billingReconciliation?.connected
+        ? "Billing telemetry"
+        : "Needs billing sync";
+
+  return {
+    recommendedModel: model,
+    headline: shouldKeepBestModel
+      ? `Keep ${model} as the primary guidance model.`
+      : `Use ${model} for guided plans while governance builds a lower-cost eval candidate.`,
+    confidenceLabel,
+    summary: shouldKeepBestModel
+      ? "Current signals point to complex, high-context guidance where accuracy, reasoning depth, and cross-functional synthesis matter more than model downgrades."
+      : "The current model can remain the guidance default, but lightweight prompt briefings are the first workflow to test against a lower-cost candidate before any routing change.",
+    factors: [
+      {
+        label: "Context volume",
+        value: formatTokenCount(observedTokens),
+        detail: isHighContext ? "High-context cycle across billing and program usage." : "Limited observed token volume so far."
+      },
+      {
+        label: "Governance risk",
+        value: selectedProgramId ? `${counts.pending} open / ${counts.teamActionPlan} team` : "Program needed",
+        detail: selectedProgramId
+          ? "Flags and team-plan disputes increase the cost of weak guidance."
+          : "Select a program to include flags, disputes, and review history."
+      },
+      {
+        label: "Cache posture",
+        value: formatPercent(cacheRate),
+        detail: cacheRate >= 0.7 ? "Healthy cache reuse is protecting spend." : "Improve prompt stability before optimizing model mix."
+      },
+      {
+        label: "Budget pace",
+        value: billingForecast ? formatCurrency(billingForecast.projectedThirtyDaySpendUsd) : "Not synced",
+        detail: billingForecast ? "30-day forecast from the selected billing window." : "Sync billing to make model choice cost-aware."
+      }
+    ],
+    optimization:
+      "Next best governance step: keep guided plans on the recommended model, then evaluate lighter routing only for routine Guide prompts, summaries, or prompt-chip generation with quality gates."
+  };
+}
+
 function getWorkflowLabel(workflow: OpenAIUsageRecord["workflow"]) {
   if (workflow === "guided-plan") return "Guided plans";
   if (workflow === "guide") return "Guide dialogue";
@@ -293,7 +444,7 @@ export function GovernanceDashboard({ guidanceModelProfile }: GovernanceDashboar
     [justifications]
   );
 
-  const counts = useMemo(
+  const counts = useMemo<GovernanceCounts>(
     () => ({
       pending: flags.filter((flag) => flag.status === "pending").length,
       approved: flags.filter((flag) => flag.status === "approved").length,
@@ -315,7 +466,7 @@ export function GovernanceDashboard({ guidanceModelProfile }: GovernanceDashboar
     [flags]
   );
 
-  const usageSummary = useMemo(() => {
+  const usageSummary = useMemo<UsageSummary>(() => {
     const now = Date.now();
     const sevenDaysAgo = now - 7 * 24 * 60 * 60 * 1000;
     const lastSevenDays = usageRecords.filter((record) => Date.parse(record.createdAt) >= sevenDaysAgo);
@@ -364,6 +515,21 @@ export function GovernanceDashboard({ guidanceModelProfile }: GovernanceDashboar
       latestRecord: usageRecords[0] ?? null
     };
   }, [usageRecords]);
+
+  const billingForecast = useMemo(() => getBillingExpenseForecast(billingReconciliation), [billingReconciliation]);
+
+  const modelFitRecommendation = useMemo(
+    () =>
+      getModelFitRecommendation({
+        billingForecast,
+        billingReconciliation,
+        counts,
+        guidanceModelProfile,
+        selectedProgramId,
+        usageSummary
+      }),
+    [billingForecast, billingReconciliation, counts, guidanceModelProfile, selectedProgramId, usageSummary]
+  );
 
   async function reviewFlag(flag: GuidanceFeedbackFlag, nextStatus: "approved" | "denied") {
     const disposition = reviewState[flag.id]?.disposition?.trim() ?? "";
@@ -744,10 +910,107 @@ export function GovernanceDashboard({ guidanceModelProfile }: GovernanceDashboar
             </CardContent>
           </Card>
 
+          <Card className="bg-zinc-950/80">
+            <CardHeader className="border-b border-white/10">
+              <CardTitle className="text-zinc-50">Expense forecast</CardTitle>
+            </CardHeader>
+            <CardContent className="grid gap-4 p-5">
+              {!billingForecast ? (
+                <p className="rounded-md border border-white/10 bg-white/[0.035] p-3 text-sm leading-6 text-zinc-400">
+                  Sync OpenAI billing to forecast alpha spend from actual usage.
+                </p>
+              ) : (
+                <>
+                  <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-1">
+                    <div className="rounded-md border border-emerald-300/20 bg-emerald-300/[0.055] p-3">
+                      <p className="text-xs font-medium uppercase tracking-[0.16em] text-emerald-200">Projected 30-day</p>
+                      <p className="mt-2 text-2xl font-semibold text-zinc-50">
+                        {formatCurrency(billingForecast.projectedThirtyDaySpendUsd)}
+                      </p>
+                      <p className="mt-1 text-xs leading-5 text-zinc-500">
+                        {formatMultiplier(30 / billingForecast.observedDays)} the selected window pace
+                      </p>
+                    </div>
+                    <div className="rounded-md border border-cyan-300/20 bg-cyan-300/[0.055] p-3">
+                      <p className="text-xs font-medium uppercase tracking-[0.16em] text-cyan-200">Projected 90-day</p>
+                      <p className="mt-2 text-2xl font-semibold text-zinc-50">
+                        {formatCurrency(billingForecast.projectedNinetyDaySpendUsd)}
+                      </p>
+                      <p className="mt-1 text-xs leading-5 text-zinc-500">Quarterly alpha budget view</p>
+                    </div>
+                  </div>
+
+                  <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-1">
+                    <div className="rounded-md border border-white/10 bg-white/[0.035] p-3">
+                      <p className="text-xs font-medium uppercase tracking-[0.16em] text-zinc-500">Daily run rate</p>
+                      <p className="mt-2 text-lg font-semibold text-zinc-100">{formatCurrency(billingForecast.dailyRunRateUsd)}</p>
+                      <p className="mt-1 text-xs text-zinc-500">
+                        {formatCurrency(billingForecast.observedSpendUsd)} across {Math.ceil(billingForecast.observedDays)} observed days
+                      </p>
+                    </div>
+                    <div className="rounded-md border border-white/10 bg-white/[0.035] p-3">
+                      <p className="text-xs font-medium uppercase tracking-[0.16em] text-zinc-500">Average request cost</p>
+                      <p className="mt-2 text-lg font-semibold text-zinc-100">{formatCurrency(billingForecast.averageRequestCostUsd)}</p>
+                      <p className="mt-1 text-xs text-zinc-500">
+                        {formatTokenCount(billingForecast.observedRequests)} requests /{" "}
+                        {formatCurrency(billingForecast.averageMillionTokenCostUsd)} per 1M tokens
+                      </p>
+                    </div>
+                  </div>
+
+                  <p className="text-xs leading-5 text-zinc-500">
+                    Forecast basis: {billingForecast.basisLabel}. OpenAI billing remains the invoice source of truth; North Star uses this
+                    view to plan alpha budget and model-routing decisions.
+                  </p>
+                </>
+              )}
+            </CardContent>
+          </Card>
+
           <GuidanceModelProfileCard
             guidanceModelProfile={guidanceModelProfile}
             usageDescription="Used by governance to monitor model choice, reasoning level, cost basis, and cache posture while deciding which flags should influence future guidance."
           />
+
+          <Card className="bg-zinc-950/80">
+            <CardHeader className="border-b border-white/10">
+              <CardTitle className="text-zinc-50">Model fit recommendation</CardTitle>
+            </CardHeader>
+            <CardContent className="grid gap-4 p-5">
+              <div className="rounded-md border border-cyan-300/20 bg-cyan-300/[0.055] p-3">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <p className="text-xs font-medium uppercase tracking-[0.16em] text-cyan-200">Recommended GPT model</p>
+                  <span className="rounded-full border border-cyan-300/25 bg-cyan-300/10 px-3 py-1 text-[11px] font-medium uppercase tracking-[0.14em] text-cyan-100">
+                    {modelFitRecommendation.confidenceLabel}
+                  </span>
+                </div>
+                <p className="mt-3 text-2xl font-semibold text-zinc-50">{modelFitRecommendation.recommendedModel}</p>
+                <p className="mt-2 text-sm leading-6 text-zinc-300">{modelFitRecommendation.headline}</p>
+              </div>
+
+              <p className="text-sm leading-6 text-zinc-400">{modelFitRecommendation.summary}</p>
+
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-1">
+                {modelFitRecommendation.factors.map((factor) => (
+                  <div key={factor.label} className="rounded-md border border-white/10 bg-white/[0.035] p-3">
+                    <p className="text-xs font-medium uppercase tracking-[0.16em] text-zinc-500">{factor.label}</p>
+                    <p className="mt-2 text-lg font-semibold text-zinc-100">{factor.value}</p>
+                    <p className="mt-1 text-xs leading-5 text-zinc-500">{factor.detail}</p>
+                  </div>
+                ))}
+              </div>
+
+              <div className="rounded-md border border-emerald-300/20 bg-emerald-300/[0.055] p-3">
+                <p className="text-xs font-medium uppercase tracking-[0.16em] text-emerald-200">Cost control path</p>
+                <p className="mt-2 text-sm leading-6 text-zinc-300">{modelFitRecommendation.optimization}</p>
+              </div>
+
+              <p className="text-xs leading-5 text-zinc-500">
+                This is a North Star governance recommendation from billing, cache, program usage, and review signals. It should become
+                eval-backed before any automatic model routing is switched on.
+              </p>
+            </CardContent>
+          </Card>
 
           <Card className="bg-zinc-950/80">
             <CardHeader className="border-b border-white/10">
