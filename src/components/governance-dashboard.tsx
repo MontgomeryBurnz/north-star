@@ -482,7 +482,7 @@ export function GovernanceDashboard({ guidanceModelProfile }: GovernanceDashboar
 
           <GuidanceModelProfileCard
             guidanceModelProfile={guidanceModelProfile}
-            usageDescription="Used by governance to monitor model choice, reasoning level, cost basis, and cache posture while adjudicating which flags should influence future guidance."
+            usageDescription="Used by governance to monitor model choice, reasoning level, cost basis, and cache posture while deciding which flags should influence future guidance."
           />
 
           <Card className="bg-zinc-950/80">
@@ -569,7 +569,7 @@ export function GovernanceDashboard({ guidanceModelProfile }: GovernanceDashboar
                     <p className="text-xs font-medium uppercase tracking-[0.18em] text-emerald-200">Select a program</p>
                     <h2 className="mt-2 text-2xl font-semibold text-zinc-50">Choose a program to review governance.</h2>
                     <p className="mt-3 max-w-2xl text-sm leading-6 text-zinc-300">
-                      Use the Program slicer to load model spend, cache efficiency, disputed guidance, and adjudication history for one active program at a time.
+                      Use the Program slicer to load model spend, cache efficiency, disputed guidance, and decision history for one active program at a time.
                     </p>
                   </div>
                 </div>
@@ -581,7 +581,7 @@ export function GovernanceDashboard({ guidanceModelProfile }: GovernanceDashboar
                 <div className="flex flex-wrap items-end justify-between gap-3">
                   <div>
                     <p className="text-xs font-medium uppercase tracking-[0.18em] text-amber-200">Review queue</p>
-                    <h2 className="text-2xl font-semibold text-zinc-50">Pending adjudication</h2>
+                    <h2 className="text-2xl font-semibold text-zinc-50">Pending review</h2>
                   </div>
                   <span className="text-sm text-zinc-400">{flagGroups.pending.length} open</span>
                 </div>
@@ -599,7 +599,7 @@ export function GovernanceDashboard({ guidanceModelProfile }: GovernanceDashboar
                   <div className="flex flex-wrap items-end justify-between gap-3">
                     <div>
                       <p className="text-xs font-medium uppercase tracking-[0.18em] text-zinc-500">Audit history</p>
-                      <h2 className="text-2xl font-semibold text-zinc-50">Adjudicated guidance decisions</h2>
+                      <h2 className="text-2xl font-semibold text-zinc-50">Reviewed guidance decisions</h2>
                       <p className="mt-2 max-w-3xl text-sm leading-6 text-zinc-400">
                         Approved and denied flags are retained here as read-only program history after governance has made a decision.
                       </p>

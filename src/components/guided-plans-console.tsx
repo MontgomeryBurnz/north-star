@@ -389,7 +389,7 @@ export function GuidedPlansConsole() {
       setFlagTarget(null);
       setFlagReason("");
       setFlagContext("");
-      setStatus("Guidance flag submitted. Governance can now review and adjudicate it.");
+      setStatus("Guidance flag submitted. Governance can now review and decide what happens next.");
     } catch {
       setStatus("Could not submit the guidance flag.");
     } finally {
