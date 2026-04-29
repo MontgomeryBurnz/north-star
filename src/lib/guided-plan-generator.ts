@@ -59,7 +59,9 @@ function getTeamRoleUpdates(update: StoredProgramUpdate | undefined) {
   return update?.review.teamRoleUpdates?.filter(
     (role) =>
       role.role.trim() &&
-      (role.progressUpdate.trim() ||
+      (role.status !== "on-track" ||
+        role.needsLeadershipAttention ||
+        role.progressUpdate.trim() ||
         role.changesObserved.trim() ||
         role.activeRisks.trim() ||
         role.blockers.trim() ||

@@ -233,13 +233,23 @@ function joinRoleSignals(roleUpdates: TeamRoleUpdate[], selector: (role: TeamRol
 
 function hasRoleSubmission(roleUpdate: TeamRoleUpdate) {
   return Boolean(
-    roleUpdate.progressUpdate.trim() ||
+    roleUpdate.status !== "on-track" ||
+      roleUpdate.needsLeadershipAttention ||
+      roleUpdate.progressUpdate.trim() ||
       roleUpdate.changesObserved.trim() ||
       roleUpdate.activeRisks.trim() ||
       roleUpdate.blockers.trim() ||
       roleUpdate.decisionsNeeded.trim() ||
       roleUpdate.supportNeeded.trim()
   );
+}
+
+function hasCapturedRoleSignal(review: ActiveProgramReview) {
+  return review.teamRoleUpdates?.some(hasRoleSubmission) ?? false;
+}
+
+function isOwnerOnlyRoleSnapshot(review: ActiveProgramReview) {
+  return Boolean(review.lastUpdatedRole && !hasCapturedRoleSignal(review));
 }
 
 function clearCycleReview(review: ActiveProgramReview, intake?: ProgramIntake) {
@@ -270,15 +280,7 @@ function clearCycleReview(review: ActiveProgramReview, intake?: ProgramIntake) {
 
 function buildSynthesizedReview(review: ActiveProgramReview, roles: string[], lastUpdatedRole = ""): ActiveProgramReview {
   const normalizedRoleUpdates = normalizeTeamRoleUpdates(review.teamRoleUpdates, roles);
-  const touchedRoles = normalizedRoleUpdates.filter(
-    (role) =>
-      role.progressUpdate.trim() ||
-      role.changesObserved.trim() ||
-      role.activeRisks.trim() ||
-      role.blockers.trim() ||
-      role.decisionsNeeded.trim() ||
-      role.supportNeeded.trim()
-  );
+  const touchedRoles = normalizedRoleUpdates.filter(hasRoleSubmission);
   const cycleMetadata = buildCycleMetadata(review.updateCadence === "biweekly" ? "biweekly" : "weekly");
   const cadence: ActiveProgramReview["updateCadence"] = review.updateCadence === "biweekly" ? "biweekly" : "weekly";
   const programSynthesisNote = touchedRoles.length
@@ -498,6 +500,7 @@ export function ActiveProgramReviewSection() {
 
     return updates
       .filter((update) => update.programId === selectedProgramId || update.programName === review.programName)
+      .filter((update) => !isOwnerOnlyRoleSnapshot(update.review))
       .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
   }, [review.programName, selectedProgramId, updates]);
 
@@ -646,6 +649,7 @@ export function ActiveProgramReviewSection() {
     if (!selectedProgram) return;
     const latestForProgram = updates
       .filter((update) => update.programId === programId || update.programName === selectedProgram.label)
+      .filter((update) => !isOwnerOnlyRoleSnapshot(update.review))
       .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0];
 
     setReview(normalizeReview(latestForProgram?.review ?? selectedProgram.review, selectedProgram.intake));
@@ -756,9 +760,28 @@ export function ActiveProgramReviewSection() {
   async function saveReviewSnapshot(lastUpdatedRole = "") {
     const timestamp = new Date();
     const programId = selectedProgramId || `local-${review.programName.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-") || "active-program"}`;
+    const currentRoleUpdates = normalizeTeamRoleUpdates(review.teamRoleUpdates, activeTeamRoles);
+
+    if (lastUpdatedRole) {
+      const targetRole = currentRoleUpdates.find((roleUpdate) => normalizeProgramLabel(roleUpdate.role) === normalizeProgramLabel(lastUpdatedRole));
+      if (!targetRole || !hasRoleSubmission(targetRole)) {
+        return;
+      }
+    }
+
     const nextReview = normalizeReview(
       {
         ...review,
+        teamRoleUpdates: lastUpdatedRole
+          ? currentRoleUpdates.map((roleUpdate) =>
+              normalizeProgramLabel(roleUpdate.role) === normalizeProgramLabel(lastUpdatedRole)
+                ? {
+                    ...roleUpdate,
+                    lastUpdatedAt: timestamp.toISOString()
+                  }
+                : roleUpdate
+            )
+          : currentRoleUpdates,
         lastUpdatedRole: lastUpdatedRole || review.lastUpdatedRole || ""
       },
       selectedProgram?.intake

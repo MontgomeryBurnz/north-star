@@ -8,6 +8,7 @@ import type {
   MeshStandardMaterial,
   OrthographicCamera,
   Scene,
+  Timer,
   WebGLRenderer
 } from "three";
 
@@ -202,6 +203,7 @@ function NorthStarThreeMark({ variant }: { variant: MarkVariant }) {
     let resizeObserver: ResizeObserver | undefined;
     let removeWindowResizeListener: (() => void) | undefined;
     let sceneHandle: NorthStarScene | undefined;
+    let timerHandle: Timer | undefined;
 
     import("three")
       .then((THREE) => {
@@ -227,14 +229,17 @@ function NorthStarThreeMark({ variant }: { variant: MarkVariant }) {
           resizeObserver.observe(canvas);
         }
 
-        const clock = new THREE.Clock();
+        const timer = new THREE.Timer();
+        timer.connect(document);
+        timerHandle = timer;
         const reduceMotion = prefersReducedMotion();
-        const renderFrame = () => {
+        const renderFrame = (timestamp?: number) => {
           if (!sceneHandle || disposed) {
             return;
           }
 
-          updateNorthStarRotation(sceneHandle.group, clock.getElapsedTime());
+          timer.update(timestamp);
+          updateNorthStarRotation(sceneHandle.group, timer.getElapsed());
           sceneHandle.renderer.render(sceneHandle.scene, sceneHandle.camera);
 
           if (!reduceMotion) {
@@ -255,6 +260,7 @@ function NorthStarThreeMark({ variant }: { variant: MarkVariant }) {
       window.cancelAnimationFrame(animationFrame);
       resizeObserver?.disconnect();
       removeWindowResizeListener?.();
+      timerHandle?.dispose();
 
       if (sceneHandle) {
         disposeNorthStarScene(sceneHandle);
