@@ -1,11 +1,11 @@
 import { randomUUID } from "crypto";
-import type { StoredProgramUpdate } from "@/lib/active-program-types";
-import type { AssistantConversationTurn } from "@/lib/assistant-conversation-types";
-import type { GuidedPlan, GuidedPlanRolePlan } from "@/lib/guided-plan-types";
-import type { LeadershipReviewRecord } from "@/lib/leadership-feedback-types";
-import { buildDeliveryLeadershipSignal } from "@/lib/leadership-signal";
-import type { ProgramMeetingInput } from "@/lib/program-intelligence-types";
-import type { StoredProgram } from "@/lib/program-intake-types";
+import type { StoredProgramUpdate } from "./active-program-types.ts";
+import type { AssistantConversationTurn } from "./assistant-conversation-types.ts";
+import type { GuidedPlan, GuidedPlanRolePlan } from "./guided-plan-types.ts";
+import type { LeadershipReviewRecord } from "./leadership-feedback-types.ts";
+import { buildDeliveryLeadershipSignal } from "./leadership-signal.ts";
+import type { ProgramMeetingInput } from "./program-intelligence-types.ts";
+import type { StoredProgram } from "./program-intake-types.ts";
 
 const defaultTeamRoles = [
   "Product Management",

@@ -7,6 +7,7 @@ import type { AssistantConversationTurn } from "@/lib/assistant-conversation-typ
 import type { GuidedPlan, GuidedPlanRolePlans, GuidedPlanSection } from "@/lib/guided-plan-types";
 import type { DeliveryLeadershipSignal } from "@/lib/leadership-feedback-types";
 import type { GuidanceFeedbackFlag, GuidanceFeedbackFlagTargetType, GuidanceJustificationRecord } from "@/lib/program-intelligence-types";
+import type { StoredProgram } from "@/lib/program-intake-types";
 import { useForegroundRefresh } from "@/hooks/use-foreground-refresh";
 import { useProgramCatalog } from "@/hooks/use-program-catalog";
 import { useRequestSequence } from "@/hooks/use-request-sequence";
@@ -159,10 +160,11 @@ export function GuidedPlansConsole() {
   );
 
   const loadPlan = useCallback(
-    async (options?: { silent?: boolean }) => {
+    async (options?: { programId?: string; silent?: boolean }) => {
       const requestId = bundleRequest.beginRequest();
+      const programId = options?.programId ?? selectedProgramId;
 
-      if (!selectedProgramId) {
+      if (!programId) {
         setPlan(null);
         setUpdates([]);
         setAssistantConversations([]);
@@ -175,7 +177,7 @@ export function GuidedPlansConsole() {
       }
 
       try {
-        const response = await fetch(`/api/programs/${selectedProgramId}/bundle`, { cache: "no-store" });
+        const response = await fetch(`/api/programs/${programId}/bundle`, { cache: "no-store" });
         if (!response.ok) {
           throw new Error("Could not load guided plan.");
         }
@@ -324,7 +326,12 @@ export function GuidedPlansConsole() {
         throw new Error("save");
       }
 
-      const regenerateResponse = await fetch(`/api/programs/${selectedProgram.id}/guided-plan`, {
+      const savePayload = (await saveResponse.json()) as { program: StoredProgram };
+      const savedProgramId = savePayload.program.id;
+      if (!savedProgramId) {
+        throw new Error("save");
+      }
+      const regenerateResponse = await fetch(`/api/programs/${savedProgramId}/guided-plan`, {
         method: "POST"
       });
 
@@ -334,15 +341,18 @@ export function GuidedPlansConsole() {
 
       setNewRole("");
       setSelectedRoleFocus(role);
+      if (savedProgramId !== selectedProgram.id) {
+        setSelectedProgramId(savedProgramId);
+      }
       await refreshPrograms({ silent: true });
-      await loadPlan({ silent: true });
+      await loadPlan({ programId: savedProgramId, silent: true });
       setStatus(`${role} was added and the guided plan was refreshed to include the updated team composition.`);
     } catch {
       setStatus("Could not add the new team role and refresh the guided plan.");
     } finally {
       setIsSavingRole(false);
     }
-  }, [loadPlan, newRole, refreshPrograms, selectedProgram, teamRoles]);
+  }, [loadPlan, newRole, refreshPrograms, selectedProgram, setSelectedProgramId, teamRoles]);
 
   const latestJustification = useMemo(() => {
     if (!plan) return null;
