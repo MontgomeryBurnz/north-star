@@ -8,7 +8,7 @@ import type { LeadershipReviewInput, LeadershipReviewRecord } from "@/lib/leader
 import { useForegroundRefresh } from "@/hooks/use-foreground-refresh";
 import { useProgramCatalog } from "@/hooks/use-program-catalog";
 import { useRequestSequence } from "@/hooks/use-request-sequence";
-import { buildReviewCycleStatusForCadence, type ReviewCadence, type ReviewCycleStatus, type ReviewQueueItem } from "@/lib/leadership-review-queue";
+import { buildReviewCycleStatusForCadence, type ReviewCadence, type ReviewQueueItem } from "@/lib/leadership-review-queue";
 import { buildProgramGantt } from "@/lib/program-gantt";
 import type { StoredProgram } from "@/lib/program-intake-types";
 import { firstNonEmpty, firstSignal, splitSignals } from "@/lib/text-signals";
@@ -268,17 +268,6 @@ function inferReviewCadence(entries: LeadershipReviewRecord[]): ReviewCadence {
   return differenceInDays(latest, previous) >= 10 ? "biweekly" : "weekly";
 }
 
-function formatRelativeDays(days: number) {
-  if (days <= 0) return "today";
-  if (days === 1) return "in 1 day";
-  return `in ${days} days`;
-}
-
-function buildReviewCycleStatus(entries: LeadershipReviewRecord[]): ReviewCycleStatus {
-  const cadence = inferReviewCadence(entries);
-  return buildReviewCycleStatusForCadence(entries, cadence);
-}
-
 export function LeadershipReviewConsole() {
   const router = useRouter();
   const pathname = usePathname();
@@ -502,7 +491,7 @@ export function LeadershipReviewConsole() {
     if (!queueMode || !displayedReviewQueue.length) return;
     if (displayedReviewQueue.some((entry) => entry.programId === selectedProgramId)) return;
     setSelectedProgramId(displayedReviewQueue[0].programId);
-  }, [displayedReviewQueue, queueMode, selectedProgramId]);
+  }, [displayedReviewQueue, queueMode, selectedProgramId, setSelectedProgramId]);
 
   const loadProgramContext = useCallback(async () => {
     if (!selectedProgramId || !selectedProgram) return;

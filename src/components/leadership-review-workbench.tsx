@@ -2,7 +2,7 @@
 
 import { ClipboardPen, MessageSquareQuote, RefreshCw, ShieldAlert } from "lucide-react";
 import type { LeadershipReviewInput, LeadershipReviewRecord } from "@/lib/leadership-feedback-types";
-import type { ReviewCadence, ReviewCycleStatus } from "@/lib/leadership-review-queue";
+import type { ReviewCycleStatus } from "@/lib/leadership-review-queue";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 

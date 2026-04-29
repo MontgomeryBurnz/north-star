@@ -60,26 +60,6 @@ function normalizeProgramLabel(value: string) {
   return value.trim().toLowerCase();
 }
 
-function mergeProgramOptions(...groups: ExistingProgramOption[][]) {
-  const merged = new Map<string, ExistingProgramOption>();
-
-  for (const option of groups.flat()) {
-    const labelKey = normalizeProgramLabel(option.label);
-    const existing = merged.get(labelKey);
-
-    if (!existing) {
-      merged.set(labelKey, option);
-      continue;
-    }
-
-    if (existing.source === option.source && option.id !== existing.id) {
-      merged.set(labelKey, option);
-    }
-  }
-
-  return Array.from(merged.values());
-}
-
 const reviewHistoryKey = "work-path-active-program-updates";
 const reviewDraftKey = "work-path-active-program-review";
 const intakeDraftKey = "work-path-program-intake";

@@ -111,6 +111,7 @@ function buildLocalBriefing(input: {
     promptQueue: [
       `Give me a visionary and execution-level read on ${label}: ${executionLine}.`,
       `Pressure-test the plan for ${label} against this risk posture: ${riskLine}.`,
+      `Clarify which decision path for ${label} should be forced next: ${decisionLine}.`,
       `Translate ${leadershipLine} into concrete changes the delivery lead should make now.`,
       `What evidence would raise confidence in ${label}, and what is still missing from the current operating picture?`
     ],

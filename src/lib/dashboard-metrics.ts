@@ -1,7 +1,7 @@
 import "server-only";
 
 import { getLatestGuidedPlan, listLeadershipFeedback, listProgramUpdates, listPrograms } from "@/lib/program-store";
-import { firstNonEmpty, firstSignal } from "@/lib/text-signals";
+import { firstSignal } from "@/lib/text-signals";
 
 export type DashboardCallout = {
   id: string;

@@ -1,6 +1,7 @@
 "use client";
 
 import { ChangeEvent, FormEvent, useMemo, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowRight, CheckCircle2, ClipboardList, FileText, FolderUp, ListChecks, Save, ShieldAlert, Sparkles, Trash2 } from "lucide-react";
 import type { ProgramArtifact, ProgramIntake, ReviewedArtifactContext } from "@/lib/program-intake-types";
@@ -766,13 +767,13 @@ export function ProgramIntakeSection() {
               <FileText className="h-4 w-4" />
               Load demo program
             </Button>
-            <a
+            <Link
               href="/systems"
               className="inline-flex h-10 items-center justify-center gap-2 rounded-md border border-white/10 px-4 text-sm font-medium text-zinc-100 transition-colors hover:bg-white/10"
             >
               Open guided plans
               <ArrowRight className="h-4 w-4" />
-            </a>
+            </Link>
           </div>
 
           <form onSubmit={handleSubmit} className="mt-8 grid gap-4">
