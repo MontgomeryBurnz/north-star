@@ -874,11 +874,19 @@ export function ActiveProgramReviewSection() {
         <p className="mb-3 text-xs font-medium uppercase tracking-[0.22em] text-cyan-300">Active program review</p>
         <h2 className="text-3xl font-semibold text-zinc-50 md:text-4xl">Keep the program aligned as reality changes.</h2>
         <p className="mt-4 text-sm leading-7 text-zinc-400">
-          Use the cockpit to see the current picture, capture team updates, and keep guided plans pointed at the next move.
+          Start with program setup, then use the cockpit to read the current picture, capture team updates, and keep guided plans pointed at the next move.
         </p>
       </div>
 
-      <div className="mb-5">
+      <form onSubmit={handleSubmit} className="grid gap-5">
+        <ActiveProgramStateCard
+          selectedProgramId={selectedProgramId}
+          programOptions={existingPrograms.map((program) => ({ id: program.id, label: program.label }))}
+          review={review}
+          onSelectProgram={selectExistingProgram}
+          onFieldChange={updateField}
+        />
+
         <ActiveProgramCockpitCard
           review={review}
           teamRoleUpdates={teamRoleUpdates}
@@ -889,81 +897,74 @@ export function ActiveProgramReviewSection() {
           leadershipSignal={leadershipSignal}
           meetingInputsCount={meetingInputs.length}
           formatTimestamp={formatTimestamp}
+          isActive={Boolean(selectedProgramId || review.programName.trim())}
         />
-      </div>
 
-      <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_360px] xl:grid-cols-[minmax(0,1fr)_380px]">
-        <form onSubmit={handleSubmit} className="grid gap-4">
-          <ActiveProgramStateCard
-            selectedProgramId={selectedProgramId}
-            programOptions={existingPrograms.map((program) => ({ id: program.id, label: program.label }))}
-            review={review}
-            onSelectProgram={selectExistingProgram}
-            onFieldChange={updateField}
-          />
+        <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_360px] xl:grid-cols-[minmax(0,1fr)_380px]">
+          <div className="grid gap-4">
+            <ActiveProgramTeamUpdatesCard
+              teamRoleUpdates={teamRoleUpdates}
+              ownerCoverage={ownerCoverage}
+              saveState={saveState}
+              formatTimestamp={formatTimestamp}
+              onUpdateRoleField={(role, field, value) => updateRoleField(role, field, value as never)}
+              onSaveRoleSignal={saveReviewSnapshot}
+            />
 
-          <ActiveProgramTeamUpdatesCard
-            teamRoleUpdates={teamRoleUpdates}
-            ownerCoverage={ownerCoverage}
-            saveState={saveState}
-            formatTimestamp={formatTimestamp}
-            onUpdateRoleField={(role, field, value) => updateRoleField(role, field, value as never)}
-            onSaveRoleSignal={saveReviewSnapshot}
-          />
+            <ActiveProgramMeetingIntelligenceCard
+              meetingInputDraft={meetingInputDraft}
+              meetingSaveState={meetingSaveState}
+              meetingUploadState={meetingUploadState}
+              onDraftChange={(patch) => setMeetingInputDraft((current) => ({ ...current, ...patch }))}
+              onAttachmentsChange={handleMeetingAttachments}
+              onRemoveAttachment={removeMeetingAttachment}
+              onSave={saveMeetingInput}
+              formatFileSize={formatFileSize}
+            />
 
-          <ActiveProgramMeetingIntelligenceCard
-            meetingInputDraft={meetingInputDraft}
-            meetingSaveState={meetingSaveState}
-            meetingUploadState={meetingUploadState}
-            onDraftChange={(patch) => setMeetingInputDraft((current) => ({ ...current, ...patch }))}
-            onAttachmentsChange={handleMeetingAttachments}
-            onRemoveAttachment={removeMeetingAttachment}
-            onSave={saveMeetingInput}
-            formatFileSize={formatFileSize}
-          />
+            <ActiveProgramStatusArtifactsCard
+              artifacts={review.artifacts}
+              onArtifactsChange={handleArtifacts}
+              onRemoveArtifact={removeArtifact}
+              formatFileSize={formatFileSize}
+            />
 
-          <ActiveProgramStatusArtifactsCard
-            artifacts={review.artifacts}
-            onArtifactsChange={handleArtifacts}
-            onRemoveArtifact={removeArtifact}
-            formatFileSize={formatFileSize}
-          />
-
-          <div className="flex flex-col gap-3 sm:flex-row">
-            <Button type="submit" size="lg">
-              <Save className="h-4 w-4" />
-              {saveState === "saving" ? "Saving..." : "Save cycle synthesis"}
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              size="lg"
-              onClick={() => {
-                setReview(clearCycleReview(review, selectedProgram?.intake));
-              }}
-            >
-              Clear cycle
-            </Button>
-            {savedAt ? (
-              <p className={`self-center text-sm ${saveState === "error" ? "text-amber-200" : "text-cyan-200"}`}>
-                {saveState === "error" ? "Saved locally only" : "Saved to server and refreshed guided plan"} at {savedAt}
-              </p>
-            ) : null}
+            <div className="flex flex-col gap-3 sm:flex-row">
+              <Button type="submit" size="lg">
+                <Save className="h-4 w-4" />
+                {saveState === "saving" ? "Saving..." : "Save cycle synthesis"}
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="lg"
+                onClick={() => {
+                  setReview(clearCycleReview(review, selectedProgram?.intake));
+                }}
+              >
+                Clear cycle
+              </Button>
+              {savedAt ? (
+                <p className={`self-center text-sm ${saveState === "error" ? "text-amber-200" : "text-cyan-200"}`}>
+                  {saveState === "error" ? "Saved locally only" : "Saved to server and refreshed guided plan"} at {savedAt}
+                </p>
+              ) : null}
+            </div>
           </div>
-        </form>
 
-        <ActiveProgramSidebar
-          latestUpdate={latestUpdate}
-          leadershipSignal={leadershipSignal}
-          programSynthesis={programSynthesis}
-          completion={completion}
-          updateImpact={updateImpact}
-          selectedProgramHistory={selectedProgramHistory}
-          meetingInputs={meetingInputs}
-          formatTimestamp={formatTimestamp}
-          onLoadUpdate={(update) => setReview(update.review)}
-        />
-      </div>
+          <ActiveProgramSidebar
+            latestUpdate={latestUpdate}
+            leadershipSignal={leadershipSignal}
+            programSynthesis={programSynthesis}
+            completion={completion}
+            updateImpact={updateImpact}
+            selectedProgramHistory={selectedProgramHistory}
+            meetingInputs={meetingInputs}
+            formatTimestamp={formatTimestamp}
+            onLoadUpdate={(update) => setReview(update.review)}
+          />
+        </div>
+      </form>
     </section>
   );
 }

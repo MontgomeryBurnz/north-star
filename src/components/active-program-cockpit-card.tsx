@@ -22,6 +22,7 @@ type ActiveProgramCockpitCardProps = {
   leadershipSignal: DeliveryLeadershipSignal | null;
   meetingInputsCount: number;
   formatTimestamp: (value: string) => string;
+  isActive: boolean;
 };
 
 function deriveHealth(teamRoleUpdates: TeamRoleUpdate[], deliveryHealth: string) {
@@ -69,8 +70,33 @@ export function ActiveProgramCockpitCard({
   latestUpdate,
   leadershipSignal,
   meetingInputsCount,
-  formatTimestamp
+  formatTimestamp,
+  isActive
 }: ActiveProgramCockpitCardProps) {
+  if (!isActive) {
+    return (
+      <Card className="overflow-hidden border-cyan-300/15 bg-zinc-950/85">
+        <CardContent className="grid gap-4 p-4 sm:p-5 lg:grid-cols-[1fr_auto] lg:items-center">
+          <div>
+            <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-cyan-300/20 bg-cyan-300/10 px-3 py-1 text-xs font-medium text-cyan-100">
+              <Compass className="h-3.5 w-3.5" />
+              Program cockpit
+            </div>
+            <h3 className="text-2xl font-semibold tracking-normal text-zinc-50">Select a program to activate the cockpit.</h3>
+            <p className="mt-2 max-w-2xl text-sm leading-6 text-zinc-400">
+              Program setup feeds the operating view, role updates, meeting inputs, and timeline once a program is selected.
+            </p>
+          </div>
+          <div className="grid gap-2 rounded-lg border border-white/10 bg-white/[0.03] p-3 text-xs text-zinc-400 sm:grid-cols-3 lg:min-w-[360px]">
+            <span className="rounded-md border border-white/10 bg-black/20 px-3 py-2">1. Select program</span>
+            <span className="rounded-md border border-white/10 bg-black/20 px-3 py-2">2. Review cockpit</span>
+            <span className="rounded-md border border-white/10 bg-black/20 px-3 py-2">3. Capture signal</span>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
   const health = deriveHealth(teamRoleUpdates, review.deliveryHealth);
   const topRisk = firstSignal(review.activeRisks, "No active risk captured yet.");
   const nextDecision = firstSignal(review.decisionsPending || review.supportNeeded, "No decision or support ask captured yet.");
