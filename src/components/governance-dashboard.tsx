@@ -57,6 +57,24 @@ function getStatusClassName(status: GuidanceFeedbackFlag["status"]) {
   return "border-amber-300/25 bg-amber-300/10 text-amber-100";
 }
 
+function getDecisionLabel(status: GuidanceFeedbackFlag["status"]) {
+  if (status === "approved") return "Correction approved";
+  if (status === "denied") return "Challenge denied";
+  return "Pending review";
+}
+
+function getDecisionImpact(status: GuidanceFeedbackFlag["status"]) {
+  if (status === "approved") {
+    return "Use this correction as governed program memory for future guidance.";
+  }
+
+  if (status === "denied") {
+    return "Keep the original guidance interpretation; retain this challenge as audit history only.";
+  }
+
+  return "Awaiting governance disposition.";
+}
+
 export function GovernanceDashboard() {
   const governanceRequest = useRequestSequence();
   const [flags, setFlags] = useState<GuidanceFeedbackFlag[]>([]);
@@ -122,10 +140,14 @@ export function GovernanceDashboard() {
   );
 
   const flagGroups = useMemo(
-    () => ({
-      pending: flags.filter((flag) => flag.status === "pending"),
-      resolved: flags.filter((flag) => flag.status !== "pending")
-    }),
+    () => {
+      const sortedFlags = [...flags].sort((first, second) => Date.parse(second.updatedAt) - Date.parse(first.updatedAt));
+
+      return {
+        pending: sortedFlags.filter((flag) => flag.status === "pending"),
+        resolved: sortedFlags.filter((flag) => flag.status !== "pending")
+      };
+    },
     [flags]
   );
 
@@ -172,7 +194,41 @@ export function GovernanceDashboard() {
     }
   }
 
-  function renderFlagCard(flag: GuidanceFeedbackFlag) {
+  function renderChallengeEvidence(flag: GuidanceFeedbackFlag) {
+    const justification = justificationsById.get(flag.guidanceJustificationId);
+    const target = getFlagTarget(flag, justification);
+
+    return (
+      <>
+        <div className="grid gap-3 md:grid-cols-2">
+          <div className="rounded-md border border-white/10 bg-white/[0.035] p-3">
+            <p className="text-xs font-medium uppercase tracking-[0.16em] text-zinc-500">User reason</p>
+            <p className="mt-2 text-sm leading-6 text-zinc-200">{flag.userReason}</p>
+          </div>
+          <div className="rounded-md border border-white/10 bg-white/[0.035] p-3">
+            <p className="text-xs font-medium uppercase tracking-[0.16em] text-zinc-500">User context</p>
+            <p className="mt-2 text-sm leading-6 text-zinc-200">{flag.userContext}</p>
+          </div>
+        </div>
+
+        {justification ? (
+          <div className="rounded-md border border-cyan-300/20 bg-cyan-300/[0.055] p-4">
+            <p className="text-xs font-medium uppercase tracking-[0.16em] text-cyan-200">Original guidance rationale</p>
+            <p className="mt-2 text-sm leading-6 text-zinc-200">{justification.summary}</p>
+            {target.citation ? (
+              <div className="mt-3 rounded-md border border-white/10 bg-black/20 p-3">
+                <p className="text-xs font-medium uppercase tracking-[0.16em] text-zinc-500">Disputed source</p>
+                <p className="mt-2 text-sm font-medium text-zinc-100">{target.citation.label}</p>
+                <p className="mt-2 text-sm leading-6 text-zinc-300">{target.citation.rationale}</p>
+              </div>
+            ) : null}
+          </div>
+        ) : null}
+      </>
+    );
+  }
+
+  function renderPendingFlagCard(flag: GuidanceFeedbackFlag) {
     const justification = justificationsById.get(flag.guidanceJustificationId);
     const target = getFlagTarget(flag, justification);
     const currentReview = reviewState[flag.id] ?? { disposition: flag.leadershipDisposition ?? "", saving: false };
@@ -192,30 +248,7 @@ export function GovernanceDashboard() {
           </div>
         </CardHeader>
         <CardContent className="grid gap-4 p-5">
-          <div className="grid gap-3 md:grid-cols-2">
-            <div className="rounded-md border border-white/10 bg-white/[0.035] p-3">
-              <p className="text-xs font-medium uppercase tracking-[0.16em] text-zinc-500">User reason</p>
-              <p className="mt-2 text-sm leading-6 text-zinc-200">{flag.userReason}</p>
-            </div>
-            <div className="rounded-md border border-white/10 bg-white/[0.035] p-3">
-              <p className="text-xs font-medium uppercase tracking-[0.16em] text-zinc-500">User context</p>
-              <p className="mt-2 text-sm leading-6 text-zinc-200">{flag.userContext}</p>
-            </div>
-          </div>
-
-          {justification ? (
-            <div className="rounded-md border border-cyan-300/20 bg-cyan-300/[0.055] p-4">
-              <p className="text-xs font-medium uppercase tracking-[0.16em] text-cyan-200">Original guidance rationale</p>
-              <p className="mt-2 text-sm leading-6 text-zinc-200">{justification.summary}</p>
-              {target.citation ? (
-                <div className="mt-3 rounded-md border border-white/10 bg-black/20 p-3">
-                  <p className="text-xs font-medium uppercase tracking-[0.16em] text-zinc-500">Disputed source</p>
-                  <p className="mt-2 text-sm font-medium text-zinc-100">{target.citation.label}</p>
-                  <p className="mt-2 text-sm leading-6 text-zinc-300">{target.citation.rationale}</p>
-                </div>
-              ) : null}
-            </div>
-          ) : null}
+          {renderChallengeEvidence(flag)}
 
           <div className="grid gap-2">
             <label className="grid gap-2">
@@ -258,6 +291,54 @@ export function GovernanceDashboard() {
               {flag.reviewedBy ? ` • reviewed by ${flag.reviewedBy}` : ""}
             </span>
           </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  function renderAuditFlagCard(flag: GuidanceFeedbackFlag) {
+    const justification = justificationsById.get(flag.guidanceJustificationId);
+    const target = getFlagTarget(flag, justification);
+
+    return (
+      <Card key={flag.id} className="bg-zinc-950/70">
+        <CardHeader className="border-b border-white/10">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <p className="mb-2 text-xs font-medium uppercase tracking-[0.18em] text-zinc-500">Governance decision audit</p>
+              <CardTitle className="text-zinc-50">{target.title}</CardTitle>
+              <p className="mt-2 text-sm leading-6 text-zinc-400">{target.detail}</p>
+            </div>
+            <span className={`rounded-full border px-3 py-1 text-[11px] font-medium uppercase tracking-[0.14em] ${getStatusClassName(flag.status)}`}>
+              {getDecisionLabel(flag.status)}
+            </span>
+          </div>
+        </CardHeader>
+        <CardContent className="grid gap-4 p-5">
+          <div className="grid gap-3 lg:grid-cols-3">
+            <div className="rounded-md border border-white/10 bg-white/[0.035] p-3">
+              <p className="text-xs font-medium uppercase tracking-[0.16em] text-zinc-500">Decision</p>
+              <p className="mt-2 text-sm font-medium text-zinc-100">{getDecisionLabel(flag.status)}</p>
+            </div>
+            <div className="rounded-md border border-white/10 bg-white/[0.035] p-3">
+              <p className="text-xs font-medium uppercase tracking-[0.16em] text-zinc-500">Reviewed</p>
+              <p className="mt-2 text-sm font-medium text-zinc-100">{formatDate(flag.updatedAt)}</p>
+              {flag.reviewedBy ? <p className="mt-1 text-xs text-zinc-500">By {flag.reviewedBy}</p> : null}
+            </div>
+            <div className="rounded-md border border-white/10 bg-white/[0.035] p-3">
+              <p className="text-xs font-medium uppercase tracking-[0.16em] text-zinc-500">Program impact</p>
+              <p className="mt-2 text-sm leading-6 text-zinc-200">{getDecisionImpact(flag.status)}</p>
+            </div>
+          </div>
+
+          <div className="rounded-md border border-emerald-300/20 bg-emerald-300/[0.055] p-4">
+            <p className="text-xs font-medium uppercase tracking-[0.16em] text-emerald-200">Governance disposition</p>
+            <p className="mt-2 text-sm leading-6 text-zinc-200">
+              {flag.leadershipDisposition || "No governance disposition was captured for this decision."}
+            </p>
+          </div>
+
+          {renderChallengeEvidence(flag)}
         </CardContent>
       </Card>
     );
@@ -322,7 +403,7 @@ export function GovernanceDashboard() {
                   </div>
                   <span className="text-sm text-zinc-400">{flagGroups.pending.length} open</span>
                 </div>
-                {flagGroups.pending.length ? flagGroups.pending.map(renderFlagCard) : (
+                {flagGroups.pending.length ? flagGroups.pending.map(renderPendingFlagCard) : (
                   <Card className="bg-zinc-950/80">
                     <CardContent className="p-6 text-sm leading-6 text-zinc-400">
                       No disputed guidance is currently waiting for this program.
@@ -333,11 +414,17 @@ export function GovernanceDashboard() {
 
               {flagGroups.resolved.length ? (
                 <section className="grid gap-3">
-                  <div>
-                    <p className="text-xs font-medium uppercase tracking-[0.18em] text-zinc-500">Governed decisions</p>
-                    <h2 className="text-2xl font-semibold text-zinc-50">Resolved guidance flags</h2>
+                  <div className="flex flex-wrap items-end justify-between gap-3">
+                    <div>
+                      <p className="text-xs font-medium uppercase tracking-[0.18em] text-zinc-500">Audit history</p>
+                      <h2 className="text-2xl font-semibold text-zinc-50">Adjudicated guidance decisions</h2>
+                      <p className="mt-2 max-w-3xl text-sm leading-6 text-zinc-400">
+                        Approved and denied flags are retained here as read-only program history after governance has made a decision.
+                      </p>
+                    </div>
+                    <span className="text-sm text-zinc-400">{flagGroups.resolved.length} reviewed</span>
                   </div>
-                  {flagGroups.resolved.map(renderFlagCard)}
+                  {flagGroups.resolved.map(renderAuditFlagCard)}
                 </section>
               ) : null}
             </div>
