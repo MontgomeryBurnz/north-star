@@ -105,7 +105,7 @@ export function HeroSection({ metrics }: { metrics: DashboardMetrics }) {
               </CardTitle>
             </CardHeader>
             <CardContent className="grid gap-4 p-5 pt-0 sm:p-6 sm:pt-0">
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-5">
+              <div className="grid grid-cols-1 gap-3 min-[520px]:grid-cols-2 min-[900px]:grid-cols-5">
                 {stats.map((stat) => (
                   <div key={stat.label} className="min-h-20 rounded-md border border-white/10 bg-white/[0.035] p-3">
                     <p className="text-2xl font-semibold text-zinc-50">{stat.value}</p>
