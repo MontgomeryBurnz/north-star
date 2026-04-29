@@ -205,37 +205,37 @@ const leadershipFields: Array<{
   {
     id: "timelineSummary",
     label: "Timeline summary",
-    placeholder: "What matters on the timeline right now? Include milestone posture, phase, and timing pressure.",
+    placeholder: "Optional context on milestone posture, phase, or timing pressure.",
     rows: 3
   },
   {
     id: "progressHighlights",
     label: "Progress highlights",
-    placeholder: "What is materially moving? Call out evidence, shipped work, and visible gains.",
+    placeholder: "Optional context on material progress, evidence, or visible gains.",
     rows: 3
   },
   {
     id: "activeRisks",
-    label: "Leadership risks",
-    placeholder: "What concerns leadership most right now? Include escalation areas and signal worth watching.",
+    label: "Risk or decision",
+    placeholder: "What risk, decision, or concern needs leadership attention?",
     rows: 3
   },
   {
     id: "leadershipGuidance",
-    label: "Leadership guidance",
-    placeholder: "What should the delivery lead optimize for over the next checkpoint?",
-    rows: 3
+    label: "Direction for next cycle",
+    placeholder: "What should the delivery lead optimize for before the next checkpoint?",
+    rows: 4
   },
   {
     id: "supportRequests",
-    label: "Support requested",
-    placeholder: "What help, staffing, sponsor action, or decision support is needed from leadership?",
+    label: "Support needed",
+    placeholder: "What help, sponsor action, or decision support is needed?",
     rows: 3
   },
   {
     id: "feedbackToDeliveryLead",
-    label: "Feedback to delivery lead",
-    placeholder: "What direct feedback should be reflected in guidance, planning, and next-step outputs?",
+    label: "Message to delivery lead",
+    placeholder: "What should be reflected back to the delivery lead in plain language?",
     rows: 4
   }
 ];
@@ -308,10 +308,6 @@ export function LeadershipReviewConsole() {
   const leaderReadout = useMemo(
     () => [
       {
-        label: "Program summary",
-        value: executiveSummary
-      },
-      {
         label: "Progression",
         value:
           firstNonEmpty(
@@ -341,7 +337,6 @@ export function LeadershipReviewConsole() {
       }
     ],
     [
-      executiveSummary,
       latestFeedback?.feedback.activeRisks,
       latestFeedback?.feedback.progressHighlights,
       latestUpdate?.review.activeRisks,
@@ -356,8 +351,12 @@ export function LeadershipReviewConsole() {
   const quickContextSignals = useMemo(
     () => [
       {
-        label: "Phase",
-        value: latestUpdate?.review.currentPhase || selectedProgram?.intake.currentStatus || "No phase captured."
+        label: "Support needed",
+        value:
+          firstNonEmpty(
+            latestUpdate?.review.supportNeeded,
+            latestFeedback?.feedback.supportRequests
+          ) || "No sponsor or leadership support request is captured yet."
       },
       {
         label: "Leadership direction",
@@ -368,12 +367,8 @@ export function LeadershipReviewConsole() {
           ) || "No leadership direction saved yet."
       },
       {
-        label: "Support needed",
-        value:
-          firstNonEmpty(
-            latestUpdate?.review.supportNeeded,
-            latestFeedback?.feedback.supportRequests
-          ) || "No sponsor or leadership support request is captured yet."
+        label: "Phase",
+        value: latestUpdate?.review.currentPhase || selectedProgram?.intake.currentStatus || "No phase captured."
       }
     ],
     [
@@ -385,7 +380,6 @@ export function LeadershipReviewConsole() {
       selectedProgram?.intake.currentStatus
     ]
   );
-  const recentLeadershipSignals = useMemo(() => feedback.slice(0, 3), [feedback]);
   const selectedCadence = (selectedProgram?.intake.leadershipReviewCadence as ReviewCadence | undefined) ?? inferReviewCadence(feedback);
   const displayedReviewQueue = useMemo(
     () => (queueMode ? reviewQueue.filter((entry) => entry.status !== "attention") : reviewQueue),
@@ -408,15 +402,6 @@ export function LeadershipReviewConsole() {
       ),
     [latestUpdate?.review.decisionsPending, review.supportRequests, selectedProgram?.intake.decisionsNeeded]
   );
-  const implicationItems = useMemo(
-    () => [
-      review.leadershipGuidance || "Add leadership guidance to shape the next delivery move.",
-      review.supportRequests || "Capture support requests so the delivery lead knows what to escalate.",
-      review.feedbackToDeliveryLead || "Add direct feedback so it can flow into delivery guidance."
-    ],
-    [review.feedbackToDeliveryLead, review.leadershipGuidance, review.supportRequests]
-  );
-
   function focusReviewCycle(programId: string) {
     setSelectedProgramId(programId);
     requestAnimationFrame(() => {
@@ -659,13 +644,11 @@ export function LeadershipReviewConsole() {
           reviewCycleStatus={reviewCycleStatus}
           queueMode={queueMode}
           displayedReviewQueue={displayedReviewQueue}
-          recentLeadershipSignals={recentLeadershipSignals}
           status={status}
           onProgramChange={setSelectedProgramId}
           onCadenceChange={(nextCadence) => void handleCadenceChange(nextCadence)}
           onClearQueueFilter={clearQueueFilter}
           onFocusReviewCycle={focusReviewCycle}
-          onLoadReview={setReview}
           formatTimestamp={formatTimestamp}
         />
 
@@ -676,21 +659,12 @@ export function LeadershipReviewConsole() {
             quickContextSignals={quickContextSignals}
           />
 
-          <LeadershipProgramTimeline
-            selectedProgram={Boolean(selectedProgram)}
-            currentPhaseLabel={currentPhase.label}
-            ganttPhases={ganttPhases}
-            timeline={timeline}
-            formatTimestamp={formatTimestamp}
-          />
-
           <LeadershipReviewWorkbench
             review={review}
             leadershipFields={leadershipFields}
             reviewCycleStatus={reviewCycleStatus}
             latestReviewCycle={latestReviewCycle}
             clarifyItems={clarifyItems}
-            implicationItems={implicationItems}
             feedback={feedback}
             saveState={saveState}
             selectedProgramId={selectedProgramId}
@@ -706,6 +680,22 @@ export function LeadershipReviewConsole() {
               "No detail captured."
             }
           />
+
+          <details className="group">
+            <summary className="flex cursor-pointer list-none items-center justify-between gap-3 rounded-md border border-white/10 bg-zinc-950/70 px-5 py-4 text-zinc-100 transition-colors hover:border-amber-300/25">
+              <span className="font-medium">Program history</span>
+              <span className="text-xs uppercase tracking-[0.14em] text-zinc-500">Optional detail</span>
+            </summary>
+            <div className="mt-4">
+              <LeadershipProgramTimeline
+                selectedProgram={Boolean(selectedProgram)}
+                currentPhaseLabel={currentPhase.label}
+                ganttPhases={ganttPhases}
+                timeline={timeline}
+                formatTimestamp={formatTimestamp}
+              />
+            </div>
+          </details>
         </section>
       </section>
     </main>
