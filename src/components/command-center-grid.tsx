@@ -25,79 +25,83 @@ const workflowSteps = [
     href: "/new-program",
     icon: FilePlus2,
     label: "New Program",
-    title: "Create the program record",
+    title: "Start with the source of truth",
     detail:
-      "Enter the program name, intended outcomes, stakeholders, constraints, delivery context, and upload the initial artifact when available.",
-    outcome: "A saved program that every other surface can use."
+      "Create the program record, define the outcomes, name the stakeholders, capture constraints, and upload the first artifact when it is ready.",
+    outcome: "One clean source record for every downstream view."
   },
   {
     href: "/active-program",
     icon: ListChecks,
     label: "Active Program",
-    title: "Keep the operating picture current",
+    title: "Keep reality current",
     detail:
-      "Select the program, collect role-level updates, capture risks, decisions, blockers, artifacts, and meeting intelligence as the week changes.",
-    outcome: "Fresh context that automatically influences guidance."
+      "Collect role-level updates, risks, blockers, decisions, artifacts, and meeting intelligence as the program changes through the week.",
+    outcome: "Fresh delivery signal that automatically shapes guidance."
   },
   {
     href: "/systems",
     icon: Layers3,
     label: "Guided Plans",
-    title: "Review the refreshed guidance",
+    title: "Turn signal into a plan",
     detail:
-      "Use the plan overview, team action plans, risks, decisions, key questions, and change justifications to decide the next practical move.",
-    outcome: "A current execution path shaped by the latest inputs."
+      "Review the plan overview, Team Action Plans, risks, decisions, key considerations, and change justifications before choosing the next move.",
+    outcome: "A current execution path for the team."
   },
   {
     href: "/assistant",
     icon: MessageSquareText,
     label: "Guide",
-    title: "Ask program-specific questions",
+    title: "Pressure-test the next move",
     detail:
-      "Choose the active program before asking questions so the dialogue stays anchored to that program and can improve the guided plan context.",
-    outcome: "Conversation history that can shape future guidance."
+      "Select the active program, ask targeted questions, and keep the conversation anchored to the same context that informs the guided plan.",
+    outcome: "Program-aware dialogue that improves future guidance."
   },
   {
     href: "/leadership",
     icon: UsersRound,
     label: "Leadership",
-    title: "Collect sponsor guidance",
+    title: "Bring leadership into the loop",
     detail:
-      "Leaders review posture, progress, and delivery risk, then submit feedback that is interpreted and folded back into the guided plan.",
-    outcome: "Executive signal translated into action."
+      "Leaders review posture, progress, and delivery risk, then submit sponsor guidance that is interpreted and folded back into the plan.",
+    outcome: "Executive signal translated into team action."
   },
   {
     href: "/governance",
     icon: ShieldCheck,
     label: "Governance",
-    title: "Resolve disputed guidance",
+    title: "Protect the learning loop",
     detail:
-      "Review flagged justifications by program, approve or deny corrections, and prevent one program's context from polluting another.",
-    outcome: "A cleaner learning loop for guidance quality."
+      "Review flagged justifications by program, approve or deny corrections, and keep one program's context from influencing another.",
+    outcome: "Cleaner guidance quality by program."
   }
 ];
 
 const refreshSources = [
-  "Artifact uploads from New Program or Active Program",
-  "Role-level weekly or biweekly updates",
-  "Risks, blockers, decisions, and support needs",
-  "Meeting recordings or meeting intelligence notes",
-  "Guide dialogue tied to the selected program",
-  "Leadership feedback and governance decisions",
-  "Team role changes on the Guided Plans page"
+  "Statements of work, BRDs, and other uploaded artifacts",
+  "Role-level weekly or biweekly progress updates",
+  "Risks, blockers, decisions, and support requests",
+  "Meeting recordings, notes, and recurring meeting context",
+  "Guide conversations tied to the selected program",
+  "Leadership feedback and governance rulings",
+  "Team role changes that reshape action plans"
 ];
 
 const alphaTestScript = [
   "Create one realistic program from a statement of work or BRD.",
-  "Assign the team roles that reflect the actual delivery team.",
-  "Save at least one update from two different roles.",
+  "Match the team roles to the actual delivery team.",
+  "Save updates from at least two roles.",
   "Add one risk, one decision needed, and one meeting input.",
-  "Open Guided Plans and verify the Team Action Plans match the new context.",
-  "Submit leadership feedback and confirm the guidance refreshes automatically.",
-  "Use Guide to ask what needs attention next for the selected program."
+  "Confirm Guided Plans reflect the latest context.",
+  "Submit leadership feedback and verify the plan refreshes.",
+  "Use Guide to ask what needs attention next."
 ];
 
 export function CommandCenterGrid({ metrics }: { metrics: DashboardMetrics }) {
+  const riskCallout = metrics.callouts.find((callout) => callout.type === "risk");
+  const decisionCallout = metrics.callouts.find((callout) => callout.type === "decision");
+  const dueProgramDetail = metrics.duePrograms.slice(0, 2).map((program) => program.programName).join(" • ");
+  const reviewDetail = metrics.leadershipReviewsDue && dueProgramDetail ? dueProgramDetail : "no leadership reviews due";
   const metricCards = [
     {
       label: "Programs",
@@ -112,25 +116,19 @@ export function CommandCenterGrid({ metrics }: { metrics: DashboardMetrics }) {
     {
       label: "Risks",
       value: metrics.riskCount,
-      detail: metrics.callouts.find((callout) => callout.type === "risk")
-        ? `${metrics.callouts.find((callout) => callout.type === "risk")?.programName}: latest risk`
-        : "no active risks surfaced",
+      detail: riskCallout ? `${riskCallout.programName}: latest risk` : "no active risks surfaced",
       help: metrics.riskHelp
     },
     {
       label: "Decisions",
       value: metrics.decisionCount,
-      detail: metrics.callouts.find((callout) => callout.type === "decision")
-        ? `${metrics.callouts.find((callout) => callout.type === "decision")?.programName}: pending decision`
-        : "no pending decisions surfaced",
+      detail: decisionCallout ? `${decisionCallout.programName}: pending decision` : "no pending decisions surfaced",
       help: metrics.decisionHelp
     },
     {
       label: "Reviews",
       value: metrics.leadershipReviewsDue,
-      detail: metrics.leadershipReviewsDue
-        ? metrics.duePrograms.slice(0, 2).map((program) => program.programName).join(" • ")
-        : "no leadership reviews due",
+      detail: reviewDetail,
       help: metrics.leadershipReviewHelp
     }
   ];
@@ -140,20 +138,19 @@ export function CommandCenterGrid({ metrics }: { metrics: DashboardMetrics }) {
       <div className="mb-10 grid gap-6 lg:grid-cols-[minmax(0,0.9fr)_minmax(22rem,0.55fr)] lg:items-end">
         <div className="max-w-3xl">
           <p className="mb-3 text-xs font-medium uppercase tracking-[0.22em] text-emerald-300">How to use North Star</p>
-          <h2 className="text-3xl font-semibold text-zinc-50 md:text-4xl">Operate the app as a continuous program loop.</h2>
+          <h2 className="text-3xl font-semibold text-zinc-50 md:text-4xl">Run the program from signal to action.</h2>
           <p className="mt-4 text-sm leading-7 text-zinc-400">
-            North Star works best when each program has a clear source record, regular team updates, visible leadership
-            input, and guided plans that refresh as the facts change.
+            North Star works like an operating rhythm: capture the source record, keep the facts current, review the
+            guidance, bring leaders into the loop, and govern corrections by program.
           </p>
         </div>
         <div className="rounded-md border border-emerald-300/20 bg-emerald-300/[0.055] p-4">
           <p className="flex items-center gap-2 text-sm font-medium text-emerald-100">
             <RefreshCcw className="h-4 w-4" />
-            Guidance refresh rule
+            Living guidance rule
           </p>
           <p className="mt-3 text-sm leading-6 text-zinc-300">
-            Users should not need to manually regenerate a plan. Saving meaningful program inputs should refresh the
-            guided plan and preserve why the guidance changed.
+            Every meaningful input should refresh the plan automatically and preserve why the guidance changed.
           </p>
         </div>
       </div>
@@ -200,7 +197,7 @@ export function CommandCenterGrid({ metrics }: { metrics: DashboardMetrics }) {
           <CardHeader className="border-b border-white/10">
             <CardTitle className="flex items-center gap-2 text-zinc-50">
               <BrainCircuit className="h-4 w-4 text-cyan-200" />
-              What updates guided plans
+              What keeps guidance alive
             </CardTitle>
           </CardHeader>
           <CardContent className="grid gap-3 p-5 sm:grid-cols-2">
@@ -217,7 +214,7 @@ export function CommandCenterGrid({ metrics }: { metrics: DashboardMetrics }) {
           <CardHeader className="border-b border-white/10">
             <CardTitle className="flex items-center gap-2 text-zinc-50">
               <BookOpenCheck className="h-4 w-4 text-emerald-200" />
-              First alpha test pass
+              First clean test pass
             </CardTitle>
           </CardHeader>
           <CardContent className="grid gap-3 p-5">
@@ -261,10 +258,10 @@ export function CommandCenterGrid({ metrics }: { metrics: DashboardMetrics }) {
         <div className="grid gap-4 lg:grid-cols-[auto_1fr_auto] lg:items-center">
           <Flag className="h-5 w-5 text-cyan-200" />
           <div>
-            <p className="text-sm font-medium text-cyan-100">Recommended onboarding habit</p>
+            <p className="text-sm font-medium text-cyan-100">Recommended operating habit</p>
             <p className="mt-2 text-sm leading-6 text-zinc-300">
-              Each week, update the Active Program page first, then review Guided Plans, use Guide for questions, and
-              send leadership directly to the Leadership page when sponsor input is due.
+              Each week, update Active Program first, review Guided Plans, use Guide to pressure-test the next move,
+              and route leaders to the Leadership page when sponsor input is due.
             </p>
           </div>
           <Button asChild>
