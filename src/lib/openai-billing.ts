@@ -7,7 +7,7 @@ type OpenAICostsResponse = {
   data?: Array<{
     results?: Array<{
       amount?: {
-        value?: number;
+        value?: number | string;
         currency?: string;
       };
     }>;
@@ -37,7 +37,13 @@ function getBillingWindow() {
 }
 
 function asNumber(value: unknown) {
-  return typeof value === "number" && Number.isFinite(value) ? value : 0;
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value === "string" && value.trim()) {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : 0;
+  }
+
+  return 0;
 }
 
 function getOpenAIAdminKey() {
@@ -58,7 +64,8 @@ function estimateUsageCost(input: {
   outputTokens: number;
   model?: string;
 }) {
-  const pricing = getOpenAIModelPricing(input.model || getConfiguredOpenAIModel());
+  const configuredModel = getConfiguredOpenAIModel();
+  const pricing = getOpenAIModelPricing(input.model || configuredModel) ?? getOpenAIModelPricing(configuredModel);
   if (!pricing) return 0;
 
   const uncachedInputTokens = Math.max(0, input.inputTokens - input.cachedInputTokens);
@@ -107,7 +114,8 @@ async function fetchOpenAICosts(input: {
     const payload = await fetchOpenAIJson<OpenAICostsResponse>("/v1/organization/costs", params, input.adminKey);
     for (const bucket of payload.data ?? []) {
       for (const result of bucket.results ?? []) {
-        total += result.amount?.currency === "usd" ? asNumber(result.amount.value) : 0;
+        const currency = result.amount?.currency?.toLowerCase();
+        total += !currency || currency === "usd" ? asNumber(result.amount?.value) : 0;
       }
     }
 

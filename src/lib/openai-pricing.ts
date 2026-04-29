@@ -25,5 +25,10 @@ const pricingByModel: Record<string, OpenAIModelPricing> = {
 };
 
 export function getOpenAIModelPricing(model: string) {
-  return pricingByModel[model] ?? null;
+  const normalizedModel = model.trim().toLowerCase();
+  const directMatch = pricingByModel[normalizedModel];
+  if (directMatch) return directMatch;
+
+  const matchingBaseModel = Object.keys(pricingByModel).find((modelKey) => normalizedModel.startsWith(modelKey));
+  return matchingBaseModel ? pricingByModel[matchingBaseModel] : null;
 }
