@@ -707,6 +707,47 @@ async function ensurePostgresSchema() {
             ON openai_usage_records(program_id, created_at DESC);
           CREATE INDEX IF NOT EXISTS idx_openai_usage_records_program_id_workflow_created_at
             ON openai_usage_records(program_id, workflow, created_at DESC);
+
+          DO $$
+          DECLARE
+            app_table_name TEXT;
+            exposed_role_name TEXT;
+            app_table_names TEXT[] := ARRAY[
+              'programs',
+              'program_updates',
+              'guided_plans',
+              'leadership_feedback',
+              'assistant_conversations',
+              'artifacts',
+              'meeting_inputs',
+              'guidance_justifications',
+              'guidance_feedback_flags',
+              'openai_usage_records'
+            ];
+            exposed_role_names TEXT[] := ARRAY['anon', 'authenticated'];
+          BEGIN
+            FOREACH app_table_name IN ARRAY app_table_names LOOP
+              EXECUTE format('ALTER TABLE public.%I ENABLE ROW LEVEL SECURITY', app_table_name);
+            END LOOP;
+
+            FOREACH exposed_role_name IN ARRAY exposed_role_names LOOP
+              IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = exposed_role_name) THEN
+                FOREACH app_table_name IN ARRAY app_table_names LOOP
+                  EXECUTE format('REVOKE ALL ON TABLE public.%I FROM %I', app_table_name, exposed_role_name);
+                END LOOP;
+
+                EXECUTE format('REVOKE ALL ON ALL SEQUENCES IN SCHEMA public FROM %I', exposed_role_name);
+                EXECUTE format(
+                  'ALTER DEFAULT PRIVILEGES IN SCHEMA public REVOKE ALL ON TABLES FROM %I',
+                  exposed_role_name
+                );
+                EXECUTE format(
+                  'ALTER DEFAULT PRIVILEGES IN SCHEMA public REVOKE ALL ON SEQUENCES FROM %I',
+                  exposed_role_name
+                );
+              END IF;
+            END LOOP;
+          END $$;
         `);
       } finally {
         client.release();
