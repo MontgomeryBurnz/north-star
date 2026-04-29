@@ -15,7 +15,7 @@ import { firstNonEmpty, firstSignal, splitSignals } from "@/lib/text-signals";
 import { LeadershipExecutiveSummary } from "@/components/leadership-executive-summary";
 import { LeadershipProgramTimeline } from "@/components/leadership-program-timeline";
 import { LeadershipReviewWorkbench } from "@/components/leadership-review-workbench";
-import { LeadershipReviewSidebar } from "@/components/leadership-review-sidebar";
+import { LeadershipReviewSidebar, type LeadershipLaneOption } from "@/components/leadership-review-sidebar";
 import { SectionHeader } from "@/components/section-header";
 
 const emptyLeadershipReview: LeadershipReviewInput = {
@@ -27,6 +27,17 @@ const emptyLeadershipReview: LeadershipReviewInput = {
   supportRequests: "",
   feedbackToDeliveryLead: ""
 };
+
+const allSponsorLanesValue = "all";
+
+const defaultLeadershipLanes = [
+  "Product Management",
+  "Business Analysis",
+  "User Experience",
+  "Application Development",
+  "Data Engineering",
+  "Change Management"
+];
 
 const seededLeadershipProgram: StoredProgram = {
   id: "seeded-ordering-visibility-program",
@@ -271,6 +282,46 @@ function inferReviewCadence(entries: LeadershipReviewRecord[]): ReviewCadence {
   return differenceInDays(latest, previous) >= 10 ? "biweekly" : "weekly";
 }
 
+function sameRole(left: string | undefined, right: string) {
+  return left?.trim().toLowerCase() === right.trim().toLowerCase();
+}
+
+function roleStatusLabel(status: string | undefined) {
+  if (status === "on-track") return "On track";
+  if (status === "at-risk") return "At risk";
+  if (status === "blocked") return "Blocked";
+  return "No status saved yet.";
+}
+
+function buildLeadershipLaneOptions(input: {
+  feedback?: LeadershipReviewRecord;
+  program: StoredProgram | null;
+  update?: StoredProgramUpdate;
+}): LeadershipLaneOption[] {
+  const roles = [
+    ...(input.program?.intake.teamRoles ?? []),
+    ...(input.update?.review.teamRoleUpdates?.map((roleUpdate) => roleUpdate.role) ?? []),
+    ...(input.feedback?.interpretation?.roleImpacts.map((roleImpact) => roleImpact.role) ?? [])
+  ]
+    .map((role) => role.trim())
+    .filter(Boolean);
+
+  const uniqueRoles = Array.from(new Set((roles.length ? roles : defaultLeadershipLanes).map((role) => role.trim())));
+
+  return [
+    {
+      label: "All sponsor lanes",
+      value: allSponsorLanesValue,
+      detail: "Show the full leadership posture for the program."
+    },
+    ...uniqueRoles.map((role) => ({
+      label: role,
+      value: role,
+      detail: `Show only the ${role} signal, risks, decisions, and guidance.`
+    }))
+  ];
+}
+
 export function LeadershipReviewConsole() {
   const router = useRouter();
   const pathname = usePathname();
@@ -285,6 +336,7 @@ export function LeadershipReviewConsole() {
   const [review, setReview] = useState<LeadershipReviewInput>(emptyLeadershipReview);
   const [status, setStatus] = useState<string | null>(null);
   const [saveState, setSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle");
+  const [selectedLane, setSelectedLane] = useState(allSponsorLanesValue);
   const handleProgramLoadError = useCallback(() => setStatus("Leadership program catalog could not be refreshed."), []);
   const { programs, setPrograms, selectedProgram, selectedProgramId, setSelectedProgramId, refreshPrograms } = useProgramCatalog({
     initialPrograms: [seededLeadershipProgram],
@@ -295,50 +347,130 @@ export function LeadershipReviewConsole() {
   });
   const latestUpdate = updates[0];
   const latestFeedback = feedback[0];
+  const laneOptions = useMemo(
+    () => buildLeadershipLaneOptions({ feedback: latestFeedback, program: selectedProgram, update: latestUpdate }),
+    [latestFeedback, latestUpdate, selectedProgram]
+  );
+  const selectedLaneOption = laneOptions.find((option) => option.value === selectedLane) ?? laneOptions[0];
+  const selectedRole = selectedLane === allSponsorLanesValue ? null : selectedLane;
+  const selectedRoleUpdate = useMemo(
+    () => latestUpdate?.review.teamRoleUpdates?.find((roleUpdate) => sameRole(roleUpdate.role, selectedLane)) ?? null,
+    [latestUpdate?.review.teamRoleUpdates, selectedLane]
+  );
+  const selectedRoleImpact = useMemo(
+    () => latestFeedback?.interpretation?.roleImpacts.find((roleImpact) => sameRole(roleImpact.role, selectedLane)) ?? null,
+    [latestFeedback?.interpretation?.roleImpacts, selectedLane]
+  );
+
+  useEffect(() => {
+    if (!laneOptions.some((option) => option.value === selectedLane)) {
+      setSelectedLane(allSponsorLanesValue);
+    }
+  }, [laneOptions, selectedLane]);
+
   const ganttPhases = useMemo(() => buildProgramGantt(selectedProgram, latestUpdate), [latestUpdate, selectedProgram]);
   const currentPhase = ganttPhases.find((phase) => phase.status === "current") ?? ganttPhases[ganttPhases.length - 1];
   const executiveSummary = useMemo(
-    () =>
-      firstNonEmpty(
-        latestFeedback?.interpretation?.summary,
-        plan?.summary,
-        latestUpdate?.review.progressSinceLastReview,
-        selectedProgram?.intake.vision,
-        selectedProgram?.intake.outcomes
-      ) || "No executive summary is available yet.",
-    [latestFeedback?.interpretation?.summary, latestUpdate?.review.progressSinceLastReview, plan?.summary, selectedProgram?.intake.outcomes, selectedProgram?.intake.vision]
+    () => {
+      if (selectedRole) {
+        return (
+          firstNonEmpty(
+            selectedRoleImpact?.focus,
+            selectedRoleUpdate?.progressUpdate,
+            selectedRoleUpdate?.activeRisks,
+            selectedRoleUpdate?.decisionsNeeded
+          ) || `${selectedRole} does not have a dedicated leadership signal yet. Review the full program posture or add lane-specific guidance.`
+        );
+      }
+
+      return (
+        firstNonEmpty(
+          latestFeedback?.interpretation?.summary,
+          plan?.summary,
+          latestUpdate?.review.progressSinceLastReview,
+          selectedProgram?.intake.vision,
+          selectedProgram?.intake.outcomes
+        ) || "No executive summary is available yet."
+      );
+    },
+    [
+      latestFeedback?.interpretation?.summary,
+      latestUpdate?.review.progressSinceLastReview,
+      plan?.summary,
+      selectedProgram?.intake.outcomes,
+      selectedProgram?.intake.vision,
+      selectedRole,
+      selectedRoleImpact?.focus,
+      selectedRoleUpdate?.activeRisks,
+      selectedRoleUpdate?.decisionsNeeded,
+      selectedRoleUpdate?.progressUpdate
+    ]
   );
   const leaderReadout = useMemo(
-    () => [
-      {
-        label: "Progression",
-        value:
-          firstNonEmpty(
-            latestUpdate?.review.progressSinceLastReview,
-            latestFeedback?.feedback.progressHighlights,
-            selectedProgram?.intake.currentStatus
-          ) || "No recent progression signal is available yet."
-      },
-      {
-        label: "Risk posture",
-        value:
-          firstNonEmpty(
-            latestUpdate?.review.activeRisks,
-            latestFeedback?.feedback.activeRisks,
-            plan?.risksAndDecisions.items[0],
-            selectedProgram?.intake.risks
-          ) || "No active risk signal is available yet."
-      },
-      {
-        label: "Decisions needing leadership",
-        value:
-          firstNonEmpty(
-            latestUpdate?.review.decisionsPending,
-            selectedProgram?.intake.decisionsNeeded,
-            plan?.risksAndDecisions.items.find((item) => item.toLowerCase().includes("decision"))
-          ) || "No decision callout is currently saved."
+    () => {
+      if (selectedRole) {
+        return [
+          {
+            label: `${selectedRole} progression`,
+            value:
+              firstNonEmpty(
+                selectedRoleUpdate?.progressUpdate,
+                selectedRoleImpact?.focus,
+                latestUpdate?.review.progressSinceLastReview
+              ) || "No lane-specific progress signal is available yet."
+          },
+          {
+            label: `${selectedRole} risk posture`,
+            value:
+              firstNonEmpty(
+                selectedRoleUpdate?.activeRisks,
+                selectedRoleUpdate?.blockers,
+                latestUpdate?.review.activeRisks
+              ) || "No lane-specific risk signal is available yet."
+          },
+          {
+            label: `${selectedRole} decisions or support`,
+            value:
+              firstNonEmpty(
+                selectedRoleUpdate?.decisionsNeeded,
+                selectedRoleUpdate?.supportNeeded,
+                latestUpdate?.review.decisionsPending
+              ) || "No lane-specific decision or support ask is saved."
+          }
+        ];
       }
-    ],
+
+      return [
+        {
+          label: "Progression",
+          value:
+            firstNonEmpty(
+              latestUpdate?.review.progressSinceLastReview,
+              latestFeedback?.feedback.progressHighlights,
+              selectedProgram?.intake.currentStatus
+            ) || "No recent progression signal is available yet."
+        },
+        {
+          label: "Risk posture",
+          value:
+            firstNonEmpty(
+              latestUpdate?.review.activeRisks,
+              latestFeedback?.feedback.activeRisks,
+              plan?.risksAndDecisions.items[0],
+              selectedProgram?.intake.risks
+            ) || "No active risk signal is available yet."
+        },
+        {
+          label: "Decisions needing leadership",
+          value:
+            firstNonEmpty(
+              latestUpdate?.review.decisionsPending,
+              selectedProgram?.intake.decisionsNeeded,
+              plan?.risksAndDecisions.items.find((item) => item.toLowerCase().includes("decision"))
+            ) || "No decision callout is currently saved."
+        }
+      ];
+    },
     [
       latestFeedback?.feedback.activeRisks,
       latestFeedback?.feedback.progressHighlights,
@@ -348,39 +480,69 @@ export function LeadershipReviewConsole() {
       plan?.risksAndDecisions.items,
       selectedProgram?.intake.currentStatus,
       selectedProgram?.intake.decisionsNeeded,
-      selectedProgram?.intake.risks
+      selectedProgram?.intake.risks,
+      selectedRole,
+      selectedRoleImpact?.focus,
+      selectedRoleUpdate?.activeRisks,
+      selectedRoleUpdate?.blockers,
+      selectedRoleUpdate?.decisionsNeeded,
+      selectedRoleUpdate?.progressUpdate,
+      selectedRoleUpdate?.supportNeeded
     ]
   );
   const quickContextSignals = useMemo(
-    () => [
-      {
-        label: "Support needed",
-        value:
-          firstNonEmpty(
-            latestUpdate?.review.supportNeeded,
-            latestFeedback?.feedback.supportRequests
-          ) || "No sponsor or leadership support request is captured yet."
-      },
-      {
-        label: "Leadership direction",
-        value:
-          firstNonEmpty(
-            latestFeedback?.feedback.leadershipGuidance,
-            latestFeedback?.interpretation?.deliveryLeadMessage
-          ) || "No leadership direction saved yet."
-      },
-      {
-        label: "Phase",
-        value: latestUpdate?.review.currentPhase || selectedProgram?.intake.currentStatus || "No phase captured."
+    () => {
+      if (selectedRole) {
+        return [
+          {
+            label: "Lane status",
+            value: roleStatusLabel(selectedRoleUpdate?.status)
+          },
+          {
+            label: "Lane owner",
+            value: selectedRoleUpdate?.updatedBy || "No owner update saved yet."
+          },
+          {
+            label: "Leadership interpretation",
+            value: selectedRoleImpact?.focus || "No AI-interpreted lane impact is saved yet."
+          }
+        ];
       }
-    ],
+
+      return [
+        {
+          label: "Support needed",
+          value:
+            firstNonEmpty(
+              latestUpdate?.review.supportNeeded,
+              latestFeedback?.feedback.supportRequests
+            ) || "No sponsor or leadership support request is captured yet."
+        },
+        {
+          label: "Leadership direction",
+          value:
+            firstNonEmpty(
+              latestFeedback?.feedback.leadershipGuidance,
+              latestFeedback?.interpretation?.deliveryLeadMessage
+            ) || "No leadership direction saved yet."
+        },
+        {
+          label: "Phase",
+          value: latestUpdate?.review.currentPhase || selectedProgram?.intake.currentStatus || "No phase captured."
+        }
+      ];
+    },
     [
       latestFeedback?.feedback.leadershipGuidance,
       latestFeedback?.feedback.supportRequests,
       latestFeedback?.interpretation?.deliveryLeadMessage,
       latestUpdate?.review.currentPhase,
       latestUpdate?.review.supportNeeded,
-      selectedProgram?.intake.currentStatus
+      selectedProgram?.intake.currentStatus,
+      selectedRole,
+      selectedRoleImpact?.focus,
+      selectedRoleUpdate?.status,
+      selectedRoleUpdate?.updatedBy
     ]
   );
   const selectedCadence = (selectedProgram?.intake.leadershipReviewCadence as ReviewCadence | undefined) ?? inferReviewCadence(feedback);
@@ -397,13 +559,34 @@ export function LeadershipReviewConsole() {
     () =>
       splitSignals(
         firstNonEmpty(
+          selectedRoleUpdate?.decisionsNeeded,
+          selectedRoleUpdate?.supportNeeded,
           latestUpdate?.review.decisionsPending,
           selectedProgram?.intake.decisionsNeeded,
           review.supportRequests
         ),
         "No decision pressure is currently saved."
       ),
-    [latestUpdate?.review.decisionsPending, review.supportRequests, selectedProgram?.intake.decisionsNeeded]
+    [
+      latestUpdate?.review.decisionsPending,
+      review.supportRequests,
+      selectedProgram?.intake.decisionsNeeded,
+      selectedRoleUpdate?.decisionsNeeded,
+      selectedRoleUpdate?.supportNeeded
+    ]
+  );
+  const quickReviewPrompt = selectedRole
+    ? `What should ${selectedRole} act on before the next checkpoint?`
+    : "What should leadership clarify before the next checkpoint?";
+
+  useEffect(
+    () => {
+      if (!selectedRole || review.leadershipGuidance.trim()) return;
+      const laneGuidance = firstNonEmpty(selectedRoleImpact?.focus, selectedRoleUpdate?.supportNeeded, selectedRoleUpdate?.decisionsNeeded);
+      if (!laneGuidance) return;
+      setReview((current) => (current.leadershipGuidance.trim() ? current : { ...current, leadershipGuidance: laneGuidance }));
+    },
+    [review.leadershipGuidance, selectedRole, selectedRoleImpact?.focus, selectedRoleUpdate?.decisionsNeeded, selectedRoleUpdate?.supportNeeded]
   );
   function focusReviewCycle(programId: string) {
     setSelectedProgramId(programId);
@@ -644,12 +827,15 @@ export function LeadershipReviewConsole() {
           selectedProgramId={selectedProgramId}
           selectedProgram={selectedProgram}
           selectedCadence={selectedCadence}
+          selectedLane={selectedLane}
+          laneOptions={laneOptions}
           reviewCycleStatus={reviewCycleStatus}
           queueMode={queueMode}
           displayedReviewQueue={displayedReviewQueue}
           status={status}
           onProgramChange={setSelectedProgramId}
           onCadenceChange={(nextCadence) => void handleCadenceChange(nextCadence)}
+          onLaneChange={setSelectedLane}
           onClearQueueFilter={clearQueueFilter}
           onFocusReviewCycle={focusReviewCycle}
           formatTimestamp={formatTimestamp}
@@ -669,7 +855,9 @@ export function LeadershipReviewConsole() {
             latestReviewCycle={latestReviewCycle}
             clarifyItems={clarifyItems}
             feedback={feedback}
+            quickReviewPrompt={quickReviewPrompt}
             saveState={saveState}
+            selectedLaneLabel={selectedLaneOption.label}
             selectedProgramId={selectedProgramId}
             formatTimestamp={formatTimestamp}
             onUpdateField={updateField}

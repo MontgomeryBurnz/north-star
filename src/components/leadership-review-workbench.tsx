@@ -20,7 +20,9 @@ type LeadershipReviewWorkbenchProps = {
   latestReviewCycle: LeadershipReviewRecord | undefined;
   clarifyItems: string[];
   feedback: LeadershipReviewRecord[];
+  quickReviewPrompt: string;
   saveState: "idle" | "saving" | "saved" | "error";
+  selectedLaneLabel: string;
   selectedProgramId: string;
   formatTimestamp: (value: string) => string;
   onUpdateField: (field: keyof LeadershipReviewInput, value: string) => void;
@@ -37,7 +39,9 @@ export function LeadershipReviewWorkbench({
   latestReviewCycle,
   clarifyItems,
   feedback,
+  quickReviewPrompt,
   saveState,
+  selectedLaneLabel,
   selectedProgramId,
   formatTimestamp,
   onUpdateField,
@@ -46,8 +50,8 @@ export function LeadershipReviewWorkbench({
   summarizeFeedback,
   summarizeFeedbackDetail
 }: LeadershipReviewWorkbenchProps) {
-  const focusedFields = leadershipFields.filter((field) =>
-    ["leadershipGuidance", "activeRisks", "supportRequests", "feedbackToDeliveryLead"].includes(field.id)
+  const optionalFields = leadershipFields.filter((field) =>
+    ["activeRisks", "supportRequests", "feedbackToDeliveryLead", "progressHighlights", "timelineSummary"].includes(field.id)
   );
 
   return (
@@ -56,7 +60,7 @@ export function LeadershipReviewWorkbench({
         <CardHeader className="border-b border-white/10">
           <CardTitle className="flex items-center gap-2 text-zinc-50">
             <ClipboardPen className="h-4 w-4 text-emerald-200" />
-            Fresh leadership guidance
+            Leader quick review
           </CardTitle>
         </CardHeader>
         <CardContent className="p-5">
@@ -88,20 +92,42 @@ export function LeadershipReviewWorkbench({
               </div>
             ) : null}
 
-            <div className="grid gap-4 md:grid-cols-2">
-              {focusedFields.map((field) => (
-                <label key={field.id} className={field.id === "feedbackToDeliveryLead" ? "grid gap-2 md:col-span-2" : "grid gap-2"}>
-                  <span className="text-xs font-medium uppercase tracking-[0.16em] text-zinc-300">{field.label}</span>
-                  <textarea
-                    value={review[field.id]}
-                    onChange={(event) => onUpdateField(field.id, event.target.value)}
-                    rows={field.rows}
-                    placeholder={field.placeholder}
-                    className="min-h-32 resize-none rounded-md border border-white/10 bg-zinc-950 px-3 py-3 text-sm leading-6 text-zinc-100 outline-none transition-colors placeholder:text-zinc-400 focus:border-emerald-300/50"
-                  />
-                </label>
-              ))}
-            </div>
+            <label className="grid gap-2">
+              <span className="flex flex-wrap items-center justify-between gap-2 text-xs font-medium uppercase tracking-[0.16em] text-zinc-300">
+                <span>{quickReviewPrompt}</span>
+                <span className="rounded-full border border-emerald-300/25 bg-emerald-300/10 px-3 py-1 text-[11px] tracking-[0.14em] text-emerald-100">
+                  {selectedLaneLabel}
+                </span>
+              </span>
+              <textarea
+                value={review.leadershipGuidance}
+                onChange={(event) => onUpdateField("leadershipGuidance", event.target.value)}
+                rows={5}
+                placeholder="Use one clear note: what should change, continue, get escalated, or receive leadership support before the next checkpoint?"
+                className="min-h-40 resize-none rounded-md border border-white/10 bg-zinc-950 px-3 py-3 text-sm leading-6 text-zinc-100 outline-none transition-colors placeholder:text-zinc-400 focus:border-emerald-300/50"
+              />
+            </label>
+
+            <details className="rounded-md border border-white/10 bg-white/[0.025]">
+              <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 text-sm font-medium text-zinc-100">
+                <span>Optional details</span>
+                <span className="text-xs uppercase tracking-[0.14em] text-zinc-500">Risk, support, message</span>
+              </summary>
+              <div className="grid gap-4 border-t border-white/10 p-4 md:grid-cols-2">
+                {optionalFields.map((field) => (
+                  <label key={field.id} className={field.id === "feedbackToDeliveryLead" ? "grid gap-2 md:col-span-2" : "grid gap-2"}>
+                    <span className="text-xs font-medium uppercase tracking-[0.16em] text-zinc-300">{field.label}</span>
+                    <textarea
+                      value={review[field.id]}
+                      onChange={(event) => onUpdateField(field.id, event.target.value)}
+                      rows={field.rows}
+                      placeholder={field.placeholder}
+                      className="min-h-28 resize-none rounded-md border border-white/10 bg-zinc-950 px-3 py-3 text-sm leading-6 text-zinc-100 outline-none transition-colors placeholder:text-zinc-400 focus:border-emerald-300/50"
+                    />
+                  </label>
+                ))}
+              </div>
+            </details>
 
             <div className="flex flex-wrap items-center gap-3">
               <Button type="submit" size="lg" disabled={!selectedProgramId || saveState === "saving"}>
