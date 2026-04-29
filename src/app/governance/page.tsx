@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { GovernanceDashboard } from "@/components/governance-dashboard";
+import { getGuidanceModelProfile } from "@/lib/guidance-model-profile";
 import { getLeadershipAccessContext } from "@/lib/leadership-auth";
 import { requireSiteAccessPage } from "@/lib/site-access";
 
@@ -10,5 +11,5 @@ export default async function GovernancePage() {
     redirect("/leadership/login?redirect=/governance");
   }
 
-  return <GovernanceDashboard />;
+  return <GovernanceDashboard guidanceModelProfile={getGuidanceModelProfile()} />;
 }

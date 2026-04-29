@@ -3,6 +3,7 @@ import type {
   LeadershipReviewInput,
   LeadershipRoleImpact
 } from "@/lib/leadership-feedback-types";
+import { getNorthStarPromptCacheKey } from "@/lib/openai-prompt-cache";
 import { asRecord, asStringArray, asTrimmedString, extractOutputText, parseStructuredModelOutput } from "@/lib/openai-structured-output";
 import { firstSignal, normalizeWhitespace } from "@/lib/text-signals";
 
@@ -209,6 +210,7 @@ export async function enhanceLeadershipFeedback(feedback: LeadershipReviewInput)
     body: JSON.stringify({
       model,
       store: false,
+      prompt_cache_key: getNorthStarPromptCacheKey("leadership-feedback", feedback.programName),
       reasoning: {
         effort: getConfiguredReasoningEffort()
       },

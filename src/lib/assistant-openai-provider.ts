@@ -1,5 +1,6 @@
 import { composeGroundedAnswer, getRelevantContent } from "@/lib/assistant";
 import type { AssistantProvider, AssistantRequest, AssistantServiceResponse } from "@/lib/assistant-types";
+import { getNorthStarPromptCacheKey } from "@/lib/openai-prompt-cache";
 import { asRecord, asStringArray, asTrimmedString, extractOutputText, parseStructuredModelOutput } from "@/lib/openai-structured-output";
 
 type OpenAIComposedPayload = {
@@ -120,6 +121,7 @@ export const openaiAssistantProvider: AssistantProvider = {
       body: JSON.stringify({
         model,
         store: false,
+        prompt_cache_key: getNorthStarPromptCacheKey("guide", request.selectedProgramId),
         reasoning: {
           effort: reasoningEffort
         },

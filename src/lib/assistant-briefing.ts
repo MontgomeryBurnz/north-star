@@ -1,6 +1,7 @@
 import "server-only";
 
 import { getLatestGuidedPlan, getProgram, listAssistantConversations, listLeadershipFeedback, listProgramUpdates } from "@/lib/program-store";
+import { getNorthStarPromptCacheKey } from "@/lib/openai-prompt-cache";
 import { asRecord, asStringArray, asTrimmedString, extractOutputText, parseStructuredModelOutput } from "@/lib/openai-structured-output";
 
 export type AssistantBriefing = {
@@ -216,6 +217,7 @@ export async function getAssistantBriefing(programId: string): Promise<Assistant
     body: JSON.stringify({
       model,
       store: false,
+      prompt_cache_key: getNorthStarPromptCacheKey("assistant-briefing", program.id),
       reasoning: {
         effort: reasoningEffort
       },

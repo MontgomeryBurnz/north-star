@@ -5,10 +5,12 @@ import { CheckCircle2, ShieldAlert, XCircle } from "lucide-react";
 import { useForegroundRefresh } from "@/hooks/use-foreground-refresh";
 import { useProgramCatalog } from "@/hooks/use-program-catalog";
 import { useRequestSequence } from "@/hooks/use-request-sequence";
+import type { GuidanceModelProfile } from "@/lib/guidance-model-profile";
 import { isTeamActionPlanFlagSourceId, roleFromTeamActionPlanFlagSourceId } from "@/lib/guidance-feedback-flag-sources";
 import type { GuidanceFeedbackFlag, GuidanceJustificationRecord } from "@/lib/program-intelligence-types";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { GuidanceModelProfileCard } from "@/components/guidance-model-profile-card";
 import { SectionHeader } from "@/components/section-header";
 
 function formatDate(value: string) {
@@ -75,7 +77,11 @@ function getDecisionImpact(status: GuidanceFeedbackFlag["status"]) {
   return "Awaiting governance disposition.";
 }
 
-export function GovernanceDashboard() {
+type GovernanceDashboardProps = {
+  guidanceModelProfile: GuidanceModelProfile;
+};
+
+export function GovernanceDashboard({ guidanceModelProfile }: GovernanceDashboardProps) {
   const governanceRequest = useRequestSequence();
   const [flags, setFlags] = useState<GuidanceFeedbackFlag[]>([]);
   const [justifications, setJustifications] = useState<GuidanceJustificationRecord[]>([]);
@@ -390,6 +396,11 @@ export function GovernanceDashboard() {
               {status ? <p className="text-sm leading-6 text-zinc-400">{status}</p> : null}
             </CardContent>
           </Card>
+
+          <GuidanceModelProfileCard
+            guidanceModelProfile={guidanceModelProfile}
+            usageDescription="Shows the model, reasoning setting, cost basis, and cache posture behind guided plans before governance reviews disputed guidance."
+          />
         </aside>
 
         <section className="grid gap-4">

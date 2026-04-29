@@ -14,6 +14,12 @@ export type GuidanceModelProfile = {
   model: string;
   reasoningEffort: string;
   textVerbosity: string;
+  cacheStrategy: {
+    summary: string;
+    detail: string;
+    sourceUrl: string;
+    sourceLabel: string;
+  };
   pricing: GuidanceModelPricing | null;
 };
 
@@ -36,6 +42,13 @@ export function getGuidanceModelProfile(): GuidanceModelProfile {
     model,
     reasoningEffort: process.env.OPENAI_REASONING_EFFORT?.trim() || "medium",
     textVerbosity: process.env.OPENAI_TEXT_VERBOSITY?.trim() || "low",
+    cacheStrategy: {
+      summary: "Program and workflow-scoped prompt cache keys are sent with OpenAI guidance calls.",
+      detail:
+        "Stable instructions and schemas stay at the front of each request, while program-specific context is sent after them so repeated guidance runs can benefit from cached input when eligible.",
+      sourceUrl: "https://platform.openai.com/docs/guides/prompt-caching",
+      sourceLabel: "OpenAI prompt caching"
+    },
     pricing: pricingByModel[model] ?? null
   };
 }
