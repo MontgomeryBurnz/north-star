@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
-import { FileCheck2, Plus, RefreshCw } from "lucide-react";
+import { CheckCircle2, FileCheck2, Plus, RefreshCw } from "lucide-react";
 import type { StoredProgram } from "@/lib/program-intake-types";
 import { programsToSlicerOptions } from "@/lib/program-slicer";
 import { ProgramSlicer } from "@/components/program-slicer";
@@ -16,6 +16,7 @@ type GuidedPlansSidebarProps = {
   selectedRoleFocus: string;
   newRole: string;
   isSavingRole: boolean;
+  roleRefreshConfirmation: { refreshedAt: string; role: string } | null;
   lastSyncedAt: string | null;
   status: string | null;
   allRolesOption: string;
@@ -34,6 +35,7 @@ export function GuidedPlansSidebar({
   selectedRoleFocus,
   newRole,
   isSavingRole,
+  roleRefreshConfirmation,
   lastSyncedAt,
   status,
   allRolesOption,
@@ -129,6 +131,29 @@ export function GuidedPlansSidebar({
                   <Plus className="mr-2 h-4 w-4" />
                   Add role
                 </Button>
+              </div>
+              <div aria-live="polite">
+                {isSavingRole ? (
+                  <div className="rounded-md border border-cyan-300/20 bg-cyan-300/[0.055] p-3">
+                    <p className="flex items-center gap-2 text-sm font-medium text-cyan-100">
+                      <RefreshCw className="h-4 w-4 animate-spin" />
+                      Refreshing guidance
+                    </p>
+                    <p className="mt-1 text-xs leading-5 text-zinc-300">
+                      Saving the role and regenerating Team Action Plans for the selected program.
+                    </p>
+                  </div>
+                ) : roleRefreshConfirmation ? (
+                  <div className="rounded-md border border-emerald-300/25 bg-emerald-300/[0.065] p-3">
+                    <p className="flex items-center gap-2 text-sm font-medium text-emerald-100">
+                      <CheckCircle2 className="h-4 w-4" />
+                      Guidance refreshed
+                    </p>
+                    <p className="mt-1 text-xs leading-5 text-zinc-300">
+                      Team Action Plans now include {roleRefreshConfirmation.role}. Refreshed {formatDate(roleRefreshConfirmation.refreshedAt)}.
+                    </p>
+                  </div>
+                ) : null}
               </div>
             </div>
           ) : null}

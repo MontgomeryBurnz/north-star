@@ -47,6 +47,11 @@ type FlagTarget = {
   scope: "partial" | "whole";
 };
 
+type RoleRefreshConfirmation = {
+  refreshedAt: string;
+  role: string;
+};
+
 function formatDate(value: string) {
   return new Intl.DateTimeFormat(undefined, {
     month: "short",
@@ -129,6 +134,7 @@ export function GuidedPlansConsole() {
   const [lastSyncedAt, setLastSyncedAt] = useState<string | null>(null);
   const [newRole, setNewRole] = useState("");
   const [isSavingRole, setIsSavingRole] = useState(false);
+  const [roleRefreshConfirmation, setRoleRefreshConfirmation] = useState<RoleRefreshConfirmation | null>(null);
   const [selectedRoleFocus, setSelectedRoleFocus] = useState(allRolesOption);
   const [expandedRoleKeys, setExpandedRoleKeys] = useState<Set<string>>(new Set());
   const [flagTarget, setFlagTarget] = useState<FlagTarget | null>(null);
@@ -225,6 +231,7 @@ export function GuidedPlansConsole() {
 
   useEffect(() => {
     setNewRole("");
+    setRoleRefreshConfirmation(null);
   }, [selectedProgramId]);
 
   useEffect(() => {
@@ -275,6 +282,11 @@ export function GuidedPlansConsole() {
     setExpandedRoleKeys(nextRole === allRolesOption ? new Set() : new Set([normalizeRoleKey(nextRole)]));
   }, []);
 
+  const handleNewRoleChange = useCallback((value: string) => {
+    setNewRole(value);
+    setRoleRefreshConfirmation(null);
+  }, []);
+
   const toggleExpandedRole = useCallback(
     (role: string) => {
       if (selectedRoleFocus === allRolesOption || normalizeRoleKey(role) === normalizeRoleKey(selectedRoleFocus)) {
@@ -310,6 +322,7 @@ export function GuidedPlansConsole() {
     }
 
     setIsSavingRole(true);
+    setRoleRefreshConfirmation(null);
     setStatus(`Adding ${role} and regenerating the guided plan...`);
 
     try {
@@ -346,6 +359,7 @@ export function GuidedPlansConsole() {
       }
       await refreshPrograms({ silent: true });
       await loadPlan({ programId: savedProgramId, silent: true });
+      setRoleRefreshConfirmation({ role, refreshedAt: new Date().toISOString() });
       setStatus(`${role} was added and the guided plan was refreshed to include the updated team composition.`);
     } catch {
       setStatus("Could not add the new team role and refresh the guided plan.");
@@ -499,13 +513,14 @@ export function GuidedPlansConsole() {
           selectedRoleFocus={selectedRoleFocus}
           newRole={newRole}
           isSavingRole={isSavingRole}
+          roleRefreshConfirmation={roleRefreshConfirmation}
           lastSyncedAt={lastSyncedAt}
           status={status}
           allRolesOption={allRolesOption}
           formatDate={formatDate}
           onProgramChange={setSelectedProgramId}
           onRoleFocusChange={handleRoleFocusChange}
-          onNewRoleChange={setNewRole}
+          onNewRoleChange={handleNewRoleChange}
           onAddRole={addTeamRole}
         />
 
