@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { MessageSquareText } from "lucide-react";
 import type { StoredProgramUpdate } from "@/lib/active-program-types";
 import type { AssistantConversationTurn } from "@/lib/assistant-conversation-types";
@@ -134,6 +134,7 @@ export function GuidedPlansConsole() {
   const [flagReason, setFlagReason] = useState("");
   const [flagContext, setFlagContext] = useState("");
   const [isSubmittingFlag, setIsSubmittingFlag] = useState(false);
+  const previousRoleStateProgramId = useRef<string | null>(null);
   const requestedProgramId = useMemo(
     () => (typeof window === "undefined" ? null : new URLSearchParams(window.location.search).get("program")),
     []
@@ -150,6 +151,7 @@ export function GuidedPlansConsole() {
     () => (selectedProgram?.intake.teamRoles?.length ? selectedProgram.intake.teamRoles : defaultTeamRoles),
     [selectedProgram]
   );
+  const teamRoleSignature = useMemo(() => teamRoles.map((role) => normalizeRoleKey(role)).join("|"), [teamRoles]);
   const roleFocusStorageKey = useMemo(
     () => (selectedProgramId ? `north-star:guided-plans:role-focus:${selectedProgramId}` : ""),
     [selectedProgramId]
@@ -224,19 +226,29 @@ export function GuidedPlansConsole() {
 
   useEffect(() => {
     if (!selectedProgramId) {
+      previousRoleStateProgramId.current = null;
       setSelectedRoleFocus(allRolesOption);
       setExpandedRoleKeys(new Set());
       return;
     }
 
     const storedRoleFocus = window.localStorage.getItem(roleFocusStorageKey);
-    const normalizedTeamRoles = new Set(teamRoles.map((role) => normalizeRoleKey(role)));
-    const nextRoleFocus =
-      storedRoleFocus && normalizedTeamRoles.has(normalizeRoleKey(storedRoleFocus)) ? storedRoleFocus : allRolesOption;
+    const normalizedTeamRoles = new Set(teamRoleSignature ? teamRoleSignature.split("|") : []);
+    const nextRoleFocus = storedRoleFocus && normalizedTeamRoles.has(normalizeRoleKey(storedRoleFocus)) ? storedRoleFocus : allRolesOption;
+    const programChanged = previousRoleStateProgramId.current !== selectedProgramId;
+    previousRoleStateProgramId.current = selectedProgramId;
 
     setSelectedRoleFocus(nextRoleFocus);
-    setExpandedRoleKeys(nextRoleFocus === allRolesOption ? new Set() : new Set([normalizeRoleKey(nextRoleFocus)]));
-  }, [roleFocusStorageKey, selectedProgramId, teamRoles]);
+    setExpandedRoleKeys((current) => {
+      const preserved = programChanged ? new Set<string>() : new Set([...current].filter((roleKey) => normalizedTeamRoles.has(roleKey)));
+
+      if (nextRoleFocus !== allRolesOption) {
+        preserved.add(normalizeRoleKey(nextRoleFocus));
+      }
+
+      return preserved;
+    });
+  }, [roleFocusStorageKey, selectedProgramId, teamRoleSignature]);
 
   useEffect(() => {
     if (!roleFocusStorageKey) return;
