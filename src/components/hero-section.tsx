@@ -73,8 +73,8 @@ export function HeroSection({ metrics }: { metrics: DashboardMetrics }) {
             Turn program signal into aligned action.
           </h1>
           <p className="mt-5 max-w-2xl text-base leading-7 text-zinc-300 md:mt-6 md:text-lg md:leading-8">
-            Start here to see how North Star converts intake, artifacts, team updates, leadership feedback, and
-            governance signals into living guidance your team can trust and act on.
+            Start here to see how North Star turns uploads, team updates, and leadership feedback into clear next
+            steps your team can trust.
           </p>
           <div className="mt-8 flex flex-col gap-3 sm:flex-row">
             <Button asChild size="lg">
