@@ -354,8 +354,8 @@ export function GovernanceDashboard({ guidanceModelProfile }: GovernanceDashboar
     <main className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
       <SectionHeader
         eyebrow="Governance"
-        title="Governed Program Memory"
-        description="Review disputed guidance rationales one program at a time. Approved flags become trusted, program-scoped correction input instead of allowing feedback to bleed across unrelated work."
+        title="Model Governance"
+        description="Optimize model spend, review disputed guidance one program at a time, and prevent false flags from steering future plans, role guidance, or program outputs."
       />
 
       <section className="mt-10 grid gap-6 lg:grid-cols-[360px_minmax(0,1fr)]">
@@ -399,7 +399,7 @@ export function GovernanceDashboard({ guidanceModelProfile }: GovernanceDashboar
 
           <GuidanceModelProfileCard
             guidanceModelProfile={guidanceModelProfile}
-            usageDescription="Shows the model, reasoning setting, cost basis, and cache posture behind guided plans before governance reviews disputed guidance."
+            usageDescription="Used by governance to monitor model choice, reasoning level, cost basis, and cache posture while adjudicating which flags should influence future guidance."
           />
         </aside>
 

@@ -2,13 +2,11 @@
 
 import { FileClock, MessageSquareQuote, Milestone, RefreshCw } from "lucide-react";
 import type { LeadershipReviewInput, LeadershipReviewRecord } from "@/lib/leadership-feedback-types";
-import type { GuidanceModelProfile } from "@/lib/guidance-model-profile";
 import type { ReviewCadence, ReviewCycleStatus, ReviewQueueItem } from "@/lib/leadership-review-queue";
 import type { StoredProgram } from "@/lib/program-intake-types";
 import { firstSignal } from "@/lib/text-signals";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { GuidanceModelProfileCard } from "@/components/guidance-model-profile-card";
 
 type LeadershipReviewSidebarProps = {
   programs: StoredProgram[];
@@ -20,7 +18,6 @@ type LeadershipReviewSidebarProps = {
   displayedReviewQueue: ReviewQueueItem[];
   recentLeadershipSignals: LeadershipReviewRecord[];
   status: string | null;
-  guidanceModelProfile: GuidanceModelProfile;
   onProgramChange: (programId: string) => void;
   onCadenceChange: (cadence: ReviewCadence) => void;
   onClearQueueFilter: () => void;
@@ -39,7 +36,6 @@ export function LeadershipReviewSidebar({
   displayedReviewQueue,
   recentLeadershipSignals,
   status,
-  guidanceModelProfile,
   onProgramChange,
   onCadenceChange,
   onClearQueueFilter,
@@ -98,11 +94,6 @@ export function LeadershipReviewSidebar({
           {status ? <p className="text-sm leading-6 text-zinc-400">{status}</p> : null}
         </CardContent>
       </Card>
-
-      <GuidanceModelProfileCard
-        guidanceModelProfile={guidanceModelProfile}
-        usageDescription="Used for guided plans and leadership-signal interpretation when the OpenAI provider is active."
-      />
 
       <Card className="bg-zinc-950/80">
         <CardHeader className="border-b border-white/10">

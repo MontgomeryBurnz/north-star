@@ -10,7 +10,6 @@ import { useProgramCatalog } from "@/hooks/use-program-catalog";
 import { useRequestSequence } from "@/hooks/use-request-sequence";
 import { buildReviewCycleStatusForCadence, type ReviewCadence, type ReviewQueueItem } from "@/lib/leadership-review-queue";
 import { buildProgramGantt } from "@/lib/program-gantt";
-import type { GuidanceModelProfile } from "@/lib/guidance-model-profile";
 import type { StoredProgram } from "@/lib/program-intake-types";
 import { firstNonEmpty, firstSignal, splitSignals } from "@/lib/text-signals";
 import { LeadershipExecutiveSummary } from "@/components/leadership-executive-summary";
@@ -269,7 +268,7 @@ function inferReviewCadence(entries: LeadershipReviewRecord[]): ReviewCadence {
   return differenceInDays(latest, previous) >= 10 ? "biweekly" : "weekly";
 }
 
-export function LeadershipReviewConsole({ guidanceModelProfile }: { guidanceModelProfile: GuidanceModelProfile }) {
+export function LeadershipReviewConsole() {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -662,7 +661,6 @@ export function LeadershipReviewConsole({ guidanceModelProfile }: { guidanceMode
           displayedReviewQueue={displayedReviewQueue}
           recentLeadershipSignals={recentLeadershipSignals}
           status={status}
-          guidanceModelProfile={guidanceModelProfile}
           onProgramChange={setSelectedProgramId}
           onCadenceChange={(nextCadence) => void handleCadenceChange(nextCadence)}
           onClearQueueFilter={clearQueueFilter}
