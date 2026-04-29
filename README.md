@@ -21,6 +21,24 @@ npm run dev
 
 Open [http://localhost:3000](http://localhost:3000).
 
+## Browser QA
+
+Program slicers can be smoke-tested through a real Safari WebDriver session:
+
+```bash
+SMOKE_BASE_URL=http://localhost:3000 npm run smoke:slicers
+```
+
+Use `SMOKE_BASE_URL` to target production or a Vercel preview. The script reads `.env.local` by default and also accepts `NORTHSTAR_SITE_PASSWORD`, `NORTHSTAR_LEADERSHIP_USERNAME`, and `NORTHSTAR_LEADERSHIP_PASSWORD`.
+
+Active Program performance can be profiled with:
+
+```bash
+SMOKE_BASE_URL=http://localhost:3000 npm run profile:active-program
+```
+
+On macOS, Safari must have Developer > Allow Remote Automation enabled. If another WebDriver server is preferred, set `SMOKE_WEBDRIVER_URL`.
+
 ## Alpha Architecture
 
 The app now supports two persistence modes:
