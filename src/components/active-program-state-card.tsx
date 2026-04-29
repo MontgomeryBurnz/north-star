@@ -1,7 +1,9 @@
 "use client";
 
+import { useMemo } from "react";
 import { Activity } from "lucide-react";
 import type { ActiveProgramReview } from "@/lib/active-program-types";
+import { ProgramSlicer } from "@/components/program-slicer";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 type ProgramOption = {
@@ -24,6 +26,11 @@ export function ActiveProgramStateCard({
   onSelectProgram,
   onFieldChange
 }: ActiveProgramStateCardProps) {
+  const slicerOptions = useMemo(
+    () => programOptions.map((program) => ({ id: program.id, label: program.label })),
+    [programOptions]
+  );
+
   return (
     <Card className="bg-zinc-950/80">
       <CardHeader className="border-b border-white/10">
@@ -33,24 +40,16 @@ export function ActiveProgramStateCard({
         </CardTitle>
       </CardHeader>
       <CardContent className="grid gap-4 p-4 md:p-5">
-        <label className="grid gap-2">
-          <span className="text-xs font-medium uppercase tracking-[0.18em] text-cyan-200">Select existing program</span>
-          <select
-            value={selectedProgramId}
-            onChange={(event) => onSelectProgram(event.target.value)}
-            className="min-h-11 rounded-md border border-cyan-300/20 bg-zinc-950 px-3 py-3 text-sm text-zinc-100 outline-none transition-colors focus:border-cyan-300/50"
-          >
-            <option value="">Choose a program to review...</option>
-            {programOptions.map((program) => (
-              <option key={program.id} value={program.id}>
-                {program.label}
-              </option>
-            ))}
-          </select>
-          <span className="text-xs leading-5 text-zinc-500">
-            Selecting a program prefills the review with its north star, current risks, decisions, and delivery context.
-          </span>
-        </label>
+        <ProgramSlicer
+          label="Select existing program"
+          options={slicerOptions}
+          selectedProgramId={selectedProgramId}
+          onSelectProgram={onSelectProgram}
+          placeholder="Choose a program to review..."
+          emptyLabel="No saved programs yet"
+          helperText="Selecting a program prefills the review with its north star, current risks, decisions, and delivery context."
+          tone="cyan"
+        />
 
         <label className="grid gap-2">
           <span className="text-xs font-medium uppercase tracking-[0.18em] text-zinc-300">Program name</span>

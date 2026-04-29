@@ -114,10 +114,14 @@ export function useProgramCatalog(options: UseProgramCatalogOptions = {}) {
           return;
         }
 
-        applyPrograms(fallbackPrograms, fallbackSelectedProgramId);
+        if (fallbackPrograms.length || !refreshOptions?.silent) {
+          applyPrograms(fallbackPrograms, fallbackSelectedProgramId);
+        }
       } catch {
         if (!request.isLatestRequest(requestId)) return;
-        applyPrograms(fallbackPrograms, fallbackSelectedProgramId);
+        if (fallbackPrograms.length || !refreshOptions?.silent) {
+          applyPrograms(fallbackPrograms, fallbackSelectedProgramId);
+        }
         if (!refreshOptions?.silent) {
           onError?.();
         }

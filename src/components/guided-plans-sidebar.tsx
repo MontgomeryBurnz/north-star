@@ -1,7 +1,10 @@
 "use client";
 
+import { useMemo } from "react";
 import { FileCheck2, Plus, RefreshCw } from "lucide-react";
 import type { StoredProgram } from "@/lib/program-intake-types";
+import { programsToSlicerOptions } from "@/lib/program-slicer";
+import { ProgramSlicer } from "@/components/program-slicer";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
@@ -40,6 +43,8 @@ export function GuidedPlansSidebar({
   onNewRoleChange,
   onAddRole
 }: GuidedPlansSidebarProps) {
+  const programOptions = useMemo(() => programsToSlicerOptions(programs), [programs]);
+
   return (
     <aside className="grid gap-4 self-start lg:sticky lg:top-24">
       <Card className="bg-zinc-950/80">
@@ -50,23 +55,12 @@ export function GuidedPlansSidebar({
           </CardTitle>
         </CardHeader>
         <CardContent className="grid gap-4 p-5">
-          <label className="grid gap-2">
-            <span className="text-xs font-medium uppercase tracking-[0.18em] text-zinc-300">Saved program</span>
-            <select
-              value={selectedProgramId}
-              onChange={(event) => onProgramChange(event.target.value)}
-              className="min-h-11 rounded-md border border-white/10 bg-zinc-950 px-3 py-3 text-sm text-zinc-100 outline-none transition-colors focus:border-emerald-300/50"
-            >
-              <option value="" disabled>
-                {programs.length ? "Select a program..." : "No saved programs yet"}
-              </option>
-              {programs.map((program) => (
-                <option key={program.id} value={program.id}>
-                  {program.intake.programName}
-                </option>
-              ))}
-            </select>
-          </label>
+          <ProgramSlicer
+            label="Saved program"
+            options={programOptions}
+            selectedProgramId={selectedProgramId}
+            onSelectProgram={onProgramChange}
+          />
           {selectedProgram ? (
             <div className="grid gap-3 rounded-md border border-white/10 bg-white/[0.035] p-3">
               <p className="text-sm font-medium text-zinc-100">{selectedProgram.intake.programName}</p>

@@ -1,9 +1,11 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { ChevronDown, Milestone, RefreshCw } from "lucide-react";
+import { useMemo } from "react";
+import { Milestone, RefreshCw } from "lucide-react";
 import type { ReviewCadence, ReviewCycleStatus, ReviewQueueItem } from "@/lib/leadership-review-queue";
 import type { StoredProgram } from "@/lib/program-intake-types";
+import { programsToSlicerOptions } from "@/lib/program-slicer";
+import { ProgramSlicer } from "@/components/program-slicer";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
@@ -32,83 +34,6 @@ type LeadershipReviewSidebarProps = {
   formatTimestamp: (value: string) => string;
 };
 
-type LeadershipProgramPickerProps = {
-  programs: StoredProgram[];
-  selectedProgramId: string;
-  onProgramChange: (programId: string) => void;
-};
-
-function LeadershipProgramPicker({ programs, selectedProgramId, onProgramChange }: LeadershipProgramPickerProps) {
-  const [open, setOpen] = useState(false);
-  const selectedProgram = useMemo(
-    () => programs.find((program) => program.id === selectedProgramId) ?? null,
-    [programs, selectedProgramId]
-  );
-
-  useEffect(() => {
-    setOpen(false);
-  }, [selectedProgramId]);
-
-  return (
-    <div
-      className="relative grid gap-2"
-      onBlur={(event) => {
-        if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
-          setOpen(false);
-        }
-      }}
-    >
-      <span className="text-xs font-medium uppercase tracking-[0.18em] text-zinc-300">Saved program</span>
-      <button
-        type="button"
-        aria-haspopup="listbox"
-        aria-expanded={open}
-        disabled={!programs.length}
-        onClick={() => setOpen((current) => !current)}
-        className="flex min-h-12 w-full items-center justify-between gap-3 rounded-md border border-white/10 bg-zinc-950 px-4 py-3 text-left text-sm leading-6 text-zinc-100 outline-none transition-colors hover:border-emerald-300/30 focus:border-emerald-300/50 focus:ring-2 focus:ring-emerald-300/15 disabled:cursor-not-allowed disabled:text-zinc-500"
-      >
-        <span className="min-w-0 flex-1 truncate">
-          {selectedProgram?.intake.programName ?? (programs.length ? "Select a program..." : "No saved programs yet")}
-        </span>
-        <ChevronDown className={`h-4 w-4 shrink-0 text-zinc-400 transition-transform ${open ? "rotate-180" : ""}`} />
-      </button>
-
-      {open ? (
-        <div
-          role="listbox"
-          aria-label="Saved program"
-          className="absolute left-0 right-0 top-full z-40 mt-2 max-h-72 overflow-y-auto rounded-md border border-white/10 bg-zinc-950 p-2 shadow-2xl shadow-black/40"
-        >
-          {programs.map((program) => {
-            const selected = program.id === selectedProgramId;
-            const owner = program.intake.programOwner?.trim() || "Owner not set";
-
-            return (
-              <button
-                key={program.id}
-                type="button"
-                role="option"
-                aria-selected={selected}
-                onMouseDown={(event) => event.preventDefault()}
-                onClick={() => {
-                  onProgramChange(program.id);
-                  setOpen(false);
-                }}
-                className={`w-full rounded-md px-3 py-3 text-left transition-colors ${
-                  selected ? "border border-emerald-300/25 bg-emerald-300/10" : "border border-transparent hover:bg-white/[0.055]"
-                }`}
-              >
-                <span className="block truncate text-sm font-medium leading-6 text-zinc-100">{program.intake.programName}</span>
-                <span className="mt-1 block truncate text-xs leading-5 text-zinc-500">Lead: {owner}</span>
-              </button>
-            );
-          })}
-        </div>
-      ) : null}
-    </div>
-  );
-}
-
 export function LeadershipReviewSidebar({
   programs,
   selectedProgramId,
@@ -127,6 +52,8 @@ export function LeadershipReviewSidebar({
   onFocusReviewCycle,
   formatTimestamp
 }: LeadershipReviewSidebarProps) {
+  const programOptions = useMemo(() => programsToSlicerOptions(programs), [programs]);
+
   return (
     <aside className="grid gap-4 self-start lg:sticky lg:top-24">
       <Card className="bg-zinc-950/80">
@@ -137,7 +64,12 @@ export function LeadershipReviewSidebar({
           </CardTitle>
         </CardHeader>
         <CardContent className="grid gap-4 p-5">
-          <LeadershipProgramPicker programs={programs} selectedProgramId={selectedProgramId} onProgramChange={onProgramChange} />
+          <ProgramSlicer
+            label="Saved program"
+            options={programOptions}
+            selectedProgramId={selectedProgramId}
+            onSelectProgram={onProgramChange}
+          />
 
           {selectedProgram ? (
             <div className="grid gap-3 rounded-md border border-white/10 bg-white/[0.035] p-3">

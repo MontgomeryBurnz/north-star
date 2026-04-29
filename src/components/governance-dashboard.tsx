@@ -9,7 +9,8 @@ import type { GuidanceModelProfile } from "@/lib/guidance-model-profile";
 import { isTeamActionPlanFlagSourceId, roleFromTeamActionPlanFlagSourceId } from "@/lib/guidance-feedback-flag-sources";
 import type { OpenAIBillingReconciliation, OpenAIBillingWindowKey } from "@/lib/openai-billing-types";
 import type { GuidanceFeedbackFlag, GuidanceJustificationRecord, OpenAIUsageRecord } from "@/lib/program-intelligence-types";
-import type { StoredProgram } from "@/lib/program-intake-types";
+import { programsToSlicerOptions } from "@/lib/program-slicer";
+import { ProgramSlicer } from "@/components/program-slicer";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { GuidanceModelProfileCard } from "@/components/guidance-model-profile-card";
@@ -273,84 +274,6 @@ function getInitialCustomBillingRange() {
   };
 }
 
-type GovernanceProgramPickerProps = {
-  programs: StoredProgram[];
-  selectedProgramId: string;
-  onSelectProgram: (programId: string) => void;
-};
-
-function GovernanceProgramPicker({ programs, selectedProgramId, onSelectProgram }: GovernanceProgramPickerProps) {
-  const [open, setOpen] = useState(false);
-  const selectedProgram = useMemo(
-    () => programs.find((program) => program.id === selectedProgramId) ?? null,
-    [programs, selectedProgramId]
-  );
-
-  useEffect(() => {
-    setOpen(false);
-  }, [selectedProgramId]);
-
-  return (
-    <div
-      className="relative grid gap-2"
-      onBlur={(event) => {
-        if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
-          setOpen(false);
-        }
-      }}
-    >
-      <span className="text-xs font-medium uppercase tracking-[0.18em] text-zinc-300">Active program</span>
-      <button
-        type="button"
-        aria-haspopup="listbox"
-        aria-expanded={open}
-        disabled={!programs.length}
-        onClick={() => setOpen((current) => !current)}
-        className="flex min-h-12 w-full items-center justify-between gap-3 rounded-md border border-white/10 bg-zinc-950 px-4 py-3 text-left text-base leading-6 text-zinc-100 outline-none transition-colors hover:border-emerald-300/30 focus:border-emerald-300/50 focus:ring-2 focus:ring-emerald-300/15 disabled:cursor-not-allowed disabled:text-zinc-500"
-      >
-        <span className="min-w-0 flex-1 truncate">
-          {selectedProgram?.intake.programName ?? (programs.length ? "Select a program..." : "No programs available")}
-        </span>
-        <ChevronDown className={`h-4 w-4 shrink-0 text-zinc-400 transition-transform ${open ? "rotate-180" : ""}`} />
-      </button>
-
-      {open ? (
-        <div
-          role="listbox"
-          aria-label="Active program"
-          className="absolute left-0 right-0 top-full z-40 mt-2 max-h-80 overflow-y-auto rounded-md border border-white/10 bg-zinc-950 p-2 shadow-2xl shadow-black/40"
-        >
-          {programs.map((program) => {
-            const selected = program.id === selectedProgramId;
-
-            return (
-              <button
-                key={program.id}
-                type="button"
-                role="option"
-                aria-selected={selected}
-                onMouseDown={(event) => event.preventDefault()}
-                onClick={() => {
-                  onSelectProgram(program.id);
-                  setOpen(false);
-                }}
-                className={`w-full rounded-md px-3 py-3 text-left transition-colors ${
-                  selected ? "border border-emerald-300/25 bg-emerald-300/10" : "border border-transparent hover:bg-white/[0.055]"
-                }`}
-              >
-                <span className="block text-sm font-medium leading-6 text-zinc-100">{program.intake.programName}</span>
-                <span className="mt-1 block line-clamp-2 text-xs leading-5 text-zinc-500">
-                  {program.intake.vision || program.intake.outcomes || "No north star captured yet."}
-                </span>
-              </button>
-            );
-          })}
-        </div>
-      ) : null}
-    </div>
-  );
-}
-
 type GovernanceDashboardProps = {
   guidanceModelProfile: GuidanceModelProfile;
 };
@@ -371,6 +294,7 @@ export function GovernanceDashboard({ guidanceModelProfile }: GovernanceDashboar
     autoSelectFirstProgram: false,
     onError: handleProgramLoadError
   });
+  const programOptions = useMemo(() => programsToSlicerOptions(programs, "signal"), [programs]);
 
   const loadBillingReconciliation = useCallback(async () => {
     setBillingStatus("Syncing OpenAI billing...");
@@ -743,10 +667,12 @@ export function GovernanceDashboard({ guidanceModelProfile }: GovernanceDashboar
               <CardTitle className="text-zinc-50">Program slicer</CardTitle>
             </CardHeader>
             <CardContent className="grid gap-4 p-5">
-              <GovernanceProgramPicker
-                programs={programs}
+              <ProgramSlicer
+                label="Active program"
+                options={programOptions}
                 selectedProgramId={selectedProgramId}
                 onSelectProgram={setSelectedProgramId}
+                emptyLabel="No programs available"
               />
               <div className="grid gap-3">
                 {[

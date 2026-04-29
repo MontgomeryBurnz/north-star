@@ -6,6 +6,7 @@ import { useForegroundRefresh } from "@/hooks/use-foreground-refresh";
 import { useProgramCatalog } from "@/hooks/use-program-catalog";
 import { useRequestSequence } from "@/hooks/use-request-sequence";
 import { getAssistantApiResponse } from "@/lib/assistant-client";
+import { programsToSlicerOptions } from "@/lib/program-slicer";
 import type {
   AssistantMessageInput,
   AssistantProviderId,
@@ -15,6 +16,7 @@ import type {
   MatchedContent
 } from "@/lib/assistant-types";
 import type { AssistantConversationTurn } from "@/lib/assistant-conversation-types";
+import { ProgramSlicer } from "@/components/program-slicer";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type { AssistantBriefing } from "@/lib/assistant-briefing";
@@ -110,6 +112,7 @@ export function AssistantChat() {
     () => assistantBriefing?.promptQueue?.length ? assistantBriefing.promptQueue : buildSuggestedPrompts(selectedProgram?.intake.programName),
     [assistantBriefing?.promptQueue, selectedProgram?.intake.programName]
   );
+  const programOptions = useMemo(() => programsToSlicerOptions(programs), [programs]);
   const activeModelName = assistantBriefing?.model ?? "gpt-5.5";
   const understandingScore = assistantBriefing?.understandingScore ?? 0;
   const understandingLabel =
@@ -229,21 +232,15 @@ export function AssistantChat() {
                   Guide should stay inside the selected saved program and use its uploads, updates, leadership feedback, and guided plan as grounding.
                 </p>
               </div>
-              <label className="grid gap-2 rounded-md border border-white/10 bg-zinc-950/70 p-3 text-xs text-zinc-500">
-                <span className="uppercase tracking-[0.18em]">Program</span>
-                <select
-                  value={selectedProgramId}
-                  onChange={(event) => setSelectedProgramId(event.target.value)}
-                  className="min-h-11 rounded-md border border-white/10 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 outline-none transition-colors focus:border-emerald-300/40"
-                >
-                  <option value="">Select a saved program</option>
-                  {programs.map((program) => (
-                    <option key={program.id} value={program.id}>
-                      {program.intake.programName}
-                    </option>
-                  ))}
-                </select>
-              </label>
+              <div className="rounded-md border border-white/10 bg-zinc-950/70 p-3">
+                <ProgramSlicer
+                  label="Program"
+                  options={programOptions}
+                  selectedProgramId={selectedProgramId}
+                  onSelectProgram={setSelectedProgramId}
+                  placeholder="Select a saved program"
+                />
+              </div>
             </div>
             <div className="mb-3 flex items-center justify-between gap-3">
               <p className="text-xs font-medium uppercase tracking-[0.18em] text-zinc-500">Prompt chips</p>
