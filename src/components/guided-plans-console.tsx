@@ -142,6 +142,7 @@ export function GuidedPlansConsole() {
   const handleProgramLoadError = useCallback(() => setStatus("Could not refresh saved programs."), []);
   const { programs, selectedProgram, selectedProgramId, setSelectedProgramId, refreshPrograms } = useProgramCatalog({
     requestedProgramId,
+    autoSelectFirstProgram: false,
     onError: handleProgramLoadError
   });
   const latestUpdate = updates[0];
@@ -591,7 +592,7 @@ export function GuidedPlansConsole() {
               <GuidedPlanFollowUpCard questions={plan.followUpQuestions} />
             </>
           ) : (
-            <GuidedPlanEmptyStateCard />
+            <GuidedPlanEmptyStateCard hasPrograms={programs.length > 0} />
           )}
         </section>
       </section>

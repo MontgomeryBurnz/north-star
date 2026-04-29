@@ -57,7 +57,9 @@ export function GuidedPlansSidebar({
               onChange={(event) => onProgramChange(event.target.value)}
               className="min-h-11 rounded-md border border-white/10 bg-zinc-950 px-3 py-3 text-sm text-zinc-100 outline-none transition-colors focus:border-emerald-300/50"
             >
-              {programs.length ? null : <option value="">No saved programs yet</option>}
+              <option value="" disabled>
+                {programs.length ? "Select a program..." : "No saved programs yet"}
+              </option>
               {programs.map((program) => (
                 <option key={program.id} value={program.id}>
                   {program.intake.programName}
@@ -75,7 +77,9 @@ export function GuidedPlansSidebar({
             </div>
           ) : (
             <div className="rounded-md border border-amber-300/20 bg-amber-300/[0.055] p-3 text-sm leading-6 text-amber-100">
-              Save a New Program first, then return here to generate a guided plan.
+              {programs.length
+                ? "Select a saved program to load its guided plan, team action plans, rationale, and latest source signals."
+                : "Save a New Program first, then return here to generate a guided plan."}
             </div>
           )}
           {selectedProgram ? (
