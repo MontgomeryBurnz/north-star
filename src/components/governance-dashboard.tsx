@@ -435,7 +435,7 @@ export function GovernanceDashboard({ guidanceModelProfile }: GovernanceDashboar
         description="Optimize model spend, review disputed guidance one program at a time, and prevent false flags from steering future plans, role guidance, or program outputs."
       />
 
-      <section className="mt-10 grid gap-6 lg:grid-cols-[360px_minmax(0,1fr)]">
+      <section className="mt-10 grid items-start gap-6 lg:grid-cols-[360px_minmax(0,1fr)]">
         <aside className="grid gap-4 self-start lg:sticky lg:top-24">
           <Card className="bg-zinc-950/80">
             <CardHeader className="border-b border-white/10">
@@ -554,10 +554,10 @@ export function GovernanceDashboard({ guidanceModelProfile }: GovernanceDashboar
           </Card>
         </aside>
 
-        <section className="grid gap-4">
+        <section className="grid content-start gap-4 self-start">
           {flags.length ? (
-            <div className="grid gap-6">
-              <section className="grid gap-3">
+            <div className="grid content-start gap-6">
+              <section className="grid content-start gap-3">
                 <div className="flex flex-wrap items-end justify-between gap-3">
                   <div>
                     <p className="text-xs font-medium uppercase tracking-[0.18em] text-amber-200">Review queue</p>
@@ -575,7 +575,7 @@ export function GovernanceDashboard({ guidanceModelProfile }: GovernanceDashboar
               </section>
 
               {flagGroups.resolved.length ? (
-                <section className="grid gap-3">
+                <section className="grid content-start gap-3">
                   <div className="flex flex-wrap items-end justify-between gap-3">
                     <div>
                       <p className="text-xs font-medium uppercase tracking-[0.18em] text-zinc-500">Audit history</p>
