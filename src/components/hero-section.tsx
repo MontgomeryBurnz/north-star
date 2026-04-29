@@ -70,7 +70,7 @@ export function HeroSection({ metrics }: { metrics: DashboardMetrics }) {
             Console onboarding
           </div>
           <h1 className="max-w-4xl text-4xl font-semibold tracking-normal text-zinc-50 sm:text-6xl lg:text-7xl">
-            North Star, separating signals from noise.
+            Separate the signal from the noise.
           </h1>
           <p className="mt-5 max-w-2xl text-base leading-7 text-zinc-300 md:mt-6 md:text-lg md:leading-8">
             Use insight, intelligence, and data to find true north.
