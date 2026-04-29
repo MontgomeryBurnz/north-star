@@ -271,6 +271,41 @@ function NorthStarThreeMark({ variant }: { variant: MarkVariant }) {
   return <canvas ref={canvasRef} className="absolute inset-0 block h-full w-full" data-north-star-3d aria-hidden="true" />;
 }
 
+function NorthStarCssMark({ variant }: { variant: MarkVariant }) {
+  const isNav = variant === "nav";
+
+  return (
+    <div
+      className={cn(
+        "absolute inset-0 flex items-center justify-center",
+        isNav ? "drop-shadow-[0_0_12px_rgba(52,211,153,0.55)]" : "drop-shadow-[0_0_24px_rgba(52,211,153,0.72)]"
+      )}
+      aria-hidden="true"
+    >
+      <div className={cn("relative", isNav ? "h-9 w-8" : "h-32 w-28")}>
+        <span
+          className={cn(
+            "absolute bottom-0 left-0 rounded-[2px] bg-gradient-to-r from-emerald-950 via-emerald-500 to-emerald-200 shadow-[inset_-8px_0_10px_rgba(2,44,34,0.55),0_0_18px_rgba(52,211,153,0.46)]",
+            isNav ? "h-9 w-2" : "h-32 w-7"
+          )}
+        />
+        <span
+          className={cn(
+            "absolute bottom-0 right-0 rounded-[2px] bg-gradient-to-r from-emerald-900 via-emerald-500 to-emerald-100 shadow-[inset_-8px_0_10px_rgba(2,44,34,0.5),0_0_18px_rgba(52,211,153,0.42)]",
+            isNav ? "h-9 w-2" : "h-32 w-7"
+          )}
+        />
+        <span
+          className={cn(
+            "absolute rounded-[2px] bg-gradient-to-r from-emerald-950 via-emerald-400 to-emerald-100 shadow-[inset_-8px_0_10px_rgba(2,44,34,0.5),0_0_20px_rgba(167,243,208,0.48)]",
+            isNav ? "left-[11px] top-[-2px] h-10 w-2 rotate-[-27deg]" : "left-[46px] top-[-7px] h-[9rem] w-7 rotate-[-27deg]"
+          )}
+        />
+      </div>
+    </div>
+  );
+}
+
 function BrandGlow({ variant }: { variant: MarkVariant }) {
   const isNav = variant === "nav";
 
@@ -408,6 +443,8 @@ export function AnimatedNorthStarMark({
   orbitClassName?: string;
 }) {
   const isNav = variant === "nav";
+  const renderWebGlMark = variant === "hero";
+  const renderOrbit = variant === "hero";
 
   return (
     <div className={cn(isNav ? "relative h-12 w-12" : "relative h-44 w-44", className)}>
@@ -415,11 +452,11 @@ export function AnimatedNorthStarMark({
 
       <div className={cn("absolute inset-0 flex items-center justify-center", isNav ? "[perspective:900px]" : "[perspective:1400px]")}>
         <div className={cn("relative", isNav ? "h-10 w-10" : "h-36 w-36")}>
-          <NorthStarThreeMark variant={variant} />
+          {renderWebGlMark ? <NorthStarThreeMark variant={variant} /> : <NorthStarCssMark variant={variant} />}
         </div>
       </div>
 
-      <OrbitingComet orbitClassName={orbitClassName} variant={variant} />
+      {renderOrbit ? <OrbitingComet orbitClassName={orbitClassName} variant={variant} /> : null}
 
       <style jsx global>{`
         .north-star-orbit-spin {
