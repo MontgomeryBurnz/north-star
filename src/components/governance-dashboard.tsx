@@ -7,7 +7,7 @@ import { useProgramCatalog } from "@/hooks/use-program-catalog";
 import { useRequestSequence } from "@/hooks/use-request-sequence";
 import type { GuidanceModelProfile } from "@/lib/guidance-model-profile";
 import { isTeamActionPlanFlagSourceId, roleFromTeamActionPlanFlagSourceId } from "@/lib/guidance-feedback-flag-sources";
-import type { OpenAIBillingReconciliation } from "@/lib/openai-billing-types";
+import type { OpenAIBillingReconciliation, OpenAIBillingWindowKey } from "@/lib/openai-billing-types";
 import type { GuidanceFeedbackFlag, GuidanceJustificationRecord, OpenAIUsageRecord } from "@/lib/program-intelligence-types";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -20,14 +20,6 @@ function formatDate(value: string) {
     day: "numeric",
     hour: "numeric",
     minute: "2-digit"
-  }).format(new Date(value));
-}
-
-function formatUtcDate(value: string) {
-  return new Intl.DateTimeFormat(undefined, {
-    month: "short",
-    day: "numeric",
-    timeZone: "UTC"
   }).format(new Date(value));
 }
 
@@ -109,6 +101,26 @@ function getDecisionImpact(status: GuidanceFeedbackFlag["status"]) {
   return "Awaiting governance disposition.";
 }
 
+const billingWindowOptions: Array<{ label: string; value: OpenAIBillingWindowKey }> = [
+  { label: "Month to date", value: "month-to-date" },
+  { label: "Last 7 days", value: "last-7-days" },
+  { label: "Last 14 days", value: "last-14-days" },
+  { label: "Last 30 days", value: "last-30-days" },
+  { label: "Custom range", value: "custom" }
+];
+
+function toDateInputValue(date: Date) {
+  return date.toISOString().slice(0, 10);
+}
+
+function getInitialCustomBillingRange() {
+  const now = new Date();
+  return {
+    start: toDateInputValue(new Date(now.getTime() - 13 * 24 * 60 * 60 * 1000)),
+    end: toDateInputValue(now)
+  };
+}
+
 type GovernanceDashboardProps = {
   guidanceModelProfile: GuidanceModelProfile;
 };
@@ -120,6 +132,8 @@ export function GovernanceDashboard({ guidanceModelProfile }: GovernanceDashboar
   const [usageRecords, setUsageRecords] = useState<OpenAIUsageRecord[]>([]);
   const [billingReconciliation, setBillingReconciliation] = useState<OpenAIBillingReconciliation | null>(null);
   const [billingStatus, setBillingStatus] = useState<string | null>(null);
+  const [billingWindow, setBillingWindow] = useState<OpenAIBillingWindowKey>("month-to-date");
+  const [customBillingRange, setCustomBillingRange] = useState(getInitialCustomBillingRange);
   const [status, setStatus] = useState<string | null>(null);
   const [reviewState, setReviewState] = useState<Record<string, { disposition: string; saving: boolean }>>({});
   const handleProgramLoadError = useCallback(() => setStatus("Could not load programs for governance review."), []);
@@ -129,15 +143,28 @@ export function GovernanceDashboard({ guidanceModelProfile }: GovernanceDashboar
   });
 
   const loadBillingReconciliation = useCallback(async () => {
-    const response = await fetch("/api/openai-billing", { cache: "no-store" });
-    if (!response.ok) {
-      throw new Error("Could not sync OpenAI billing.");
-    }
+    setBillingStatus("Syncing OpenAI billing...");
 
-    const payload = (await response.json()) as { billing: OpenAIBillingReconciliation };
-    setBillingReconciliation(payload.billing);
-    setBillingStatus(null);
-  }, []);
+    try {
+      const params = new URLSearchParams({ window: billingWindow });
+      if (billingWindow === "custom") {
+        params.set("start", customBillingRange.start);
+        params.set("end", customBillingRange.end);
+      }
+
+      const response = await fetch(`/api/openai-billing?${params.toString()}`, { cache: "no-store" });
+      if (!response.ok) {
+        throw new Error("Could not sync OpenAI billing.");
+      }
+
+      const payload = (await response.json()) as { billing: OpenAIBillingReconciliation };
+      setBillingReconciliation(payload.billing);
+      setBillingStatus(null);
+    } catch (error) {
+      setBillingStatus("Could not sync OpenAI billing.");
+      throw error;
+    }
+  }, [billingWindow, customBillingRange.end, customBillingRange.start]);
 
   const loadGovernance = useCallback(async () => {
     const requestId = governanceRequest.beginRequest();
@@ -513,6 +540,68 @@ export function GovernanceDashboard({ guidanceModelProfile }: GovernanceDashboar
               <CardTitle className="text-zinc-50">OpenAI billing sync</CardTitle>
             </CardHeader>
             <CardContent className="grid gap-4 p-5">
+              <div className="grid gap-3 rounded-md border border-white/10 bg-white/[0.035] p-3">
+                <label className="grid gap-2">
+                  <span className="text-xs font-medium uppercase tracking-[0.16em] text-zinc-300">Billing window</span>
+                  <span className="relative block">
+                    <select
+                      value={billingWindow}
+                      onChange={(event) => setBillingWindow(event.target.value as OpenAIBillingWindowKey)}
+                      className="h-11 w-full appearance-none rounded-md border border-white/10 bg-zinc-950 px-3 pr-10 text-sm text-zinc-100 outline-none transition-colors focus:border-emerald-300/50 focus:ring-2 focus:ring-emerald-300/15"
+                    >
+                      {billingWindowOptions.map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                    <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400" />
+                  </span>
+                </label>
+
+                {billingWindow === "custom" ? (
+                  <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-1">
+                    <label className="grid gap-2">
+                      <span className="text-xs font-medium uppercase tracking-[0.16em] text-zinc-500">Start date</span>
+                      <input
+                        type="date"
+                        value={customBillingRange.start}
+                        onChange={(event) => setCustomBillingRange((current) => ({ ...current, start: event.target.value }))}
+                        className="h-11 rounded-md border border-white/10 bg-zinc-950 px-3 text-sm text-zinc-100 outline-none [color-scheme:dark] focus:border-emerald-300/50 focus:ring-2 focus:ring-emerald-300/15"
+                      />
+                    </label>
+                    <label className="grid gap-2">
+                      <span className="text-xs font-medium uppercase tracking-[0.16em] text-zinc-500">End date</span>
+                      <input
+                        type="date"
+                        value={customBillingRange.end}
+                        onChange={(event) => setCustomBillingRange((current) => ({ ...current, end: event.target.value }))}
+                        className="h-11 rounded-md border border-white/10 bg-zinc-950 px-3 text-sm text-zinc-100 outline-none [color-scheme:dark] focus:border-emerald-300/50 focus:ring-2 focus:ring-emerald-300/15"
+                      />
+                    </label>
+                  </div>
+                ) : null}
+
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div className="text-xs leading-5 text-zinc-500">
+                    <p>{billingReconciliation?.windowLabel ?? "Choose a window to reconcile OpenAI usage."}</p>
+                    <p>
+                      {billingStatus ??
+                        (billingReconciliation?.syncedAt ? `Last synced ${formatDate(billingReconciliation.syncedAt)}` : "Not synced yet")}
+                    </p>
+                  </div>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={() => void loadBillingReconciliation().catch(() => null)}
+                    disabled={billingStatus === "Syncing OpenAI billing..."}
+                  >
+                    Sync now
+                  </Button>
+                </div>
+              </div>
+
               {!billingReconciliation ? (
                 <p className="rounded-md border border-white/10 bg-white/[0.035] p-3 text-sm leading-6 text-zinc-400">
                   {billingStatus ?? "Loading OpenAI billing reconciliation..."}
@@ -575,7 +664,7 @@ export function GovernanceDashboard({ guidanceModelProfile }: GovernanceDashboar
                   <p className="text-xs leading-5 text-zinc-500">
                     Source of truth: OpenAI Costs API. North Star records allocate app usage by program and workflow for governance review.
                     {billingReconciliation.projectId ? ` Filtered to project ${billingReconciliation.projectId}.` : " No project filter is configured."}
-                    {` Window: ${formatUtcDate(billingReconciliation.windowStart)} - ${formatUtcDate(billingReconciliation.windowEnd)} UTC.`}
+                    {` Window: ${billingReconciliation.windowLabel}. Last synced ${formatDate(billingReconciliation.syncedAt)}.`}
                   </p>
                 </>
               ) : (

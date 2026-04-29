@@ -1,9 +1,14 @@
+export type OpenAIBillingWindowKey = "month-to-date" | "last-7-days" | "last-14-days" | "last-30-days" | "custom";
+
 export type OpenAIBillingReconciliation = {
   configured: boolean;
   connected: boolean;
   source: "openai-costs-api";
+  windowKey: OpenAIBillingWindowKey;
+  windowLabel: string;
   windowStart: string;
   windowEnd: string;
+  syncedAt: string;
   projectId?: string;
   actualSpendUsd: number | null;
   costsApiSpendUsd: number | null;

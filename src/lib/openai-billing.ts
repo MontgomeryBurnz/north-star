@@ -1,5 +1,5 @@
 import "server-only";
-import type { OpenAIBillingReconciliation } from "@/lib/openai-billing-types";
+import type { OpenAIBillingReconciliation, OpenAIBillingWindowKey } from "@/lib/openai-billing-types";
 import { getOpenAIModelPricing } from "@/lib/openai-pricing";
 import type { OpenAIUsageRecord } from "@/lib/program-intelligence-types";
 
@@ -24,15 +24,90 @@ type OpenAICompletionsUsageResponse = {
   next_page?: string | null;
 };
 
-function getBillingWindow() {
-  const now = new Date();
-  const start = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1, 0, 0, 0));
+export type OpenAIBillingWindowInput = {
+  windowKey?: OpenAIBillingWindowKey;
+  customStartDate?: string;
+  customEndDate?: string;
+  now?: Date;
+};
+
+const dayInMs = 24 * 60 * 60 * 1000;
+
+function startOfUtcDay(date: Date) {
+  return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate(), 0, 0, 0));
+}
+
+function endOfUtcDay(date: Date) {
+  return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate(), 23, 59, 59));
+}
+
+function startOfUtcMonth(date: Date) {
+  return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), 1, 0, 0, 0));
+}
+
+function parseUtcDateInput(value?: string) {
+  const match = value?.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!match) return null;
+
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  const parsed = new Date(Date.UTC(year, month - 1, day, 0, 0, 0));
+  if (
+    parsed.getUTCFullYear() !== year ||
+    parsed.getUTCMonth() !== month - 1 ||
+    parsed.getUTCDate() !== day
+  ) {
+    return null;
+  }
+
+  return parsed;
+}
+
+function formatUtcWindowDate(date: Date) {
+  return new Intl.DateTimeFormat("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    timeZone: "UTC"
+  }).format(date);
+}
+
+function getWindowLabel(label: string, start: Date, end: Date) {
+  return `${label}: ${formatUtcWindowDate(start)} - ${formatUtcWindowDate(end)} UTC`;
+}
+
+function getBillingWindow(input: OpenAIBillingWindowInput = {}) {
+  const now = input.now ?? new Date();
+  const windowKey = input.windowKey ?? "month-to-date";
+  let label = "Month to date";
+  let start = startOfUtcMonth(now);
+  let end = now;
+
+  if (windowKey === "last-7-days" || windowKey === "last-14-days" || windowKey === "last-30-days") {
+    const days = windowKey === "last-7-days" ? 7 : windowKey === "last-14-days" ? 14 : 30;
+    label = `Last ${days} days`;
+    start = startOfUtcDay(new Date(now.getTime() - (days - 1) * dayInMs));
+  }
+
+  if (windowKey === "custom") {
+    label = "Custom range";
+    const todayStart = startOfUtcDay(now);
+    const parsedStart = parseUtcDateInput(input.customStartDate) ?? startOfUtcMonth(now);
+    const parsedEnd = parseUtcDateInput(input.customEndDate) ?? todayStart;
+    start = parsedStart > now ? todayStart : parsedStart;
+    end = endOfUtcDay(parsedEnd < start ? start : parsedEnd);
+    if (end > now) end = now;
+    if (end <= start) end = new Date(Math.min(now.getTime(), start.getTime() + dayInMs - 1000));
+  }
 
   return {
+    windowKey,
+    label: getWindowLabel(label, start, end),
     start,
-    end: now,
+    end,
     startTime: Math.floor(start.getTime() / 1000),
-    endTime: Math.floor(now.getTime() / 1000)
+    endTime: Math.floor(end.getTime() / 1000)
   };
 }
 
@@ -202,16 +277,20 @@ function summarizeLocalUsage(records: OpenAIUsageRecord[], start: Date, end: Dat
 }
 
 export async function getOpenAIBillingReconciliation(
-  localUsageRecords: OpenAIUsageRecord[]
+  localUsageRecords: OpenAIUsageRecord[],
+  windowInput: OpenAIBillingWindowInput = {}
 ): Promise<OpenAIBillingReconciliation> {
-  const { start, end, startTime, endTime } = getBillingWindow();
+  const { windowKey, label, start, end, startTime, endTime } = getBillingWindow(windowInput);
   const local = summarizeLocalUsage(localUsageRecords, start, end);
   const adminKey = getOpenAIAdminKey();
   const projectId = getOpenAIProjectId() || undefined;
   const base = {
     source: "openai-costs-api" as const,
+    windowKey,
+    windowLabel: label,
     windowStart: start.toISOString(),
     windowEnd: end.toISOString(),
+    syncedAt: new Date().toISOString(),
     projectId,
     localTrackedSpendUsd: local.spendUsd,
     localTrackedCalls: local.calls,
