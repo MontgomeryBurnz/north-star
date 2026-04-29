@@ -44,7 +44,7 @@ function getOpenAIAdminKey() {
 }
 
 function getOpenAIProjectId() {
-  return process.env.OPENAI_BILLING_PROJECT_ID?.trim() || process.env.OPENAI_PROJECT_ID?.trim();
+  return process.env.OPENAI_BILLING_PROJECT_ID?.trim();
 }
 
 async function fetchOpenAIJson<T>(path: string, params: URLSearchParams, adminKey: string) {

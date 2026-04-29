@@ -546,6 +546,16 @@ export function GovernanceDashboard({ guidanceModelProfile }: GovernanceDashboar
                     </p>
                   </div>
 
+                  {billingReconciliation.actualSpendUsd === 0 ? (
+                    <div className="rounded-md border border-amber-300/20 bg-amber-300/[0.055] p-3">
+                      <p className="text-xs font-medium uppercase tracking-[0.16em] text-amber-200">No OpenAI spend returned</p>
+                      <p className="mt-2 text-sm leading-6 text-zinc-300">
+                        OpenAI returned $0 for this UTC billing window. If the OpenAI dashboard shows spend, verify the admin key belongs to
+                        the same OpenAI organization and remove any incorrect `OPENAI_BILLING_PROJECT_ID` filter.
+                      </p>
+                    </div>
+                  ) : null}
+
                   <div className="rounded-md border border-white/10 bg-white/[0.035] p-3">
                     <p className="text-xs font-medium uppercase tracking-[0.16em] text-zinc-500">OpenAI usage volume</p>
                     <div className="mt-3 grid gap-2 text-sm text-zinc-300">
@@ -589,62 +599,68 @@ export function GovernanceDashboard({ guidanceModelProfile }: GovernanceDashboar
               <CardTitle className="text-zinc-50">Selected program usage</CardTitle>
             </CardHeader>
             <CardContent className="grid gap-4 p-5">
-              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-1">
-                <div className="rounded-md border border-emerald-300/20 bg-emerald-300/[0.055] p-3">
-                  <p className="text-xs font-medium uppercase tracking-[0.16em] text-emerald-200">Program spend</p>
-                  <p className="mt-2 text-2xl font-semibold text-zinc-50">{formatCurrency(usageSummary.estimatedCostUsd)}</p>
-                  <p className="mt-1 text-xs text-zinc-500">{usageRecords.length} North Star calls logged for this program</p>
-                </div>
-                <div className="rounded-md border border-cyan-300/20 bg-cyan-300/[0.055] p-3">
-                  <p className="text-xs font-medium uppercase tracking-[0.16em] text-cyan-200">Projected 30-day</p>
-                  <p className="mt-2 text-2xl font-semibold text-zinc-50">{formatCurrency(usageSummary.projectedThirtyDayCostUsd)}</p>
-                  <p className="mt-1 text-xs text-zinc-500">Based on current observed alpha pace</p>
-                </div>
-              </div>
-
-              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-1">
-                <div className="rounded-md border border-white/10 bg-white/[0.035] p-3">
-                  <p className="text-xs font-medium uppercase tracking-[0.16em] text-zinc-500">Cache efficiency</p>
-                  <p className="mt-2 text-lg font-semibold text-zinc-100">{formatPercent(usageSummary.cacheHitRate)}</p>
-                  <p className="mt-1 text-xs text-zinc-500">
-                    {formatTokenCount(usageSummary.cachedInputTokens)} of {formatTokenCount(usageSummary.inputTokens)} input tokens cached
-                  </p>
-                </div>
-                <div className="rounded-md border border-white/10 bg-white/[0.035] p-3">
-                  <p className="text-xs font-medium uppercase tracking-[0.16em] text-zinc-500">Estimated cache savings</p>
-                  <p className="mt-2 text-lg font-semibold text-zinc-100">{formatCurrency(usageSummary.estimatedCachedInputSavingsUsd)}</p>
-                  <p className="mt-1 text-xs text-zinc-500">Versus billing cached tokens at standard input rate</p>
-                </div>
-              </div>
-
-              <div className="rounded-md border border-white/10 bg-white/[0.035] p-3">
-                <p className="text-xs font-medium uppercase tracking-[0.16em] text-zinc-500">Token volume</p>
-                <div className="mt-3 grid gap-2 text-sm text-zinc-300">
-                  <p>Input: {formatTokenCount(usageSummary.inputTokens)}</p>
-                  <p>Output: {formatTokenCount(usageSummary.outputTokens)}</p>
-                  <p>Total: {formatTokenCount(usageSummary.totalTokens)}</p>
-                </div>
-              </div>
-
-              {usageSummary.workflowBreakdown.length ? (
-                <div className="grid gap-2">
-                  <p className="text-xs font-medium uppercase tracking-[0.16em] text-zinc-500">Workflow cost</p>
-                  {usageSummary.workflowBreakdown.map(([workflow, summary]) => (
-                    <div key={workflow} className="flex items-center justify-between gap-3 rounded-md border border-white/10 bg-black/20 p-3">
-                      <div>
-                        <p className="text-sm font-medium text-zinc-100">{getWorkflowLabel(workflow)}</p>
-                        <p className="text-xs text-zinc-500">
-                          {summary.calls} calls / {formatTokenCount(summary.totalTokens)} tokens
-                        </p>
-                      </div>
-                      <p className="text-sm font-semibold text-zinc-100">{formatCurrency(summary.estimatedCostUsd)}</p>
-                    </div>
-                  ))}
-                </div>
-              ) : (
+              {!selectedProgramId ? (
                 <p className="rounded-md border border-white/10 bg-white/[0.035] p-3 text-sm leading-6 text-zinc-400">
-                  No OpenAI usage has been recorded for this program yet. The forecast will populate after guided plans, Guide prompts, prompt briefings, or leadership feedback use the OpenAI provider.
+                  Select a program to view North Star usage allocated to that program.
                 </p>
+              ) : !usageRecords.length ? (
+                <p className="rounded-md border border-white/10 bg-white/[0.035] p-3 text-sm leading-6 text-zinc-400">
+                  No North Star OpenAI calls have been allocated to this program yet. This is not the OpenAI billing total.
+                </p>
+              ) : (
+                <>
+                  <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-1">
+                    <div className="rounded-md border border-emerald-300/20 bg-emerald-300/[0.055] p-3">
+                      <p className="text-xs font-medium uppercase tracking-[0.16em] text-emerald-200">Program spend</p>
+                      <p className="mt-2 text-2xl font-semibold text-zinc-50">{formatCurrency(usageSummary.estimatedCostUsd)}</p>
+                      <p className="mt-1 text-xs text-zinc-500">{usageRecords.length} North Star calls logged for this program</p>
+                    </div>
+                    <div className="rounded-md border border-cyan-300/20 bg-cyan-300/[0.055] p-3">
+                      <p className="text-xs font-medium uppercase tracking-[0.16em] text-cyan-200">Projected 30-day</p>
+                      <p className="mt-2 text-2xl font-semibold text-zinc-50">{formatCurrency(usageSummary.projectedThirtyDayCostUsd)}</p>
+                      <p className="mt-1 text-xs text-zinc-500">Based on current observed alpha pace</p>
+                    </div>
+                  </div>
+
+                  <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-1">
+                    <div className="rounded-md border border-white/10 bg-white/[0.035] p-3">
+                      <p className="text-xs font-medium uppercase tracking-[0.16em] text-zinc-500">Cache efficiency</p>
+                      <p className="mt-2 text-lg font-semibold text-zinc-100">{formatPercent(usageSummary.cacheHitRate)}</p>
+                      <p className="mt-1 text-xs text-zinc-500">
+                        {formatTokenCount(usageSummary.cachedInputTokens)} of {formatTokenCount(usageSummary.inputTokens)} input tokens cached
+                      </p>
+                    </div>
+                    <div className="rounded-md border border-white/10 bg-white/[0.035] p-3">
+                      <p className="text-xs font-medium uppercase tracking-[0.16em] text-zinc-500">Estimated cache savings</p>
+                      <p className="mt-2 text-lg font-semibold text-zinc-100">{formatCurrency(usageSummary.estimatedCachedInputSavingsUsd)}</p>
+                      <p className="mt-1 text-xs text-zinc-500">Versus billing cached tokens at standard input rate</p>
+                    </div>
+                  </div>
+
+                  <div className="rounded-md border border-white/10 bg-white/[0.035] p-3">
+                    <p className="text-xs font-medium uppercase tracking-[0.16em] text-zinc-500">Token volume</p>
+                    <div className="mt-3 grid gap-2 text-sm text-zinc-300">
+                      <p>Input: {formatTokenCount(usageSummary.inputTokens)}</p>
+                      <p>Output: {formatTokenCount(usageSummary.outputTokens)}</p>
+                      <p>Total: {formatTokenCount(usageSummary.totalTokens)}</p>
+                    </div>
+                  </div>
+
+                  <div className="grid gap-2">
+                    <p className="text-xs font-medium uppercase tracking-[0.16em] text-zinc-500">Workflow cost</p>
+                    {usageSummary.workflowBreakdown.map(([workflow, summary]) => (
+                      <div key={workflow} className="flex items-center justify-between gap-3 rounded-md border border-white/10 bg-black/20 p-3">
+                        <div>
+                          <p className="text-sm font-medium text-zinc-100">{getWorkflowLabel(workflow)}</p>
+                          <p className="text-xs text-zinc-500">
+                            {summary.calls} calls / {formatTokenCount(summary.totalTokens)} tokens
+                          </p>
+                        </div>
+                        <p className="text-sm font-semibold text-zinc-100">{formatCurrency(summary.estimatedCostUsd)}</p>
+                      </div>
+                    ))}
+                  </div>
+                </>
               )}
 
               {usageSummary.latestRecord ? (
