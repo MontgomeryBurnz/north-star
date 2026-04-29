@@ -112,6 +112,7 @@ export function GovernanceDashboard({ guidanceModelProfile }: GovernanceDashboar
   const [reviewState, setReviewState] = useState<Record<string, { disposition: string; saving: boolean }>>({});
   const handleProgramLoadError = useCallback(() => setStatus("Could not load programs for governance review."), []);
   const { programs, selectedProgramId, setSelectedProgramId, refreshPrograms } = useProgramCatalog({
+    autoSelectFirstProgram: false,
     onError: handleProgramLoadError
   });
 
@@ -450,7 +451,9 @@ export function GovernanceDashboard({ guidanceModelProfile }: GovernanceDashboar
                     onChange={(event) => setSelectedProgramId(event.target.value)}
                     className="h-12 w-full appearance-none rounded-md border border-white/10 bg-zinc-950 px-4 pr-11 text-base leading-none text-zinc-100 outline-none transition-colors focus:border-emerald-300/50 focus:ring-2 focus:ring-emerald-300/15"
                   >
-                    {programs.length ? null : <option value="">No programs available</option>}
+                    <option value="" disabled>
+                      {programs.length ? "Select a program..." : "No programs available"}
+                    </option>
                     {programs.map((program) => (
                       <option key={program.id} value={program.id}>
                         {program.intake.programName}
@@ -555,7 +558,24 @@ export function GovernanceDashboard({ guidanceModelProfile }: GovernanceDashboar
         </aside>
 
         <section className="grid content-start gap-4 self-start">
-          {flags.length ? (
+          {!selectedProgramId ? (
+            <Card className="border-emerald-300/20 bg-emerald-300/[0.055]">
+              <CardContent className="p-8">
+                <div className="flex items-start gap-4">
+                  <div className="mt-1 rounded-md border border-emerald-300/25 bg-emerald-300/10 p-2 text-emerald-100">
+                    <ShieldAlert className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <p className="text-xs font-medium uppercase tracking-[0.18em] text-emerald-200">Select a program</p>
+                    <h2 className="mt-2 text-2xl font-semibold text-zinc-50">Choose a program to review governance.</h2>
+                    <p className="mt-3 max-w-2xl text-sm leading-6 text-zinc-300">
+                      Use the Program slicer to load model spend, cache efficiency, disputed guidance, and adjudication history for one active program at a time.
+                    </p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ) : flags.length ? (
             <div className="grid content-start gap-6">
               <section className="grid content-start gap-3">
                 <div className="flex flex-wrap items-end justify-between gap-3">

@@ -10,6 +10,7 @@ type UseProgramCatalogOptions = {
   fallbackPrograms?: StoredProgram[];
   fallbackSelectedProgramId?: string;
   requestedProgramId?: string | null;
+  autoSelectFirstProgram?: boolean;
   onError?: () => void;
 };
 
@@ -18,8 +19,9 @@ function resolveSelectedProgramId(input: {
   currentProgramId: string;
   programs: StoredProgram[];
   fallbackSelectedProgramId?: string;
+  autoSelectFirstProgram: boolean;
 }) {
-  const { requestedProgramId, currentProgramId, programs, fallbackSelectedProgramId } = input;
+  const { requestedProgramId, currentProgramId, programs, fallbackSelectedProgramId, autoSelectFirstProgram } = input;
 
   if (requestedProgramId && programs.some((program) => program.id === requestedProgramId)) {
     return requestedProgramId;
@@ -33,7 +35,7 @@ function resolveSelectedProgramId(input: {
     return fallbackSelectedProgramId;
   }
 
-  return programs[0]?.id ?? "";
+  return autoSelectFirstProgram ? programs[0]?.id ?? "" : "";
 }
 
 export function useProgramCatalog(options: UseProgramCatalogOptions = {}) {
@@ -43,6 +45,7 @@ export function useProgramCatalog(options: UseProgramCatalogOptions = {}) {
     fallbackPrograms = [],
     fallbackSelectedProgramId = "",
     requestedProgramId,
+    autoSelectFirstProgram = true,
     onError
   } = options;
   const request = useRequestSequence();
@@ -67,11 +70,12 @@ export function useProgramCatalog(options: UseProgramCatalogOptions = {}) {
           requestedProgramId,
           currentProgramId: nextSelectedProgramId ?? current,
           programs: nextPrograms,
-          fallbackSelectedProgramId
+          fallbackSelectedProgramId,
+          autoSelectFirstProgram
         })
       );
     },
-    [fallbackSelectedProgramId, programs, requestedProgramId]
+    [autoSelectFirstProgram, fallbackSelectedProgramId, programs, requestedProgramId]
   );
 
   const refreshPrograms = useCallback(
