@@ -106,30 +106,35 @@ export function CommandCenterGrid({ metrics }: { metrics: DashboardMetrics }) {
     {
       label: "Programs",
       value: metrics.activePrograms,
-      detail: "saved in this workspace"
+      detail: "saved in this workspace",
+      href: "/active-program"
     },
     {
       label: "Plans",
       value: metrics.guidedPlans,
-      detail: "available guided-plan views"
+      detail: "available guided-plan views",
+      href: "/systems"
     },
     {
       label: "Risks",
       value: metrics.riskCount,
       detail: riskCallout ? `${riskCallout.programName}: latest risk` : "no active risks surfaced",
-      help: metrics.riskHelp
+      help: metrics.riskHelp,
+      href: "/systems"
     },
     {
       label: "Decisions",
       value: metrics.decisionCount,
       detail: decisionCallout ? `${decisionCallout.programName}: pending decision` : "no pending decisions surfaced",
-      help: metrics.decisionHelp
+      help: metrics.decisionHelp,
+      href: "/systems"
     },
     {
       label: "Reviews",
       value: metrics.leadershipReviewsDue,
       detail: reviewDetail,
-      help: metrics.leadershipReviewHelp
+      help: metrics.leadershipReviewHelp,
+      href: "/leadership?queue=due"
     }
   ];
 
@@ -234,7 +239,7 @@ export function CommandCenterGrid({ metrics }: { metrics: DashboardMetrics }) {
         {metricCards.map((item) => (
           <Link
             key={item.label}
-            href={item.label === "Reviews" ? "/leadership?queue=due" : item.label === "Programs" ? "/active-program" : "/systems"}
+            href={item.href}
             className="group rounded-md border border-white/10 bg-white/[0.025] p-4 transition-colors hover:border-emerald-300/30 hover:bg-white/[0.04]"
           >
             <p className="text-2xl font-semibold text-zinc-50">{String(item.value).padStart(2, "0")}</p>

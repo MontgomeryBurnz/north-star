@@ -58,7 +58,7 @@ export function HeroSection({ metrics }: { metrics: DashboardMetrics }) {
     <section className="relative overflow-hidden border-b border-white/10">
       <div className="absolute inset-0 bg-[linear-gradient(to_right,rgba(255,255,255,0.055)_1px,transparent_1px),linear-gradient(to_bottom,rgba(255,255,255,0.055)_1px,transparent_1px)] bg-[size:64px_64px]" />
       <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,rgba(16,185,129,0.18),transparent_42%),linear-gradient(180deg,rgba(9,9,11,0.4),#09090b_88%)]" />
-      <div className="relative mx-auto grid min-h-[calc(100vh-4rem)] max-w-7xl items-center gap-10 px-4 py-16 sm:px-6 lg:grid-cols-[1fr_1.05fr] lg:px-8">
+      <div className="relative mx-auto grid max-w-7xl items-start gap-8 px-4 py-12 sm:px-6 sm:py-14 lg:min-h-[calc(100vh-4rem)] lg:grid-cols-[1fr_1.05fr] lg:items-center lg:gap-10 lg:px-8 lg:py-16">
         <MotionDiv
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
@@ -69,10 +69,10 @@ export function HeroSection({ metrics }: { metrics: DashboardMetrics }) {
             <Sparkles className="h-3.5 w-3.5 text-emerald-200" />
             Console onboarding
           </div>
-          <h1 className="text-5xl font-semibold tracking-normal text-zinc-50 sm:text-6xl lg:text-7xl">
+          <h1 className="max-w-4xl text-4xl font-semibold tracking-normal text-zinc-50 sm:text-6xl lg:text-7xl">
             Turn program signal into aligned action.
           </h1>
-          <p className="mt-6 max-w-2xl text-base leading-8 text-zinc-300 md:text-lg">
+          <p className="mt-5 max-w-2xl text-base leading-7 text-zinc-300 md:mt-6 md:text-lg md:leading-8">
             Start here to see how North Star converts intake, artifacts, team updates, leadership feedback, and
             governance signals into living guidance your team can trust and act on.
           </p>
@@ -93,23 +93,23 @@ export function HeroSection({ metrics }: { metrics: DashboardMetrics }) {
           initial={{ opacity: 0, y: 24 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.7, delay: 0.15, ease: "easeOut" }}
-          className="grid gap-4"
+          className="grid gap-4 lg:min-w-0"
         >
           <Card className="relative overflow-hidden bg-zinc-950/80">
             <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-emerald-300/70 to-transparent" />
             <div className="absolute inset-0 animate-scan bg-gradient-to-b from-transparent via-white/[0.035] to-transparent" />
-            <CardHeader>
+            <CardHeader className="p-5 sm:p-6">
               <CardTitle className="flex items-center gap-2 text-zinc-50">
                 <BookOpenCheck className="h-4 w-4 text-emerald-200" />
                 Quick start path
               </CardTitle>
             </CardHeader>
-            <CardContent className="grid gap-4">
-              <div className="grid grid-cols-2 gap-3 xl:grid-cols-5">
+            <CardContent className="grid gap-4 p-5 pt-0 sm:p-6 sm:pt-0">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-5">
                 {stats.map((stat) => (
-                  <div key={stat.label} className="rounded-md border border-white/10 bg-white/[0.035] p-3">
+                  <div key={stat.label} className="min-h-20 rounded-md border border-white/10 bg-white/[0.035] p-3">
                     <p className="text-2xl font-semibold text-zinc-50">{stat.value}</p>
-                    <div className="mt-1 flex items-center gap-1 text-xs leading-5 text-zinc-500">
+                    <div className="mt-1 flex min-w-0 items-center gap-1 text-xs leading-5 text-zinc-500">
                       <span>{stat.label}</span>
                       {"help" in stat ? (
                         <span className="group relative inline-flex items-center">
