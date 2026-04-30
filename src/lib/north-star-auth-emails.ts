@@ -27,6 +27,8 @@ type SendNorthStarEmailInput = {
 
 export type NorthStarEmailDeliveryStatus = {
   configured: boolean;
+  credentialsConfigured: boolean;
+  enabled: boolean;
   provider: "resend";
   senderDomain?: string;
   senderMode: "custom-domain" | "missing" | "resend-test";
@@ -53,9 +55,13 @@ function getSenderMode(senderDomain: string | undefined): NorthStarEmailDelivery
 
 export function getNorthStarEmailDeliveryStatus(): NorthStarEmailDeliveryStatus {
   const senderDomain = getSenderDomain(process.env.NORTHSTAR_EMAIL_FROM);
+  const credentialsConfigured = Boolean(process.env.RESEND_API_KEY && process.env.NORTHSTAR_EMAIL_FROM);
+  const enabled = process.env.NORTHSTAR_BRANDED_EMAILS_ENABLED === "true";
 
   return {
-    configured: Boolean(process.env.RESEND_API_KEY && process.env.NORTHSTAR_EMAIL_FROM),
+    configured: enabled && credentialsConfigured,
+    credentialsConfigured,
+    enabled,
     provider: "resend",
     senderDomain,
     senderMode: getSenderMode(senderDomain)

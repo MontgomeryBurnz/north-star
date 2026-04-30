@@ -46,6 +46,8 @@ type AssignmentDraft = Pick<ManagedProgramAssignment, "programId" | "programName
 type InvitationProviderStatus = {
   brandedEmail?: {
     configured: boolean;
+    credentialsConfigured: boolean;
+    enabled: boolean;
     provider: "resend";
     senderDomain?: string;
     senderMode: "custom-domain" | "missing" | "resend-test";
@@ -119,6 +121,9 @@ export function AdminUserManagementCard() {
   const brandedEmailActive = invitationProvider?.configured && invitationProvider.emailDelivery === "north-star-branded";
   const brandedEmailNeedsDomain = brandedEmailActive && invitationProvider?.brandedEmail?.senderMode === "resend-test";
   const brandedEmailReady = brandedEmailActive && !brandedEmailNeedsDomain;
+  const brandedEmailAvailableButDisabled = Boolean(
+    invitationProvider?.brandedEmail?.credentialsConfigured && !invitationProvider.brandedEmail.enabled
+  );
   const editingUser = form.id ? users.find((user) => user.id === form.id) : undefined;
   const isEditingUser = Boolean(form.id);
 
@@ -836,6 +841,8 @@ export function AdminUserManagementCard() {
                   ? "Resend is configured with a test sender. It can only send to the Resend account owner until a sending domain is verified and NORTHSTAR_EMAIL_FROM uses that domain."
                   : brandedEmailActive
                     ? "Branded North Star invites and recovery emails are configured through Resend. Keep the sending domain verified before inviting external alpha users."
+                    : brandedEmailAvailableButDisabled
+                      ? "Alpha invite emails are using Supabase Auth by default. Branded Resend delivery is parked until NORTHSTAR_BRANDED_EMAILS_ENABLED is set to true after a sending domain is chosen."
                   : invitationProvider?.configured
                     ? "Supabase default emails are active. Add the Resend env vars in Vercel to turn on branded North Star invites and recovery emails."
                     : "Supabase invitations are not configured yet, so Admin can map users but cannot send account setup emails."}

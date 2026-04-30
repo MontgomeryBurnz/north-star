@@ -65,13 +65,16 @@ Leadership auth now also supports two modes:
 
 Managed users can also enter through the main `/login` page with Supabase email/password credentials. Admin invitations send users through `/auth/setup` so they can set their own password and use their invite email as their username. Password recovery is available from the same login page and routes through `/auth/reset-password`.
 
-Branded North Star invite and recovery emails are sent through Resend when these optional variables are configured:
+By default, alpha invite and recovery emails are sent through Supabase Auth so users can set their own password without a dedicated product domain.
+
+Branded North Star invite and recovery emails are sent through Resend only when these optional variables are configured and `NORTHSTAR_BRANDED_EMAILS_ENABLED=true`:
 
 - `RESEND_API_KEY`
 - `NORTHSTAR_EMAIL_FROM`
 - `NORTHSTAR_EMAIL_REPLY_TO`
+- `NORTHSTAR_BRANDED_EMAILS_ENABLED`
 
-When Resend is not configured, the app falls back to Supabase Auth's default email delivery while still routing users into the North Star setup and reset screens.
+When Resend is not explicitly enabled, the app falls back to Supabase Auth's default email delivery while still routing users into the North Star setup and reset screens.
 
 ## Production Alpha Setup
 
