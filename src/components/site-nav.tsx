@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Bot, Menu, X } from "lucide-react";
+import { Bot, LogOut, Menu, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { AnimatedNorthStarMark } from "@/components/login-brand-mark";
 import { cn } from "@/lib/utils";
@@ -16,6 +16,17 @@ const navItems = [
   { label: "Admin", href: "/admin" },
   { label: "Leadership", href: "/leadership" }
 ];
+
+function LogoutForm({ className }: { className?: string }) {
+  return (
+    <form action="/api/auth/user/logout" method="post" className={className}>
+      <Button type="submit" variant="ghost" size="sm" className="w-full text-zinc-300 hover:text-zinc-50">
+        <LogOut className="h-4 w-4" />
+        Log out
+      </Button>
+    </form>
+  );
+}
 
 export function SiteNav() {
   const pathname = usePathname();
@@ -58,6 +69,7 @@ export function SiteNav() {
                 Guide
               </Link>
             </Button>
+            <LogoutForm className="hidden md:block" />
             <Button
               variant="ghost"
               size="sm"
@@ -92,6 +104,7 @@ export function SiteNav() {
                 Guide
               </Link>
             </Button>
+            <LogoutForm />
           </div>
         ) : null}
       </nav>
