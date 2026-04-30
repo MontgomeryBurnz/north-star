@@ -1,7 +1,7 @@
 "use client";
 
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
-import { CheckCircle2, ChevronDown, MailCheck, MailWarning, Pencil, PlusCircle, RefreshCw, ShieldCheck, UserPlus, UsersRound, XCircle } from "lucide-react";
+import { CheckCircle2, ChevronDown, MailCheck, MailWarning, Pencil, PlusCircle, RefreshCw, ShieldCheck, Trash2, UserPlus, UsersRound, XCircle } from "lucide-react";
 import type {
   AppUserCredentialStatus,
   AppUserType,
@@ -83,6 +83,7 @@ export function AdminUserManagementCard() {
   const [newProgramRole, setNewProgramRole] = useState("");
   const [roleSaveState, setRoleSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const [roleStatus, setRoleStatus] = useState<string | null>(null);
+  const [deletingUserId, setDeletingUserId] = useState<string | null>(null);
 
   const selectedProgram = useMemo(
     () => programs.find((program) => program.id === form.programId),
@@ -387,6 +388,71 @@ export function AdminUserManagementCard() {
       setSaveState("error");
       setStatusTone("error");
       setStatus(error instanceof Error ? error.message : "Could not save user.");
+    }
+  }
+
+  async function removeManagedUser(user: ManagedAppUser) {
+    const confirmed = window.confirm(
+      `Remove ${user.name} from North Star? This also removes their linked login account when Supabase Auth is connected.`
+    );
+
+    if (!confirmed) return;
+
+    setDeletingUserId(user.id);
+    setStatusTone("neutral");
+    setStatus(`Removing ${user.name}...`);
+
+    try {
+      const response = await fetch("/api/admin/users", {
+        method: "DELETE",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ id: user.id })
+      });
+      const payload = (await response.json()) as {
+        authDeletion?: { deleted: boolean; skipped: boolean };
+        error?: string;
+        invitationProvider?: InvitationProviderStatus;
+        user?: ManagedAppUser;
+      };
+
+      if (!response.ok || !payload.user) {
+        throw new Error(payload.error ?? "Could not remove user.");
+      }
+
+      if (payload.invitationProvider) {
+        setInvitationProvider(payload.invitationProvider);
+      }
+
+      setUsers((current) => current.filter((item) => item.id !== payload.user?.id));
+      setExpandedUsers((current) => {
+        const nextExpandedUsers = { ...current };
+        delete nextExpandedUsers[user.id];
+        return nextExpandedUsers;
+      });
+
+      if (form.id === user.id) {
+        setForm((current) => ({
+          ...emptyForm,
+          programId: current.programId,
+          role: current.role
+        }));
+        setAssignmentDrafts([]);
+        setSaveState("idle");
+      }
+
+      setStatusTone("success");
+      setStatus(
+        payload.authDeletion?.deleted
+          ? `${payload.user.name} was removed from Admin and their linked login account was deleted. You can send a fresh invite to this email.`
+          : payload.authDeletion?.skipped
+            ? `${payload.user.name} was removed from Admin. Supabase Auth cleanup was skipped because service-role access is not configured.`
+            : `${payload.user.name} was removed from Admin. No linked login account was found.`
+      );
+    } catch (error) {
+      setStatusTone("error");
+      setStatus(error instanceof Error ? error.message : "Could not remove user.");
+    } finally {
+      setDeletingUserId(null);
     }
   }
 
@@ -812,11 +878,21 @@ export function AdminUserManagementCard() {
                           type="button"
                           variant="outline"
                           onClick={() => editUserAccess(user)}
-                          disabled={saveState === "saving"}
+                          disabled={saveState === "saving" || deletingUserId === user.id}
                           className={form.id === user.id ? "border-emerald-300/40 bg-emerald-300/[0.08] text-emerald-100" : undefined}
                         >
                           <Pencil className="h-4 w-4" />
                           {form.id === user.id ? "Editing" : "Edit access"}
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={() => void removeManagedUser(user)}
+                          disabled={deletingUserId === user.id}
+                          className="border-rose-300/25 text-rose-100 hover:border-rose-300/45 hover:bg-rose-300/[0.08]"
+                        >
+                          {deletingUserId === user.id ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+                          {deletingUserId === user.id ? "Removing..." : "Remove user"}
                         </Button>
                       </div>
                     </div>

@@ -48,6 +48,7 @@ type ProgramRepository = {
   createOpenAIUsageRecord(programId: string, usage: OpenAIUsageRecordInput): Promise<OpenAIUsageRecord>;
   listManagedUsers(): Promise<ManagedAppUser[]>;
   upsertManagedUser(input: ManagedAppUserInput): Promise<ManagedAppUser>;
+  deleteManagedUser(userId: string): Promise<ManagedAppUser | null>;
 };
 
 type ProgramStoreFile = {
@@ -595,6 +596,18 @@ const fileRepository: ProgramRepository = {
     store.managedUsers = [result.record, ...store.managedUsers.filter((user) => user.id !== result.record.id)];
     await writeFileStore(store);
     return result.record;
+  },
+  async deleteManagedUser(userId) {
+    const store = await readFileStore();
+    const user = store.managedUsers.find((item) => item.id === userId) ?? null;
+
+    if (!user) {
+      return null;
+    }
+
+    store.managedUsers = store.managedUsers.filter((item) => item.id !== userId);
+    await writeFileStore(store);
+    return user;
   }
 };
 
@@ -1388,6 +1401,26 @@ const postgresRepository: ProgramRepository = {
       ]
     );
     return record;
+  },
+  async deleteManagedUser(userId) {
+    await ensurePostgresSchema();
+    const existing = await getPool().query(
+      `
+        SELECT record
+        FROM managed_users
+        WHERE id = $1
+        LIMIT 1
+      `,
+      [userId]
+    );
+    const user = existing.rows[0] ? mapManagedUserRow(existing.rows[0]) : null;
+
+    if (!user) {
+      return null;
+    }
+
+    await getPool().query("DELETE FROM managed_users WHERE id = $1", [userId]);
+    return user;
   }
 };
 

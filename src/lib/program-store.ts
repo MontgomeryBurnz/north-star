@@ -121,3 +121,7 @@ export async function listManagedUsers() {
 export async function upsertManagedUser(input: ManagedAppUserInput) {
   return getProgramRepository().upsertManagedUser(input);
 }
+
+export async function deleteManagedUser(userId: string) {
+  return getProgramRepository().deleteManagedUser(userId);
+}

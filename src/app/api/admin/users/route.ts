@@ -1,9 +1,10 @@
 import { NextResponse } from "next/server";
-import type { ManagedAppUserInput } from "@/lib/admin-user-types";
+import type { ManagedAppUser, ManagedAppUserInput } from "@/lib/admin-user-types";
 import { getInvitationProviderStatus, inviteManagedUser } from "@/lib/admin-user-invitations";
 import { getLeadershipAccessContext } from "@/lib/leadership-auth";
-import { listManagedUsers, upsertManagedUser } from "@/lib/program-store";
+import { deleteManagedUser, listManagedUsers, upsertManagedUser } from "@/lib/program-store";
 import { createSiteAccessDeniedResponse, isSiteAccessRequestAuthorized } from "@/lib/site-access";
+import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/lib/supabase/server";
 
 async function requireAdminAccess(request: Request) {
   if (!isSiteAccessRequestAuthorized(request)) {
@@ -16,6 +17,43 @@ async function requireAdminAccess(request: Request) {
   }
 
   return null;
+}
+
+function isAuthUserAlreadyGone(error: { message?: string; status?: number } | null) {
+  if (!error) return false;
+  return error.status === 404 || error.message?.toLowerCase().includes("not found");
+}
+
+async function findSupabaseAuthUserIdByEmail(email: string) {
+  const supabase = createSupabaseAdminClient();
+  const { data, error } = await supabase.auth.admin.listUsers({ page: 1, perPage: 1000 });
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return data.users.find((user) => user.email?.toLowerCase() === email.toLowerCase())?.id ?? null;
+}
+
+async function deleteLinkedAuthUser(user: ManagedAppUser) {
+  if (!isSupabaseAdminConfigured()) {
+    return { deleted: false, skipped: true };
+  }
+
+  const supabase = createSupabaseAdminClient();
+  const authUserId = user.authUserId ?? (await findSupabaseAuthUserIdByEmail(user.email));
+
+  if (!authUserId) {
+    return { deleted: false, skipped: false };
+  }
+
+  const { error } = await supabase.auth.admin.deleteUser(authUserId);
+
+  if (error && !isAuthUserAlreadyGone(error)) {
+    throw new Error(error.message);
+  }
+
+  return { deleted: !error, skipped: false };
 }
 
 export async function GET(request: Request) {
@@ -73,6 +111,41 @@ export async function POST(request: Request) {
   } catch (error) {
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "Could not save user." },
+      { status: 400 }
+    );
+  }
+}
+
+export async function DELETE(request: Request) {
+  const denied = await requireAdminAccess(request);
+  if (denied) return denied;
+
+  const body = (await request.json().catch(() => ({}))) as { id?: string };
+  const userId = body.id?.trim();
+
+  if (!userId) {
+    return NextResponse.json({ error: "User id is required." }, { status: 400 });
+  }
+
+  const users = await listManagedUsers();
+  const user = users.find((item) => item.id === userId);
+
+  if (!user) {
+    return NextResponse.json({ error: "Managed user was not found." }, { status: 404 });
+  }
+
+  try {
+    const authDeletion = await deleteLinkedAuthUser(user);
+    const deletedUser = await deleteManagedUser(userId);
+
+    return NextResponse.json({
+      authDeletion,
+      invitationProvider: getInvitationProviderStatus(),
+      user: deletedUser ?? user
+    });
+  } catch (error) {
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : "Could not remove user." },
       { status: 400 }
     );
   }
