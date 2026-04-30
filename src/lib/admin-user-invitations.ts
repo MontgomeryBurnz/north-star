@@ -6,6 +6,7 @@ import {
   getNorthStarEmailDeliveryStatus,
   sendNorthStarEmail
 } from "@/lib/north-star-auth-emails";
+import { upsertManagedUser } from "@/lib/program-store";
 import { buildPublicAppUrl } from "@/lib/public-origin";
 import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/lib/supabase/server";
 import { createUserActivationToken } from "@/lib/user-activation-tokens";
@@ -185,6 +186,24 @@ export async function inviteManagedUser(user: ManagedAppUser, request: Request):
 
   const activation = createUserActivationToken();
   const actionUrl = buildManagedUserActivationUrl({ request, token: activation.token });
+  const invitedAt = data.user?.invited_at ?? data.user?.confirmation_sent_at ?? new Date().toISOString();
+
+  // Persist the North Star token before sending email so link scanners or fast user clicks
+  // cannot observe a valid-looking invite URL before the backing token exists.
+  await upsertManagedUser({
+    id: user.id,
+    name: user.name,
+    email: user.email,
+    userType: user.userType,
+    credentialStatus: "invited",
+    activationTokenCreatedAt: activation.createdAt,
+    activationTokenExpiresAt: activation.expiresAt,
+    activationTokenHash: activation.tokenHash,
+    authUserId: data.user?.id,
+    invitedAt,
+    lastAuthSyncAt: new Date().toISOString(),
+    invitationError: ""
+  });
 
   try {
     await sendNorthStarEmail({
@@ -214,7 +233,7 @@ export async function inviteManagedUser(user: ManagedAppUser, request: Request):
     activationTokenExpiresAt: activation.expiresAt,
     activationTokenHash: activation.tokenHash,
     authUserId: data.user?.id,
-    invitedAt: data.user?.invited_at ?? data.user?.confirmation_sent_at ?? new Date().toISOString()
+    invitedAt
   };
 }
 

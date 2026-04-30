@@ -466,16 +466,14 @@ export function AdminUserManagementCard() {
       setSaveState("saved");
       if (invitation?.ok) {
         setStatusTone("success");
-        const successStatus =
+        setSetupLink(null);
+        setStatus(
           savedUser.userType === "admin"
-            ? `${savedUser.name} was ${wasEditing ? "updated" : "saved"} with Admin access. Supabase marked the invite email sent, and a secure setup link is ready below for alpha fallback.`
+            ? `${savedUser.name} was ${wasEditing ? "updated" : "saved"} with Admin access, and the North Star invite email was sent.`
             : `${savedUser.name} was ${wasEditing ? "updated" : "saved"} with ${savedUser.assignments.length} program role assignment${
                 savedUser.assignments.length === 1 ? "" : "s"
-              }. Supabase marked the invite email sent, and a secure setup link is ready below for alpha fallback.`;
-        await generateSetupLink(savedUser, {
-          initialStatus: `${savedUser.name} was saved and Supabase marked the invite sent. Preparing a secure setup link in case email delivery is delayed...`,
-          successStatus
-        });
+              }, and the North Star invite email was sent.`
+        );
         setExpandedUsers((current) => ({ ...current, [savedUser.id]: true }));
       } else if (invitation && !invitation.ok) {
         setStatusTone("error");
@@ -594,7 +592,7 @@ export function AdminUserManagementCard() {
               Secure setup link
             </p>
             <p className="text-sm leading-6 text-zinc-300">
-              Use this only for {setupLink.userName} if the email invite is delayed, quarantined, or blocked.
+              Use this only for {setupLink.userName} if the email invite is delayed, quarantined, or blocked. A newly generated setup link replaces that user&apos;s previous invite link.
             </p>
             <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto]">
               <input
@@ -816,8 +814,8 @@ export function AdminUserManagementCard() {
               <p className="text-xs leading-5 text-zinc-500">
                 {brandedEmailReady
                   ? smtpEmailReady
-                    ? "Invites use the configured mailbox and Supabase Auth setup links. No plaintext passwords are stored here."
-                    : "Invites use branded North Star email and Supabase Auth setup links. No plaintext passwords are stored here."
+                    ? "Invites use the configured mailbox and North Star activation links. No plaintext passwords are stored here."
+                    : "Invites use branded North Star email and North Star activation links. No plaintext passwords are stored here."
                   : invitationProvider?.configured
                     ? "External invite email is not ready. Save the user as a draft until a verified sender is connected."
                     : "Supabase service-role invitations are not configured. Users can still be mapped for role-aware UI defaults."}

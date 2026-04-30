@@ -54,7 +54,7 @@ function escapeHtml(value: string) {
     .replace(/'/g, "&#039;");
 }
 
-function getNorthStarEmailBrandHost(actionUrl: string) {
+function getNorthStarEmailBrandOrigin(actionUrl: string) {
   const candidates = [
     process.env.NORTHSTAR_APP_URL,
     process.env.NEXT_PUBLIC_NORTHSTAR_APP_URL,
@@ -69,10 +69,20 @@ function getNorthStarEmailBrandHost(actionUrl: string) {
 
     try {
       const withProtocol = /^https?:\/\//i.test(candidate) ? candidate : `https://${candidate}`;
-      return new URL(withProtocol).hostname.replace(/^www\./i, "");
+      return new URL(withProtocol).origin;
     } catch {
       // Continue through less authoritative fallbacks.
     }
+  }
+
+  return "https://www.north-star.live";
+}
+
+function getNorthStarEmailBrandHost(actionUrl: string) {
+  try {
+    return new URL(getNorthStarEmailBrandOrigin(actionUrl)).hostname.replace(/^www\./i, "");
+  } catch {
+    // The origin helper returns a valid default, but keep the display host defensive.
   }
 
   return "north-star.live";
@@ -163,6 +173,7 @@ export function buildNorthStarAuthEmail(input: NorthStarEmailInput) {
   const safePreview = escapeHtml(input.preview);
   const safeTitle = escapeHtml(input.title);
   const safeBrandHost = escapeHtml(getNorthStarEmailBrandHost(input.actionUrl));
+  const safeBrandMarkUrl = escapeHtml(new URL("/northstar-email-mark.png", getNorthStarEmailBrandOrigin(input.actionUrl)).toString());
 
   return `<!doctype html>
 <html lang="en">
@@ -182,18 +193,7 @@ export function buildNorthStarAuthEmail(input: NorthStarEmailInput) {
                 <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
                   <tr>
                     <td valign="top" style="width:150px;">
-                      <table role="presentation" width="132" height="132" cellspacing="0" cellpadding="0" style="border-collapse:collapse;">
-                        <tr>
-                          <td align="center" valign="middle" style="width:132px;height:132px;border-radius:999px;background:radial-gradient(circle at 50% 52%,rgba(34,197,94,0.2),rgba(3,7,18,0) 67%);">
-                            <div style="width:106px;height:106px;border-radius:999px;background:radial-gradient(circle at 33% 27%,#dfffea 0%,#39d978 24%,#0a331f 58%,#020605 100%);border:1px solid rgba(167,243,208,0.5);box-shadow:0 0 30px rgba(52,211,153,0.38),inset -18px -12px 32px rgba(0,0,0,0.76);">
-                              <div style="height:24px;line-height:24px;font-size:0;">&nbsp;</div>
-                              <div style="margin:0 auto;width:58px;height:58px;border-radius:999px;border:1px solid rgba(217,255,226,0.42);background:rgba(3,12,9,0.56);box-shadow:inset 0 0 18px rgba(167,243,208,0.18);color:#edfff4;font-size:34px;font-weight:900;line-height:58px;text-align:center;letter-spacing:-0.08em;text-shadow:0 0 18px rgba(167,243,208,0.9);">N</div>
-                              <div style="margin:-24px auto 0;width:94px;height:5px;border-radius:999px;background:linear-gradient(90deg,rgba(34,197,94,0),rgba(167,243,208,0.9),#ffffff);box-shadow:0 0 18px rgba(74,222,128,0.9);">&nbsp;</div>
-                              <div style="margin:-18px 13px 0 auto;width:17px;height:17px;border-radius:999px;background:#f3fff6;box-shadow:0 0 18px #ffffff,0 0 32px rgba(74,222,128,0.95),0 0 52px rgba(34,197,94,0.72);font-size:0;">&nbsp;</div>
-                            </div>
-                          </td>
-                        </tr>
-                      </table>
+                      <img src="${safeBrandMarkUrl}" width="132" height="132" alt="North Star globe and guiding star" style="display:block;width:132px;height:132px;border:0;outline:none;text-decoration:none;border-radius:999px;filter:drop-shadow(0 0 22px rgba(52,211,153,0.34));">
                     </td>
                     <td align="right" valign="top" style="color:#a7f3d0;font-size:12px;font-weight:800;letter-spacing:0.22em;text-transform:uppercase;">North Star<br><span style="display:inline-block;margin-top:8px;color:#67e8f9;font-size:11px;font-weight:700;letter-spacing:0.12em;text-transform:none;">${safeBrandHost}</span></td>
                   </tr>
