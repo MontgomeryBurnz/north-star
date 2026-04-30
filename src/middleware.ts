@@ -5,6 +5,7 @@ function isPublicPath(pathname: string) {
   if (
     pathname === "/login" ||
     pathname === "/client" ||
+    pathname === "/auth/activate" ||
     pathname === "/auth/callback" ||
     pathname === "/auth/reset-password" ||
     pathname === "/auth/setup" ||

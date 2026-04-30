@@ -14,9 +14,18 @@ function getRecoveryRedirectUrl(request: Request) {
   return redirectTo.toString();
 }
 
-function getRecoveryActionUrl(request: Request, tokenHash: string) {
-  const actionUrl = buildPublicAppUrl("/auth/callback", request);
+function getRecoveryTokenHashActionUrl(request: Request, tokenHash: string) {
+  const actionUrl = buildPublicAppUrl("/auth/activate", request);
   actionUrl.searchParams.set("token_hash", tokenHash);
+  actionUrl.searchParams.set("type", "recovery");
+  actionUrl.searchParams.set("next", "/auth/reset-password");
+  return actionUrl.toString();
+}
+
+function getRecoveryEmailOtpActionUrl(request: Request, email: string, token: string) {
+  const actionUrl = buildPublicAppUrl("/auth/activate", request);
+  actionUrl.searchParams.set("email", email);
+  actionUrl.searchParams.set("token", token);
   actionUrl.searchParams.set("type", "recovery");
   actionUrl.searchParams.set("next", "/auth/reset-password");
   return actionUrl.toString();
@@ -38,9 +47,11 @@ async function sendBrandedRecoveryEmail(email: string, request: Request) {
     return false;
   }
 
-  const actionUrl = data.properties.hashed_token
-    ? getRecoveryActionUrl(request, data.properties.hashed_token)
-    : data.properties.action_link;
+  const actionUrl = data.properties.email_otp
+    ? getRecoveryEmailOtpActionUrl(request, email, data.properties.email_otp)
+    : data.properties.hashed_token
+      ? getRecoveryTokenHashActionUrl(request, data.properties.hashed_token)
+      : data.properties.action_link;
 
   await sendNorthStarEmail({
     html: buildNorthStarRecoveryEmail({

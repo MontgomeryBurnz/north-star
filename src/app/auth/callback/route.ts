@@ -31,6 +31,8 @@ export async function GET(request: Request) {
   const code = url.searchParams.get("code");
   const tokenHash = url.searchParams.get("token_hash");
   const tokenType = getTokenHashType(url.searchParams.get("type"));
+  const token = url.searchParams.get("token");
+  const email = url.searchParams.get("email");
   const tokenNext = tokenType === "invite" || tokenType === "signup"
     ? "/auth/setup"
     : tokenType === "recovery"
@@ -48,14 +50,19 @@ export async function GET(request: Request) {
     return attachSiteAccessCookie(NextResponse.redirect(new URL(next, url.origin)));
   }
 
+  if ((tokenHash || token) && tokenType) {
+    const activateUrl = new URL("/auth/activate", url.origin);
+    if (email) activateUrl.searchParams.set("email", email);
+    if (token) activateUrl.searchParams.set("token", token);
+    if (tokenHash) activateUrl.searchParams.set("token_hash", tokenHash);
+    activateUrl.searchParams.set("type", tokenType);
+    activateUrl.searchParams.set("next", next);
+    return NextResponse.redirect(activateUrl);
+  }
+
   const supabase = await createSupabaseServerClient();
-  if (code || (tokenHash && tokenType)) {
-    const { error } = code
-      ? await supabase.auth.exchangeCodeForSession(code)
-      : await supabase.auth.verifyOtp({
-          token_hash: tokenHash as string,
-          type: tokenType as SupportedTokenHashType
-        });
+  if (code) {
+    const { error } = await supabase.auth.exchangeCodeForSession(code);
 
     if (error) {
       const loginUrl = new URL("/login", url.origin);

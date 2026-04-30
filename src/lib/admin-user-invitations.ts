@@ -92,14 +92,22 @@ async function generateSetupLink({
     };
   }
 
-  const setupUrl = data.properties.hashed_token
-    ? buildSupabaseTokenCallbackUrl({
+  const setupUrl = data.properties.email_otp
+    ? buildSupabaseEmailOtpActivationUrl({
+        email: user.email,
+        nextPath: "/auth/setup",
+        request,
+        token: data.properties.email_otp,
+        type
+      })
+    : data.properties.hashed_token
+      ? buildSupabaseTokenActivationUrl({
         nextPath: "/auth/setup",
         request,
         tokenHash: data.properties.hashed_token,
         type
       })
-    : data.properties.action_link;
+      : data.properties.action_link;
 
   return {
     ok: true,
@@ -179,14 +187,22 @@ export async function inviteManagedUser(user: ManagedAppUser, request: Request):
     };
   }
 
-  const actionUrl = data.properties.hashed_token
-    ? buildSupabaseTokenCallbackUrl({
+  const actionUrl = data.properties.email_otp
+    ? buildSupabaseEmailOtpActivationUrl({
+        email: user.email,
+        nextPath: "/auth/setup",
+        request,
+        token: data.properties.email_otp,
+        type: "invite"
+      })
+    : data.properties.hashed_token
+      ? buildSupabaseTokenActivationUrl({
         nextPath: "/auth/setup",
         request,
         tokenHash: data.properties.hashed_token,
         type: "invite"
       })
-    : data.properties.action_link;
+      : data.properties.action_link;
 
   try {
     await sendNorthStarEmail({
@@ -217,7 +233,7 @@ export async function inviteManagedUser(user: ManagedAppUser, request: Request):
   };
 }
 
-function buildSupabaseTokenCallbackUrl({
+function buildSupabaseTokenActivationUrl({
   nextPath,
   request,
   tokenHash,
@@ -228,9 +244,30 @@ function buildSupabaseTokenCallbackUrl({
   tokenHash: string;
   type: "invite" | "recovery";
 }) {
-  const callbackUrl = buildPublicAppUrl("/auth/callback", request);
-  callbackUrl.searchParams.set("token_hash", tokenHash);
-  callbackUrl.searchParams.set("type", type);
-  callbackUrl.searchParams.set("next", nextPath);
-  return callbackUrl.toString();
+  const activationUrl = buildPublicAppUrl("/auth/activate", request);
+  activationUrl.searchParams.set("token_hash", tokenHash);
+  activationUrl.searchParams.set("type", type);
+  activationUrl.searchParams.set("next", nextPath);
+  return activationUrl.toString();
+}
+
+function buildSupabaseEmailOtpActivationUrl({
+  email,
+  nextPath,
+  request,
+  token,
+  type
+}: {
+  email: string;
+  nextPath: string;
+  request: Request;
+  token: string;
+  type: "invite" | "recovery";
+}) {
+  const activationUrl = buildPublicAppUrl("/auth/activate", request);
+  activationUrl.searchParams.set("email", email);
+  activationUrl.searchParams.set("token", token);
+  activationUrl.searchParams.set("type", type);
+  activationUrl.searchParams.set("next", nextPath);
+  return activationUrl.toString();
 }
