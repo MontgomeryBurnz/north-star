@@ -7,7 +7,7 @@ export default async function LeadershipPage() {
   await requireSiteAccessPage("/leadership");
   const access = await getLeadershipAccessContext();
   if (!access.authorized) {
-    redirect("/leadership/login?redirect=/leadership");
+    redirect("/login?redirect=/leadership");
   }
 
   return <LeadershipReviewConsole />;

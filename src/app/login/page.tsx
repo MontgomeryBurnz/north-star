@@ -1,8 +1,15 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { SiteAccessLoginForm } from "@/components/site-access-login-form";
+import { getAdminAccessContext, getLeadershipAccessContext } from "@/lib/leadership-auth";
 import { getSiteAccessConfig, isSiteAccessSessionTokenValid, siteAccessSessionCookieName } from "@/lib/site-access";
 import { isSupabaseConfigured } from "@/lib/supabase/server";
+
+function getRequiredAccessSurface(pathname: string) {
+  if (pathname.startsWith("/admin") || pathname.startsWith("/governance")) return "admin";
+  if (pathname.startsWith("/leadership")) return "leadership";
+  return null;
+}
 
 export default async function SiteLoginPage({
   searchParams
@@ -13,6 +20,7 @@ export default async function SiteLoginPage({
   const config = getSiteAccessConfig();
   const redirectTo = resolvedSearchParams.redirect || "/";
   const authError = resolvedSearchParams.authError === "expired" ? "expired" : undefined;
+  const requiredAccessSurface = getRequiredAccessSurface(redirectTo);
 
   if (!config.enabled) {
     redirect(redirectTo);
@@ -20,9 +28,24 @@ export default async function SiteLoginPage({
 
   const cookieStore = await cookies();
   const sessionToken = cookieStore.get(siteAccessSessionCookieName)?.value;
-  if (isSiteAccessSessionTokenValid(sessionToken)) {
+  if (requiredAccessSurface) {
+    const access = requiredAccessSurface === "admin"
+      ? await getAdminAccessContext()
+      : await getLeadershipAccessContext();
+
+    if (access.authorized) {
+      redirect(redirectTo);
+    }
+  } else if (isSiteAccessSessionTokenValid(sessionToken)) {
     redirect(redirectTo);
   }
 
-  return <SiteAccessLoginForm authError={authError} redirectTo={redirectTo} userAuthEnabled={isSupabaseConfigured()} />;
+  return (
+    <SiteAccessLoginForm
+      authError={authError}
+      redirectTo={redirectTo}
+      requireUserAuth={Boolean(requiredAccessSurface)}
+      userAuthEnabled={isSupabaseConfigured()}
+    />
+  );
 }

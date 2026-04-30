@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { canAccessAdminSurface, canAccessLeadershipSurface } from "../src/lib/admin-user-types.ts";
 import { buildManagedAppUserRecord } from "../src/lib/admin-user-service.ts";
 import type { StoredProgram } from "../src/lib/program-intake-types.ts";
 
@@ -225,6 +226,15 @@ test("buildManagedAppUserRecord treats client users as program-scoped", () => {
   assert.equal(result.record.userType, "client");
   assert.equal(result.record.assignments.length, 1);
   assert.equal(result.record.assignments[0]?.role, "Executive Sponsor");
+});
+
+test("managed user surfaces authorize admin and leadership roles correctly", () => {
+  assert.equal(canAccessAdminSurface({ credentialStatus: "active", userType: "admin" }), true);
+  assert.equal(canAccessAdminSurface({ credentialStatus: "active", userType: "leadership" }), false);
+  assert.equal(canAccessLeadershipSurface({ credentialStatus: "active", userType: "admin" }), true);
+  assert.equal(canAccessLeadershipSurface({ credentialStatus: "active", userType: "leadership" }), true);
+  assert.equal(canAccessLeadershipSurface({ credentialStatus: "active", userType: "team-member" }), false);
+  assert.equal(canAccessLeadershipSurface({ credentialStatus: "disabled", userType: "admin" }), false);
 });
 
 test("buildManagedAppUserRecord merges new assignments without dropping existing program roles", () => {

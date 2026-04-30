@@ -1,5 +1,8 @@
 import { cookies } from "next/headers";
 import type { User } from "@supabase/supabase-js";
+import type { ManagedAppUser } from "@/lib/admin-user-types";
+import { canAccessAdminSurface, canAccessLeadershipSurface } from "@/lib/admin-user-types";
+import { getCurrentManagedUser } from "@/lib/current-managed-user";
 import { createSupabaseServerClient, isSupabaseConfigured } from "@/lib/supabase/server";
 
 export const leadershipSessionCookieName = "leadership_session";
@@ -8,8 +11,11 @@ export type LeadershipAuthProvider = "env" | "supabase";
 
 export type LeadershipAccessContext =
   | { provider: "env"; authorized: true; identity: { type: "env-session" } }
+  | { provider: "managed-user"; authorized: true; identity: { type: "managed-user"; user: ManagedAppUser } }
   | { provider: "supabase"; authorized: true; identity: { type: "supabase-user"; user: User } }
-  | { provider: LeadershipAuthProvider; authorized: false; reason: string };
+  | { provider: LeadershipAuthProvider | "managed-user"; authorized: false; reason: string };
+
+type ManagedAccessSurface = "admin" | "leadership";
 
 function splitCsv(value: string | undefined) {
   return (value ?? "")
@@ -80,7 +86,47 @@ function userHasLeadershipAccess(user: User) {
   return false;
 }
 
+function userCanAccessSurface(user: ManagedAppUser | null, surface: ManagedAccessSurface) {
+  return surface === "admin" ? canAccessAdminSurface(user) : canAccessLeadershipSurface(user);
+}
+
+async function getManagedAccessContext(surface: ManagedAccessSurface): Promise<LeadershipAccessContext | null> {
+  if (!isSupabaseConfigured()) return null;
+
+  const user = await getCurrentManagedUser();
+  if (!user) {
+    return { provider: "managed-user", authorized: false, reason: "No active North Star user session." };
+  }
+
+  if (!userCanAccessSurface(user, surface)) {
+    return {
+      provider: "managed-user",
+      authorized: false,
+      reason: `Signed-in user is not allowed to view the ${surface} surface.`
+    };
+  }
+
+  return {
+    provider: "managed-user",
+    authorized: true,
+    identity: {
+      type: "managed-user",
+      user
+    }
+  };
+}
+
+export async function getAdminAccessContext(): Promise<LeadershipAccessContext> {
+  const managedAccess = await getManagedAccessContext("admin");
+  if (managedAccess) return managedAccess;
+
+  return { provider: "managed-user", authorized: false, reason: "Admin access requires a North Star user account." };
+}
+
 export async function getLeadershipAccessContext(): Promise<LeadershipAccessContext> {
+  const managedAccess = await getManagedAccessContext("leadership");
+  if (managedAccess) return managedAccess;
+
   const provider = getConfiguredLeadershipAuthProvider();
 
   if (provider === "env") {

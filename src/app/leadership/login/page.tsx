@@ -1,35 +1,20 @@
-import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import { LeadershipLoginForm } from "@/components/leadership-login-form";
-import {
-  getConfiguredLeadershipAuthProvider,
-  getLeadershipAccessContext,
-  isLeadershipSessionTokenValid,
-  leadershipSessionCookieName
-} from "@/lib/leadership-auth";
-import { requireSiteAccessPage } from "@/lib/site-access";
+import { getAdminAccessContext, getLeadershipAccessContext } from "@/lib/leadership-auth";
 
 export default async function LeadershipLoginPage({
   searchParams
 }: {
   searchParams: Promise<{ redirect?: string }>;
 }) {
-  await requireSiteAccessPage("/leadership/login");
   const resolvedSearchParams = await searchParams;
-  const authProvider = getConfiguredLeadershipAuthProvider();
+  const redirectTo = resolvedSearchParams.redirect || "/leadership";
+  const access = redirectTo.startsWith("/admin") || redirectTo.startsWith("/governance")
+    ? await getAdminAccessContext()
+    : await getLeadershipAccessContext();
 
-  if (authProvider === "supabase") {
-    const access = await getLeadershipAccessContext();
-    if (access.authorized) {
-      redirect(resolvedSearchParams.redirect || "/leadership");
-    }
-  } else {
-    const cookieStore = await cookies();
-    const sessionToken = cookieStore.get(leadershipSessionCookieName)?.value;
-    if (isLeadershipSessionTokenValid(sessionToken)) {
-      redirect(resolvedSearchParams.redirect || "/leadership");
-    }
+  if (access.authorized) {
+    redirect(redirectTo);
   }
 
-  return <LeadershipLoginForm redirectTo={resolvedSearchParams.redirect || "/leadership"} provider={authProvider} />;
+  redirect(`/login?redirect=${encodeURIComponent(redirectTo)}`);
 }

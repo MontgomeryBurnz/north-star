@@ -8,6 +8,7 @@ function isPublicPath(pathname: string) {
     pathname === "/auth/callback" ||
     pathname === "/auth/reset-password" ||
     pathname === "/auth/setup" ||
+    pathname === "/leadership/login" ||
     pathname.startsWith("/api/auth/site-access/login") ||
     pathname.startsWith("/api/auth/user/") ||
     pathname.startsWith("/api/security/supabase-rls-check") ||

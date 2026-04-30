@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getLeadershipAccessContext } from "@/lib/leadership-auth";
+import { getAdminAccessContext } from "@/lib/leadership-auth";
 import { createGuidedPlan, getProgram, upsertProgram } from "@/lib/program-store";
 import { createSiteAccessDeniedResponse, isSiteAccessRequestAuthorized } from "@/lib/site-access";
 import { addProgramRoleToIntake } from "@/lib/team-roles";
@@ -9,7 +9,7 @@ async function requireAdminAccess(request: Request) {
     return createSiteAccessDeniedResponse();
   }
 
-  const access = await getLeadershipAccessContext();
+  const access = await getAdminAccessContext();
   if (!access.authorized) {
     return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
   }

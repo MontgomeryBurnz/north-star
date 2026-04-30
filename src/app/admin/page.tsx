@@ -3,14 +3,14 @@ import { AdminUserManagementCard } from "@/components/admin-user-management-card
 import { GovernanceDashboard } from "@/components/governance-dashboard";
 import { SectionHeader } from "@/components/section-header";
 import { getGuidanceModelProfile } from "@/lib/guidance-model-profile";
-import { getLeadershipAccessContext } from "@/lib/leadership-auth";
+import { getAdminAccessContext } from "@/lib/leadership-auth";
 import { requireSiteAccessPage } from "@/lib/site-access";
 
 export default async function AdminPage() {
   await requireSiteAccessPage("/admin");
-  const access = await getLeadershipAccessContext();
+  const access = await getAdminAccessContext();
   if (!access.authorized) {
-    redirect("/leadership/login?redirect=/admin");
+    redirect("/login?redirect=/admin");
   }
 
   return (

@@ -9,10 +9,12 @@ import { LoginBrandMark } from "@/components/login-brand-mark";
 
 export function SiteAccessLoginForm({
   authError,
+  requireUserAuth = false,
   redirectTo,
   userAuthEnabled
 }: {
   authError?: "expired";
+  requireUserAuth?: boolean;
   redirectTo: string;
   userAuthEnabled: boolean;
 }) {
@@ -21,7 +23,7 @@ export function SiteAccessLoginForm({
   const [userEmail, setUserEmail] = useState("");
   const [userPassword, setUserPassword] = useState("");
   const [recoveryEmail, setRecoveryEmail] = useState("");
-  const [authMode, setAuthMode] = useState<"alpha" | "user">(userAuthEnabled ? "user" : "alpha");
+  const [authMode, setAuthMode] = useState<"alpha" | "user">(userAuthEnabled || requireUserAuth ? "user" : "alpha");
   const [showRecovery, setShowRecovery] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -120,7 +122,19 @@ export function SiteAccessLoginForm({
               </div>
             ) : null}
 
-            {userAuthEnabled ? (
+            {requireUserAuth && !userAuthEnabled ? (
+              <div className="rounded-md border border-amber-300/25 bg-amber-300/[0.07] p-3 text-sm leading-6 text-amber-100">
+                User account login is required for this page, but Supabase user auth is not configured.
+              </div>
+            ) : null}
+
+            {requireUserAuth && userAuthEnabled ? (
+              <div className="rounded-md border border-emerald-300/20 bg-emerald-300/[0.055] p-3 text-sm leading-6 text-zinc-300">
+                Use your North Star username and password. Access to this page is based on your assigned user type.
+              </div>
+            ) : null}
+
+            {userAuthEnabled && !requireUserAuth ? (
               <div className="grid grid-cols-2 gap-2 rounded-md border border-white/10 bg-black/20 p-1">
                 {[
                   ["user", "User login"],
@@ -146,7 +160,7 @@ export function SiteAccessLoginForm({
               </div>
             ) : null}
 
-            {authMode === "user" && userAuthEnabled ? (
+            {requireUserAuth && !userAuthEnabled ? null : authMode === "user" && userAuthEnabled ? (
               <div className="grid gap-4">
                 <div className="rounded-md border border-emerald-300/20 bg-emerald-300/[0.055] p-3">
                   <p className="flex items-center gap-2 text-sm font-medium text-emerald-100">

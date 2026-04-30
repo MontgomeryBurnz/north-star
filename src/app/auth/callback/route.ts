@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import type { ManagedAppUser } from "@/lib/admin-user-types";
 import { syncManagedUserFromAuthUser } from "@/lib/current-managed-user";
-import { getConfiguredLeadershipAuthProvider, getLeadershipAccessContext } from "@/lib/leadership-auth";
+import { getAdminAccessContext, getLeadershipAccessContext } from "@/lib/leadership-auth";
 import { attachSiteAccessCookie } from "@/lib/site-access";
 import { createSupabaseServerClient, isSupabaseConfigured } from "@/lib/supabase/server";
 
@@ -64,14 +64,17 @@ export async function GET(request: Request) {
   } = await supabase.auth.getUser();
   managedUser = user ? await syncManagedUserFromAuthUser(user) : null;
 
-  const protectedLeadershipPath = next.startsWith("/leadership") || next.startsWith("/admin") || next.startsWith("/governance");
-  if (!protectedLeadershipPath || getConfiguredLeadershipAuthProvider() !== "supabase") {
+  const protectedAdminPath = next.startsWith("/admin") || next.startsWith("/governance");
+  const protectedLeadershipPath = next.startsWith("/leadership");
+  if (!protectedAdminPath && !protectedLeadershipPath) {
     return attachInternalAccessForNonClient(NextResponse.redirect(new URL(next, url.origin)));
   }
 
-  const access = await getLeadershipAccessContext();
+  const access = protectedAdminPath ? await getAdminAccessContext() : await getLeadershipAccessContext();
   if (!access.authorized) {
-    return attachInternalAccessForNonClient(NextResponse.redirect(new URL("/leadership/login?error=access", url.origin)));
+    const loginUrl = new URL("/login", url.origin);
+    loginUrl.searchParams.set("redirect", next);
+    return attachInternalAccessForNonClient(NextResponse.redirect(loginUrl));
   }
 
   return attachInternalAccessForNonClient(NextResponse.redirect(new URL(next, url.origin)));

@@ -49,3 +49,15 @@ export type ManagedAppUserInput = Partial<
 export function isProgramScopedUserType(userType: AppUserType) {
   return userType !== "admin";
 }
+
+export function canAccessAdminSurface(user: Pick<ManagedAppUser, "credentialStatus" | "userType"> | null | undefined) {
+  return Boolean(user && user.credentialStatus !== "disabled" && user.userType === "admin");
+}
+
+export function canAccessLeadershipSurface(user: Pick<ManagedAppUser, "credentialStatus" | "userType"> | null | undefined) {
+  return Boolean(
+    user &&
+      user.credentialStatus !== "disabled" &&
+      (user.userType === "admin" || user.userType === "leadership")
+  );
+}

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import type { ManagedAppUser, ManagedAppUserInput } from "@/lib/admin-user-types";
 import { getInvitationProviderStatus, inviteManagedUser } from "@/lib/admin-user-invitations";
-import { getLeadershipAccessContext } from "@/lib/leadership-auth";
+import { getAdminAccessContext } from "@/lib/leadership-auth";
 import { deleteManagedUser, listManagedUsers, upsertManagedUser } from "@/lib/program-store";
 import { createSiteAccessDeniedResponse, isSiteAccessRequestAuthorized } from "@/lib/site-access";
 import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/lib/supabase/server";
@@ -11,7 +11,7 @@ async function requireAdminAccess(request: Request) {
     return createSiteAccessDeniedResponse();
   }
 
-  const access = await getLeadershipAccessContext();
+  const access = await getAdminAccessContext();
   if (!access.authorized) {
     return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
   }

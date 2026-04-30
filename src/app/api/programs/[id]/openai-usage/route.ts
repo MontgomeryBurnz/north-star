@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getLeadershipAccessContext } from "@/lib/leadership-auth";
+import { getAdminAccessContext } from "@/lib/leadership-auth";
 import { listOpenAIUsageRecords } from "@/lib/program-store";
 import { createSiteAccessDeniedResponse, isSiteAccessRequestAuthorized } from "@/lib/site-access";
 
@@ -8,7 +8,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     return createSiteAccessDeniedResponse();
   }
 
-  const access = await getLeadershipAccessContext();
+  const access = await getAdminAccessContext();
   if (!access.authorized) {
     return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
   }

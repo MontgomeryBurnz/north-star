@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getLeadershipAccessContext } from "@/lib/leadership-auth";
+import { getAdminAccessContext } from "@/lib/leadership-auth";
 import { getOpenAIBillingReconciliation } from "@/lib/openai-billing";
 import type { OpenAIBillingWindowKey } from "@/lib/openai-billing-types";
 import { listAllOpenAIUsageRecords } from "@/lib/program-store";
@@ -22,7 +22,7 @@ export async function GET(request: Request) {
     return createSiteAccessDeniedResponse();
   }
 
-  const access = await getLeadershipAccessContext();
+  const access = await getAdminAccessContext();
   if (!access.authorized) {
     return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
   }

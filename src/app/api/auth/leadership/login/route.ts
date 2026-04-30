@@ -6,10 +6,15 @@ import {
   leadershipSessionCookieName
 } from "@/lib/leadership-auth";
 import { createSiteAccessDeniedResponse, isSiteAccessRequestAuthorized } from "@/lib/site-access";
+import { isSupabaseConfigured } from "@/lib/supabase/server";
 
 export async function POST(request: Request) {
   if (!isSiteAccessRequestAuthorized(request)) {
     return createSiteAccessDeniedResponse();
+  }
+
+  if (isSupabaseConfigured()) {
+    return NextResponse.json({ error: "Use your North Star username and password." }, { status: 400 });
   }
 
   if (getConfiguredLeadershipAuthProvider() !== "env") {
