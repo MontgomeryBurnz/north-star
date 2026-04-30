@@ -51,13 +51,13 @@ export function isProgramScopedUserType(userType: AppUserType) {
 }
 
 export function canAccessAdminSurface(user: Pick<ManagedAppUser, "credentialStatus" | "userType"> | null | undefined) {
-  return Boolean(user && user.credentialStatus !== "disabled" && user.userType === "admin");
+  return Boolean(user && user.credentialStatus === "active" && user.userType === "admin");
 }
 
 export function canAccessLeadershipSurface(user: Pick<ManagedAppUser, "credentialStatus" | "userType"> | null | undefined) {
   return Boolean(
     user &&
-      user.credentialStatus !== "disabled" &&
+      user.credentialStatus === "active" &&
       (user.userType === "admin" || user.userType === "leadership")
   );
 }

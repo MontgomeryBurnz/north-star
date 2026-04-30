@@ -25,6 +25,19 @@ export async function syncManagedUserFromAuthUser(authUser: Pick<User, "id" | "e
     return managedUser;
   }
 
+  if (managedUser.credentialStatus === "invited") {
+    return upsertManagedUser({
+      id: managedUser.id,
+      name: managedUser.name,
+      email: managedUser.email,
+      userType: managedUser.userType,
+      credentialStatus: "invited",
+      authUserId: authUser.id,
+      lastAuthSyncAt: new Date().toISOString(),
+      invitationError: ""
+    });
+  }
+
   return upsertManagedUser({
     id: managedUser.id,
     name: managedUser.name,

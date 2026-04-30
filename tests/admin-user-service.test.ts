@@ -230,9 +230,11 @@ test("buildManagedAppUserRecord treats client users as program-scoped", () => {
 
 test("managed user surfaces authorize admin and leadership roles correctly", () => {
   assert.equal(canAccessAdminSurface({ credentialStatus: "active", userType: "admin" }), true);
+  assert.equal(canAccessAdminSurface({ credentialStatus: "invited", userType: "admin" }), false);
   assert.equal(canAccessAdminSurface({ credentialStatus: "active", userType: "leadership" }), false);
   assert.equal(canAccessLeadershipSurface({ credentialStatus: "active", userType: "admin" }), true);
   assert.equal(canAccessLeadershipSurface({ credentialStatus: "active", userType: "leadership" }), true);
+  assert.equal(canAccessLeadershipSurface({ credentialStatus: "invited", userType: "leadership" }), false);
   assert.equal(canAccessLeadershipSurface({ credentialStatus: "active", userType: "team-member" }), false);
   assert.equal(canAccessLeadershipSurface({ credentialStatus: "disabled", userType: "admin" }), false);
 });

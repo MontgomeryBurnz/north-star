@@ -31,7 +31,12 @@ export async function GET(request: Request) {
   const code = url.searchParams.get("code");
   const tokenHash = url.searchParams.get("token_hash");
   const tokenType = getTokenHashType(url.searchParams.get("type"));
-  const next = getSafeNextPath(url.searchParams.get("next") || "/leadership");
+  const tokenNext = tokenType === "invite" || tokenType === "signup"
+    ? "/auth/setup"
+    : tokenType === "recovery"
+      ? "/auth/reset-password"
+      : null;
+  const next = getSafeNextPath(tokenNext ?? (url.searchParams.get("next") || "/leadership"));
   let managedUser: ManagedAppUser | null = null;
 
   function attachInternalAccessForNonClient(response: NextResponse) {
