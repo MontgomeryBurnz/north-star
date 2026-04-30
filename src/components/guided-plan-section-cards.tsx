@@ -136,7 +136,7 @@ function RolePlanSignalGroup({
   );
 }
 
-function shortenInsight(value: string, maxLength = 170) {
+function shortenInsight(value: string, maxLength = 130) {
   const normalized = value.replace(/\s+/g, " ").trim();
 
   if (normalized.length <= maxLength) return normalized;
@@ -204,13 +204,13 @@ function DetailSection({
   footer?: ReactNode;
   section: GuidedPlanSection;
 }) {
-  const preview = shortenInsight(section.items[0] ?? "No detail is available yet.", 150);
+  const preview = shortenInsight(section.items[0] ?? "No detail is available yet.", 110);
 
   return (
     <details className="group rounded-md border border-white/10 bg-white/[0.035] p-3">
       <summary className="grid cursor-pointer list-none gap-2 sm:grid-cols-[minmax(0,0.8fr)_minmax(0,1fr)_auto] sm:items-center">
         <span className="text-sm font-semibold text-zinc-100">{section.title}</span>
-        <span className="text-xs leading-5 text-zinc-500">{preview}</span>
+        <span className="text-xs leading-5 text-zinc-500 line-clamp-2">{preview}</span>
         <span className="w-fit rounded-full border border-white/10 px-2 py-0.5 text-[11px] uppercase tracking-[0.12em] text-zinc-500">
           {section.items.length}
         </span>
