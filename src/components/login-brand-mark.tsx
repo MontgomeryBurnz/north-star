@@ -1,6 +1,7 @@
 "use client";
 
 import { useId } from "react";
+import Image from "next/image";
 import { cn } from "@/lib/utils";
 
 type MarkVariant = "hero" | "nav";
@@ -57,26 +58,36 @@ function BrandGlow({ variant }: { variant: MarkVariant }) {
   );
 }
 
-function GlobeCore({ variant }: { variant: MarkVariant }) {
+function IconCore({ variant }: { variant: MarkVariant }) {
   const isNav = variant === "nav";
 
   return (
     <div
       className={cn(
-        "north-star-globe relative overflow-hidden rounded-full border border-emerald-200/25 bg-[radial-gradient(circle_at_32%_28%,rgba(236,253,245,0.96)_0%,rgba(167,243,208,0.62)_12%,rgba(16,185,129,0.42)_31%,rgba(4,120,87,0.52)_56%,rgba(2,44,34,0.96)_100%)] shadow-[inset_-12px_-14px_22px_rgba(2,44,34,0.86),inset_10px_8px_18px_rgba(236,253,245,0.18),0_0_28px_rgba(52,211,153,0.52)]",
-        isNav ? "h-7 w-7" : "h-[6.6rem] w-[6.6rem]"
+        "north-star-icon-core relative flex items-center justify-center rounded-full border border-emerald-200/20 bg-[radial-gradient(circle,rgba(6,78,59,0.18)_0%,rgba(2,44,34,0.32)_45%,rgba(5,7,8,0.12)_72%,transparent_100%)] shadow-[0_0_24px_rgba(52,211,153,0.42),inset_0_0_18px_rgba(16,185,129,0.16)]",
+        isNav ? "h-10 w-10" : "h-[7.6rem] w-[7.6rem]"
       )}
       aria-hidden="true"
     >
-      <div className="north-star-globe-drift absolute inset-0 bg-[linear-gradient(90deg,transparent_0%,rgba(103,232,249,0.18)_15%,transparent_30%,rgba(52,211,153,0.2)_48%,transparent_64%,rgba(167,243,208,0.14)_83%,transparent_100%)] opacity-70" />
-      <svg viewBox="0 0 100 100" className="absolute inset-0 h-full w-full opacity-70" aria-hidden="true">
-        <path d="M12 50h76" stroke="rgba(209,250,229,0.34)" strokeWidth="1.2" fill="none" />
-        <path d="M18 32c19 8 45 8 64 0" stroke="rgba(209,250,229,0.24)" strokeWidth="1" fill="none" />
-        <path d="M18 68c19-8 45-8 64 0" stroke="rgba(209,250,229,0.2)" strokeWidth="1" fill="none" />
-        <ellipse cx="50" cy="50" rx="22" ry="43" stroke="rgba(209,250,229,0.2)" strokeWidth="1" fill="none" />
-        <ellipse cx="50" cy="50" rx="38" ry="43" stroke="rgba(103,232,249,0.16)" strokeWidth="1" fill="none" />
-      </svg>
-      <span className="absolute left-[18%] top-[16%] h-1/4 w-1/4 rounded-full bg-emerald-50/45 blur-[2px]" />
+      <span
+        className={cn(
+          "absolute rounded-full bg-[radial-gradient(circle,rgba(167,243,208,0.26)_0%,rgba(52,211,153,0.12)_44%,transparent_72%)] blur-md",
+          isNav ? "h-12 w-12" : "h-36 w-36"
+        )}
+      />
+      <Image
+        src="/northstar-icon.png"
+        alt=""
+        width={144}
+        height={144}
+        priority={variant === "hero"}
+        sizes={isNav ? "48px" : "144px"}
+        className={cn(
+          "north-star-icon-image relative z-10 object-contain opacity-95 mix-blend-screen drop-shadow-[0_0_18px_rgba(52,211,153,0.58)] [filter:hue-rotate(42deg)_saturate(1.25)_brightness(1.08)]",
+          isNav ? "h-12 w-12" : "h-36 w-36"
+        )}
+      />
+      <span className="absolute inset-0 rounded-full bg-[radial-gradient(circle_at_42%_36%,rgba(236,253,245,0.18)_0%,transparent_34%)]" />
     </div>
   );
 }
@@ -203,7 +214,7 @@ export function AnimatedNorthStarMark({
       <BrandGlow variant={variant} />
 
       <div className="absolute inset-0 flex items-center justify-center">
-        <GlobeCore variant={variant} />
+        <IconCore variant={variant} />
       </div>
 
       <OrbitingMeteor orbitClassName={orbitClassName} variant={variant} />
@@ -213,8 +224,8 @@ export function AnimatedNorthStarMark({
           animation: north-star-orbit-spin 18s linear infinite;
         }
 
-        .north-star-globe-drift {
-          animation: north-star-globe-drift 12s ease-in-out infinite;
+        .north-star-icon-core {
+          animation: north-star-icon-breathe 5.5s ease-in-out infinite;
         }
 
         .north-star-trail-pixel {
@@ -223,7 +234,7 @@ export function AnimatedNorthStarMark({
 
         @media (prefers-reduced-motion: reduce) {
           .north-star-orbit-spin,
-          .north-star-globe-drift,
+          .north-star-icon-core,
           .north-star-trail-pixel {
             animation: none;
           }
@@ -239,14 +250,14 @@ export function AnimatedNorthStarMark({
           }
         }
 
-        @keyframes north-star-globe-drift {
+        @keyframes north-star-icon-breathe {
           0%,
           100% {
-            transform: translateX(-18%);
+            transform: scale(0.98);
           }
 
           50% {
-            transform: translateX(18%);
+            transform: scale(1.02);
           }
         }
 
