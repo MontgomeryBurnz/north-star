@@ -279,10 +279,17 @@ export function AdminUserManagementCard() {
     }
   }
 
-  async function copySetupLink(user: ManagedAppUser) {
+  async function generateSetupLink(
+    user: ManagedAppUser,
+    options: {
+      copyToClipboard?: boolean;
+      initialStatus?: string;
+      successStatus?: string;
+    } = {}
+  ) {
     setCopyingSetupLinkUserId(user.id);
     setStatusTone("neutral");
-    setStatus(`Generating setup link for ${user.name}...`);
+    setStatus(options.initialStatus ?? `Generating setup link for ${user.name}...`);
 
     try {
       const response = await fetch("/api/admin/users/setup-link", {
@@ -316,13 +323,24 @@ export function AdminUserManagementCard() {
         url: payload.setupLink.url
       };
       setSetupLink(link);
-      await writeSetupLinkToClipboard(link);
+      if (options.copyToClipboard) {
+        await writeSetupLinkToClipboard(link);
+      } else {
+        setStatusTone("success");
+        setStatus(options.successStatus ?? `Setup link is ready for ${link.userName}. Copy it below if the invite email is delayed or quarantined.`);
+      }
+      return link;
     } catch (error) {
       setStatusTone("error");
       setStatus(error instanceof Error ? error.message : "Could not generate setup link.");
+      return null;
     } finally {
       setCopyingSetupLinkUserId(null);
     }
+  }
+
+  async function copySetupLink(user: ManagedAppUser) {
+    await generateSetupLink(user, { copyToClipboard: true });
   }
 
   async function saveUser(sendInvite: boolean) {
@@ -443,13 +461,17 @@ export function AdminUserManagementCard() {
       setSaveState("saved");
       if (invitation?.ok) {
         setStatusTone("success");
-        setStatus(
+        const successStatus =
           savedUser.userType === "admin"
-            ? `${savedUser.name} was ${wasEditing ? "updated" : "saved"} with Admin access and an account setup invite was sent. If it does not arrive, use Copy setup link from the user card.`
+            ? `${savedUser.name} was ${wasEditing ? "updated" : "saved"} with Admin access. Supabase marked the invite email sent, and a secure setup link is ready below for alpha fallback.`
             : `${savedUser.name} was ${wasEditing ? "updated" : "saved"} with ${savedUser.assignments.length} program role assignment${
                 savedUser.assignments.length === 1 ? "" : "s"
-              } and an account setup invite was sent. If it does not arrive, use Copy setup link from the user card.`
-        );
+              }. Supabase marked the invite email sent, and a secure setup link is ready below for alpha fallback.`;
+        await generateSetupLink(savedUser, {
+          initialStatus: `${savedUser.name} was saved and Supabase marked the invite sent. Preparing a secure setup link in case email delivery is delayed...`,
+          successStatus
+        });
+        setExpandedUsers((current) => ({ ...current, [savedUser.id]: true }));
       } else if (invitation && !invitation.ok) {
         setStatusTone("error");
         setStatus(`${savedUser.name} was saved, but the invite was not sent: ${invitation.error}`);
