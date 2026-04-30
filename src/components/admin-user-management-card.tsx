@@ -1,7 +1,7 @@
 "use client";
 
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
-import { CheckCircle2, ChevronDown, PlusCircle, RefreshCw, ShieldCheck, UserPlus, UsersRound } from "lucide-react";
+import { CheckCircle2, ChevronDown, MailCheck, MailWarning, PlusCircle, RefreshCw, ShieldCheck, UserPlus, UsersRound } from "lucide-react";
 import type {
   AppUserCredentialStatus,
   AppUserType,
@@ -82,6 +82,7 @@ export function AdminUserManagementCard() {
   const availableRoles = useMemo(() => getProgramRoles(selectedProgram), [selectedProgram]);
   const canSaveUser = Boolean(form.name.trim() && form.email.trim() && form.programId && form.role);
   const canAddProgramRole = Boolean(selectedProgram && newProgramRole.trim() && roleSaveState !== "saving");
+  const brandedEmailActive = invitationProvider?.configured && invitationProvider.emailDelivery === "north-star-branded";
 
   const loadAdminUsers = useCallback(async () => {
     setStatus("Loading users and programs...");
@@ -505,6 +506,30 @@ export function AdminUserManagementCard() {
                   </p>
                 </div>
               ))}
+            </div>
+
+            <div
+              className={`rounded-md border p-3 ${
+                brandedEmailActive
+                  ? "border-emerald-300/25 bg-emerald-300/[0.075]"
+                  : "border-amber-300/25 bg-amber-300/[0.07]"
+              }`}
+            >
+              <p
+                className={`flex items-center gap-2 text-xs font-medium uppercase tracking-[0.16em] ${
+                  brandedEmailActive ? "text-emerald-100" : "text-amber-100"
+                }`}
+              >
+                {brandedEmailActive ? <MailCheck className="h-4 w-4" /> : <MailWarning className="h-4 w-4" />}
+                Email delivery
+              </p>
+              <p className="mt-2 text-sm leading-6 text-zinc-300">
+                {brandedEmailActive
+                  ? "Branded North Star invites and recovery emails are active in this environment."
+                  : invitationProvider?.configured
+                    ? "Supabase default emails are active. Add the Resend env vars in Vercel to turn on branded North Star invites and recovery emails."
+                    : "Supabase invitations are not configured yet, so Admin can map users but cannot send account setup emails."}
+              </p>
             </div>
           </div>
         </div>

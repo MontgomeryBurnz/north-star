@@ -31,7 +31,7 @@ export function SiteNav() {
         <div className="flex h-16 items-center justify-between">
           <Link href="/" className="flex min-w-0 items-center gap-3">
             <span className="relative block h-12 w-12 shrink-0">
-              <AnimatedNorthStarMark variant="nav" className="h-12 w-12" orbitClassName="[animation-duration:6s]" />
+              <AnimatedNorthStarMark variant="nav" className="h-12 w-12" />
             </span>
             <span className="truncate text-sm font-semibold text-zinc-50">North Star</span>
           </Link>
