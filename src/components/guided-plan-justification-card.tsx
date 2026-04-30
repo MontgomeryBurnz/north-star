@@ -66,7 +66,7 @@ export function GuidedPlanJustificationCard({
   onCancelFlag
 }: GuidedPlanJustificationCardProps) {
   return (
-    <Card className="bg-zinc-950/80 lg:col-span-2">
+    <Card className="bg-zinc-950/80">
       <CardHeader className="border-b border-white/10">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="max-w-3xl">

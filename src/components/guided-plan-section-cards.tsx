@@ -247,7 +247,7 @@ export function PlanInsightsCard({
   );
 
   return (
-    <Card className="bg-zinc-950/75 lg:col-span-2">
+    <Card className="bg-zinc-950/75">
       <CardHeader className="border-b border-white/10">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
@@ -361,7 +361,7 @@ export function RolePlansCard({
   }, [rolePlans.roles, selectedRoleFocus, selectedRoleKey]);
 
   return (
-    <Card className="bg-zinc-950/75 lg:col-span-2">
+    <Card className="bg-zinc-950/75">
       <CardHeader className="border-b border-white/10">
         <CardTitle className="text-zinc-50">{rolePlans.title}</CardTitle>
       </CardHeader>

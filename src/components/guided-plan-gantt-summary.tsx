@@ -19,7 +19,7 @@ export function GuidedPlanGanttSummary({
   ganttPhases
 }: GuidedPlanGanttSummaryProps) {
   return (
-    <Card className="bg-zinc-950/80 lg:col-span-2">
+    <Card className="bg-zinc-950/80">
       <CardHeader className="border-b border-white/10">
         <CardTitle className="text-zinc-50">Timeline & Milestones</CardTitle>
       </CardHeader>
