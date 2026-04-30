@@ -83,11 +83,11 @@ function IconCore({ variant }: { variant: MarkVariant }) {
         priority={variant === "hero"}
         sizes={isNav ? "48px" : "144px"}
         className={cn(
-          "north-star-icon-image relative z-10 object-contain opacity-95 mix-blend-screen drop-shadow-[0_0_18px_rgba(52,211,153,0.58)] [filter:hue-rotate(42deg)_saturate(1.25)_brightness(1.08)]",
-          isNav ? "h-12 w-12" : "h-36 w-36"
+          "north-star-icon-image absolute left-1/2 top-1/2 z-10 -translate-x-1/2 -translate-y-1/2 object-contain opacity-90 mix-blend-screen [filter:brightness(0)_invert(1)_drop-shadow(0_0_12px_rgba(248,250,252,0.42))]",
+          isNav ? "h-11 w-11" : "h-32 w-32"
         )}
       />
-      <span className="absolute inset-0 rounded-full bg-[radial-gradient(circle_at_42%_36%,rgba(236,253,245,0.18)_0%,transparent_34%)]" />
+      <span className="absolute inset-0 rounded-full bg-[radial-gradient(circle_at_50%_44%,rgba(255,255,255,0.12)_0%,rgba(236,253,245,0.06)_30%,transparent_54%)]" />
     </div>
   );
 }
