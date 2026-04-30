@@ -11,11 +11,68 @@ import { GuidanceFlagForm } from "@/components/guidance-flag-form";
 
 const allRolesOption = "__all_roles__";
 const primaryInsightTitles = new Set([
+  "Fresh Inputs Driving This Plan",
+  "Guide Dialogue Shaping This Plan",
   "Signal From Noise",
   "Recommended Work Path",
+  "Planning Approach",
+  "Key Outcomes",
   "Risks And Decisions",
-  "What Changed From Leadership Signal"
+  "What Changed From Leadership Signal",
+  "Key Questions and Considerations"
 ]);
+const sectionGroups = [
+  {
+    title: "Inputs",
+    description: "What changed or informed the refresh.",
+    sections: ["Fresh Inputs Driving This Plan", "Guide Dialogue Shaping This Plan"]
+  },
+  {
+    title: "Execution",
+    description: "What the team should do next.",
+    sections: ["Signal From Noise", "Recommended Work Path", "Planning Approach", "What Changed From Leadership Signal"]
+  },
+  {
+    title: "Outcomes",
+    description: "What the plan is protecting and producing.",
+    sections: ["Key Outcomes", "Critical Requirements", "Key Outputs"]
+  },
+  {
+    title: "Decisions",
+    description: "What needs attention, ownership, or clarification.",
+    sections: ["Risks And Decisions", "Key Questions and Considerations"]
+  }
+] as const;
+
+const sectionToneStyles: Record<
+  string,
+  {
+    badgeClassName: string;
+    cardClassName: string;
+    iconClassName: string;
+  }
+> = {
+  inputs: {
+    badgeClassName: "border-cyan-200/20 text-cyan-100",
+    cardClassName: "border-cyan-300/15 bg-cyan-300/[0.045]",
+    iconClassName: "text-cyan-200"
+  },
+  execution: {
+    badgeClassName: "border-emerald-200/20 text-emerald-100",
+    cardClassName: "border-emerald-300/15 bg-emerald-300/[0.045]",
+    iconClassName: "text-emerald-200"
+  },
+  outcomes: {
+    badgeClassName: "border-amber-200/20 text-amber-100",
+    cardClassName: "border-amber-300/15 bg-amber-300/[0.045]",
+    iconClassName: "text-amber-200"
+  },
+  decisions: {
+    badgeClassName: "border-rose-200/20 text-rose-100",
+    cardClassName: "border-rose-300/15 bg-rose-300/[0.045]",
+    iconClassName: "text-rose-200"
+  }
+};
 
 function normalizeRoleKey(role: string) {
   return role.trim().toLowerCase();
@@ -79,21 +136,61 @@ function RolePlanSignalGroup({
   );
 }
 
-function InsightPreview({ items }: { items: string[] }) {
-  const previewItems = items.slice(0, 2);
-  const hiddenCount = Math.max(items.length - previewItems.length, 0);
+function shortenInsight(value: string, maxLength = 170) {
+  const normalized = value.replace(/\s+/g, " ").trim();
+
+  if (normalized.length <= maxLength) return normalized;
+
+  const sentenceBreak = normalized.slice(0, maxLength).lastIndexOf(". ");
+  const wordBreak = normalized.lastIndexOf(" ", maxLength);
+  const breakPoint = sentenceBreak > 80 ? sentenceBreak + 1 : wordBreak > 80 ? wordBreak : maxLength;
+
+  return `${normalized.slice(0, breakPoint).trim()}...`;
+}
+
+function getSectionGroup(sectionTitle: string) {
+  const group = sectionGroups.find((item) => (item.sections as readonly string[]).includes(sectionTitle));
+
+  if (group?.title === "Inputs") return "inputs";
+  if (group?.title === "Outcomes") return "outcomes";
+  if (group?.title === "Decisions") return "decisions";
+  return "execution";
+}
+
+function getInsightLabel(sectionTitle: string) {
+  if (sectionTitle === "Fresh Inputs Driving This Plan") return "Inputs";
+  if (sectionTitle === "Guide Dialogue Shaping This Plan") return "Guide";
+  if (sectionTitle === "Signal From Noise") return "Signal";
+  if (sectionTitle === "Recommended Work Path") return "Next Move";
+  if (sectionTitle === "Planning Approach") return "Approach";
+  if (sectionTitle === "Key Outcomes") return "Outcomes";
+  if (sectionTitle === "Risks And Decisions") return "Risks";
+  if (sectionTitle === "What Changed From Leadership Signal") return "Leadership";
+  if (sectionTitle === "Key Questions and Considerations") return "Questions";
+  return "Detail";
+}
+
+function CompactInsightTile({ section }: { section: GuidedPlanSection }) {
+  const groupKey = getSectionGroup(section.title);
+  const styles = sectionToneStyles[groupKey];
+  const primaryInsight = shortenInsight(section.items[0] ?? "No signal is available yet.");
+  const hiddenCount = Math.max(section.items.length - 1, 0);
 
   return (
-    <div className="grid gap-2">
-      {previewItems.map((item) => (
-        <p key={item} className="grid grid-cols-[auto_minmax(0,1fr)] gap-2 text-sm leading-6 text-zinc-300">
-          <ArrowRight className="mt-1 h-4 w-4 shrink-0 text-emerald-200" />
-          <span>{item}</span>
-        </p>
-      ))}
+    <div className={`grid min-h-full gap-3 rounded-md border p-4 ${styles.cardClassName}`}>
+      <div className="flex items-center justify-between gap-3">
+        <p className="text-xs font-medium uppercase tracking-[0.14em] text-zinc-400">{section.title}</p>
+        <span className={`rounded-full border px-2 py-0.5 text-[11px] uppercase tracking-[0.12em] ${styles.badgeClassName}`}>
+          {getInsightLabel(section.title)}
+        </span>
+      </div>
+      <p className="grid grid-cols-[auto_minmax(0,1fr)] gap-2 text-sm leading-6 text-zinc-200">
+        <ArrowRight className={`mt-1 h-4 w-4 shrink-0 ${styles.iconClassName}`} />
+        <span>{primaryInsight}</span>
+      </p>
       {hiddenCount ? (
-        <p className="text-xs font-medium uppercase tracking-[0.14em] text-zinc-500">
-          + {hiddenCount} more in source detail
+        <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-zinc-500">
+          + {hiddenCount} more signal{hiddenCount === 1 ? "" : "s"} in detail
         </p>
       ) : null}
     </div>
@@ -107,12 +204,15 @@ function DetailSection({
   footer?: ReactNode;
   section: GuidedPlanSection;
 }) {
+  const preview = shortenInsight(section.items[0] ?? "No detail is available yet.", 150);
+
   return (
     <details className="group rounded-md border border-white/10 bg-white/[0.035] p-3">
-      <summary className="flex cursor-pointer list-none items-center justify-between gap-3">
+      <summary className="grid cursor-pointer list-none gap-2 sm:grid-cols-[minmax(0,0.8fr)_minmax(0,1fr)_auto] sm:items-center">
         <span className="text-sm font-semibold text-zinc-100">{section.title}</span>
-        <span className="rounded-full border border-white/10 px-2 py-0.5 text-[11px] uppercase tracking-[0.12em] text-zinc-500">
-          {section.items.length} signal{section.items.length === 1 ? "" : "s"}
+        <span className="text-xs leading-5 text-zinc-500">{preview}</span>
+        <span className="w-fit rounded-full border border-white/10 px-2 py-0.5 text-[11px] uppercase tracking-[0.12em] text-zinc-500">
+          {section.items.length}
         </span>
       </summary>
       <div className="mt-3 grid gap-2 border-t border-white/10 pt-3">
@@ -136,8 +236,15 @@ export function PlanInsightsCard({
   sections: GuidedPlanSection[];
 }) {
   const primarySections = sections.filter((section) => primaryInsightTitles.has(section.title));
-  const supportingSections = sections.filter((section) => !primaryInsightTitles.has(section.title));
-  const sectionsWithDetail = [...primarySections, ...supportingSections];
+  const visibleGroups = sectionGroups
+    .map((group) => ({
+      ...group,
+      matchingSections: sections.filter((section) => (group.sections as readonly string[]).includes(section.title))
+    }))
+    .filter((group) => group.matchingSections.length);
+  const unmatchedSections = sections.filter(
+    (section) => !sectionGroups.some((group) => (group.sections as readonly string[]).includes(section.title))
+  );
 
   return (
     <Card className="bg-zinc-950/75 lg:col-span-2">
@@ -146,7 +253,7 @@ export function PlanInsightsCard({
           <div>
             <CardTitle className="text-zinc-50">Plan Insight Digest</CardTitle>
             <p className="mt-2 max-w-3xl text-sm leading-6 text-zinc-400">
-              Critical delivery signal from the latest refresh.
+              A concise readout of what changed, what matters, and what needs a decision.
             </p>
           </div>
           <span className="rounded-md border border-white/10 bg-white/[0.035] px-3 py-1 text-xs text-zinc-400">
@@ -155,35 +262,45 @@ export function PlanInsightsCard({
         </div>
       </CardHeader>
       <CardContent className="grid gap-4 p-4 sm:p-5">
-        <div className="grid gap-3 xl:grid-cols-2">
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
           {primarySections.map((section) => (
-            <div key={section.title} className="grid gap-3 rounded-md border border-emerald-300/15 bg-emerald-300/[0.045] p-4">
-              <div className="flex items-center justify-between gap-3">
-                <p className="text-sm font-semibold text-zinc-50">{section.title}</p>
-                <span className="rounded-full border border-emerald-200/20 px-2 py-0.5 text-[11px] uppercase tracking-[0.12em] text-emerald-100">
-                  Critical
-                </span>
-              </div>
-              <InsightPreview items={section.items} />
-            </div>
+            <CompactInsightTile key={section.title} section={section} />
           ))}
         </div>
 
-        {supportingSections.length ? (
+        {visibleGroups.length ? (
           <div className="grid gap-3 rounded-md border border-white/10 bg-black/20 p-4">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
-                <p className="text-sm font-semibold text-zinc-100">Source Detail</p>
+                <p className="text-sm font-semibold text-zinc-100">Drilldown Detail</p>
                 <p className="mt-1 text-xs leading-5 text-zinc-500">
-                  Evidence, outputs, and requirements supporting the current plan.
+                  Expand only the area you need to inspect.
                 </p>
               </div>
               <span className="rounded-full border border-white/10 px-2 py-0.5 text-[11px] uppercase tracking-[0.12em] text-zinc-500">
-                Supporting detail
+                Grouped detail
               </span>
             </div>
-            <div className="grid gap-2">
-              {sectionsWithDetail.map((section) => (
+            <div className="grid gap-3">
+              {visibleGroups.map((group) => (
+                <details key={group.title} className="rounded-md border border-white/10 bg-white/[0.025] p-3">
+                  <summary className="flex cursor-pointer list-none items-center justify-between gap-3">
+                    <span>
+                      <span className="block text-sm font-semibold text-zinc-100">{group.title}</span>
+                      <span className="mt-1 block text-xs leading-5 text-zinc-500">{group.description}</span>
+                    </span>
+                    <span className="rounded-full border border-white/10 px-2 py-0.5 text-[11px] uppercase tracking-[0.12em] text-zinc-500">
+                      {group.matchingSections.length}
+                    </span>
+                  </summary>
+                  <div className="mt-3 grid gap-2 border-t border-white/10 pt-3">
+                    {group.matchingSections.map((section) => (
+                      <DetailSection key={section.title} section={section} footer={sectionFooters?.[section.title]} />
+                    ))}
+                  </div>
+                </details>
+              ))}
+              {unmatchedSections.map((section) => (
                 <DetailSection key={section.title} section={section} footer={sectionFooters?.[section.title]} />
               ))}
             </div>

@@ -17,7 +17,6 @@ import { buildProgramGantt } from "@/lib/program-gantt";
 import { normalizeTeamRoles } from "@/lib/team-roles";
 import { Button } from "@/components/ui/button";
 import { GuidedPlanEmptyStateCard } from "@/components/guided-plan-empty-state-card";
-import { GuidedPlanFollowUpCard } from "@/components/guided-plan-follow-up-card";
 import { GuidedPlanGanttSummary } from "@/components/guided-plan-gantt-summary";
 import { GuidedPlanJustificationCard } from "@/components/guided-plan-justification-card";
 import { GuidedPlanOverviewCard } from "@/components/guided-plan-overview-card";
@@ -454,6 +453,11 @@ export function GuidedPlansConsole() {
         leadershipSignal?.status === "new"
           ? ["New leadership input is available. The plan will refresh automatically when that review is saved."]
           : ["No leadership-driven plan changes are visible in this saved version."]
+      ),
+      normalizePlanSection(
+        { title: "Key Questions and Considerations", items: plan.followUpQuestions },
+        "Key Questions and Considerations",
+        ["No key questions are available yet."]
       )
     ];
   }, [leadershipSignal?.status, plan]);
@@ -618,8 +622,6 @@ export function GuidedPlansConsole() {
                 ) : null}
                 <PlanInsightsCard sections={planSections} sectionFooters={planSectionFooters} />
               </div>
-
-              <GuidedPlanFollowUpCard questions={plan.followUpQuestions} />
             </>
           ) : (
             <GuidedPlanEmptyStateCard hasPrograms={programs.length > 0} />
