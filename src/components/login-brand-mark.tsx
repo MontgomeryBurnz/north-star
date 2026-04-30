@@ -1,387 +1,312 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import type * as ThreeNamespace from "three";
 import { cn } from "@/lib/utils";
 
 type MarkVariant = "hero" | "nav";
-type ThreeModule = typeof ThreeNamespace;
 
 type SceneConfig = {
-  cameraZ: number;
   className: string;
-  earthRadius: number;
-  northStarScale: number;
-  starCount: number;
+  columns: number;
+  earthScale: number;
+  matrixOpacity: number;
+  starScale: number;
+};
+
+type MatrixRainState = {
+  drops: number[];
+  speeds: number[];
 };
 
 const SCENE_CONFIG: Record<MarkVariant, SceneConfig> = {
   hero: {
-    cameraZ: 3.75,
     className: "h-44 w-44",
-    earthRadius: 1.13,
-    northStarScale: 0.42,
-    starCount: 130
+    columns: 24,
+    earthScale: 0.27,
+    matrixOpacity: 1,
+    starScale: 1
   },
   nav: {
-    cameraZ: 4.2,
     className: "h-12 w-12",
-    earthRadius: 0.98,
-    northStarScale: 0.24,
-    starCount: 54
+    columns: 10,
+    earthScale: 0.31,
+    matrixOpacity: 0.7,
+    starScale: 0.58
   }
 };
 
-const LAND_MASSES: Array<Array<[number, number]>> = [
-  [
-    [-168, 72],
-    [-150, 70],
-    [-137, 62],
-    [-126, 55],
-    [-124, 48],
-    [-117, 34],
-    [-107, 25],
-    [-97, 18],
-    [-86, 15],
-    [-80, 25],
-    [-74, 41],
-    [-61, 50],
-    [-52, 58],
-    [-69, 64],
-    [-86, 73],
-    [-108, 73],
-    [-132, 70],
-    [-151, 61],
-    [-166, 58],
-    [-179, 63]
-  ],
-  [
-    [-82, 12],
-    [-74, 7],
-    [-66, -4],
-    [-58, -15],
-    [-51, -25],
-    [-47, -38],
-    [-55, -54],
-    [-67, -50],
-    [-73, -36],
-    [-79, -20],
-    [-81, -4]
-  ],
-  [
-    [-73, 78],
-    [-45, 83],
-    [-18, 76],
-    [-18, 62],
-    [-40, 59],
-    [-58, 65]
-  ],
-  [
-    [-11, 58],
-    [2, 60],
-    [13, 56],
-    [25, 60],
-    [41, 56],
-    [47, 45],
-    [32, 38],
-    [16, 40],
-    [3, 44],
-    [-9, 43]
-  ],
-  [
-    [-17, 36],
-    [4, 36],
-    [22, 31],
-    [34, 22],
-    [44, 8],
-    [51, -8],
-    [42, -25],
-    [31, -34],
-    [18, -35],
-    [9, -25],
-    [-4, -12],
-    [-12, 5],
-    [-16, 21]
-  ],
-  [
-    [36, 61],
-    [54, 67],
-    [80, 72],
-    [110, 69],
-    [139, 57],
-    [154, 45],
-    [145, 32],
-    [122, 21],
-    [110, 6],
-    [93, 8],
-    [79, 18],
-    [67, 8],
-    [55, 21],
-    [45, 31],
-    [39, 47]
-  ],
-  [
-    [112, -10],
-    [130, -12],
-    [153, -25],
-    [148, -40],
-    [132, -43],
-    [116, -34],
-    [109, -24]
-  ],
-  [
-    [-180, -67],
-    [-130, -73],
-    [-68, -70],
-    [-12, -74],
-    [43, -69],
-    [98, -74],
-    [151, -70],
-    [180, -67],
-    [180, -86],
-    [-180, -86]
-  ]
-];
+const MATRIX_GLYPHS = "01NORTHSTAR*<>[]";
 
-const ISLANDS: Array<[number, number, number]> = [
-  [-157, 20, 1.9],
-  [-4, 54, 2.7],
-  [18, 40, 2.4],
-  [44, -20, 3.2],
-  [78, 7, 2.9],
-  [103, 1, 2.2],
-  [122, 13, 2.6],
-  [139, 37, 2.3],
-  [173, -41, 2.6]
-];
-
-const MOUNTAIN_RANGES: Array<Array<[number, number]>> = [
-  [
-    [-151, 61],
-    [-132, 52],
-    [-121, 42],
-    [-112, 34],
-    [-105, 27]
-  ],
-  [
-    [-78, 8],
-    [-74, -8],
-    [-70, -21],
-    [-68, -36],
-    [-71, -49]
-  ],
-  [
-    [-6, 43],
-    [9, 45],
-    [21, 43],
-    [31, 39]
-  ],
-  [
-    [30, 30],
-    [45, 31],
-    [62, 33],
-    [78, 31],
-    [92, 29]
-  ],
-  [
-    [98, 45],
-    [116, 43],
-    [132, 48],
-    [144, 52]
-  ],
-  [
-    [18, 4],
-    [24, -8],
-    [29, -18],
-    [31, -29]
-  ]
-];
-
-const LAND_FILLS = [
-  "rgba(134,239,172,0.96)",
-  "rgba(74,222,128,0.96)",
-  "rgba(220,252,231,0.94)",
-  "rgba(52,211,153,0.96)",
-  "rgba(187,247,208,0.92)",
-  "rgba(110,231,183,0.95)",
-  "rgba(190,242,100,0.88)",
-  "rgba(236,253,245,0.96)"
-];
-
-const CITY_LIGHTS: Array<[number, number]> = [
-  [-122, 37],
-  [-118, 34],
-  [-95, 29],
-  [-87, 42],
-  [-74, 41],
-  [-99, 19],
-  [-46, -23],
-  [-58, -34],
-  [-0.1, 51],
-  [2, 49],
-  [13, 52],
-  [29, 41],
-  [31, 30],
-  [37, -1],
-  [55, 25],
-  [77, 28],
-  [90, 23],
-  [103, 1],
-  [121, 31],
-  [116, 40],
-  [126, 37],
-  [139, 36],
-  [151, -34],
-  [174, -37]
-];
-
-function seededRandom(seed: number) {
-  let value = seed;
-
-  return () => {
-    value = (value * 1664525 + 1013904223) % 4294967296;
-    return value / 4294967296;
-  };
-}
-
-function lonLatToTexturePoint(lon: number, lat: number, width: number, height: number) {
+function randomMatrixState(columns: number, height: number): MatrixRainState {
   return {
-    x: ((lon + 180) / 360) * width,
-    y: ((90 - lat) / 180) * height
+    drops: Array.from({ length: columns }, () => Math.random() * height),
+    speeds: Array.from({ length: columns }, () => 0.35 + Math.random() * 0.85)
   };
 }
 
-function traceGeoPolygon(
+function drawStar(
   context: CanvasRenderingContext2D,
-  points: Array<[number, number]>,
-  width: number,
-  height: number
+  x: number,
+  y: number,
+  radius: number,
+  glow = 1
 ) {
-  const [firstLon, firstLat] = points[0];
-  const first = lonLatToTexturePoint(firstLon, firstLat, width, height);
+  context.save();
+  context.translate(x, y);
+  context.shadowColor = "rgba(108, 255, 123, 0.95)";
+  context.shadowBlur = 18 * glow;
 
+  const points = 8;
   context.beginPath();
-  context.moveTo(first.x, first.y);
+  for (let index = 0; index < points * 2; index += 1) {
+    const angle = (Math.PI / points) * index - Math.PI / 2;
+    const pointRadius = index % 2 === 0 ? radius : radius * 0.33;
+    const pointX = Math.cos(angle) * pointRadius;
+    const pointY = Math.sin(angle) * pointRadius;
 
-  for (const [lon, lat] of points.slice(1)) {
-    const point = lonLatToTexturePoint(lon, lat, width, height);
-    context.lineTo(point.x, point.y);
+    if (index === 0) context.moveTo(pointX, pointY);
+    else context.lineTo(pointX, pointY);
   }
-
   context.closePath();
-}
 
-function drawLandMass(
-  context: CanvasRenderingContext2D,
-  points: Array<[number, number]>,
-  width: number,
-  height: number
-) {
-  traceGeoPolygon(context, points, width, height);
+  const gradient = context.createRadialGradient(0, 0, 0, 0, 0, radius);
+  gradient.addColorStop(0, "#ffffff");
+  gradient.addColorStop(0.22, "#d9ffe1");
+  gradient.addColorStop(0.55, "#6cff7b");
+  gradient.addColorStop(1, "#00ff66");
+  context.fillStyle = gradient;
   context.fill();
+
+  context.strokeStyle = "rgba(230, 255, 235, 0.95)";
+  context.lineWidth = 1;
   context.stroke();
+  context.restore();
 }
 
-function drawGeoLine(
+function drawMatrixRain(
   context: CanvasRenderingContext2D,
-  points: Array<[number, number]>,
+  state: MatrixRainState,
   width: number,
-  height: number
+  height: number,
+  columns: number,
+  opacity: number
 ) {
-  const [firstLon, firstLat] = points[0];
-  const first = lonLatToTexturePoint(firstLon, firstLat, width, height);
-
-  context.beginPath();
-  context.moveTo(first.x, first.y);
-
-  for (const [lon, lat] of points.slice(1)) {
-    const point = lonLatToTexturePoint(lon, lat, width, height);
-    context.lineTo(point.x, point.y);
-  }
-
-  context.stroke();
-}
-
-function isGeoPointInsidePolygon(lon: number, lat: number, polygon: Array<[number, number]>) {
-  let inside = false;
-
-  for (let current = 0, previous = polygon.length - 1; current < polygon.length; previous = current, current += 1) {
-    const [currentLon, currentLat] = polygon[current];
-    const [previousLon, previousLat] = polygon[previous];
-    const intersects =
-      currentLat > lat !== previousLat > lat &&
-      lon < ((previousLon - currentLon) * (lat - currentLat)) / (previousLat - currentLat) + currentLon;
-
-    if (intersects) inside = !inside;
-  }
-
-  return inside;
-}
-
-function getGeoBounds(points: Array<[number, number]>) {
-  return points.reduce(
-    (bounds, [lon, lat]) => ({
-      maxLat: Math.max(bounds.maxLat, lat),
-      maxLon: Math.max(bounds.maxLon, lon),
-      minLat: Math.min(bounds.minLat, lat),
-      minLon: Math.min(bounds.minLon, lon)
-    }),
-    { maxLat: -90, maxLon: -180, minLat: 90, minLon: 180 }
-  );
-}
-
-function createEarthTexture() {
-  const size = 1536;
-  const canvas = document.createElement("canvas");
-  const context = canvas.getContext("2d");
-
-  canvas.width = size;
-  canvas.height = size / 2;
-
-  if (!context) return canvas;
-
-  const width = canvas.width;
-  const height = canvas.height;
-  const random = seededRandom(814);
-  const ocean = context.createLinearGradient(0, 0, width, height);
-  ocean.addColorStop(0, "#020617");
-  ocean.addColorStop(0.34, "#075985");
-  ocean.addColorStop(0.68, "#164e63");
-  ocean.addColorStop(1, "#001014");
-
-  context.fillStyle = ocean;
-  context.fillRect(0, 0, width, height);
+  const columnWidth = width / columns;
+  const fontSize = Math.max(5, Math.min(10, width / 18));
 
   context.save();
-  context.globalAlpha = 0.11;
-  context.strokeStyle = "#7dd3fc";
-  context.lineWidth = 1.3;
-  for (let index = 0; index < 90; index += 1) {
-    const y = random() * height;
-    const x = random() * width;
-    const length = 48 + random() * 180;
+  context.font = `${fontSize}px ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace`;
+  context.textAlign = "center";
+
+  for (let index = 0; index < columns; index += 1) {
+    const x = index * columnWidth + columnWidth / 2;
+    const y = state.drops[index] ?? 0;
+    const char = MATRIX_GLYPHS[Math.floor(Math.random() * MATRIX_GLYPHS.length)];
+
+    context.fillStyle = `rgba(116, 255, 126, ${0.3 * opacity})`;
+    context.shadowColor = "rgba(0, 255, 102, 0.65)";
+    context.shadowBlur = 7;
+    context.fillText(char, x, y);
+
+    context.fillStyle = `rgba(220, 255, 224, ${0.55 * opacity})`;
+    context.shadowBlur = 12;
+    context.fillText(char, x, y - fontSize * 1.2);
+
+    state.drops[index] = y + (state.speeds[index] ?? 0.5) * 2.1;
+    if (state.drops[index] > height + 20) {
+      state.drops[index] = -20 - Math.random() * height * 0.5;
+    }
+  }
+
+  context.restore();
+}
+
+function drawEarth(context: CanvasRenderingContext2D, centerX: number, centerY: number, radius: number, time: number) {
+  context.save();
+
+  const atmosphere = context.createRadialGradient(centerX, centerY, radius * 0.7, centerX, centerY, radius * 1.55);
+  atmosphere.addColorStop(0, "rgba(0, 0, 0, 0)");
+  atmosphere.addColorStop(0.56, "rgba(19, 255, 110, 0.15)");
+  atmosphere.addColorStop(1, "rgba(19, 255, 110, 0)");
+  context.fillStyle = atmosphere;
+  context.beginPath();
+  context.arc(centerX, centerY, radius * 1.55, 0, Math.PI * 2);
+  context.fill();
+
+  const globe = context.createRadialGradient(
+    centerX - radius * 0.38,
+    centerY - radius * 0.4,
+    radius * 0.08,
+    centerX,
+    centerY,
+    radius
+  );
+  globe.addColorStop(0, "#68ff8d");
+  globe.addColorStop(0.22, "#1d7f48");
+  globe.addColorStop(0.58, "#061b13");
+  globe.addColorStop(1, "#010705");
+  context.fillStyle = globe;
+  context.beginPath();
+  context.arc(centerX, centerY, radius, 0, Math.PI * 2);
+  context.fill();
+
+  context.beginPath();
+  context.arc(centerX, centerY, radius, 0, Math.PI * 2);
+  context.clip();
+
+  const drift = (-time * 0.24) % (Math.PI * 2);
+  context.fillStyle = "rgba(118, 255, 132, 0.65)";
+  context.shadowColor = "rgba(74, 255, 104, 0.75)";
+  context.shadowBlur = 8;
+
+  for (let index = 0; index < 48; index += 1) {
+    const angle = index * 0.62 + drift;
+    const band = Math.sin(index * 1.7) * radius * 0.52;
+    const x = centerX + Math.cos(angle) * radius * 0.74;
+    const y = centerY + band * 0.48 + Math.sin(angle * 0.7) * radius * 0.12;
+    const blockWidth = 1.8 + (index % 5) * 1.1;
+    const blockHeight = 1.3 + (index % 4) * 0.8;
+    const alpha = 0.2 + Math.max(0, Math.cos(angle)) * 0.58;
+
+    context.globalAlpha = alpha;
+    context.fillRect(x, y, blockWidth, blockHeight);
+  }
+
+  context.globalAlpha = 1;
+  context.shadowBlur = 0;
+
+  for (let index = 0; index < 130; index += 1) {
+    const angle = index * 0.37 + drift * 0.9;
+    const yBand = Math.sin(index * 1.31) * radius * 0.78;
+    const depth = Math.cos(angle);
+    if (depth < -0.16) continue;
+
+    const x = centerX + Math.sin(angle) * radius * 0.82;
+    const y = centerY + yBand * 0.48;
+    context.globalAlpha = 0.08 + Math.max(0, depth) * 0.42;
+    context.fillStyle = index % 7 === 0 ? "#f7fee7" : "#bef264";
     context.beginPath();
-    context.moveTo(x, y);
-    context.bezierCurveTo(x + length * 0.35, y - 18, x + length * 0.7, y + 18, x + length, y);
+    context.arc(x, y, 0.55 + (index % 3) * 0.35, 0, Math.PI * 2);
+    context.fill();
+  }
+
+  context.globalAlpha = 1;
+  context.strokeStyle = "rgba(130, 255, 146, 0.24)";
+  context.lineWidth = 0.65;
+
+  for (let index = -2; index <= 2; index += 1) {
+    context.beginPath();
+    context.ellipse(centerX, centerY + index * radius * 0.22, radius * 0.92, radius * 0.18, 0, 0, Math.PI * 2);
     context.stroke();
   }
+
+  for (let index = -2; index <= 2; index += 1) {
+    context.beginPath();
+    context.ellipse(centerX, centerY, radius * 0.22 + Math.abs(index) * radius * 0.12, radius * 0.95, 0, 0, Math.PI * 2);
+    context.stroke();
+  }
+
+  const shadow = context.createLinearGradient(centerX - radius, centerY, centerX + radius, centerY);
+  shadow.addColorStop(0, "rgba(0, 0, 0, 0.06)");
+  shadow.addColorStop(0.55, "rgba(0, 0, 0, 0.12)");
+  shadow.addColorStop(1, "rgba(0, 0, 0, 0.72)");
+  context.fillStyle = shadow;
+  context.beginPath();
+  context.arc(centerX, centerY, radius, 0, Math.PI * 2);
+  context.fill();
+
   context.restore();
 
   context.save();
-  context.globalAlpha = 0.09;
-  context.strokeStyle = "#7dd3fc";
-  context.lineWidth = 1.2;
+  context.strokeStyle = "rgba(130, 255, 146, 0.85)";
+  context.shadowColor = "rgba(0, 255, 102, 0.85)";
+  context.shadowBlur = 14;
+  context.lineWidth = 1.25;
+  context.beginPath();
+  context.arc(centerX, centerY, radius, 0, Math.PI * 2);
+  context.stroke();
+  context.restore();
+}
 
-  for (let lon = -150; lon <= 180; lon += 30) {
-    const { x } = lonLatToTexturePoint(lon, 0, width, height);
-    context.beginPath();
-    context.moveTo(x, 0);
-    context.lineTo(x, height);
-    context.stroke();
-  }
+function drawOrbit(
+  context: CanvasRenderingContext2D,
+  centerX: number,
+  centerY: number,
+  radiusX: number,
+  radiusY: number,
+  time: number,
+  starScale: number
+) {
+  const orbitRotation = -0.22;
+  const orbitTime = time * 0.38;
+  const starAngle = orbitTime % (Math.PI * 2);
+  const starX = centerX + Math.cos(starAngle) * radiusX;
+  const starY = centerY + Math.sin(starAngle) * radiusY;
+  const isFront = Math.sin(starAngle) > 0;
 
-  for (let lat = -60; lat <= 60; lat += 20) {
-    const { y } = lonLatToTexturePoint(0, lat, width, height);
+  context.save();
+  context.translate(centerX, centerY);
+  context.rotate(orbitRotation);
+
+  context.strokeStyle = "rgba(0, 255, 102, 0.2)";
+  context.lineWidth = 1;
+  context.beginPath();
+  context.ellipse(0, 0, radiusX, radiusY, 0, Math.PI, Math.PI * 2);
+  context.stroke();
+
+  context.strokeStyle = "rgba(95, 255, 110, 0.82)";
+  context.shadowColor = "rgba(0, 255, 102, 0.92)";
+  context.shadowBlur = 13;
+  context.lineWidth = 2.2;
+  context.beginPath();
+  context.ellipse(0, 0, radiusX, radiusY, 0, 0, Math.PI);
+  context.stroke();
+
+  const trailLength = 0.72;
+  const trailGradient = context.createLinearGradient(
+    Math.cos(starAngle - trailLength) * radiusX,
+    Math.sin(starAngle - trailLength) * radiusY,
+    Math.cos(starAngle) * radiusX,
+    Math.sin(starAngle) * radiusY
+  );
+  trailGradient.addColorStop(0, "rgba(0, 255, 102, 0)");
+  trailGradient.addColorStop(0.6, "rgba(60, 255, 95, 0.36)");
+  trailGradient.addColorStop(1, "rgba(220, 255, 225, 0.92)");
+  context.strokeStyle = trailGradient;
+  context.lineWidth = 3.3;
+  context.beginPath();
+  context.ellipse(0, 0, radiusX, radiusY, 0, starAngle - trailLength, starAngle);
+  context.stroke();
+  context.restore();
+
+  const rotatedStarX =
+    centerX + Math.cos(orbitRotation) * (starX - centerX) - Math.sin(orbitRotation) * (starY - centerY);
+  const rotatedStarY =
+    centerY + Math.sin(orbitRotation) * (starX - centerX) + Math.cos(orbitRotation) * (starY - centerY);
+  drawStar(context, rotatedStarX, rotatedStarY, (isFront ? 10 : 7) * starScale, isFront ? 1 : 0.65);
+}
+
+function drawHudRings(context: CanvasRenderingContext2D, centerX: number, centerY: number, radius: number, time: number) {
+  context.save();
+  context.strokeStyle = "rgba(0, 255, 102, 0.18)";
+  context.lineWidth = 0.8;
+  context.setLineDash([3, 6]);
+  context.beginPath();
+  context.arc(centerX, centerY, radius * 1.48, time * 0.3, Math.PI * 1.35 + time * 0.3);
+  context.stroke();
+  context.beginPath();
+  context.arc(centerX, centerY, radius * 1.72, -time * 0.24, Math.PI * 1.15 - time * 0.24);
+  context.stroke();
+  context.restore();
+}
+
+function drawScanlines(context: CanvasRenderingContext2D, width: number, height: number) {
+  context.save();
+  context.globalAlpha = 0.14;
+  context.strokeStyle = "rgba(145, 255, 158, 0.22)";
+  context.lineWidth = 0.5;
+
+  for (let y = 0; y < height; y += 4) {
     context.beginPath();
     context.moveTo(0, y);
     context.lineTo(width, y);
@@ -389,318 +314,6 @@ function createEarthTexture() {
   }
 
   context.restore();
-
-  context.save();
-  context.lineJoin = "round";
-  context.shadowBlur = 18;
-  context.shadowColor = "rgba(52,211,153,0.48)";
-  context.strokeStyle = "rgba(236,253,245,0.6)";
-  context.lineWidth = 5.4;
-  LAND_MASSES.forEach((mass, index) => {
-    context.fillStyle = LAND_FILLS[index] ?? LAND_FILLS[0];
-    drawLandMass(context, mass, width, height);
-  });
-  context.restore();
-
-  context.save();
-  context.globalAlpha = 0.2;
-  context.fillStyle = "#d9f99d";
-  context.strokeStyle = "rgba(190,242,100,0.24)";
-  context.lineWidth = 1.4;
-  LAND_MASSES.forEach((mass) => {
-    context.save();
-    context.translate(0, 5);
-    drawLandMass(context, mass, width, height);
-    context.restore();
-  });
-  context.restore();
-
-  context.save();
-  context.lineJoin = "round";
-  context.shadowBlur = 9;
-  context.shadowColor = "rgba(236,253,245,0.5)";
-  context.strokeStyle = "rgba(236,253,245,0.82)";
-  context.lineWidth = 2.8;
-  LAND_MASSES.forEach((mass) => {
-    traceGeoPolygon(context, mass, width, height);
-    context.stroke();
-  });
-  context.restore();
-
-  context.save();
-  context.globalAlpha = 0.44;
-  context.strokeStyle = "rgba(6,78,59,0.78)";
-  context.lineWidth = 2.2;
-  LAND_MASSES.forEach((mass) => {
-    traceGeoPolygon(context, mass, width, height);
-    context.stroke();
-  });
-  context.restore();
-
-  context.save();
-  context.fillStyle = "rgba(236,253,245,0.84)";
-  context.strokeStyle = "rgba(167,243,208,0.54)";
-  context.lineWidth = 1.5;
-  context.shadowBlur = 6;
-  context.shadowColor = "rgba(236,253,245,0.45)";
-  ISLANDS.forEach(([lon, lat, radius]) => {
-    const { x, y } = lonLatToTexturePoint(lon, lat, width, height);
-    context.beginPath();
-    context.ellipse(x, y, radius * 1.35, radius, -0.22, 0, Math.PI * 2);
-    context.fill();
-    context.stroke();
-  });
-  context.restore();
-
-  context.save();
-  context.lineCap = "round";
-  context.lineJoin = "round";
-  context.strokeStyle = "rgba(236,253,245,0.48)";
-  context.lineWidth = 3.2;
-  context.shadowBlur = 8;
-  context.shadowColor = "rgba(190,242,100,0.34)";
-  MOUNTAIN_RANGES.forEach((range) => drawGeoLine(context, range, width, height));
-  context.restore();
-
-  context.save();
-  context.shadowBlur = 4;
-  context.shadowColor = "rgba(190,242,100,0.7)";
-  LAND_MASSES.slice(0, -1).forEach((mass, massIndex) => {
-    const bounds = getGeoBounds(mass);
-    const density = [260, 130, 65, 130, 110, 260, 50][massIndex] ?? 80;
-    let placed = 0;
-    let attempts = 0;
-
-    while (placed < density && attempts < density * 12) {
-      attempts += 1;
-      const lon = bounds.minLon + random() * (bounds.maxLon - bounds.minLon);
-      const lat = bounds.minLat + random() * (bounds.maxLat - bounds.minLat);
-      if (!isGeoPointInsidePolygon(lon, lat, mass)) continue;
-
-      const { x, y } = lonLatToTexturePoint(lon, lat, width, height);
-      const radius = 0.55 + random() * 1.7;
-      context.globalAlpha = 0.14 + random() * 0.5;
-      context.fillStyle = random() > 0.78 ? "#fef9c3" : "#bbf7d0";
-      context.beginPath();
-      context.arc(x, y, radius, 0, Math.PI * 2);
-      context.fill();
-      placed += 1;
-    }
-  });
-  context.restore();
-
-  context.save();
-  context.fillStyle = "rgba(236,253,245,0.72)";
-  context.strokeStyle = "rgba(125,211,252,0.3)";
-  context.lineWidth = 2;
-  context.beginPath();
-  context.moveTo(0, height * 0.08);
-  context.bezierCurveTo(width * 0.18, height * 0.02, width * 0.32, height * 0.1, width * 0.5, height * 0.05);
-  context.bezierCurveTo(width * 0.66, height * 0.01, width * 0.82, height * 0.09, width, height * 0.04);
-  context.lineTo(width, 0);
-  context.lineTo(0, 0);
-  context.closePath();
-  context.fill();
-  context.stroke();
-  context.beginPath();
-  context.moveTo(0, height * 0.91);
-  context.bezierCurveTo(width * 0.18, height * 0.96, width * 0.34, height * 0.9, width * 0.5, height * 0.94);
-  context.bezierCurveTo(width * 0.68, height * 0.98, width * 0.82, height * 0.9, width, height * 0.95);
-  context.lineTo(width, height);
-  context.lineTo(0, height);
-  context.closePath();
-  context.fill();
-  context.stroke();
-  context.restore();
-
-  context.save();
-  context.fillStyle = "rgba(254,249,195,0.88)";
-  context.shadowBlur = 9;
-  context.shadowColor = "rgba(254,249,195,0.8)";
-  CITY_LIGHTS.forEach(([lon, lat]) => {
-    const { x, y } = lonLatToTexturePoint(lon, lat, width, height);
-    context.beginPath();
-    context.arc(x, y, 2.35, 0, Math.PI * 2);
-    context.fill();
-  });
-  context.restore();
-
-  return canvas;
-}
-
-function createCloudTexture() {
-  const size = 1024;
-  const canvas = document.createElement("canvas");
-  const context = canvas.getContext("2d");
-
-  canvas.width = size;
-  canvas.height = size / 2;
-
-  if (!context) return canvas;
-
-  const random = seededRandom(406);
-  context.clearRect(0, 0, canvas.width, canvas.height);
-  context.lineCap = "round";
-
-  for (let index = 0; index < 46; index += 1) {
-    const y = random() * canvas.height;
-    const x = random() * canvas.width;
-    const length = 44 + random() * 160;
-
-    context.save();
-    context.translate(x, y);
-    context.rotate((random() - 0.5) * 0.6);
-    context.globalAlpha = 0.08 + random() * 0.16;
-    context.strokeStyle = "#ecfeff";
-    context.lineWidth = 5 + random() * 12;
-    context.shadowBlur = 14;
-    context.shadowColor = "rgba(236,253,245,0.38)";
-    context.beginPath();
-    context.moveTo(-length / 2, 0);
-    context.bezierCurveTo(-length * 0.16, -18, length * 0.15, 18, length / 2, 0);
-    context.stroke();
-    context.restore();
-  }
-
-  return canvas;
-}
-
-function createNorthStarTexture() {
-  const size = 160;
-  const canvas = document.createElement("canvas");
-  const context = canvas.getContext("2d");
-
-  canvas.width = size;
-  canvas.height = size;
-
-  if (!context) return canvas;
-
-  const center = size / 2;
-  context.clearRect(0, 0, size, size);
-  context.save();
-  context.beginPath();
-  context.arc(center, center, center - 1, 0, Math.PI * 2);
-  context.clip();
-
-  const halo = context.createRadialGradient(center, center, 0, center, center, center);
-  halo.addColorStop(0, "rgba(255,255,255,1)");
-  halo.addColorStop(0.12, "rgba(236,253,245,0.98)");
-  halo.addColorStop(0.28, "rgba(167,243,208,0.72)");
-  halo.addColorStop(0.58, "rgba(52,211,153,0.24)");
-  halo.addColorStop(1, "rgba(52,211,153,0)");
-
-  context.fillStyle = halo;
-  context.fillRect(0, 0, size, size);
-  context.restore();
-
-  context.save();
-  context.translate(center, center);
-  context.strokeStyle = "rgba(255,255,255,0.86)";
-  context.lineWidth = 2;
-  context.shadowBlur = 14;
-  context.shadowColor = "rgba(236,253,245,0.94)";
-
-  for (const rotation of [0, Math.PI / 2, Math.PI / 4, -Math.PI / 4]) {
-    context.rotate(rotation);
-    context.beginPath();
-    context.moveTo(-46, 0);
-    context.lineTo(46, 0);
-    context.stroke();
-    context.rotate(-rotation);
-  }
-
-  context.restore();
-  context.fillStyle = "#ffffff";
-  context.beginPath();
-  context.arc(center, center, 5, 0, Math.PI * 2);
-  context.fill();
-
-  return canvas;
-}
-
-function createTrailGlowTexture() {
-  const size = 128;
-  const canvas = document.createElement("canvas");
-  const context = canvas.getContext("2d");
-
-  canvas.width = size;
-  canvas.height = size;
-
-  if (!context) return canvas;
-
-  const center = size / 2;
-  context.clearRect(0, 0, size, size);
-  context.save();
-  context.beginPath();
-  context.arc(center, center, center - 1, 0, Math.PI * 2);
-  context.clip();
-
-  const glow = context.createRadialGradient(center, center, 0, center, center, center);
-  glow.addColorStop(0, "rgba(255,255,255,0.96)");
-  glow.addColorStop(0.18, "rgba(236,253,245,0.86)");
-  glow.addColorStop(0.4, "rgba(134,239,172,0.48)");
-  glow.addColorStop(0.72, "rgba(34,197,94,0.16)");
-  glow.addColorStop(1, "rgba(34,197,94,0)");
-
-  context.fillStyle = glow;
-  context.fillRect(0, 0, size, size);
-  context.restore();
-
-  return canvas;
-}
-
-function createStarField(THREE: ThreeModule, count: number) {
-  const random = seededRandom(92 + count);
-  const positions = new Float32Array(count * 3);
-  const colors = new Float32Array(count * 3);
-  const color = new THREE.Color();
-
-  for (let index = 0; index < count; index += 1) {
-    const spread = 4.5;
-    const x = (random() - 0.5) * spread;
-    const y = (random() - 0.5) * spread;
-    const z = -2.2 - random() * 1.8;
-    const intensity = 0.48 + random() * 0.5;
-
-    positions[index * 3] = x;
-    positions[index * 3 + 1] = y;
-    positions[index * 3 + 2] = z;
-
-    color.setRGB(0.72 * intensity, 1 * intensity, 0.86 * intensity);
-    colors[index * 3] = color.r;
-    colors[index * 3 + 1] = color.g;
-    colors[index * 3 + 2] = color.b;
-  }
-
-  const geometry = new THREE.BufferGeometry();
-  geometry.setAttribute("position", new THREE.BufferAttribute(positions, 3));
-  geometry.setAttribute("color", new THREE.BufferAttribute(colors, 3));
-
-  return geometry;
-}
-
-function createShootingStarArc(THREE: ThreeModule, config: SceneConfig) {
-  const points: ThreeNamespace.Vector3[] = [];
-  const radiusX = config.earthRadius * 1.1;
-  const radiusY = config.earthRadius * 0.68;
-  const depth = config.earthRadius * 0.2;
-  const startAngle = -Math.PI * 0.84;
-  const endAngle = Math.PI * 0.2;
-  const pointCount = 72;
-
-  for (let index = 0; index < pointCount; index += 1) {
-    const progress = index / (pointCount - 1);
-    const angle = startAngle + (endAngle - startAngle) * progress;
-    points.push(
-      new THREE.Vector3(
-        Math.cos(angle) * radiusX,
-        Math.sin(angle) * radiusY - config.earthRadius * 0.02,
-        Math.sin(angle + Math.PI * 0.28) * depth + config.earthRadius * 0.16
-      )
-    );
-  }
-
-  return points;
 }
 
 function BrandMarkFallback({ variant }: { variant: MarkVariant }) {
@@ -710,7 +323,7 @@ function BrandMarkFallback({ variant }: { variant: MarkVariant }) {
     <div
       aria-hidden="true"
       className={cn(
-        "relative rounded-full bg-[radial-gradient(circle_at_38%_34%,rgba(236,253,245,0.9)_0%,rgba(167,243,208,0.46)_10%,rgba(20,184,166,0.25)_26%,rgba(3,7,18,0.64)_62%,transparent_74%)] shadow-[0_0_36px_rgba(52,211,153,0.42)]",
+        "relative rounded-full bg-[radial-gradient(circle_at_38%_34%,rgba(236,253,245,0.9)_0%,rgba(116,255,126,0.46)_10%,rgba(20,184,166,0.25)_26%,rgba(3,7,18,0.64)_62%,transparent_74%)] shadow-[0_0_36px_rgba(52,211,153,0.42)]",
         isNav ? "h-12 w-12" : "h-44 w-44"
       )}
     >
@@ -724,248 +337,69 @@ function BrandMarkFallback({ variant }: { variant: MarkVariant }) {
   );
 }
 
-function initializeBrandScene({
-  THREE,
+function initializeCanvasScene({
   canvas,
   config,
   onReady,
-  track,
   variant
 }: {
-  THREE: ThreeModule;
   canvas: HTMLCanvasElement;
   config: SceneConfig;
   onReady: () => void;
-  track: <T extends { dispose: () => void }>(item: T) => T;
   variant: MarkVariant;
 }) {
+  const context = canvas.getContext("2d");
+  if (!context) return undefined;
+
   let frameId = 0;
   let ready = false;
-
-  const renderer = track(
-    new THREE.WebGLRenderer({
-      alpha: true,
-      antialias: true,
-      canvas,
-      powerPreference: "high-performance",
-      premultipliedAlpha: false,
-      preserveDrawingBuffer: true
-    })
-  );
-
-  renderer.outputColorSpace = THREE.SRGBColorSpace;
-  renderer.setClearColor(0x000000, 0);
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
-  renderer.toneMapping = THREE.ACESFilmicToneMapping;
-  renderer.toneMappingExposure = 1.22;
-
-  const scene = new THREE.Scene();
-  const camera = new THREE.PerspectiveCamera(36, 1, 0.1, 100);
-  camera.position.set(0, 0, config.cameraZ);
-
-  const earthTexture = track(new THREE.CanvasTexture(createEarthTexture()));
-  earthTexture.colorSpace = THREE.SRGBColorSpace;
-  earthTexture.anisotropy = Math.min(renderer.capabilities.getMaxAnisotropy(), 8);
-
-  const cloudTexture = track(new THREE.CanvasTexture(createCloudTexture()));
-  cloudTexture.colorSpace = THREE.SRGBColorSpace;
-
-  const northStarTexture = track(new THREE.CanvasTexture(createNorthStarTexture()));
-  northStarTexture.colorSpace = THREE.SRGBColorSpace;
-
-  const trailGlowTexture = track(new THREE.CanvasTexture(createTrailGlowTexture()));
-  trailGlowTexture.colorSpace = THREE.SRGBColorSpace;
-
-  const earthGroup = new THREE.Group();
-  earthGroup.rotation.set(-0.15, -0.42, 0.08);
-  scene.add(earthGroup);
-
-  const earthGeometry = track(new THREE.SphereGeometry(config.earthRadius, 96, 96));
-  const earthMaterial = track(
-    new THREE.MeshStandardMaterial({
-      bumpMap: earthTexture,
-      bumpScale: 0.045,
-      emissive: new THREE.Color("#052e22"),
-      emissiveIntensity: 0.2,
-      map: earthTexture,
-      metalness: 0.08,
-      roughness: 0.72
-    })
-  );
-  const earth = new THREE.Mesh(earthGeometry, earthMaterial);
-  earthGroup.add(earth);
-
-  const cloudGeometry = track(new THREE.SphereGeometry(config.earthRadius * 1.014, 96, 96));
-  const cloudMaterial = track(
-    new THREE.MeshStandardMaterial({
-      color: "#ecfeff",
-      depthWrite: false,
-      map: cloudTexture,
-      opacity: 0.2,
-      transparent: true
-    })
-  );
-  const clouds = new THREE.Mesh(cloudGeometry, cloudMaterial);
-  earthGroup.add(clouds);
-
-  const atmosphereGeometry = track(new THREE.SphereGeometry(config.earthRadius * 1.07, 96, 96));
-  const atmosphereMaterial = track(
-    new THREE.MeshBasicMaterial({
-      blending: THREE.AdditiveBlending,
-      color: "#6ee7b7",
-      depthWrite: false,
-      opacity: variant === "nav" ? 0.16 : 0.2,
-      side: THREE.BackSide,
-      transparent: true
-    })
-  );
-  scene.add(new THREE.Mesh(atmosphereGeometry, atmosphereMaterial));
-
-  const starsGeometry = track(createStarField(THREE, config.starCount));
-  const starsMaterial = track(
-    new THREE.PointsMaterial({
-      blending: THREE.AdditiveBlending,
-      depthWrite: false,
-      size: variant === "nav" ? 0.035 : 0.026,
-      transparent: true,
-      vertexColors: true
-    })
-  );
-  scene.add(new THREE.Points(starsGeometry, starsMaterial));
-
-  const orbitGroup = new THREE.Group();
-  orbitGroup.rotation.set(-0.08, 0.05, 0.18);
-  scene.add(orbitGroup);
-
-  const orbitArc = createShootingStarArc(THREE, config);
-  const orbitCurve = new THREE.CatmullRomCurve3(orbitArc);
-  const trailGlowGeometry = track(
-    new THREE.TubeGeometry(orbitCurve, variant === "nav" ? 54 : 86, config.earthRadius * 0.032, 10, false)
-  );
-  const trailGlowMaterial = track(
-    new THREE.MeshBasicMaterial({
-      blending: THREE.AdditiveBlending,
-      color: "#22c55e",
-      depthTest: false,
-      depthWrite: false,
-      opacity: variant === "nav" ? 0.22 : 0.28,
-      transparent: true
-    })
-  );
-  orbitGroup.add(new THREE.Mesh(trailGlowGeometry, trailGlowMaterial));
-
-  const trailCoreGeometry = track(
-    new THREE.TubeGeometry(orbitCurve, variant === "nav" ? 54 : 86, config.earthRadius * 0.012, 8, false)
-  );
-  const trailCoreMaterial = track(
-    new THREE.MeshBasicMaterial({
-      blending: THREE.AdditiveBlending,
-      color: "#ecfdf5",
-      depthTest: false,
-      depthWrite: false,
-      opacity: variant === "nav" ? 0.7 : 0.82,
-      transparent: true
-    })
-  );
-  orbitGroup.add(new THREE.Mesh(trailCoreGeometry, trailCoreMaterial));
-
-  const trailSparkCount = variant === "nav" ? 16 : 32;
-  for (let index = 0; index < trailSparkCount; index += 1) {
-    const progress = index / (trailSparkCount - 1);
-    const point = orbitArc[Math.floor(progress * (orbitArc.length - 1))];
-    const material = track(
-      new THREE.SpriteMaterial({
-        alphaTest: 0.01,
-        blending: THREE.AdditiveBlending,
-        color: progress > 0.82 ? "#ecfdf5" : "#86efac",
-        depthTest: false,
-        depthWrite: false,
-        map: trailGlowTexture,
-        opacity: 0.04 + progress * progress * (variant === "nav" ? 0.32 : 0.46),
-        transparent: true
-      })
-    );
-    const spark = new THREE.Sprite(material);
-    spark.position.copy(point);
-    spark.scale.setScalar(config.northStarScale * (0.12 + progress * 0.2));
-    orbitGroup.add(spark);
-  }
-
-  const northStarMaterial = track(
-    new THREE.SpriteMaterial({
-      alphaTest: 0.01,
-      blending: THREE.AdditiveBlending,
-      color: "#ecfdf5",
-      depthTest: false,
-      depthWrite: false,
-      map: northStarTexture,
-      transparent: true
-    })
-  );
-  const northStar = new THREE.Sprite(northStarMaterial);
-  northStar.position.copy(orbitArc[orbitArc.length - 1]);
-  northStar.scale.setScalar(config.northStarScale);
-  orbitGroup.add(northStar);
-
-  const northStarHaloMaterial = track(
-    new THREE.SpriteMaterial({
-      alphaTest: 0.01,
-      blending: THREE.AdditiveBlending,
-      color: "#34d399",
-      depthTest: false,
-      depthWrite: false,
-      map: northStarTexture,
-      opacity: 0.18,
-      transparent: true
-    })
-  );
-  const northStarHalo = new THREE.Sprite(northStarHaloMaterial);
-  northStarHalo.position.copy(northStar.position);
-  northStarHalo.scale.setScalar(config.northStarScale * 1.9);
-  orbitGroup.add(northStarHalo);
-
-  scene.add(new THREE.AmbientLight("#d1fae5", 0.42));
-
-  const sunLight = new THREE.DirectionalLight("#ecfeff", 2.15);
-  sunLight.position.set(2.8, 2.3, 4.2);
-  scene.add(sunLight);
-
-  const rimLight = new THREE.DirectionalLight("#34d399", 1.28);
-  rimLight.position.set(-3.2, 0.6, -1.8);
-  scene.add(rimLight);
+  let lastTimestamp = 0;
+  let time = 0;
+  let width = 1;
+  let height = 1;
+  let matrixState = randomMatrixState(config.columns, 1);
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
   const resize = () => {
     const rect = canvas.getBoundingClientRect();
-    const width = Math.max(1, Math.floor(rect.width));
-    const height = Math.max(1, Math.floor(rect.height));
-    camera.aspect = width / height;
-    camera.updateProjectionMatrix();
-    renderer.setSize(width, height, false);
-    renderer.render(scene, camera);
+    width = Math.max(1, Math.floor(rect.width));
+    height = Math.max(1, Math.floor(rect.height));
+    canvas.width = Math.floor(width * dpr);
+    canvas.height = Math.floor(height * dpr);
+    context.setTransform(dpr, 0, 0, dpr, 0, 0);
+    matrixState = randomMatrixState(config.columns, height);
   };
 
-  const resizeObserver = new ResizeObserver(resize);
-  resizeObserver.observe(canvas);
-  resize();
+  const render = (timestamp = 0) => {
+    const delta = lastTimestamp ? Math.min((timestamp - lastTimestamp) / 1000, 0.05) : 0.016;
+    lastTimestamp = timestamp;
+    time += reduceMotion ? 0 : delta;
 
-  const timer = new THREE.Timer();
-  timer.connect(document);
-  const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    context.clearRect(0, 0, width, height);
 
-  const render = (timestamp?: number) => {
-    timer.update(timestamp);
-    const delta = Math.min(timer.getDelta(), 0.05);
-    const elapsed = timer.getElapsed();
+    const centerX = width * 0.5;
+    const centerY = height * (variant === "nav" ? 0.51 : 0.53);
+    const earthRadius = Math.min(width, height) * config.earthScale;
+    const background = context.createRadialGradient(
+      width * 0.54,
+      height * 0.46,
+      Math.min(width, height) * 0.08,
+      width * 0.52,
+      height * 0.5,
+      Math.min(width, height) * 0.72
+    );
+    background.addColorStop(0, "rgba(13, 66, 38, 0.42)");
+    background.addColorStop(0.55, "rgba(0, 12, 8, 0.68)");
+    background.addColorStop(1, "rgba(0, 0, 0, 0)");
+    context.fillStyle = background;
+    context.fillRect(0, 0, width, height);
 
-    earthGroup.rotation.y -= delta * 0.035;
-    clouds.rotation.y -= delta * 0.014;
-    orbitGroup.rotation.z += delta * 0.095;
-    northStarMaterial.opacity = 0.92 + Math.sin(elapsed * 1.1) * 0.08;
-    northStarHaloMaterial.opacity = 0.16 + Math.sin(elapsed * 1.1) * 0.05;
-    trailGlowMaterial.opacity = (variant === "nav" ? 0.22 : 0.28) + Math.sin(elapsed * 1.1) * 0.04;
-    trailCoreMaterial.opacity = (variant === "nav" ? 0.7 : 0.82) + Math.sin(elapsed * 1.1) * 0.06;
-
-    renderer.render(scene, camera);
+    drawMatrixRain(context, matrixState, width, height, config.columns, config.matrixOpacity);
+    drawEarth(context, centerX, centerY, earthRadius, time);
+    drawOrbit(context, centerX, centerY, width * 0.35, height * 0.13, time, config.starScale);
+    drawHudRings(context, centerX, centerY, earthRadius, time);
+    drawScanlines(context, width, height);
 
     if (!ready) {
       ready = true;
@@ -977,12 +411,16 @@ function initializeBrandScene({
     }
   };
 
+  resize();
+  const resizeObserver = new ResizeObserver(() => {
+    resize();
+    render(lastTimestamp);
+  });
+  resizeObserver.observe(canvas);
   render();
 
   return () => {
     window.cancelAnimationFrame(frameId);
-    timer.disconnect();
-    timer.dispose();
     resizeObserver.disconnect();
   };
 }
@@ -1004,47 +442,22 @@ export function AnimatedNorthStarMark({
     const canvas = canvasRef.current;
     if (!canvas) return;
 
-    let disposed = false;
-    let cleanupScene: (() => void) | undefined;
+    setRenderFallback(false);
     setSceneReady(false);
 
-    const disposables: Array<{ dispose: () => void }> = [];
-    const track = <T extends { dispose: () => void }>(item: T) => {
-      disposables.push(item);
-      return item;
-    };
+    const cleanup = initializeCanvasScene({
+      canvas,
+      config,
+      onReady: () => setSceneReady(true),
+      variant
+    });
 
-    const disposeTracked = () => {
-      while (disposables.length > 0) {
-        disposables.pop()?.dispose();
-      }
-    };
+    if (!cleanup) {
+      setRenderFallback(true);
+      return;
+    }
 
-    void import("three")
-      .then((THREE) => {
-        if (disposed) return;
-
-        cleanupScene = initializeBrandScene({
-          THREE,
-          canvas,
-          config,
-          onReady: () => {
-            if (!disposed) setSceneReady(true);
-          },
-          track,
-          variant
-        });
-      })
-      .catch(() => {
-        disposeTracked();
-        if (!disposed) setRenderFallback(true);
-      });
-
-    return () => {
-      disposed = true;
-      cleanupScene?.();
-      disposeTracked();
-    };
+    return cleanup;
   }, [config, variant]);
 
   if (renderFallback) {
@@ -1054,7 +467,7 @@ export function AnimatedNorthStarMark({
   return (
     <div
       className={cn("relative isolate shrink-0 overflow-visible", config.className, className)}
-      aria-label="Slowly rotating Earth with a bright North Star"
+      aria-label="Slowly rotating digital Earth with an orbiting North Star"
       role="img"
     >
       <div
