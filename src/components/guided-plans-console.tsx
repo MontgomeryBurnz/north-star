@@ -421,79 +421,85 @@ export function GuidedPlansConsole() {
     }
   }, [flagContext, flagReason, flagTarget, loadPlan, selectedProgramId]);
 
-  const planSections = plan
-    ? [
-        normalizePlanSection(
-          plan.sourceInputs,
-          "Fresh Inputs Driving This Plan",
-          [
-            "This plan should be regenerated whenever uploads, active-program updates, or leadership feedback change.",
-            "No fresh source-input summary is available in this saved version."
-          ]
-        ),
-        normalizePlanSection(
-          plan.assistantDialogue,
-          "Guide Dialogue Shaping This Plan",
-          [
-            "No guide dialogue is visible in this saved version.",
-            "Use Guide to capture operator context that should influence the next guided-plan refresh."
-          ]
-        ),
-        normalizePlanSection(plan.signalFromNoise, "Signal From Noise", ["No current signal summary is available."]),
-        normalizePlanSection(plan.workPath, "Recommended Work Path", ["Generate a guided plan to create the next work path."]),
-        normalizePlanSection(plan.planningApproach, "Planning Approach", ["No planning approach has been captured yet."]),
-        normalizePlanSection(plan.keyOutcomes, "Key Outcomes", ["No key outcomes are available yet."]),
-        normalizePlanSection(plan.criticalRequirements, "Critical Requirements", ["No critical requirements are available yet."]),
-        normalizePlanSection(plan.keyOutputs, "Key Outputs", ["No key outputs are available yet."]),
-        normalizePlanSection(plan.risksAndDecisions, "Risks And Decisions", ["No current risk and decision summary is available yet."]),
-        normalizePlanSection(
-          plan.leadershipChanges,
-          "What Changed From Leadership Signal",
-          leadershipSignal?.status === "new"
-            ? ["New leadership input is available. The plan will refresh automatically when that review is saved."]
-            : ["No leadership-driven plan changes are visible in this saved version."]
-        )
-      ]
-    : [];
-  const rolePlans = plan ? normalizeRolePlans(plan.rolePlans) : null;
+  const planSections = useMemo(() => {
+    if (!plan) return [];
+
+    return [
+      normalizePlanSection(
+        plan.sourceInputs,
+        "Fresh Inputs Driving This Plan",
+        [
+          "This plan should be regenerated whenever uploads, active-program updates, or leadership feedback change.",
+          "No fresh source-input summary is available in this saved version."
+        ]
+      ),
+      normalizePlanSection(
+        plan.assistantDialogue,
+        "Guide Dialogue Shaping This Plan",
+        [
+          "No guide dialogue is visible in this saved version.",
+          "Use Guide to capture operator context that should influence the next guided-plan refresh."
+        ]
+      ),
+      normalizePlanSection(plan.signalFromNoise, "Signal From Noise", ["No current signal summary is available."]),
+      normalizePlanSection(plan.workPath, "Recommended Work Path", ["Generate a guided plan to create the next work path."]),
+      normalizePlanSection(plan.planningApproach, "Planning Approach", ["No planning approach has been captured yet."]),
+      normalizePlanSection(plan.keyOutcomes, "Key Outcomes", ["No key outcomes are available yet."]),
+      normalizePlanSection(plan.criticalRequirements, "Critical Requirements", ["No critical requirements are available yet."]),
+      normalizePlanSection(plan.keyOutputs, "Key Outputs", ["No key outputs are available yet."]),
+      normalizePlanSection(plan.risksAndDecisions, "Risks And Decisions", ["No current risk and decision summary is available yet."]),
+      normalizePlanSection(
+        plan.leadershipChanges,
+        "What Changed From Leadership Signal",
+        leadershipSignal?.status === "new"
+          ? ["New leadership input is available. The plan will refresh automatically when that review is saved."]
+          : ["No leadership-driven plan changes are visible in this saved version."]
+      )
+    ];
+  }, [leadershipSignal?.status, plan]);
+  const rolePlans = useMemo(() => (plan ? normalizeRolePlans(plan.rolePlans) : null), [plan]);
   const latestAssistantConversation = assistantConversations[0];
   const lastAssistantDialogueAt = latestAssistantConversation?.updatedAt || latestAssistantConversation?.createdAt;
-  const assistantDialogueFooter = assistantConversations.length ? (
-    <div className="mt-2 grid gap-3 rounded-md border border-cyan-300/20 bg-cyan-300/[0.055] p-3">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <p className="flex items-center gap-2 text-sm font-medium text-cyan-100">
-          <MessageSquareText className="h-4 w-4" />
-          Conversation history
-        </p>
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          className="h-auto px-2 py-1 text-cyan-100 hover:text-cyan-50"
-          onClick={() => setShowAssistantHistory((open) => !open)}
-        >
-          {showAssistantHistory ? "Hide history" : "View full history"}
-        </Button>
-      </div>
-      {showAssistantHistory ? (
-        <div className="grid gap-3">
-          {assistantConversations.map((turn) => (
-            <div key={turn.id} className="rounded-md border border-white/10 bg-black/20 p-3">
-              <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-zinc-500">{formatDate(turn.updatedAt)}</p>
-              <p className="mt-2 text-xs font-medium uppercase tracking-[0.14em] text-zinc-300">Prompt</p>
-              <p className="mt-1 text-sm leading-6 text-zinc-200">{turn.prompt}</p>
-              <p className="mt-3 text-xs font-medium uppercase tracking-[0.14em] text-zinc-300">Guide</p>
-              <p className="mt-1 text-sm leading-6 text-zinc-400">{turn.response.answer}</p>
-            </div>
-          ))}
+  const assistantDialogueFooter = useMemo(() => {
+    if (!assistantConversations.length) return null;
+
+    return (
+      <div className="mt-2 grid gap-3 rounded-md border border-cyan-300/20 bg-cyan-300/[0.055] p-3">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <p className="flex items-center gap-2 text-sm font-medium text-cyan-100">
+            <MessageSquareText className="h-4 w-4" />
+            Conversation history
+          </p>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="h-auto px-2 py-1 text-cyan-100 hover:text-cyan-50"
+            onClick={() => setShowAssistantHistory((open) => !open)}
+          >
+            {showAssistantHistory ? "Hide history" : "View full history"}
+          </Button>
         </div>
-      ) : (
-        <p className="text-xs leading-5 text-zinc-300">
-          {assistantConversations.length} stored dialogue {assistantConversations.length === 1 ? "turn is" : "turns are"} from Guide shaping this plan.
-        </p>
-      )}
-    </div>
-  ) : null;
+        {showAssistantHistory ? (
+          <div className="grid gap-3">
+            {assistantConversations.map((turn) => (
+              <div key={turn.id} className="rounded-md border border-white/10 bg-black/20 p-3">
+                <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-zinc-500">{formatDate(turn.updatedAt)}</p>
+                <p className="mt-2 text-xs font-medium uppercase tracking-[0.14em] text-zinc-300">Prompt</p>
+                <p className="mt-1 text-sm leading-6 text-zinc-200">{turn.prompt}</p>
+                <p className="mt-3 text-xs font-medium uppercase tracking-[0.14em] text-zinc-300">Guide</p>
+                <p className="mt-1 text-sm leading-6 text-zinc-400">{turn.response.answer}</p>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="text-xs leading-5 text-zinc-300">
+            {assistantConversations.length} stored dialogue {assistantConversations.length === 1 ? "turn is" : "turns are"} from Guide shaping this plan.
+          </p>
+        )}
+      </div>
+    );
+  }, [assistantConversations, showAssistantHistory]);
 
   return (
     <main className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
@@ -534,41 +540,6 @@ export function GuidedPlansConsole() {
               />
 
               <div className="grid gap-4 lg:grid-cols-2">
-                {latestJustification ? (
-                  <GuidedPlanJustificationCard
-                    justification={latestJustification}
-                    pendingFlagCount={pendingFlagCount}
-                    flagTarget={flagTarget}
-                    flagReason={flagReason}
-                    flagContext={flagContext}
-                    isSubmittingFlag={isSubmittingFlag}
-                    onOpenCitationFlag={(citationId, citationLabel) => {
-                      setFlagTarget({
-                        justificationId: latestJustification.id,
-                        citationId,
-                        targetType: "source-citation",
-                        targetLabel: citationLabel,
-                        scope: "partial"
-                      });
-                      setFlagReason("");
-                      setFlagContext("");
-                    }}
-                    onOpenWholeFlag={() => {
-                      setFlagTarget({
-                        justificationId: latestJustification.id,
-                        targetType: "whole-rationale",
-                        targetLabel: "Why This Changed rationale",
-                        scope: "whole"
-                      });
-                      setFlagReason("");
-                      setFlagContext("");
-                    }}
-                    onFlagReasonChange={setFlagReason}
-                    onFlagContextChange={setFlagContext}
-                    onSubmitFlag={submitFlag}
-                    onCancelFlag={() => setFlagTarget(null)}
-                  />
-                ) : null}
                 <GuidedPlanGanttSummary currentPhaseLabel={currentPhase.label} ganttPhases={ganttPhases} />
                 {rolePlans ? (
                   <RolePlansCard
@@ -594,6 +565,41 @@ export function GuidedPlansConsole() {
                         targetLabel: `${role} Team Action Plan`,
                         targetRole: role,
                         scope: "partial"
+                      });
+                      setFlagReason("");
+                      setFlagContext("");
+                    }}
+                    onFlagReasonChange={setFlagReason}
+                    onFlagContextChange={setFlagContext}
+                    onSubmitFlag={submitFlag}
+                    onCancelFlag={() => setFlagTarget(null)}
+                  />
+                ) : null}
+                {latestJustification ? (
+                  <GuidedPlanJustificationCard
+                    justification={latestJustification}
+                    pendingFlagCount={pendingFlagCount}
+                    flagTarget={flagTarget}
+                    flagReason={flagReason}
+                    flagContext={flagContext}
+                    isSubmittingFlag={isSubmittingFlag}
+                    onOpenCitationFlag={(citationId, citationLabel) => {
+                      setFlagTarget({
+                        justificationId: latestJustification.id,
+                        citationId,
+                        targetType: "source-citation",
+                        targetLabel: citationLabel,
+                        scope: "partial"
+                      });
+                      setFlagReason("");
+                      setFlagContext("");
+                    }}
+                    onOpenWholeFlag={() => {
+                      setFlagTarget({
+                        justificationId: latestJustification.id,
+                        targetType: "whole-rationale",
+                        targetLabel: "Why This Changed rationale",
+                        scope: "whole"
                       });
                       setFlagReason("");
                       setFlagContext("");
