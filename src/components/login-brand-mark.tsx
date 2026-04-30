@@ -498,8 +498,7 @@ export function AnimatedNorthStarMark({
       ) : null}
       <canvas
         ref={canvasRef}
-        className="block h-full w-full transition-opacity duration-500"
-        style={{ opacity: sceneReady ? 1 : 0 }}
+        className="block h-full w-full"
       />
     </div>
   );
