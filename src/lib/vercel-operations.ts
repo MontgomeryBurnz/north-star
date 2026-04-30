@@ -3,6 +3,7 @@ import type {
   VercelDeploymentSummary,
   VercelOperationsSnapshot,
   VercelOperationsWindowKey,
+  VercelSetupItem,
   VercelSpendForecast
 } from "@/lib/vercel-operations-types";
 
@@ -36,6 +37,10 @@ function asPositiveNumber(value: string | undefined) {
   if (!value?.trim()) return null;
   const parsed = Number(value);
   return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+}
+
+function isEnabled(value: string | undefined) {
+  return ["1", "true", "yes", "on"].includes((value ?? "").trim().toLowerCase());
 }
 
 function getVercelToken() {
@@ -138,8 +143,95 @@ function getSpendForecast(): VercelSpendForecast {
     basisLabel:
       projectedThirtyDaySpendUsd !== null
         ? "Admin-configured Vercel spend inputs"
-        : "Connect Vercel usage export or set VERCEL_OBSERVED_SPEND_USD / VERCEL_OBSERVED_SPEND_DAYS"
+        : "Set fixed monthly spend or observed overage inputs"
   };
+}
+
+function getObservabilityInstrumentation() {
+  return {
+    webAnalytics: isEnabled(process.env.NORTHSTAR_VERCEL_WEB_ANALYTICS_ENABLED),
+    speedInsights: isEnabled(process.env.NORTHSTAR_VERCEL_SPEED_INSIGHTS_ENABLED)
+  };
+}
+
+function makeSetupItem(input: Omit<VercelSetupItem, "status"> & { ready: boolean }): VercelSetupItem {
+  const { ready, ...item } = input;
+  return {
+    ...item,
+    status: ready ? "ready" : "missing"
+  };
+}
+
+function getConfigurationSnapshot(input: {
+  config: ReturnType<typeof getVercelConfig>;
+  spend: VercelSpendForecast;
+  instrumentation: ReturnType<typeof getObservabilityInstrumentation>;
+}) {
+  const hasProjectReference = Boolean(input.config.projectId || input.config.projectName);
+  const hasSpendRunRate = Boolean(input.spend.projectedThirtyDaySpendUsd !== null || input.spend.monthlyBudgetUsd !== null);
+  const deploymentTelemetryReady = Boolean(input.config.token && hasProjectReference);
+  const observabilityReady = Boolean(input.instrumentation.webAnalytics && input.instrumentation.speedInsights);
+  const setupItems = [
+    makeSetupItem({
+      key: "VERCEL_API_TOKEN",
+      label: "Vercel API token",
+      description: "Allows Admin to sync deployment telemetry for the North Star project.",
+      impact: "deployment-telemetry",
+      ready: Boolean(input.config.token)
+    }),
+    makeSetupItem({
+      key: "NORTHSTAR_VERCEL_PROJECT_ID or NORTHSTAR_VERCEL_PROJECT_NAME",
+      label: "Project reference",
+      description: "Scopes deployment telemetry to this Vercel project instead of the whole account.",
+      impact: "deployment-telemetry",
+      ready: hasProjectReference
+    }),
+    makeSetupItem({
+      key: "VERCEL_FIXED_MONTHLY_SPEND_USD",
+      label: "Fixed platform spend",
+      description: "Sets the baseline Vercel subscription or known monthly platform cost.",
+      impact: "spend-forecast",
+      ready: input.spend.fixedMonthlySpendUsd !== null
+    }),
+    makeSetupItem({
+      key: "VERCEL_OBSERVED_SPEND_USD + VERCEL_OBSERVED_SPEND_DAYS",
+      label: "Observed overage run rate",
+      description: "Projects variable Vercel overage from recent spend over a known number of days.",
+      impact: "spend-forecast",
+      ready: Boolean(input.spend.observedSpendUsd !== null && input.spend.observedDays)
+    }),
+    makeSetupItem({
+      key: "NORTHSTAR_VERCEL_WEB_ANALYTICS_ENABLED",
+      label: "Web Analytics instrumentation",
+      description: "Confirms the app is sending page-level usage events to Vercel Web Analytics.",
+      impact: "observability",
+      ready: input.instrumentation.webAnalytics
+    }),
+    makeSetupItem({
+      key: "NORTHSTAR_VERCEL_SPEED_INSIGHTS_ENABLED",
+      label: "Speed Insights instrumentation",
+      description: "Confirms the app is sending Core Web Vitals to Vercel Speed Insights.",
+      impact: "observability",
+      ready: input.instrumentation.speedInsights
+    })
+  ];
+
+  return {
+    deploymentTelemetryReady,
+    spendForecastReady: hasSpendRunRate,
+    observabilityReady,
+    missingSetupKeys: setupItems.filter((item) => item.status === "missing").map((item) => item.key),
+    setupItems
+  };
+}
+
+function getMissingTelemetryMessage(configuration: ReturnType<typeof getConfigurationSnapshot>) {
+  const missing = configuration.setupItems
+    .filter((item) => item.impact === "deployment-telemetry" && item.status === "missing")
+    .map((item) => item.label.toLowerCase());
+
+  if (!missing.length) return undefined;
+  return `Connect ${missing.join(" and ")} to sync Vercel deployment statistics.`;
 }
 
 function getStringMeta(meta: Record<string, unknown> | undefined, key: string) {
@@ -222,6 +314,8 @@ export async function getVercelOperationsSnapshot(
   const config = getVercelConfig();
   const runtime = getRuntimeSnapshot();
   const spend = getSpendForecast();
+  const instrumentation = getObservabilityInstrumentation();
+  const configuration = getConfigurationSnapshot({ config, spend, instrumentation });
   const base = {
     source: "vercel-deployments-api" as const,
     windowKey: window.windowKey,
@@ -233,11 +327,12 @@ export async function getVercelOperationsSnapshot(
     projectName: config.projectName,
     teamId: config.teamId,
     teamSlug: config.teamSlug,
+    configuration,
     runtime,
     spend
   };
 
-  if (!config.token || (!config.projectId && !config.projectName)) {
+  if (!configuration.deploymentTelemetryReady) {
     return {
       ...base,
       configured: false,
@@ -246,20 +341,23 @@ export async function getVercelOperationsSnapshot(
       observability: {
         deploymentApi: "not-configured",
         runtimeLogs: "not-configured",
-        webAnalytics: "not-instrumented",
-        speedInsights: "not-instrumented"
+        webAnalytics: instrumentation.webAnalytics ? "instrumented" : "not-instrumented",
+        speedInsights: instrumentation.speedInsights ? "instrumented" : "not-instrumented"
       },
-      error: "Add VERCEL_API_TOKEN plus NORTHSTAR_VERCEL_PROJECT_ID or NORTHSTAR_VERCEL_PROJECT_NAME to sync Vercel deployment statistics."
+      error: getMissingTelemetryMessage(configuration)
     };
   }
 
   try {
+    const token = config.token;
+    if (!token) throw new Error("Vercel API token is missing.");
+
     const payload = await fetchVercelDeployments({
       projectId: config.projectId,
       projectName: config.projectName,
       teamId: config.teamId,
       teamSlug: config.teamSlug,
-      token: config.token,
+      token,
       since: window.since,
       until: window.until
     });
@@ -272,8 +370,8 @@ export async function getVercelOperationsSnapshot(
       observability: {
         deploymentApi: "connected",
         runtimeLogs: "available-with-token",
-        webAnalytics: "not-instrumented",
-        speedInsights: "not-instrumented"
+        webAnalytics: instrumentation.webAnalytics ? "instrumented" : "not-instrumented",
+        speedInsights: instrumentation.speedInsights ? "instrumented" : "not-instrumented"
       }
     };
   } catch (error) {
@@ -285,8 +383,8 @@ export async function getVercelOperationsSnapshot(
       observability: {
         deploymentApi: "error",
         runtimeLogs: config.token ? "available-with-token" : "not-configured",
-        webAnalytics: "not-instrumented",
-        speedInsights: "not-instrumented"
+        webAnalytics: instrumentation.webAnalytics ? "instrumented" : "not-instrumented",
+        speedInsights: instrumentation.speedInsights ? "instrumented" : "not-instrumented"
       },
       error: error instanceof Error ? error.message : "Vercel operations sync failed."
     };

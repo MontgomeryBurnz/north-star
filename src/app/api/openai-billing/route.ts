@@ -17,15 +17,22 @@ function parseBillingWindowKey(value: string | null): OpenAIBillingWindowKey | u
   return billingWindowKeys.has(value as OpenAIBillingWindowKey) ? (value as OpenAIBillingWindowKey) : undefined;
 }
 
-export async function GET(request: Request) {
-  if (!isSiteAccessRequestAuthorized(request)) {
-    return createSiteAccessDeniedResponse();
-  }
-
+async function requireAdminAccess(request: Request) {
   const access = await getAdminAccessContext();
   if (!access.authorized) {
+    if (!isSiteAccessRequestAuthorized(request)) {
+      return createSiteAccessDeniedResponse();
+    }
+
     return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
   }
+
+  return null;
+}
+
+export async function GET(request: Request) {
+  const denied = await requireAdminAccess(request);
+  if (denied) return denied;
 
   const url = new URL(request.url);
   const windowKey = parseBillingWindowKey(url.searchParams.get("window"));

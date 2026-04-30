@@ -1,11 +1,11 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Activity, ChevronDown, Cloud, DollarSign, RefreshCw, ServerCog } from "lucide-react";
+import { Activity, CheckCircle2, ChevronDown, Cloud, DollarSign, RefreshCw, ServerCog, Wrench } from "lucide-react";
 import { getBillingExpenseForecast } from "@/lib/openai-billing-forecast";
 import type { GuidanceModelProfile } from "@/lib/guidance-model-profile";
 import type { OpenAIBillingReconciliation, OpenAIBillingWindowKey } from "@/lib/openai-billing-types";
-import type { VercelOperationsSnapshot, VercelOperationsWindowKey } from "@/lib/vercel-operations-types";
+import type { VercelOperationsSnapshot, VercelOperationsWindowKey, VercelSetupItem } from "@/lib/vercel-operations-types";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { GuidanceModelProfileCard } from "@/components/guidance-model-profile-card";
@@ -31,6 +31,11 @@ function formatCurrency(value: number | null | undefined) {
   return `$${value.toFixed(2)}`;
 }
 
+function formatForecastCurrency(value: number | null | undefined) {
+  if (value === null || value === undefined) return "Needs inputs";
+  return formatCurrency(value);
+}
+
 function formatInteger(value: number | null | undefined) {
   return new Intl.NumberFormat(undefined, { maximumFractionDigits: 0 }).format(value ?? 0);
 }
@@ -54,6 +59,23 @@ function shortSha(value: string | undefined) {
   return value.slice(0, 7);
 }
 
+function formatStatusLabel(value: string | undefined) {
+  if (!value) return "not configured";
+  return value.replaceAll("-", " ");
+}
+
+function getVercelStatusLabel(vercel: VercelOperationsSnapshot | null) {
+  if (!vercel) return "Syncing";
+  if (vercel.connected && vercel.configuration.spendForecastReady) return "Connected";
+  if (vercel.connected) return "Telemetry connected";
+  return "Needs setup";
+}
+
+function getVercelStatusTone(vercel: VercelOperationsSnapshot | null): "good" | "warn" | "neutral" {
+  if (!vercel) return "neutral";
+  return vercel.connected && vercel.configuration.spendForecastReady ? "good" : "warn";
+}
+
 function StatusPill({ children, tone = "neutral" }: { children: string; tone?: "good" | "warn" | "neutral" }) {
   const className =
     tone === "good"
@@ -66,6 +88,31 @@ function StatusPill({ children, tone = "neutral" }: { children: string; tone?: "
     <span className={`rounded-full border px-3 py-1 text-[11px] font-medium uppercase tracking-[0.14em] ${className}`}>
       {children}
     </span>
+  );
+}
+
+function SetupItemCard({ item }: { item: VercelSetupItem }) {
+  const ready = item.status === "ready";
+
+  return (
+    <div
+      className={`rounded-md border p-3 ${
+        ready ? "border-emerald-300/20 bg-emerald-300/[0.055]" : "border-amber-300/20 bg-amber-300/[0.055]"
+      }`}
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="text-sm font-medium text-zinc-100">{item.label}</p>
+          <p className="mt-1 text-xs leading-5 text-zinc-400">{item.description}</p>
+        </div>
+        {ready ? (
+          <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-200" />
+        ) : (
+          <Wrench className="mt-0.5 h-4 w-4 shrink-0 text-amber-200" />
+        )}
+      </div>
+      <p className="mt-2 text-[11px] font-medium uppercase tracking-[0.14em] text-zinc-500">{item.key}</p>
+    </div>
   );
 }
 
@@ -148,7 +195,10 @@ export function AdminOperatingCostCenter({ guidanceModelProfile }: { guidanceMod
     setBillingStatus("Syncing OpenAI...");
     try {
       const params = new URLSearchParams({ window: billingWindow });
-      const response = await fetch(`/api/openai-billing?${params.toString()}`, { cache: "no-store" });
+      const response = await fetch(`/api/openai-billing?${params.toString()}`, {
+        cache: "no-store",
+        credentials: "same-origin"
+      });
       if (!response.ok) throw new Error("OpenAI billing sync failed.");
       const payload = (await response.json()) as { billing: OpenAIBillingReconciliation };
       setBilling(payload.billing);
@@ -162,7 +212,10 @@ export function AdminOperatingCostCenter({ guidanceModelProfile }: { guidanceMod
     setVercelStatus("Syncing Vercel...");
     try {
       const params = new URLSearchParams({ window: vercelWindow });
-      const response = await fetch(`/api/admin/vercel-operations?${params.toString()}`, { cache: "no-store" });
+      const response = await fetch(`/api/admin/vercel-operations?${params.toString()}`, {
+        cache: "no-store",
+        credentials: "same-origin"
+      });
       if (!response.ok) throw new Error("Vercel sync failed.");
       const payload = (await response.json()) as { vercel: VercelOperationsSnapshot };
       setVercel(payload.vercel);
@@ -203,12 +256,12 @@ export function AdminOperatingCostCenter({ guidanceModelProfile }: { guidanceMod
         />
         <MetricTile
           label="Vercel 30-day"
-          value={formatCurrency(vercel?.spend.projectedThirtyDaySpendUsd)}
-          detail={vercel?.spend.basisLabel ?? "Vercel spend inputs not connected"}
+          value={formatForecastCurrency(vercel?.spend.projectedThirtyDaySpendUsd)}
+          detail={vercel?.spend.basisLabel ?? "Set platform spend inputs for forecast"}
         />
         <MetricTile
           label="Total forecast"
-          value={formatCurrency(totalThirtyDayForecast)}
+          value={formatForecastCurrency(totalThirtyDayForecast)}
           detail="OpenAI plus Vercel 30-day operating forecast"
           tone="good"
         />
@@ -279,9 +332,7 @@ export function AdminOperatingCostCenter({ guidanceModelProfile }: { guidanceMod
                   <Cloud className="h-4 w-4 text-cyan-200" />
                   Vercel usage and observability
                 </CardTitle>
-                <StatusPill tone={vercel?.connected ? "good" : "warn"}>
-                  {vercel?.connected ? "Connected" : "Needs setup"}
-                </StatusPill>
+                <StatusPill tone={getVercelStatusTone(vercel)}>{getVercelStatusLabel(vercel)}</StatusPill>
               </div>
             </CardHeader>
             <CardContent className="grid gap-4 p-5">
@@ -313,10 +364,31 @@ export function AdminOperatingCostCenter({ guidanceModelProfile }: { guidanceMod
                 <MetricTile label="Errors" value={formatInteger(vercel?.deployments?.error)} detail="Failed deployments" />
                 <MetricTile
                   label="Vercel 90-day"
-                  value={formatCurrency(vercel?.spend.projectedNinetyDaySpendUsd)}
+                  value={formatForecastCurrency(vercel?.spend.projectedNinetyDaySpendUsd)}
                   detail="Quarterly platform view"
                 />
               </div>
+
+              {vercel ? (
+                <div className="rounded-md border border-white/10 bg-white/[0.035] p-4">
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                      <p className="text-sm font-semibold text-zinc-100">Connection checklist</p>
+                      <p className="mt-1 text-xs leading-5 text-zinc-500">
+                        Deployment telemetry, spend forecast, and observability are configured independently.
+                      </p>
+                    </div>
+                    <StatusPill tone={vercel.configuration.deploymentTelemetryReady ? "good" : "warn"}>
+                      {vercel.configuration.deploymentTelemetryReady ? "Telemetry ready" : "Token needed"}
+                    </StatusPill>
+                  </div>
+                  <div className="mt-4 grid gap-3 md:grid-cols-2">
+                    {vercel.configuration.setupItems.map((item) => (
+                      <SetupItemCard key={`${item.impact}-${item.key}`} item={item} />
+                    ))}
+                  </div>
+                </div>
+              ) : null}
 
               <div className="grid gap-3 md:grid-cols-2">
                 <div className="rounded-md border border-white/10 bg-white/[0.035] p-4">
@@ -337,10 +409,10 @@ export function AdminOperatingCostCenter({ guidanceModelProfile }: { guidanceMod
                     Observability
                   </p>
                   <div className="mt-3 grid gap-2 text-sm text-zinc-300">
-                    <p>Deployment API: {vercel?.observability.deploymentApi ?? "not configured"}</p>
-                    <p>Runtime logs: {vercel?.observability.runtimeLogs ?? "not configured"}</p>
-                    <p>Web Analytics: {vercel?.observability.webAnalytics ?? "not instrumented"}</p>
-                    <p>Speed Insights: {vercel?.observability.speedInsights ?? "not instrumented"}</p>
+                    <p>Deployment API: {formatStatusLabel(vercel?.observability.deploymentApi)}</p>
+                    <p>Runtime logs: {formatStatusLabel(vercel?.observability.runtimeLogs)}</p>
+                    <p>Web Analytics: {formatStatusLabel(vercel?.observability.webAnalytics)}</p>
+                    <p>Speed Insights: {formatStatusLabel(vercel?.observability.speedInsights)}</p>
                   </div>
                 </div>
               </div>
@@ -354,8 +426,8 @@ export function AdminOperatingCostCenter({ guidanceModelProfile }: { guidanceMod
                 </p>
                 {vercel?.error ? <p className="mt-2 text-amber-100">{vercel.error}</p> : null}
                 <p className="mt-2 text-xs leading-5 text-zinc-500">
-                  Vercel billing remains the platform source of truth. This view uses deployment telemetry plus configured spend inputs until a
-                  Vercel usage export is connected.
+                  Vercel billing remains the source of truth. Admin uses deployment telemetry plus configured platform spend inputs to forecast
+                  operating cost until a billing export workflow is added.
                 </p>
               </div>
             </CardContent>

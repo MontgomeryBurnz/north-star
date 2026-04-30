@@ -10,15 +10,22 @@ function parseWindowKey(value: string | null): VercelOperationsWindowKey | undef
   return vercelWindowKeys.has(value as VercelOperationsWindowKey) ? (value as VercelOperationsWindowKey) : undefined;
 }
 
-export async function GET(request: Request) {
-  if (!isSiteAccessRequestAuthorized(request)) {
-    return createSiteAccessDeniedResponse();
-  }
-
+async function requireAdminAccess(request: Request) {
   const access = await getAdminAccessContext();
   if (!access.authorized) {
+    if (!isSiteAccessRequestAuthorized(request)) {
+      return createSiteAccessDeniedResponse();
+    }
+
     return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
   }
+
+  return null;
+}
+
+export async function GET(request: Request) {
+  const denied = await requireAdminAccess(request);
+  if (denied) return denied;
 
   const url = new URL(request.url);
   const vercel = await getVercelOperationsSnapshot({

@@ -21,6 +21,14 @@ export type VercelSpendForecast = {
   basisLabel: string;
 };
 
+export type VercelSetupItem = {
+  key: string;
+  label: string;
+  description: string;
+  status: "ready" | "missing";
+  impact: "deployment-telemetry" | "spend-forecast" | "observability";
+};
+
 export type VercelOperationsSnapshot = {
   configured: boolean;
   connected: boolean;
@@ -34,6 +42,13 @@ export type VercelOperationsSnapshot = {
   projectName?: string;
   teamId?: string;
   teamSlug?: string;
+  configuration: {
+    deploymentTelemetryReady: boolean;
+    spendForecastReady: boolean;
+    observabilityReady: boolean;
+    missingSetupKeys: string[];
+    setupItems: VercelSetupItem[];
+  };
   runtime: {
     environment: string;
     region: string;
@@ -53,8 +68,8 @@ export type VercelOperationsSnapshot = {
   observability: {
     deploymentApi: "connected" | "not-configured" | "error";
     runtimeLogs: "available-with-token" | "not-configured";
-    webAnalytics: "not-instrumented";
-    speedInsights: "not-instrumented";
+    webAnalytics: "instrumented" | "not-instrumented";
+    speedInsights: "instrumented" | "not-instrumented";
   };
   spend: VercelSpendForecast;
   error?: string;
