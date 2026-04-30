@@ -44,7 +44,7 @@ function escapeHtml(value: string) {
 }
 
 function getSenderDomain(fromAddress: string | undefined) {
-  const match = fromAddress?.match(/@([^>\\s]+)>?$/);
+  const match = fromAddress?.match(/@([^>\s]+)>?$/);
   return match?.[1]?.trim().toLowerCase();
 }
 
@@ -57,14 +57,15 @@ export function getNorthStarEmailDeliveryStatus(): NorthStarEmailDeliveryStatus 
   const senderDomain = getSenderDomain(process.env.NORTHSTAR_EMAIL_FROM);
   const credentialsConfigured = Boolean(process.env.RESEND_API_KEY && process.env.NORTHSTAR_EMAIL_FROM);
   const enabled = process.env.NORTHSTAR_BRANDED_EMAILS_ENABLED === "true";
+  const senderMode = getSenderMode(senderDomain);
 
   return {
-    configured: enabled && credentialsConfigured,
+    configured: enabled && credentialsConfigured && senderMode === "custom-domain",
     credentialsConfigured,
     enabled,
     provider: "resend",
     senderDomain,
-    senderMode: getSenderMode(senderDomain)
+    senderMode
   };
 }
 

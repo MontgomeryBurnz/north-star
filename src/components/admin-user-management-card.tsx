@@ -126,9 +126,13 @@ export function AdminUserManagementCard() {
       saveState !== "saving"
   );
   const canAddProgramRole = Boolean(selectedProgram && newProgramRole.trim() && roleSaveState !== "saving");
-  const brandedEmailActive = invitationProvider?.configured && invitationProvider.emailDelivery === "north-star-branded";
-  const brandedEmailNeedsDomain = brandedEmailActive && invitationProvider?.brandedEmail?.senderMode === "resend-test";
-  const brandedEmailReady = brandedEmailActive && !brandedEmailNeedsDomain;
+  const brandedEmailConfigured = Boolean(
+    invitationProvider?.brandedEmail?.enabled && invitationProvider.brandedEmail.credentialsConfigured
+  );
+  const brandedEmailNeedsDomain = brandedEmailConfigured && invitationProvider?.brandedEmail?.senderMode === "resend-test";
+  const brandedEmailReady = Boolean(
+    invitationProvider?.brandedEmail?.configured && invitationProvider.emailDelivery === "north-star-branded"
+  );
   const brandedEmailAvailableButDisabled = Boolean(
     invitationProvider?.brandedEmail?.credentialsConfigured && !invitationProvider.brandedEmail.enabled
   );
@@ -809,19 +813,23 @@ export function AdminUserManagementCard() {
             </div>
             <div className="flex flex-wrap items-center justify-between gap-3 border-t border-white/10 pt-3">
               <p className="text-xs leading-5 text-zinc-500">
-                {invitationProvider?.configured
-                  ? invitationProvider.emailDelivery === "north-star-branded"
-                    ? "Invites use the branded North Star email and Supabase Auth. No plaintext passwords are stored here."
-                    : "Invites are sent through Supabase Auth. No plaintext passwords are stored here."
-                  : "Supabase service-role invitations are not configured. Users can still be mapped for role-aware UI defaults."}
+                {brandedEmailReady
+                  ? "Invites use branded North Star email and Supabase Auth setup links. No plaintext passwords are stored here."
+                  : invitationProvider?.configured
+                    ? "External invite email is not ready. Save the user as a draft until a verified sender is connected."
+                    : "Supabase service-role invitations are not configured. Users can still be mapped for role-aware UI defaults."}
               </p>
               <div className="flex flex-wrap gap-2">
                 <Button type="submit" name="intent" value="save" variant="outline" disabled={saveState === "saving" || !canSaveUser}>
                   {saveState === "saving" && saveAction === "save" ? "Saving..." : isEditingUser ? "Save changes" : "Save draft"}
                 </Button>
-                <Button type="submit" name="intent" value="invite" disabled={saveState === "saving" || !canSaveUser || !invitationProvider?.configured}>
+                <Button type="submit" name="intent" value="invite" disabled={saveState === "saving" || !canSaveUser || !brandedEmailReady}>
                   <UserPlus className="h-4 w-4" />
-                  {saveState === "saving" && saveAction === "invite" ? "Sending..." : isEditingUser ? "Save and invite again" : "Save and invite"}
+                  {saveState === "saving" && saveAction === "invite"
+                    ? "Sending..."
+                    : brandedEmailReady
+                      ? isEditingUser ? "Save and invite again" : "Save and invite"
+                      : "Email setup required"}
                 </Button>
               </div>
             </div>
@@ -949,12 +957,12 @@ export function AdminUserManagementCard() {
               <p className="mt-2 text-sm leading-6 text-zinc-300">
                 {brandedEmailNeedsDomain
                   ? "Resend is configured with a test sender. It can only send to the Resend account owner until a sending domain is verified and NORTHSTAR_EMAIL_FROM uses that domain."
-                  : brandedEmailActive
+                  : brandedEmailReady
                     ? "Branded North Star invites and recovery emails are configured through Resend. Keep the sending domain verified before inviting external alpha users."
                     : brandedEmailAvailableButDisabled
-                      ? "Alpha invite emails are using Supabase Auth by default. Branded Resend delivery is parked until NORTHSTAR_BRANDED_EMAILS_ENABLED is set to true after a sending domain is chosen."
+                      ? "External client invites are paused. Set NORTHSTAR_BRANDED_EMAILS_ENABLED to true after a sending domain is verified."
                   : invitationProvider?.configured
-                    ? "Supabase default emails are active. Add the Resend env vars in Vercel to turn on branded North Star invites and recovery emails."
+                    ? "External client invites require a verified branded sender. Supabase default emails are not reliable for alpha client onboarding."
                     : "Supabase invitations are not configured yet, so Admin can map users but cannot send account setup emails."}
               </p>
             </div>

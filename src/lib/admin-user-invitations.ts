@@ -140,79 +140,69 @@ export async function inviteManagedUser(user: ManagedAppUser, request: Request):
   redirectTo.searchParams.set("next", "/auth/setup");
 
   const supabase = createSupabaseAdminClient();
+  const brandedEmail = getNorthStarEmailDeliveryStatus();
 
-  if (getNorthStarEmailDeliveryStatus().configured) {
-    const { data, error } = await supabase.auth.admin.generateLink({
-      email: user.email,
-      options: {
-        data: {
-          full_name: user.name,
-          northStarManagedUserId: user.id,
-          northStarUserType: user.userType
-        },
-        redirectTo: redirectTo.toString()
-      },
-      type: "invite"
-    });
-
-    if (error || !data.properties?.action_link) {
-      return {
-        ok: false,
-        error: error?.message || "Supabase could not generate the invitation link."
-      };
-    }
-
-    const actionUrl = data.properties.hashed_token
-      ? buildSupabaseTokenCallbackUrl({
-          nextPath: "/auth/setup",
-          request,
-          tokenHash: data.properties.hashed_token,
-          type: "invite"
-        })
-      : data.properties.action_link;
-
-    try {
-      await sendNorthStarEmail({
-        html: buildNorthStarInviteEmail({
-          actionUrl,
-          recipientEmail: user.email,
-          recipientName: user.name
-        }),
-        subject: "Activate your North Star access",
-        text: buildNorthStarInviteText({
-          actionUrl,
-          recipientEmail: user.email,
-          recipientName: user.name
-        }),
-        to: user.email
-      });
-    } catch (emailError) {
-      return {
-        ok: false,
-        error: emailError instanceof Error ? emailError.message : "North Star invitation email could not be sent."
-      };
-    }
+  if (!brandedEmail.configured) {
+    const setupDetail = brandedEmail.senderMode === "resend-test"
+      ? "Resend is still using a test sender, so it can only deliver to the Resend account owner."
+      : brandedEmail.credentialsConfigured && !brandedEmail.enabled
+        ? "Branded email credentials exist, but NORTHSTAR_BRANDED_EMAILS_ENABLED is not true."
+        : "A verified Resend sending domain and NORTHSTAR_EMAIL_FROM are required.";
 
     return {
-      ok: true,
-      authUserId: data.user?.id,
-      invitedAt: data.user?.invited_at ?? data.user?.confirmation_sent_at ?? new Date().toISOString()
+      ok: false,
+      error: `${setupDetail} External client invites require branded email delivery before North Star can send setup links.`
     };
   }
 
-  const { data, error } = await supabase.auth.admin.inviteUserByEmail(user.email, {
-    redirectTo: redirectTo.toString(),
-    data: {
-      full_name: user.name,
-      northStarManagedUserId: user.id,
-      northStarUserType: user.userType
-    }
+  const { data, error } = await supabase.auth.admin.generateLink({
+    email: user.email,
+    options: {
+      data: {
+        full_name: user.name,
+        northStarManagedUserId: user.id,
+        northStarUserType: user.userType
+      },
+      redirectTo: redirectTo.toString()
+    },
+    type: "invite"
   });
 
-  if (error) {
+  if (error || !data.properties?.action_link) {
     return {
       ok: false,
-      error: error.message || "Supabase could not send the invitation."
+      error: error?.message || "Supabase could not generate the invitation link."
+    };
+  }
+
+  const actionUrl = data.properties.hashed_token
+    ? buildSupabaseTokenCallbackUrl({
+        nextPath: "/auth/setup",
+        request,
+        tokenHash: data.properties.hashed_token,
+        type: "invite"
+      })
+    : data.properties.action_link;
+
+  try {
+    await sendNorthStarEmail({
+      html: buildNorthStarInviteEmail({
+        actionUrl,
+        recipientEmail: user.email,
+        recipientName: user.name
+      }),
+      subject: "Activate your North Star access",
+      text: buildNorthStarInviteText({
+        actionUrl,
+        recipientEmail: user.email,
+        recipientName: user.name
+      }),
+      to: user.email
+    });
+  } catch (emailError) {
+    return {
+      ok: false,
+      error: emailError instanceof Error ? emailError.message : "North Star invitation email could not be sent."
     };
   }
 

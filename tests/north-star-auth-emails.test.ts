@@ -77,6 +77,16 @@ test("getNorthStarEmailDeliveryStatus requires explicit branded email enablement
   process.env.NORTHSTAR_BRANDED_EMAILS_ENABLED = "true";
   assert.equal(getNorthStarEmailDeliveryStatus().configured, true);
 
+  process.env.NORTHSTAR_EMAIL_FROM = "North Star <onboarding@resend.dev>";
+  assert.deepEqual(getNorthStarEmailDeliveryStatus(), {
+    configured: false,
+    credentialsConfigured: true,
+    enabled: true,
+    provider: "resend",
+    senderDomain: "resend.dev",
+    senderMode: "resend-test"
+  });
+
   if (previousApiKey === undefined) delete process.env.RESEND_API_KEY;
   else process.env.RESEND_API_KEY = previousApiKey;
   if (previousFrom === undefined) delete process.env.NORTHSTAR_EMAIL_FROM;
