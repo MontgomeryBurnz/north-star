@@ -289,7 +289,7 @@ export function GuidedPlansConsole() {
 
   const toggleExpandedRole = useCallback(
     (role: string) => {
-      if (selectedRoleFocus === allRolesOption || normalizeRoleKey(role) === normalizeRoleKey(selectedRoleFocus)) {
+      if (normalizeRoleKey(role) === normalizeRoleKey(selectedRoleFocus)) {
         return;
       }
 

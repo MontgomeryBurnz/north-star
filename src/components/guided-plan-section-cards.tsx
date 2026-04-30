@@ -411,6 +411,7 @@ export function RolePlansCard({
                     type="button"
                     variant="ghost"
                     size="sm"
+                    aria-label={`${isExpanded ? "Collapse" : "Expand"} ${rolePlan.role} guidance`}
                     className="h-9 shrink-0 px-2 text-zinc-300 hover:text-zinc-50"
                     onClick={() => onToggleRole(rolePlan.role)}
                   >
