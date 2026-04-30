@@ -54,6 +54,14 @@ export function canAccessAdminSurface(user: Pick<ManagedAppUser, "credentialStat
   return Boolean(user && user.credentialStatus === "active" && user.userType === "admin");
 }
 
+export function hasActiveUserCredentials(user: Pick<ManagedAppUser, "credentialStatus"> | null | undefined) {
+  return Boolean(user && user.credentialStatus === "active");
+}
+
+export function requiresUserSetup(user: Pick<ManagedAppUser, "credentialStatus"> | null | undefined) {
+  return Boolean(user && (user.credentialStatus === "invited" || user.credentialStatus === "not-invited"));
+}
+
 export function canAccessLeadershipSurface(user: Pick<ManagedAppUser, "credentialStatus" | "userType"> | null | undefined) {
   return Boolean(
     user &&

@@ -1,6 +1,8 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { NextResponse } from "next/server";
+import { getCurrentManagedUser } from "@/lib/current-managed-user";
+import { requiresUserSetup } from "@/lib/admin-user-types";
 
 export const siteAccessSessionCookieName = "site_access_session";
 
@@ -43,7 +45,18 @@ export async function requireSiteAccessPage(redirectTo: string) {
 
   const cookieStore = await cookies();
   const sessionToken = cookieStore.get(siteAccessSessionCookieName)?.value;
-  if (isSiteAccessSessionTokenValid(sessionToken)) return;
+  if (isSiteAccessSessionTokenValid(sessionToken)) {
+    const hasSupabaseSession = cookieStore
+      .getAll()
+      .some((cookie) => cookie.name.startsWith("sb-") && cookie.name.includes("auth-token"));
+    if (hasSupabaseSession) {
+      const currentUser = await getCurrentManagedUser();
+      if (requiresUserSetup(currentUser)) {
+        redirect("/auth/setup");
+      }
+    }
+    return;
+  }
 
   redirect(`/login?redirect=${encodeURIComponent(redirectTo)}`);
 }

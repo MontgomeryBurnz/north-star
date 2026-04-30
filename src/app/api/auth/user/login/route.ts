@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { hasActiveUserCredentials, requiresUserSetup } from "@/lib/admin-user-types";
 import { syncManagedUserFromAuthUser } from "@/lib/current-managed-user";
 import { attachSiteAccessCookie } from "@/lib/site-access";
 import { createSupabaseServerClient, isSupabaseConfigured } from "@/lib/supabase/server";
@@ -27,9 +28,16 @@ export async function POST(request: Request) {
   }
 
   const managedUser = await syncManagedUserFromAuthUser(data.user);
-  if (!managedUser || managedUser.credentialStatus === "disabled") {
+  if (!managedUser || !hasActiveUserCredentials(managedUser)) {
     await supabase.auth.signOut({ scope: "local" });
-    return NextResponse.json({ error: "No active North Star access assignment was found for this user." }, { status: 403 });
+    return NextResponse.json(
+      {
+        error: requiresUserSetup(managedUser)
+          ? "Use the invitation link to create your password before signing in."
+          : "No active North Star access assignment was found for this user."
+      },
+      { status: 403 }
+    );
   }
 
   const response = NextResponse.json({

@@ -25,13 +25,13 @@ export async function syncManagedUserFromAuthUser(authUser: Pick<User, "id" | "e
     return managedUser;
   }
 
-  if (managedUser.credentialStatus === "invited") {
+  if (managedUser.credentialStatus !== "active") {
     return upsertManagedUser({
       id: managedUser.id,
       name: managedUser.name,
       email: managedUser.email,
       userType: managedUser.userType,
-      credentialStatus: "invited",
+      credentialStatus: managedUser.credentialStatus,
       authUserId: authUser.id,
       lastAuthSyncAt: new Date().toISOString(),
       invitationError: ""

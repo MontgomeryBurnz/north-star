@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import type { ManagedAppUser } from "@/lib/admin-user-types";
+import { hasActiveUserCredentials, type ManagedAppUser } from "@/lib/admin-user-types";
 import { syncManagedUserFromAuthUser } from "@/lib/current-managed-user";
 import { getAdminAccessContext, getLeadershipAccessContext } from "@/lib/leadership-auth";
 import { attachSiteAccessCookie } from "@/lib/site-access";
@@ -40,7 +40,7 @@ export async function GET(request: Request) {
   let managedUser: ManagedAppUser | null = null;
 
   function attachInternalAccessForNonClient(response: NextResponse) {
-    if (managedUser?.credentialStatus === "disabled") return response;
+    if (!hasActiveUserCredentials(managedUser)) return response;
     return managedUser?.userType === "client" ? response : attachSiteAccessCookie(response);
   }
 
@@ -60,7 +60,7 @@ export async function GET(request: Request) {
     if (error) {
       const loginUrl = new URL("/login", url.origin);
       loginUrl.searchParams.set("authError", "expired");
-      return attachSiteAccessCookie(NextResponse.redirect(loginUrl));
+      return NextResponse.redirect(loginUrl);
     }
   }
 
