@@ -19,6 +19,7 @@ import { Button } from "@/components/ui/button";
 import { GuidedPlanEmptyStateCard } from "@/components/guided-plan-empty-state-card";
 import { GuidedPlanGanttSummary } from "@/components/guided-plan-gantt-summary";
 import { GuidedPlanJustificationCard } from "@/components/guided-plan-justification-card";
+import { GuidedPlanLeadershipSignalCard } from "@/components/guided-plan-leadership-signal-card";
 import { GuidedPlanOverviewCard } from "@/components/guided-plan-overview-card";
 import { GuidedPlansSidebar } from "@/components/guided-plans-sidebar";
 import { PlanInsightsCard, RolePlansCard } from "@/components/guided-plan-section-cards";
@@ -59,26 +60,6 @@ function normalizePlanSection(section: GuidedPlanSection | undefined, fallbackTi
     title: section?.title || fallbackTitle,
     items: section?.items?.length ? section.items : fallbackItems
   };
-}
-
-function GuidedPlanLayerHeader({
-  description,
-  eyebrow,
-  id,
-  title
-}: {
-  description: string;
-  eyebrow: string;
-  id: string;
-  title: string;
-}) {
-  return (
-    <div className="rounded-md border border-white/10 bg-white/[0.025] p-4">
-      <p className="text-xs font-medium uppercase tracking-[0.18em] text-emerald-300">{eyebrow}</p>
-      <h2 id={id} className="mt-2 text-xl font-semibold text-zinc-50">{title}</h2>
-      <p className="mt-2 max-w-3xl text-sm leading-6 text-zinc-400">{description}</p>
-    </div>
-  );
 }
 
 function normalizeRolePlans(rolePlans: GuidedPlanRolePlans | undefined): GuidedPlanRolePlans {
@@ -563,30 +544,18 @@ export function GuidedPlansConsole() {
         <section className="grid gap-4">
           {plan ? (
             <>
-              <section className="grid gap-4" aria-labelledby="program-health-guidance">
-                <GuidedPlanLayerHeader
-                  eyebrow="Layer 1"
-                  id="program-health-guidance"
-                  title="Program Health + Guidance"
-                  description="Start with the executive program posture: north star, current phase, plan digest, risks, decisions, and the rationale behind the latest refresh."
-                />
+              <section className="grid gap-4" aria-label="Program health and progress">
                 <GuidedPlanOverviewCard
                   plan={plan}
-                  leadershipSignal={leadershipSignal}
+                  currentPhaseLabel={currentPhase.label}
                   lastAssistantDialogueAt={lastAssistantDialogueAt}
                   formatDate={formatDate}
                 />
+                <GuidedPlanLeadershipSignalCard leadershipSignal={leadershipSignal} />
                 <GuidedPlanGanttSummary currentPhaseLabel={currentPhase.label} ganttPhases={ganttPhases} />
-                <PlanInsightsCard sections={planSections} sectionFooters={planSectionFooters} />
               </section>
 
-              <section className="grid gap-4" aria-labelledby="team-action-plans">
-                <GuidedPlanLayerHeader
-                  eyebrow="Layer 2"
-                  id="team-action-plans"
-                  title="Team Action Plans"
-                  description="Role-level guidance stays focused on actions, outcomes, risks, and mitigations for the actual team composition on this program."
-                />
+              <section className="grid gap-4" aria-label="Team action plans">
                 {rolePlans ? (
                   <RolePlansCard
                     rolePlans={rolePlans}
@@ -621,52 +590,63 @@ export function GuidedPlansConsole() {
                     onCancelFlag={() => setFlagTarget(null)}
                   />
                 ) : null}
-                {latestJustification ? (
-                  <GuidedPlanJustificationCard
-                    justification={latestJustification}
-                    pendingFlagCount={pendingFlagCount}
-                    flagTarget={flagTarget}
-                    flagReason={flagReason}
-                    flagContext={flagContext}
-                    isSubmittingFlag={isSubmittingFlag}
-                    onOpenCitationFlag={(citationId, citationLabel) => {
-                      setFlagTarget({
-                        justificationId: latestJustification.id,
-                        citationId,
-                        targetType: "source-citation",
-                        targetLabel: citationLabel,
-                        scope: "partial"
-                      });
-                      setFlagReason("");
-                      setFlagContext("");
-                    }}
-                    onOpenWholeFlag={() => {
-                      setFlagTarget({
-                        justificationId: latestJustification.id,
-                        targetType: "whole-rationale",
-                        targetLabel: "Why This Changed rationale",
-                        scope: "whole"
-                      });
-                      setFlagReason("");
-                      setFlagContext("");
-                    }}
-                    onFlagReasonChange={setFlagReason}
-                    onFlagContextChange={setFlagContext}
-                    onSubmitFlag={submitFlag}
-                    onCancelFlag={() => setFlagTarget(null)}
-                  />
-                ) : null}
               </section>
 
-              <section className="grid gap-4" aria-labelledby="role-artifact-studio">
-                <GuidedPlanLayerHeader
-                  eyebrow="Layer 3"
-                  id="role-artifact-studio"
-                  title="Role-Based Artifacts"
-                  description="Generate working outputs for specific roles, then iterate with feedback as the program changes."
-                />
+              <section className="grid gap-4" aria-label="Role artifact studio">
                 <RoleArtifactStudioCard programId={plan.programId} />
               </section>
+
+              <details className="group rounded-md border border-white/10 bg-zinc-950/60">
+                <summary className="flex cursor-pointer list-none flex-wrap items-center justify-between gap-3 p-4 sm:p-5">
+                  <span>
+                    <span className="block text-base font-semibold text-zinc-50">Review Guidance Details</span>
+                    <span className="mt-1 block text-sm leading-6 text-zinc-400">
+                      Open this when guidance seems wrong or you need to inspect what influenced the latest plan.
+                    </span>
+                  </span>
+                  <span className="rounded-full border border-white/10 px-3 py-1 text-[11px] uppercase tracking-[0.14em] text-zinc-500">
+                    Evidence + flags
+                  </span>
+                </summary>
+                <div className="grid gap-4 border-t border-white/10 p-4 sm:p-5">
+                  <PlanInsightsCard sections={planSections} sectionFooters={planSectionFooters} />
+                  {latestJustification ? (
+                    <GuidedPlanJustificationCard
+                      justification={latestJustification}
+                      pendingFlagCount={pendingFlagCount}
+                      flagTarget={flagTarget}
+                      flagReason={flagReason}
+                      flagContext={flagContext}
+                      isSubmittingFlag={isSubmittingFlag}
+                      onOpenCitationFlag={(citationId, citationLabel) => {
+                        setFlagTarget({
+                          justificationId: latestJustification.id,
+                          citationId,
+                          targetType: "source-citation",
+                          targetLabel: citationLabel,
+                          scope: "partial"
+                        });
+                        setFlagReason("");
+                        setFlagContext("");
+                      }}
+                      onOpenWholeFlag={() => {
+                        setFlagTarget({
+                          justificationId: latestJustification.id,
+                          targetType: "whole-rationale",
+                          targetLabel: "Why This Changed rationale",
+                          scope: "whole"
+                        });
+                        setFlagReason("");
+                        setFlagContext("");
+                      }}
+                      onFlagReasonChange={setFlagReason}
+                      onFlagContextChange={setFlagContext}
+                      onSubmitFlag={submitFlag}
+                      onCancelFlag={() => setFlagTarget(null)}
+                    />
+                  ) : null}
+                </div>
+              </details>
             </>
           ) : (
             <GuidedPlanEmptyStateCard hasPrograms={programs.length > 0} />

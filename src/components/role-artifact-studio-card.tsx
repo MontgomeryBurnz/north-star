@@ -53,23 +53,22 @@ function ArtifactDefinitionButton({
     <button
       type="button"
       onClick={() => onSelect(definition.type)}
-      className={`grid min-h-full gap-3 rounded-md border p-4 text-left transition-colors ${
+      className={`flex min-h-12 items-center justify-between gap-3 rounded-md border px-3 py-2 text-left transition-colors ${
         isSelected
           ? "border-emerald-300/35 bg-emerald-300/[0.075] text-zinc-50"
           : "border-white/10 bg-white/[0.035] text-zinc-300 hover:border-white/20 hover:bg-white/[0.055]"
       }`}
     >
-      <div className="flex items-center justify-between gap-3">
+      <span>
         <span className="flex items-center gap-2 text-sm font-semibold text-zinc-100">
           <ArtifactIcon type={definition.type} />
           {definition.shortTitle}
         </span>
-        <span className="rounded-full border border-white/10 px-2 py-0.5 text-[11px] uppercase tracking-[0.12em] text-zinc-500">
-          {definition.role}
-        </span>
-      </div>
-      <p className="text-xs leading-5 text-zinc-400">{definition.description}</p>
-      <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-emerald-200">{definition.outputLabel}</p>
+        <span className="mt-1 block text-xs text-zinc-500">{definition.role}</span>
+      </span>
+      <span className="rounded-full border border-white/10 px-2 py-0.5 text-[11px] uppercase tracking-[0.12em] text-zinc-500">
+        {definition.outputLabel}
+      </span>
     </button>
   );
 }
@@ -207,16 +206,13 @@ export function RoleArtifactStudioCard({ programId }: { programId: string }) {
             <p className="mb-2 text-xs font-medium uppercase tracking-[0.18em] text-emerald-300">Role-Based Artifacts</p>
             <CardTitle className="text-zinc-50">Artifact Studio</CardTitle>
             <p className="mt-2 max-w-3xl text-sm leading-6 text-zinc-400">
-              Generate role-ready working outputs from the same uploads, team updates, leadership feedback, Guide dialogue, and guided plan.
+              Generate role-ready outputs from the same program context driving the guided plan.
             </p>
           </div>
-          <span className="rounded-full border border-cyan-300/20 bg-cyan-300/[0.055] px-3 py-1 text-[11px] uppercase tracking-[0.14em] text-cyan-100">
-            3 starter outputs
-          </span>
         </div>
       </CardHeader>
-      <CardContent className="grid gap-5 p-4 sm:p-5">
-        <div className="grid gap-3 lg:grid-cols-3">
+      <CardContent className="grid gap-4 p-4 sm:p-5">
+        <div className="grid gap-2 xl:grid-cols-3">
           {roleArtifactDefinitions.map((definition) => (
             <ArtifactDefinitionButton
               key={definition.type}
@@ -227,20 +223,21 @@ export function RoleArtifactStudioCard({ programId }: { programId: string }) {
           ))}
         </div>
 
-        <div className="grid gap-4 rounded-md border border-white/10 bg-black/20 p-4 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
+        <div className="rounded-md border border-cyan-300/15 bg-cyan-300/[0.035] p-3">
+          <p className="text-sm font-semibold text-zinc-100">{selectedDefinition.title}</p>
+          <p className="mt-1 text-sm leading-6 text-zinc-400">{selectedDefinition.description}</p>
+        </div>
+
+        <div className="grid gap-4 rounded-md border border-white/10 bg-black/20 p-4 xl:grid-cols-[minmax(0,0.78fr)_minmax(0,1.22fr)]">
           <div className="grid content-start gap-4">
-            <div>
-              <p className="text-sm font-semibold text-zinc-100">{selectedDefinition.title}</p>
-              <p className="mt-2 text-sm leading-6 text-zinc-400">{selectedDefinition.description}</p>
-            </div>
             <label className="grid gap-2">
               <span className="text-xs font-medium uppercase tracking-[0.16em] text-zinc-300">Iteration direction</span>
               <textarea
                 value={feedback}
                 onChange={(event) => setFeedback(event.target.value)}
-                rows={5}
+                rows={4}
                 placeholder="Optional: tell North Star what to emphasize, correct, or make more detailed."
-                className="min-h-32 resize-y rounded-md border border-white/10 bg-zinc-950 px-3 py-3 text-sm leading-6 text-zinc-100 outline-none transition-colors placeholder:text-zinc-600 focus:border-emerald-300/50 focus:ring-2 focus:ring-emerald-300/15"
+                className="min-h-28 resize-y rounded-md border border-white/10 bg-zinc-950 px-3 py-3 text-sm leading-6 text-zinc-100 outline-none transition-colors placeholder:text-zinc-600 focus:border-emerald-300/50 focus:ring-2 focus:ring-emerald-300/15"
               />
             </label>
             <div className="flex flex-wrap gap-2">
@@ -273,16 +270,16 @@ export function RoleArtifactStudioCard({ programId }: { programId: string }) {
             {status ? <p className="text-sm leading-6 text-zinc-400">{status}</p> : null}
           </div>
 
-          <div className="min-h-96 rounded-md border border-white/10 bg-zinc-950/75 p-4">
+          <div className="min-h-64 rounded-md border border-white/10 bg-zinc-950/75 p-4">
             {artifact ? (
               <ArtifactOutput artifact={artifact} />
             ) : (
-              <div className="grid h-full place-items-center rounded-md border border-dashed border-white/10 p-8 text-center">
+              <div className="grid h-full place-items-center rounded-md border border-dashed border-white/10 p-6 text-center">
                 <div>
-                  <Sparkles className="mx-auto h-8 w-8 text-emerald-200" />
-                  <p className="mt-4 text-sm font-semibold text-zinc-100">Generate a role-ready output</p>
+                  <Sparkles className="mx-auto h-6 w-6 text-emerald-200" />
+                  <p className="mt-3 text-sm font-semibold text-zinc-100">Generate a role-ready output</p>
                   <p className="mt-2 max-w-md text-sm leading-6 text-zinc-500">
-                    Select an artifact type, add optional iteration direction, and generate a working draft your team can refine.
+                    Choose an artifact, add optional direction, and create a working draft your team can refine.
                   </p>
                 </div>
               </div>

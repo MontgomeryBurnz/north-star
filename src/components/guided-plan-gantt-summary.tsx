@@ -21,7 +21,7 @@ export function GuidedPlanGanttSummary({
   return (
     <Card className="bg-zinc-950/80 lg:col-span-2">
       <CardHeader className="border-b border-white/10">
-        <CardTitle className="text-zinc-50">Gantt Summary</CardTitle>
+        <CardTitle className="text-zinc-50">Timeline & Milestones</CardTitle>
       </CardHeader>
       <CardContent className="grid gap-4 p-5">
         <div className="flex flex-wrap items-center justify-between gap-3">
