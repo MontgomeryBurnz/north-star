@@ -110,3 +110,72 @@ test("buildManagedAppUserRecord merges new assignments without dropping existing
     ["Business Analysis", "Delivery Lead"]
   );
 });
+
+test("buildManagedAppUserRecord stores invitation and auth metadata", () => {
+  const result = buildManagedAppUserRecord({
+    idFactory: () => "id-1",
+    input: {
+      name: "Avery Morgan",
+      email: "avery@example.com",
+      credentialStatus: "invited",
+      authUserId: "auth-user-1",
+      invitedAt: "2026-04-29T14:00:00.000Z",
+      lastAuthSyncAt: "2026-04-29T14:01:00.000Z",
+      invitationError: "temporary issue",
+      assignment: {
+        programId: "compliance-hub",
+        role: "Delivery Lead"
+      }
+    },
+    now: "2026-04-29T14:02:00.000Z",
+    programs: [program]
+  });
+
+  assert.equal(result.ok, true);
+  if (!result.ok) return;
+
+  assert.equal(result.record.authUserId, "auth-user-1");
+  assert.equal(result.record.invitedAt, "2026-04-29T14:00:00.000Z");
+  assert.equal(result.record.lastAuthSyncAt, "2026-04-29T14:01:00.000Z");
+  assert.equal(result.record.invitationError, "temporary issue");
+});
+
+test("buildManagedAppUserRecord can clear a stale invitation error", () => {
+  const existing = buildManagedAppUserRecord({
+    idFactory: () => "user-1",
+    input: {
+      name: "Avery Morgan",
+      email: "avery@example.com",
+      invitationError: "temporary issue",
+      assignment: {
+        programId: "compliance-hub",
+        role: "Delivery Lead"
+      }
+    },
+    now: "2026-04-29T14:00:00.000Z",
+    programs: [program]
+  });
+
+  assert.equal(existing.ok, true);
+  if (!existing.ok) return;
+
+  const updated = buildManagedAppUserRecord({
+    existing: existing.record,
+    idFactory: () => "unused",
+    input: {
+      name: "Avery Morgan",
+      email: "avery@example.com",
+      invitationError: "",
+      lastAuthSyncAt: "2026-04-29T14:05:00.000Z"
+    },
+    now: "2026-04-29T14:05:00.000Z",
+    programs: [program]
+  });
+
+  assert.equal(updated.ok, true);
+  if (!updated.ok) return;
+
+  assert.equal(updated.record.invitationError, undefined);
+  assert.equal(updated.record.lastAuthSyncAt, "2026-04-29T14:05:00.000Z");
+  assert.equal(updated.record.assignments.length, 1);
+});

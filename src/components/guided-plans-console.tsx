@@ -9,6 +9,7 @@ import type { DeliveryLeadershipSignal } from "@/lib/leadership-feedback-types";
 import type { GuidanceFeedbackFlag, GuidanceFeedbackFlagTargetType, GuidanceJustificationRecord } from "@/lib/program-intelligence-types";
 import type { StoredProgram } from "@/lib/program-intake-types";
 import { useForegroundRefresh } from "@/hooks/use-foreground-refresh";
+import { useCurrentUserAssignments } from "@/hooks/use-current-user-assignments";
 import { useProgramCatalog } from "@/hooks/use-program-catalog";
 import { useRequestSequence } from "@/hooks/use-request-sequence";
 import { buildTeamActionPlanFlagSourceId } from "@/lib/guidance-feedback-flag-sources";
@@ -152,6 +153,7 @@ export function GuidedPlansConsole() {
     autoSelectFirstProgram: false,
     onError: handleProgramLoadError
   });
+  const { currentUser, getAssignmentForProgram, loaded: assignmentsLoaded } = useCurrentUserAssignments();
   const latestUpdate = updates[0];
   const ganttPhases = useMemo(() => buildProgramGantt(selectedProgram, latestUpdate), [latestUpdate, selectedProgram]);
   const currentPhase = ganttPhases.find((phase) => phase.status === "current") ?? ganttPhases[ganttPhases.length - 1];
@@ -160,9 +162,10 @@ export function GuidedPlansConsole() {
     [selectedProgram]
   );
   const teamRoleSignature = useMemo(() => teamRoles.map((role) => normalizeRoleKey(role)).join("|"), [teamRoles]);
+  const assignedRoleForProgram = selectedProgramId ? getAssignmentForProgram(selectedProgramId)?.role ?? null : null;
   const roleFocusStorageKey = useMemo(
-    () => (selectedProgramId ? `north-star:guided-plans:role-focus:${selectedProgramId}` : ""),
-    [selectedProgramId]
+    () => (selectedProgramId ? `north-star:guided-plans:role-focus:${currentUser?.id ?? "anonymous"}:${selectedProgramId}` : ""),
+    [currentUser?.id, selectedProgramId]
   );
 
   const loadPlan = useCallback(
@@ -235,6 +238,8 @@ export function GuidedPlansConsole() {
   }, [selectedProgramId]);
 
   useEffect(() => {
+    if (!assignmentsLoaded) return;
+
     if (!selectedProgramId) {
       previousRoleStateProgramId.current = null;
       setSelectedRoleFocus(allRolesOption);
@@ -244,7 +249,14 @@ export function GuidedPlansConsole() {
 
     const storedRoleFocus = window.localStorage.getItem(roleFocusStorageKey);
     const normalizedTeamRoles = new Set(teamRoleSignature ? teamRoleSignature.split("|") : []);
-    const nextRoleFocus = storedRoleFocus && normalizedTeamRoles.has(normalizeRoleKey(storedRoleFocus)) ? storedRoleFocus : allRolesOption;
+    const assignedRoleFocus =
+      assignedRoleForProgram && normalizedTeamRoles.has(normalizeRoleKey(assignedRoleForProgram)) ? assignedRoleForProgram : null;
+    const nextRoleFocus =
+      storedRoleFocus === allRolesOption
+        ? allRolesOption
+        : storedRoleFocus && normalizedTeamRoles.has(normalizeRoleKey(storedRoleFocus))
+          ? storedRoleFocus
+          : assignedRoleFocus ?? allRolesOption;
     const programChanged = previousRoleStateProgramId.current !== selectedProgramId;
     previousRoleStateProgramId.current = selectedProgramId;
 
@@ -258,18 +270,13 @@ export function GuidedPlansConsole() {
 
       return preserved;
     });
-  }, [roleFocusStorageKey, selectedProgramId, teamRoleSignature]);
+  }, [assignedRoleForProgram, assignmentsLoaded, roleFocusStorageKey, selectedProgramId, teamRoleSignature]);
 
   useEffect(() => {
-    if (!roleFocusStorageKey) return;
-
-    if (selectedRoleFocus === allRolesOption) {
-      window.localStorage.removeItem(roleFocusStorageKey);
-      return;
-    }
+    if (!assignmentsLoaded || !roleFocusStorageKey) return;
 
     window.localStorage.setItem(roleFocusStorageKey, selectedRoleFocus);
-  }, [roleFocusStorageKey, selectedRoleFocus]);
+  }, [assignmentsLoaded, roleFocusStorageKey, selectedRoleFocus]);
 
   useEffect(() => {
     setFlagTarget(null);

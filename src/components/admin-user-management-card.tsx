@@ -46,6 +46,11 @@ const emptyForm = {
   role: ""
 };
 
+type InvitationProviderStatus = {
+  configured: boolean;
+  provider: "supabase";
+};
+
 function getProgramRoles(program: StoredProgram | undefined) {
   const configured = program?.intake.teamRoles?.map((role) => role.trim()).filter(Boolean) ?? [];
   return Array.from(new Set(configured.length ? configured : baselineTeamRoles));
@@ -70,8 +75,10 @@ export function AdminUserManagementCard() {
   const [form, setForm] = useState(emptyForm);
   const [expandedUsers, setExpandedUsers] = useState<Record<string, boolean>>({});
   const [saveState, setSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle");
+  const [saveAction, setSaveAction] = useState<"save" | "invite">("save");
   const [status, setStatus] = useState<string | null>(null);
   const [statusTone, setStatusTone] = useState<"neutral" | "success" | "error">("neutral");
+  const [invitationProvider, setInvitationProvider] = useState<InvitationProviderStatus | null>(null);
 
   const selectedProgram = useMemo(
     () => programs.find((program) => program.id === form.programId),
@@ -94,9 +101,13 @@ export function AdminUserManagementCard() {
         throw new Error("load-admin-users");
       }
 
-      const usersPayload = (await usersResponse.json()) as { users: ManagedAppUser[] };
+      const usersPayload = (await usersResponse.json()) as {
+        invitationProvider: InvitationProviderStatus;
+        users: ManagedAppUser[];
+      };
       const programsPayload = (await programsResponse.json()) as { programs: StoredProgram[] };
       setUsers(usersPayload.users);
+      setInvitationProvider(usersPayload.invitationProvider);
       setPrograms(programsPayload.programs);
       setStatus(null);
     } catch {
@@ -120,36 +131,59 @@ export function AdminUserManagementCard() {
     setSaveState("idle");
   }
 
-  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
+  async function saveUser(sendInvite: boolean) {
+    setSaveAction(sendInvite ? "invite" : "save");
     setSaveState("saving");
     setStatus(null);
     setStatusTone("neutral");
 
-    try {
-      const response = await fetch("/api/admin/users", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          name: form.name,
-          email: form.email,
-          userType: form.userType,
-          credentialStatus: form.credentialStatus,
-          assignment: form.programId && form.role
-            ? {
-                programId: form.programId,
-                role: form.role,
-                isPrimary: true
-              }
-            : undefined
-        })
-      });
+    const response = await fetch("/api/admin/users", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        name: form.name,
+        email: form.email,
+        userType: form.userType,
+        credentialStatus: form.credentialStatus,
+        sendInvite,
+        assignment: form.programId && form.role
+          ? {
+              programId: form.programId,
+              role: form.role,
+              isPrimary: true
+            }
+          : undefined
+      })
+    });
 
-      const payload = (await response.json()) as { user?: ManagedAppUser; error?: string };
-      if (!response.ok || !payload.user) {
-        throw new Error(payload.error ?? "Could not save user.");
-      }
-      const savedUser = payload.user;
+    const payload = (await response.json()) as {
+      invitation?: { ok: true; invitedAt: string } | { ok: false; error: string } | null;
+      invitationProvider?: InvitationProviderStatus;
+      user?: ManagedAppUser;
+      error?: string;
+    };
+    if (!response.ok || !payload.user) {
+      throw new Error(payload.error ?? "Could not save user.");
+    }
+
+    if (payload.invitationProvider) {
+      setInvitationProvider(payload.invitationProvider);
+    }
+
+    return {
+      invitation: payload.invitation,
+      user: payload.user
+    };
+  }
+
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    try {
+      const submitter = (event.nativeEvent as SubmitEvent).submitter;
+      const sendInvite = submitter instanceof HTMLButtonElement && submitter.value === "invite";
+      const { invitation, user: savedUser } = await saveUser(sendInvite);
+
 
       setUsers((current) => [savedUser, ...current.filter((user) => user.id !== savedUser.id)]);
       setExpandedUsers((current) => ({ ...current, [savedUser.id]: true }));
@@ -159,8 +193,16 @@ export function AdminUserManagementCard() {
         role: current.role
       }));
       setSaveState("saved");
-      setStatusTone("success");
-      setStatus(`${savedUser.name} was saved with role-specific program access.`);
+      if (invitation?.ok) {
+        setStatusTone("success");
+        setStatus(`${savedUser.name} was saved and a Supabase-backed invite was sent.`);
+      } else if (invitation && !invitation.ok) {
+        setStatusTone("error");
+        setStatus(`${savedUser.name} was saved, but the invite was not sent: ${invitation.error}`);
+      } else {
+        setStatusTone("success");
+        setStatus(`${savedUser.name} was saved with role-specific program access.`);
+      }
     } catch (error) {
       setSaveState("error");
       setStatusTone("error");
@@ -182,7 +224,7 @@ export function AdminUserManagementCard() {
             <div>
               <p className="text-sm font-medium text-zinc-100">Add user or role assignment</p>
               <p className="mt-1 text-xs leading-5 text-zinc-500">
-                Users can carry different roles across programs. Their assigned role becomes the default expanded view.
+                Users can carry different roles across programs. Send an invite to create the Supabase auth user and make their assigned role the default expanded view.
               </p>
             </div>
 
@@ -287,12 +329,19 @@ export function AdminUserManagementCard() {
 
             <div className="flex flex-wrap items-center justify-between gap-3 border-t border-white/10 pt-3">
               <p className="text-xs leading-5 text-zinc-500">
-                Credentials are tracked as status only; no plaintext passwords are stored here.
+                {invitationProvider?.configured
+                  ? "Invites are sent through Supabase Auth. No plaintext passwords are stored here."
+                  : "Supabase service-role invitations are not configured. Users can still be mapped for role-aware UI defaults."}
               </p>
-              <Button type="submit" disabled={saveState === "saving" || !canSaveUser}>
-                <UserPlus className="h-4 w-4" />
-                {saveState === "saving" ? "Saving..." : "Save user"}
-              </Button>
+              <div className="flex flex-wrap gap-2">
+                <Button type="submit" name="intent" value="save" variant="outline" disabled={saveState === "saving" || !canSaveUser}>
+                  {saveState === "saving" && saveAction === "save" ? "Saving..." : "Save draft"}
+                </Button>
+                <Button type="submit" name="intent" value="invite" disabled={saveState === "saving" || !canSaveUser || !invitationProvider?.configured}>
+                  <UserPlus className="h-4 w-4" />
+                  {saveState === "saving" && saveAction === "invite" ? "Sending..." : "Save and invite"}
+                </Button>
+              </div>
             </div>
           </form>
 
@@ -368,8 +417,18 @@ export function AdminUserManagementCard() {
                           <span className="rounded-full border border-white/10 bg-black/20 px-2.5 py-1 text-[11px] uppercase tracking-[0.12em] text-zinc-300">
                             {credentialStatusLabels[user.credentialStatus]}
                           </span>
+                          {user.authUserId ? (
+                            <span className="rounded-full border border-emerald-300/20 bg-emerald-300/[0.055] px-2.5 py-1 text-[11px] uppercase tracking-[0.12em] text-emerald-100">
+                              Auth linked
+                            </span>
+                          ) : null}
                         </div>
                         <p className="mt-1 truncate text-sm text-zinc-500">{user.email}</p>
+                        {user.invitationError ? (
+                          <p className="mt-2 text-xs leading-5 text-amber-200">Invite issue: {user.invitationError}</p>
+                        ) : user.invitedAt ? (
+                          <p className="mt-2 text-xs leading-5 text-zinc-500">Invited {formatDate(user.invitedAt)}</p>
+                        ) : null}
                       </div>
                       <p className="text-xs text-zinc-500">Updated {formatDate(user.updatedAt)}</p>
                     </div>

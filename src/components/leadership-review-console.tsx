@@ -1,11 +1,12 @@
 "use client";
 
-import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import type { StoredProgramUpdate } from "@/lib/active-program-types";
 import type { GuidedPlan } from "@/lib/guided-plan-types";
 import type { LeadershipReviewInput, LeadershipReviewRecord } from "@/lib/leadership-feedback-types";
 import { useForegroundRefresh } from "@/hooks/use-foreground-refresh";
+import { useCurrentUserAssignments } from "@/hooks/use-current-user-assignments";
 import { useProgramCatalog } from "@/hooks/use-program-catalog";
 import { useRequestSequence } from "@/hooks/use-request-sequence";
 import { buildReviewCycleStatusForCadence, type ReviewCadence, type ReviewQueueItem } from "@/lib/leadership-review-queue";
@@ -331,6 +332,9 @@ export function LeadershipReviewConsole() {
   const queueMode = searchParams.get("queue") === "due";
   const queueRequest = useRequestSequence();
   const contextRequest = useRequestSequence();
+  const { getAssignmentForProgram, loaded: assignmentsLoaded, primaryAssignment } = useCurrentUserAssignments();
+  const assignmentProgramAppliedRef = useRef(false);
+  const previousLaneProgramId = useRef<string | null>(null);
   const [updates, setUpdates] = useState<StoredProgramUpdate[]>(seededLeadershipUpdates);
   const [plan, setPlan] = useState<GuidedPlan | null>(seededLeadershipPlan);
   const [feedback, setFeedback] = useState<LeadershipReviewRecord[]>(seededLeadershipFeedback);
@@ -339,6 +343,7 @@ export function LeadershipReviewConsole() {
   const [status, setStatus] = useState<string | null>(null);
   const [saveState, setSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const [selectedLane, setSelectedLane] = useState(allSponsorLanesValue);
+  const [laneWasManuallyChanged, setLaneWasManuallyChanged] = useState(false);
   const handleProgramLoadError = useCallback(() => setStatus("Leadership program catalog could not be refreshed."), []);
   const { programs, setPrograms, selectedProgram, selectedProgramId, setSelectedProgramId, refreshPrograms } = useProgramCatalog({
     initialPrograms: seededLeadershipPrograms,
@@ -355,6 +360,7 @@ export function LeadershipReviewConsole() {
   );
   const selectedLaneOption = laneOptions.find((option) => option.value === selectedLane) ?? laneOptions[0];
   const selectedRole = selectedLane === allSponsorLanesValue ? null : selectedLane;
+  const assignedLane = selectedProgramId ? getAssignmentForProgram(selectedProgramId)?.role ?? null : null;
   const selectedRoleUpdate = useMemo(
     () => latestUpdate?.review.teamRoleUpdates?.find((roleUpdate) => sameRole(roleUpdate.role, selectedLane)) ?? null,
     [latestUpdate?.review.teamRoleUpdates, selectedLane]
@@ -369,6 +375,27 @@ export function LeadershipReviewConsole() {
       setSelectedLane(allSponsorLanesValue);
     }
   }, [laneOptions, selectedLane]);
+
+  useEffect(() => {
+    if (!assignmentsLoaded || assignmentProgramAppliedRef.current || !primaryAssignment) return;
+    if (!programs.some((program) => program.id === primaryAssignment.programId)) return;
+
+    assignmentProgramAppliedRef.current = true;
+    setSelectedProgramId(primaryAssignment.programId);
+  }, [assignmentsLoaded, primaryAssignment, programs, setSelectedProgramId]);
+
+  useEffect(() => {
+    if (previousLaneProgramId.current === selectedProgramId) return;
+    previousLaneProgramId.current = selectedProgramId;
+    setLaneWasManuallyChanged(false);
+  }, [selectedProgramId]);
+
+  useEffect(() => {
+    if (!assignmentsLoaded || laneWasManuallyChanged || !assignedLane) return;
+    if (!laneOptions.some((option) => sameRole(option.value, assignedLane))) return;
+
+    setSelectedLane(assignedLane);
+  }, [assignedLane, assignmentsLoaded, laneOptions, laneWasManuallyChanged]);
 
   const ganttPhases = useMemo(() => buildProgramGantt(selectedProgram, latestUpdate), [latestUpdate, selectedProgram]);
   const currentPhase = ganttPhases.find((phase) => phase.status === "current") ?? ganttPhases[ganttPhases.length - 1];
@@ -837,7 +864,10 @@ export function LeadershipReviewConsole() {
           status={status}
           onProgramChange={setSelectedProgramId}
           onCadenceChange={(nextCadence) => void handleCadenceChange(nextCadence)}
-          onLaneChange={setSelectedLane}
+          onLaneChange={(nextLane) => {
+            setLaneWasManuallyChanged(true);
+            setSelectedLane(nextLane);
+          }}
           onClearQueueFilter={clearQueueFilter}
           onFocusReviewCycle={focusReviewCycle}
           formatTimestamp={formatTimestamp}

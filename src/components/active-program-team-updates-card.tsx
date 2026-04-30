@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { CheckCircle2, ChevronDown, RefreshCw, Save, Users2 } from "lucide-react";
 import type { TeamRoleUpdate, TeamRoleUpdateStatus } from "@/lib/active-program-types";
 import { Button } from "@/components/ui/button";
@@ -54,6 +54,7 @@ type ActiveProgramTeamUpdatesCardProps = {
     scope: string;
     status: "saving" | "saved" | "error";
   } | null;
+  defaultFocusRole?: string | null;
   ownershipSaveState: "idle" | "dirty" | "saving" | "saved" | "error";
   ownershipSavedAt: string | null;
   formatTimestamp: (value: string) => string;
@@ -67,6 +68,7 @@ export function ActiveProgramTeamUpdatesCard({
   ownerCoverage,
   saveState,
   saveConfirmation,
+  defaultFocusRole,
   ownershipSaveState,
   ownershipSavedAt,
   formatTimestamp,
@@ -75,6 +77,22 @@ export function ActiveProgramTeamUpdatesCard({
   onSaveRoleSignal
 }: ActiveProgramTeamUpdatesCardProps) {
   const [expandedRole, setExpandedRole] = useState<string | null>(null);
+  const sortedTeamRoleUpdates = useMemo(() => {
+    if (!defaultFocusRole) return teamRoleUpdates;
+    const focusedRoleKey = defaultFocusRole.trim().toLowerCase();
+    return [
+      ...teamRoleUpdates.filter((roleUpdate) => roleUpdate.role.trim().toLowerCase() === focusedRoleKey),
+      ...teamRoleUpdates.filter((roleUpdate) => roleUpdate.role.trim().toLowerCase() !== focusedRoleKey)
+    ];
+  }, [defaultFocusRole, teamRoleUpdates]);
+
+  useEffect(() => {
+    if (!defaultFocusRole) return;
+    const exists = teamRoleUpdates.some((roleUpdate) => roleUpdate.role.trim().toLowerCase() === defaultFocusRole.trim().toLowerCase());
+    if (exists) {
+      setExpandedRole(defaultFocusRole);
+    }
+  }, [defaultFocusRole, teamRoleUpdates]);
   const ownershipStatus =
     ownershipSaveState === "saving"
       ? "Saving..."
@@ -123,7 +141,7 @@ export function ActiveProgramTeamUpdatesCard({
             </div>
           </div>
           <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-            {teamRoleUpdates.map((roleUpdate) => (
+            {sortedTeamRoleUpdates.map((roleUpdate) => (
               <label key={roleUpdate.role} className="grid min-w-0 gap-2">
                 <span className="truncate text-xs font-medium text-zinc-300">{roleUpdate.role}</span>
                 <input
@@ -200,7 +218,7 @@ export function ActiveProgramTeamUpdatesCard({
             ) : null}
           </div>
 
-          {teamRoleUpdates.map((roleUpdate) => {
+          {sortedTeamRoleUpdates.map((roleUpdate) => {
             const hasSaveableSignal = hasRoleSubmission(roleUpdate);
             const isExpanded = expandedRole === roleUpdate.role;
             const statusLabel = roleStatusOptions.find((option) => option.value === roleUpdate.status)?.label ?? "On track";

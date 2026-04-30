@@ -1,8 +1,9 @@
 "use client";
 
-import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Bot, ChevronDown, ChevronUp, Gauge, Send, Sparkles, UserRound } from "lucide-react";
 import { useForegroundRefresh } from "@/hooks/use-foreground-refresh";
+import { useCurrentUserAssignments } from "@/hooks/use-current-user-assignments";
 import { useProgramCatalog } from "@/hooks/use-program-catalog";
 import { useRequestSequence } from "@/hooks/use-request-sequence";
 import { getAssistantApiResponse } from "@/lib/assistant-client";
@@ -59,8 +60,17 @@ const starterMessage: ChatMessage = {
   matches: []
 };
 
-function buildSuggestedPrompts(programName?: string) {
+function buildSuggestedPrompts(programName?: string, assignedRole?: string | null) {
   const label = programName || "this program";
+  if (assignedRole) {
+    return [
+      `What should I focus on as ${assignedRole} for ${label}?`,
+      `What risks should ${assignedRole} be watching on ${label}?`,
+      `What decisions or support does ${assignedRole} need next?`,
+      `How should ${assignedRole} coordinate with the rest of the team on ${label}?`
+    ];
+  }
+
   return [
     `What should I focus on for ${label}?`,
     `What are the top risks on ${label}?`,
@@ -103,14 +113,17 @@ export function AssistantChat() {
   const [isThinking, setIsThinking] = useState(false);
   const [assistantBriefing, setAssistantBriefing] = useState<AssistantBriefing | null>(null);
   const [showReasoningDetail, setShowReasoningDetail] = useState(false);
+  const assignmentProgramAppliedRef = useRef(false);
   const { programs, selectedProgram, selectedProgramId, setSelectedProgramId, refreshPrograms } = useProgramCatalog();
+  const { getAssignmentForProgram, loaded: assignmentsLoaded, primaryAssignment } = useCurrentUserAssignments();
+  const assignedRole = selectedProgramId ? getAssignmentForProgram(selectedProgramId)?.role ?? null : null;
   const suggestedPrompts = useMemo(
-    () => assistantBriefing?.promptChips?.length ? assistantBriefing.promptChips : buildSuggestedPrompts(selectedProgram?.intake.programName),
-    [assistantBriefing?.promptChips, selectedProgram?.intake.programName]
+    () => assistantBriefing?.promptChips?.length ? assistantBriefing.promptChips : buildSuggestedPrompts(selectedProgram?.intake.programName, assignedRole),
+    [assignedRole, assistantBriefing?.promptChips, selectedProgram?.intake.programName]
   );
   const strategicPrompts = useMemo(
-    () => assistantBriefing?.promptQueue?.length ? assistantBriefing.promptQueue : buildSuggestedPrompts(selectedProgram?.intake.programName),
-    [assistantBriefing?.promptQueue, selectedProgram?.intake.programName]
+    () => assistantBriefing?.promptQueue?.length ? assistantBriefing.promptQueue : buildSuggestedPrompts(selectedProgram?.intake.programName, assignedRole),
+    [assignedRole, assistantBriefing?.promptQueue, selectedProgram?.intake.programName]
   );
   const programOptions = useMemo(() => programsToSlicerOptions(programs), [programs]);
   const activeModelName = assistantBriefing?.model ?? "gpt-5.5";
@@ -147,6 +160,15 @@ export function AssistantChat() {
   useEffect(() => {
     void loadAssistantConversations();
   }, [loadAssistantConversations]);
+
+  useEffect(() => {
+    if (!assignmentsLoaded || !primaryAssignment) return;
+    if (assignmentProgramAppliedRef.current) return;
+    if (!programs.some((program) => program.id === primaryAssignment.programId)) return;
+
+    assignmentProgramAppliedRef.current = true;
+    setSelectedProgramId(primaryAssignment.programId);
+  }, [assignmentsLoaded, primaryAssignment, programs, setSelectedProgramId]);
 
   useForegroundRefresh(
     () => {
@@ -357,6 +379,10 @@ export function AssistantChat() {
             <div className="flex items-center justify-between rounded-md border border-white/10 bg-white/[0.035] p-3">
               <span className="text-zinc-400">Selected program</span>
               <span className="text-zinc-100">{selectedProgram?.intake.programName ?? "Not selected"}</span>
+            </div>
+            <div className="flex items-center justify-between rounded-md border border-white/10 bg-white/[0.035] p-3">
+              <span className="text-zinc-400">Assigned role</span>
+              <span className="text-zinc-100">{assignedRole ?? "No role assignment"}</span>
             </div>
             <div className="rounded-md border border-cyan-300/20 bg-cyan-300/10 p-3 text-xs leading-5 text-cyan-100">
               OpenAI is grounded to the selected program and should use uploads, updates, leadership feedback, and dialogue as the operating context.

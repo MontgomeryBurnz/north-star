@@ -3,6 +3,7 @@
 import { ChangeEvent, FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { Save } from "lucide-react";
 import type { ActiveProgramReview, ActiveProgramUpdate, TeamRoleUpdate, TeamRoleUpdateStatus } from "@/lib/active-program-types";
+import { useCurrentUserAssignments } from "@/hooks/use-current-user-assignments";
 import { useForegroundRefresh } from "@/hooks/use-foreground-refresh";
 import { useRequestSequence } from "@/hooks/use-request-sequence";
 import type { DeliveryLeadershipSignal } from "@/lib/leadership-feedback-types";
@@ -349,6 +350,7 @@ export function ActiveProgramReviewSection() {
   const updatesRequest = useRequestSequence();
   const signalRequest = useRequestSequence();
   const meetingInputsRequest = useRequestSequence();
+  const { getAssignmentForProgram, loaded: assignmentsLoaded, primaryAssignment } = useCurrentUserAssignments();
   const [review, setReview] = useState<ActiveProgramReview>(emptyReview);
   const [savedAt, setSavedAt] = useState<string | null>(null);
   const [savedOwnershipSignature, setSavedOwnershipSignature] = useState("");
@@ -470,6 +472,7 @@ export function ActiveProgramReviewSection() {
     () => existingPrograms.find((program) => program.id === selectedProgramId),
     [existingPrograms, selectedProgramId]
   );
+  const defaultFocusRole = selectedProgramId ? getAssignmentForProgram(selectedProgramId)?.role ?? null : null;
 
   const activeTeamRoles = useMemo(() => getProgramTeamRoles(selectedProgram?.intake), [selectedProgram?.intake]);
 
@@ -668,7 +671,7 @@ export function ActiveProgramReviewSection() {
     });
   }
 
-  function selectExistingProgram(programId: string) {
+  const selectExistingProgram = useCallback((programId: string) => {
     setSelectedProgramId(programId);
     const selectedProgram = existingPrograms.find((program) => program.id === programId);
     if (!selectedProgram) return;
@@ -686,7 +689,13 @@ export function ActiveProgramReviewSection() {
     setSaveState("idle");
     setSaveConfirmation(null);
     setMeetingSaveState("idle");
-  }
+  }, [existingPrograms, updates]);
+
+  useEffect(() => {
+    if (!assignmentsLoaded || selectedProgramId || !primaryAssignment) return;
+    if (!existingPrograms.some((program) => program.id === primaryAssignment.programId)) return;
+    selectExistingProgram(primaryAssignment.programId);
+  }, [assignmentsLoaded, existingPrograms, primaryAssignment, selectExistingProgram, selectedProgramId]);
 
   function handleArtifacts(event: ChangeEvent<HTMLInputElement>) {
     const files = Array.from(event.target.files ?? []);
@@ -952,6 +961,7 @@ export function ActiveProgramReviewSection() {
               ownerCoverage={ownerCoverage}
               saveState={saveState}
               saveConfirmation={saveConfirmation}
+              defaultFocusRole={defaultFocusRole}
               ownershipSaveState={ownershipSaveState}
               ownershipSavedAt={ownershipSavedAt}
               formatTimestamp={formatTimestamp}

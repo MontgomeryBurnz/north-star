@@ -145,6 +145,10 @@ export function buildManagedAppUserRecord({
       email,
       userType,
       credentialStatus,
+      authUserId: normalizeText(input.authUserId) || existing?.authUserId,
+      invitedAt: normalizeText(input.invitedAt) || existing?.invitedAt,
+      lastAuthSyncAt: normalizeText(input.lastAuthSyncAt) || existing?.lastAuthSyncAt,
+      invitationError: input.invitationError === "" ? undefined : normalizeText(input.invitationError) || existing?.invitationError,
       assignments,
       createdAt: existing?.createdAt ?? now,
       updatedAt: now

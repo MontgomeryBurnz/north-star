@@ -22,6 +22,10 @@ export type ManagedAppUser = {
   email: string;
   userType: AppUserType;
   credentialStatus: AppUserCredentialStatus;
+  authUserId?: string;
+  invitedAt?: string;
+  lastAuthSyncAt?: string;
+  invitationError?: string;
   assignments: ManagedProgramAssignment[];
   createdAt: string;
   updatedAt: string;
@@ -32,7 +36,10 @@ export type ManagedProgramAssignmentInput = Partial<
 >;
 
 export type ManagedAppUserInput = Partial<
-  Pick<ManagedAppUser, "id" | "name" | "email" | "userType" | "credentialStatus">
+  Pick<
+    ManagedAppUser,
+    "id" | "name" | "email" | "userType" | "credentialStatus" | "authUserId" | "invitedAt" | "lastAuthSyncAt" | "invitationError"
+  >
 > & {
   assignment?: ManagedProgramAssignmentInput;
   assignments?: ManagedProgramAssignmentInput[];
