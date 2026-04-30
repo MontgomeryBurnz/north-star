@@ -31,6 +31,10 @@ function roleStatusClassName(status: TeamRoleUpdateStatus) {
   return "border-emerald-300/25 bg-emerald-300/10 text-emerald-100";
 }
 
+function normalizeRoleKey(role: string) {
+  return role.trim().toLowerCase();
+}
+
 function firstRoleSignal(roleUpdate: TeamRoleUpdate) {
   return (
     roleUpdate.progressUpdate.trim() ||
@@ -77,22 +81,36 @@ export function ActiveProgramTeamUpdatesCard({
   onSaveRoleSignal
 }: ActiveProgramTeamUpdatesCardProps) {
   const [expandedRole, setExpandedRole] = useState<string | null>(null);
+  const roleKeysSignature = useMemo(
+    () => teamRoleUpdates.map((roleUpdate) => normalizeRoleKey(roleUpdate.role)).join("|"),
+    [teamRoleUpdates]
+  );
+  const defaultFocusRoleKey = defaultFocusRole ? normalizeRoleKey(defaultFocusRole) : "";
   const sortedTeamRoleUpdates = useMemo(() => {
     if (!defaultFocusRole) return teamRoleUpdates;
-    const focusedRoleKey = defaultFocusRole.trim().toLowerCase();
-    return [
-      ...teamRoleUpdates.filter((roleUpdate) => roleUpdate.role.trim().toLowerCase() === focusedRoleKey),
-      ...teamRoleUpdates.filter((roleUpdate) => roleUpdate.role.trim().toLowerCase() !== focusedRoleKey)
-    ];
-  }, [defaultFocusRole, teamRoleUpdates]);
+    const focusedRoleUpdates: TeamRoleUpdate[] = [];
+    const otherRoleUpdates: TeamRoleUpdate[] = [];
+
+    for (const roleUpdate of teamRoleUpdates) {
+      if (normalizeRoleKey(roleUpdate.role) === defaultFocusRoleKey) {
+        focusedRoleUpdates.push(roleUpdate);
+      } else {
+        otherRoleUpdates.push(roleUpdate);
+      }
+    }
+
+    return [...focusedRoleUpdates, ...otherRoleUpdates];
+  }, [defaultFocusRole, defaultFocusRoleKey, teamRoleUpdates]);
 
   useEffect(() => {
-    if (!defaultFocusRole) return;
-    const exists = teamRoleUpdates.some((roleUpdate) => roleUpdate.role.trim().toLowerCase() === defaultFocusRole.trim().toLowerCase());
-    if (exists) {
-      setExpandedRole(defaultFocusRole);
-    }
-  }, [defaultFocusRole, teamRoleUpdates]);
+    const availableRoleKeys = new Set(roleKeysSignature.split("|").filter(Boolean));
+
+    setExpandedRole((current) => {
+      if (current && availableRoleKeys.has(normalizeRoleKey(current))) return current;
+      if (defaultFocusRole && availableRoleKeys.has(defaultFocusRoleKey)) return defaultFocusRole;
+      return null;
+    });
+  }, [defaultFocusRole, defaultFocusRoleKey, roleKeysSignature]);
   const ownershipStatus =
     ownershipSaveState === "saving"
       ? "Saving..."

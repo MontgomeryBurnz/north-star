@@ -209,9 +209,32 @@ function buildTeamRoleUpdate(role: string, existing?: Partial<TeamRoleUpdate>): 
   };
 }
 
+function roleUpdatesMatch(current: TeamRoleUpdate | undefined, next: TeamRoleUpdate) {
+  return Boolean(
+    current &&
+      current.role === next.role &&
+      current.updatedBy === next.updatedBy &&
+      current.progressUpdate === next.progressUpdate &&
+      current.changesObserved === next.changesObserved &&
+      current.activeRisks === next.activeRisks &&
+      current.blockers === next.blockers &&
+      current.decisionsNeeded === next.decisionsNeeded &&
+      current.supportNeeded === next.supportNeeded &&
+      current.status === next.status &&
+      current.needsLeadershipAttention === next.needsLeadershipAttention &&
+      current.lastUpdatedAt === next.lastUpdatedAt
+  );
+}
+
 function normalizeTeamRoleUpdates(roleUpdates: TeamRoleUpdate[] | undefined, roles: string[]) {
   const byRole = new Map((roleUpdates ?? []).map((roleUpdate) => [normalizeProgramLabel(roleUpdate.role), roleUpdate]));
-  return roles.map((role) => buildTeamRoleUpdate(role, byRole.get(normalizeProgramLabel(role))));
+  return roles.map((role) => {
+    const existingRoleUpdate = byRole.get(normalizeProgramLabel(role));
+    const normalizedRoleUpdate = buildTeamRoleUpdate(role, existingRoleUpdate);
+    return existingRoleUpdate && roleUpdatesMatch(existingRoleUpdate, normalizedRoleUpdate)
+      ? existingRoleUpdate
+      : normalizedRoleUpdate;
+  });
 }
 
 function buildOwnershipSignature(roleUpdates: TeamRoleUpdate[] | undefined, roles: string[]) {
@@ -457,7 +480,7 @@ export function ActiveProgramReviewSection() {
 
   useEffect(() => {
     void loadLeadershipSignal();
-  }, [loadLeadershipSignal, saveState]);
+  }, [loadLeadershipSignal]);
 
   const selectedProgram = useMemo(
     () => existingPrograms.find((program) => program.id === selectedProgramId),
@@ -493,7 +516,7 @@ export function ActiveProgramReviewSection() {
 
   useEffect(() => {
     void loadMeetingInputs();
-  }, [loadMeetingInputs, saveState]);
+  }, [loadMeetingInputs]);
 
   const refreshActiveProgramView = useCallback(() => {
     void loadServerPrograms();
@@ -625,7 +648,7 @@ export function ActiveProgramReviewSection() {
     ];
   }, [review]);
 
-  function updateField(field: keyof Omit<ActiveProgramReview, "artifacts">, value: string) {
+  const updateField = useCallback((field: keyof Omit<ActiveProgramReview, "artifacts">, value: string) => {
     setReview((current) =>
       normalizeReview(
         {
@@ -635,13 +658,13 @@ export function ActiveProgramReviewSection() {
         selectedProgram?.intake
       )
     );
-  }
+  }, [selectedProgram?.intake]);
 
-  function updateRoleField<K extends keyof Omit<TeamRoleUpdate, "role">>(
+  const updateRoleField = useCallback((
     role: string,
-    field: K,
-    value: Omit<TeamRoleUpdate, "role">[K]
-  ) {
+    field: keyof Omit<TeamRoleUpdate, "role">,
+    value: string | boolean
+  ) => {
     setReview((current) => {
       const nextRoleUpdates = normalizeTeamRoleUpdates(current.teamRoleUpdates, activeTeamRoles).map((roleUpdate) =>
         normalizeProgramLabel(roleUpdate.role) === normalizeProgramLabel(role)
@@ -660,7 +683,7 @@ export function ActiveProgramReviewSection() {
         selectedProgram?.intake
       );
     });
-  }
+  }, [activeTeamRoles, selectedProgram?.intake]);
 
   const selectExistingProgram = useCallback((programId: string) => {
     setSelectedProgramId(programId);
@@ -853,6 +876,8 @@ export function ActiveProgramReviewSection() {
       });
       setSavedOwnershipSignature(buildOwnershipSignature(nextReview.teamRoleUpdates, activeTeamRoles));
       setOwnershipSavedAt(savedTime);
+      void loadProgramUpdates();
+      void loadLeadershipSignal();
     } catch {
       setSaveState("error");
       setSavedAt(timestamp.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }));
@@ -956,7 +981,7 @@ export function ActiveProgramReviewSection() {
               ownershipSaveState={ownershipSaveState}
               ownershipSavedAt={ownershipSavedAt}
               formatTimestamp={formatTimestamp}
-              onUpdateRoleField={(role, field, value) => updateRoleField(role, field, value as never)}
+              onUpdateRoleField={updateRoleField}
               onSaveOwnership={saveReviewSnapshot}
               onSaveRoleSignal={saveReviewSnapshot}
             />

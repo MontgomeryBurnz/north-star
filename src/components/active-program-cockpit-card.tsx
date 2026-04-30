@@ -26,8 +26,17 @@ type ActiveProgramCockpitCardProps = {
 };
 
 function deriveHealth(teamRoleUpdates: TeamRoleUpdate[], deliveryHealth: string) {
-  const blocked = teamRoleUpdates.filter((role) => role.status === "blocked").length;
-  const atRisk = teamRoleUpdates.filter((role) => role.status === "at-risk").length;
+  let blocked = 0;
+  let atRisk = 0;
+
+  for (const role of teamRoleUpdates) {
+    if (role.status === "blocked") {
+      blocked += 1;
+    } else if (role.status === "at-risk") {
+      atRisk += 1;
+    }
+  }
+
   const hasDeliveryHealth = deliveryHealth.trim().length > 0;
 
   if (blocked) {
