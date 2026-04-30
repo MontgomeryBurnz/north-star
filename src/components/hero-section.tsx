@@ -8,15 +8,15 @@ import type { DashboardMetrics } from "@/lib/dashboard-metrics";
 
 const quickStartActions = [
   {
-    href: "/new-program",
+    href: "/active-program?mode=setup",
     icon: FilePlus2,
     label: "Create a program",
     detail: "Start with a program name, outcomes, stakeholders, roles, and source artifacts."
   },
   {
-    href: "/active-program",
+    href: "/active-program?mode=manage",
     icon: ListChecks,
-    label: "Update program status",
+    label: "Manage program status",
     detail: "Capture weekly team updates, risks, blockers, decisions, artifacts, and meeting context."
   },
   {
@@ -77,7 +77,7 @@ export function HeroSection({ metrics }: { metrics: DashboardMetrics }) {
           </p>
           <div className="mt-8 flex flex-col gap-3 sm:flex-row">
             <Button asChild size="lg">
-              <Link href="/new-program">
+              <Link href="/active-program?mode=setup">
                 Start a program
                 <ArrowRight className="h-4 w-4" />
               </Link>

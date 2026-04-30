@@ -794,7 +794,7 @@ export function ProgramIntakeSection() {
                     className="min-h-11 rounded-md border border-white/10 bg-zinc-950 px-3 py-3 text-sm text-zinc-100 outline-none transition-colors placeholder:text-zinc-300 focus:border-emerald-300/50"
                   />
                   <span className="text-xs leading-5 text-zinc-400">
-                    Required. This becomes the saved program source used in Guided Plans, Active Program, and Leadership.
+                    Required. This becomes the saved program source used in Guided Plans, Programs, and Leadership.
                   </span>
                 </label>
                 <label className="grid gap-2">

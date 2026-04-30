@@ -22,18 +22,18 @@ import type { DashboardMetrics } from "@/lib/dashboard-metrics";
 
 const workflowSteps = [
   {
-    href: "/new-program",
+    href: "/active-program?mode=setup",
     icon: FilePlus2,
-    label: "New Program",
+    label: "Programs / Setup",
     title: "Start with the source of truth",
     detail:
       "Create the program record, define the outcomes, name the stakeholders, capture constraints, and upload the first artifact when it is ready.",
     outcome: "One clean source record for every downstream view."
   },
   {
-    href: "/active-program",
+    href: "/active-program?mode=manage",
     icon: ListChecks,
-    label: "Active Program",
+    label: "Programs / Manage",
     title: "Keep reality current",
     detail:
       "Collect role-level updates, risks, blockers, decisions, artifacts, and meeting intelligence as the program changes through the week.",
@@ -265,12 +265,12 @@ export function CommandCenterGrid({ metrics }: { metrics: DashboardMetrics }) {
           <div>
             <p className="text-sm font-medium text-cyan-100">Recommended operating habit</p>
             <p className="mt-2 text-sm leading-6 text-zinc-300">
-              Each week, update Active Program first, review Guided Plans, use Guide to pressure-test the next move,
+              Each week, update Programs first, review Guided Plans, use Guide to pressure-test the next move,
               and route leaders to the Leadership page when sponsor input is due.
             </p>
           </div>
           <Button asChild>
-            <Link href="/active-program">
+            <Link href="/active-program?mode=manage">
               Start the weekly loop
               <ArrowRight className="h-4 w-4" />
             </Link>

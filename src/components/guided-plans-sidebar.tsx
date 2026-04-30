@@ -75,7 +75,7 @@ export function GuidedPlansSidebar({
             <div className="rounded-md border border-amber-300/20 bg-amber-300/[0.055] p-3 text-sm leading-6 text-amber-100">
               {programs.length
                 ? "Select a saved program to load its guided plan, team action plans, rationale, and latest source signals."
-                : "Save a New Program first, then return here to generate a guided plan."}
+                : "Save a program first, then return here to generate a guided plan."}
             </div>
           )}
           {selectedProgram ? (

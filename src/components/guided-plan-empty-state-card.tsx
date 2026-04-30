@@ -25,7 +25,7 @@ export function GuidedPlanEmptyStateCard({ hasPrograms = false }: GuidedPlanEmpt
             <p className="mt-3 max-w-2xl text-sm leading-6 text-zinc-300">
               {hasPrograms
                 ? "Use the Program source slicer to load the current plan, team action plans, rationale, risks, decisions, and leadership-driven changes for one active program."
-                : "Save a New Program first. North Star will generate guided plans automatically as intake, uploads, active-program updates, and leadership feedback are captured."}
+                : "Save a program first. North Star will generate guided plans automatically as intake, uploads, program updates, and leadership feedback are captured."}
             </p>
           </div>
         </div>

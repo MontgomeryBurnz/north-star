@@ -1,7 +1,12 @@
-import { ActiveProgramReviewSection } from "@/components/active-program-review-section";
+import { ProgramWorkspace } from "@/components/program-workspace";
 import { requireSiteAccessPage } from "@/lib/site-access";
 
-export default async function ActiveProgramPage() {
+export default async function ActiveProgramPage({
+  searchParams
+}: {
+  searchParams: Promise<{ mode?: string }>;
+}) {
   await requireSiteAccessPage("/active-program");
-  return <ActiveProgramReviewSection />;
+  const resolvedSearchParams = await searchParams;
+  return <ProgramWorkspace initialMode={resolvedSearchParams.mode === "setup" ? "setup" : "manage"} />;
 }

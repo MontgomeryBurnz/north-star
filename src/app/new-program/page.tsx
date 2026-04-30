@@ -1,7 +1,5 @@
-import { ProgramIntakeSection } from "@/components/program-intake-section";
-import { requireSiteAccessPage } from "@/lib/site-access";
+import { redirect } from "next/navigation";
 
 export default async function NewProgramPage() {
-  await requireSiteAccessPage("/new-program");
-  return <ProgramIntakeSection />;
+  redirect("/active-program?mode=setup");
 }

@@ -131,7 +131,7 @@ export default async function AlphaStatusPage() {
                 "Create a new program and save it.",
                 "Upload a real artifact and confirm extraction.",
                 "Generate the guided plan.",
-                "Update the program in Active Program.",
+                "Update the program in Programs.",
                 "Enter leadership feedback.",
                 "Regenerate the plan and confirm leadership signal appears.",
                 "Ask Guide a grounded program question."

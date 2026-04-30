@@ -366,7 +366,7 @@ export function generateLocalGuidedPlan(
               )}`
           )
           .join(" / ")}`
-      : "No role-specific team submissions are on file yet. Capture role updates through Active Program so the guided plan reflects what each function is seeing this cycle.",
+      : "No role-specific team submissions are on file yet. Capture role updates through Programs so the guided plan reflects what each function is seeing this cycle.",
     latestLeadershipFeedback
       ? `Leadership feedback shaping this plan: ${excerpt(
           firstAvailable(
