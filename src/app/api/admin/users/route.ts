@@ -87,6 +87,9 @@ export async function POST(request: Request) {
           email: user.email,
           userType: user.userType,
           credentialStatus: "invited",
+          activationTokenCreatedAt: inviteResult.activationTokenCreatedAt,
+          activationTokenExpiresAt: inviteResult.activationTokenExpiresAt,
+          activationTokenHash: inviteResult.activationTokenHash,
           authUserId: inviteResult.authUserId,
           invitedAt: inviteResult.invitedAt,
           lastAuthSyncAt: new Date().toISOString(),
@@ -100,6 +103,7 @@ export async function POST(request: Request) {
           email: user.email,
           userType: user.userType,
           credentialStatus: user.credentialStatus,
+          activationTokenHash: "",
           lastAuthSyncAt: new Date().toISOString(),
           invitationError: inviteResult.error
         });

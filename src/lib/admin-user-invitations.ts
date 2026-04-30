@@ -8,6 +8,7 @@ import {
 } from "@/lib/north-star-auth-emails";
 import { buildPublicAppUrl } from "@/lib/public-origin";
 import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/lib/supabase/server";
+import { createUserActivationToken } from "@/lib/user-activation-tokens";
 
 export type InvitationProviderStatus = {
   brandedEmail: ReturnType<typeof getNorthStarEmailDeliveryStatus>;
@@ -19,6 +20,9 @@ export type InvitationProviderStatus = {
 export type ManagedUserInvitationResult =
   | {
       ok: true;
+      activationTokenCreatedAt?: string;
+      activationTokenExpiresAt?: string;
+      activationTokenHash?: string;
       authUserId?: string;
       invitedAt: string;
     }
@@ -30,6 +34,9 @@ export type ManagedUserInvitationResult =
 export type ManagedUserSetupLinkResult =
   | {
       ok: true;
+      activationTokenCreatedAt?: string;
+      activationTokenExpiresAt?: string;
+      activationTokenHash?: string;
       authUserId?: string;
       invitedAt: string;
       setupUrl: string;
@@ -92,25 +99,14 @@ async function generateSetupLink({
     };
   }
 
-  const setupUrl = data.properties.email_otp
-    ? buildSupabaseEmailOtpActivationUrl({
-        email: user.email,
-        nextPath: "/auth/setup",
-        request,
-        token: data.properties.email_otp,
-        type
-      })
-    : data.properties.hashed_token
-      ? buildSupabaseTokenActivationUrl({
-        nextPath: "/auth/setup",
-        request,
-        tokenHash: data.properties.hashed_token,
-        type
-      })
-      : data.properties.action_link;
+  const activation = createUserActivationToken();
+  const setupUrl = buildManagedUserActivationUrl({ request, token: activation.token });
 
   return {
     ok: true,
+    activationTokenCreatedAt: activation.createdAt,
+    activationTokenExpiresAt: activation.expiresAt,
+    activationTokenHash: activation.tokenHash,
     authUserId: data.user?.id,
     invitedAt: data.user?.invited_at ?? data.user?.confirmation_sent_at ?? new Date().toISOString(),
     setupUrl,
@@ -187,22 +183,8 @@ export async function inviteManagedUser(user: ManagedAppUser, request: Request):
     };
   }
 
-  const actionUrl = data.properties.email_otp
-    ? buildSupabaseEmailOtpActivationUrl({
-        email: user.email,
-        nextPath: "/auth/setup",
-        request,
-        token: data.properties.email_otp,
-        type: "invite"
-      })
-    : data.properties.hashed_token
-      ? buildSupabaseTokenActivationUrl({
-        nextPath: "/auth/setup",
-        request,
-        tokenHash: data.properties.hashed_token,
-        type: "invite"
-      })
-      : data.properties.action_link;
+  const activation = createUserActivationToken();
+  const actionUrl = buildManagedUserActivationUrl({ request, token: activation.token });
 
   try {
     await sendNorthStarEmail({
@@ -228,46 +210,16 @@ export async function inviteManagedUser(user: ManagedAppUser, request: Request):
 
   return {
     ok: true,
+    activationTokenCreatedAt: activation.createdAt,
+    activationTokenExpiresAt: activation.expiresAt,
+    activationTokenHash: activation.tokenHash,
     authUserId: data.user?.id,
     invitedAt: data.user?.invited_at ?? data.user?.confirmation_sent_at ?? new Date().toISOString()
   };
 }
 
-function buildSupabaseTokenActivationUrl({
-  nextPath,
-  request,
-  tokenHash,
-  type
-}: {
-  nextPath: string;
-  request: Request;
-  tokenHash: string;
-  type: "invite" | "recovery";
-}) {
+function buildManagedUserActivationUrl({ request, token }: { request: Request; token: string }) {
   const activationUrl = buildPublicAppUrl("/auth/activate", request);
-  activationUrl.searchParams.set("token_hash", tokenHash);
-  activationUrl.searchParams.set("type", type);
-  activationUrl.searchParams.set("next", nextPath);
-  return activationUrl.toString();
-}
-
-function buildSupabaseEmailOtpActivationUrl({
-  email,
-  nextPath,
-  request,
-  token,
-  type
-}: {
-  email: string;
-  nextPath: string;
-  request: Request;
-  token: string;
-  type: "invite" | "recovery";
-}) {
-  const activationUrl = buildPublicAppUrl("/auth/activate", request);
-  activationUrl.searchParams.set("email", email);
-  activationUrl.searchParams.set("token", token);
-  activationUrl.searchParams.set("type", type);
-  activationUrl.searchParams.set("next", nextPath);
+  activationUrl.searchParams.set("invite_token", token);
   return activationUrl.toString();
 }

@@ -152,6 +152,11 @@ export function buildManagedAppUserRecord({
       userType,
       credentialStatus,
       authUserId: normalizeText(input.authUserId) || existing?.authUserId,
+      activationTokenCreatedAt: normalizeText(input.activationTokenCreatedAt) || existing?.activationTokenCreatedAt,
+      activationTokenExpiresAt: normalizeText(input.activationTokenExpiresAt) || existing?.activationTokenExpiresAt,
+      activationTokenHash: input.activationTokenHash === ""
+        ? undefined
+        : normalizeText(input.activationTokenHash) || existing?.activationTokenHash,
       invitedAt: normalizeText(input.invitedAt) || existing?.invitedAt,
       lastAuthSyncAt: normalizeText(input.lastAuthSyncAt) || existing?.lastAuthSyncAt,
       invitationError: input.invitationError === "" ? undefined : normalizeText(input.invitationError) || existing?.invitationError,

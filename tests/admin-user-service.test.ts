@@ -345,6 +345,9 @@ test("buildManagedAppUserRecord stores invitation and auth metadata", () => {
       name: "Avery Morgan",
       email: "avery@example.com",
       credentialStatus: "invited",
+      activationTokenCreatedAt: "2026-04-29T13:59:00.000Z",
+      activationTokenExpiresAt: "2026-05-01T13:59:00.000Z",
+      activationTokenHash: "abc123",
       authUserId: "auth-user-1",
       invitedAt: "2026-04-29T14:00:00.000Z",
       lastAuthSyncAt: "2026-04-29T14:01:00.000Z",
@@ -362,6 +365,9 @@ test("buildManagedAppUserRecord stores invitation and auth metadata", () => {
   if (!result.ok) return;
 
   assert.equal(result.record.authUserId, "auth-user-1");
+  assert.equal(result.record.activationTokenCreatedAt, "2026-04-29T13:59:00.000Z");
+  assert.equal(result.record.activationTokenExpiresAt, "2026-05-01T13:59:00.000Z");
+  assert.equal(result.record.activationTokenHash, "abc123");
   assert.equal(result.record.invitedAt, "2026-04-29T14:00:00.000Z");
   assert.equal(result.record.lastAuthSyncAt, "2026-04-29T14:01:00.000Z");
   assert.equal(result.record.invitationError, "temporary issue");

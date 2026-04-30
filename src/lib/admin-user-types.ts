@@ -23,6 +23,9 @@ export type ManagedAppUser = {
   userType: AppUserType;
   credentialStatus: AppUserCredentialStatus;
   authUserId?: string;
+  activationTokenCreatedAt?: string;
+  activationTokenExpiresAt?: string;
+  activationTokenHash?: string;
   invitedAt?: string;
   lastAuthSyncAt?: string;
   invitationError?: string;
@@ -38,7 +41,18 @@ export type ManagedProgramAssignmentInput = Partial<
 export type ManagedAppUserInput = Partial<
   Pick<
     ManagedAppUser,
-    "id" | "name" | "email" | "userType" | "credentialStatus" | "authUserId" | "invitedAt" | "lastAuthSyncAt" | "invitationError"
+    | "id"
+    | "name"
+    | "email"
+    | "userType"
+    | "credentialStatus"
+    | "authUserId"
+    | "activationTokenCreatedAt"
+    | "activationTokenExpiresAt"
+    | "activationTokenHash"
+    | "invitedAt"
+    | "lastAuthSyncAt"
+    | "invitationError"
   >
 > & {
   assignment?: ManagedProgramAssignmentInput;

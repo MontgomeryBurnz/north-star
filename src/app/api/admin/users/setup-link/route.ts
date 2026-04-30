@@ -48,6 +48,7 @@ export async function POST(request: Request) {
       email: user.email,
       userType: user.userType,
       credentialStatus: user.credentialStatus,
+      activationTokenHash: "",
       lastAuthSyncAt: new Date().toISOString(),
       invitationError: linkResult.error
     });
@@ -64,6 +65,9 @@ export async function POST(request: Request) {
     email: user.email,
     userType: user.userType,
     credentialStatus: "invited",
+    activationTokenCreatedAt: linkResult.activationTokenCreatedAt,
+    activationTokenExpiresAt: linkResult.activationTokenExpiresAt,
+    activationTokenHash: linkResult.activationTokenHash,
     authUserId: linkResult.authUserId,
     invitedAt: linkResult.invitedAt,
     lastAuthSyncAt: new Date().toISOString(),

@@ -1,5 +1,7 @@
 import { redirect } from "next/navigation";
 import { AuthActivationForm } from "@/components/auth-activation-form";
+import { AuthInvitePasswordForm } from "@/components/auth-invite-password-form";
+import { findManagedUserByActivationToken } from "@/lib/user-activation-tokens";
 
 const supportedTypes = new Set(["email", "invite", "magiclink", "recovery", "signup"]);
 
@@ -13,6 +15,7 @@ export default async function AuthActivatePage({
 }: {
   searchParams: Promise<{
     email?: string;
+    invite_token?: string;
     next?: string;
     token?: string;
     token_hash?: string;
@@ -20,6 +23,23 @@ export default async function AuthActivatePage({
   }>;
 }) {
   const params = await searchParams;
+  const inviteToken = params.invite_token ?? "";
+
+  if (inviteToken) {
+    const managedUser = await findManagedUserByActivationToken(inviteToken);
+    if (!managedUser || managedUser.credentialStatus === "disabled") {
+      redirect("/login?authError=expired");
+    }
+
+    return (
+      <AuthInvitePasswordForm
+        email={managedUser.email}
+        initialName={managedUser.name}
+        inviteToken={inviteToken}
+      />
+    );
+  }
+
   const tokenType = params.type ?? "";
   const tokenHash = params.token_hash ?? "";
   const token = params.token ?? "";
