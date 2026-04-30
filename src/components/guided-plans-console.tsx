@@ -22,7 +22,7 @@ import { GuidedPlanGanttSummary } from "@/components/guided-plan-gantt-summary";
 import { GuidedPlanJustificationCard } from "@/components/guided-plan-justification-card";
 import { GuidedPlanOverviewCard } from "@/components/guided-plan-overview-card";
 import { GuidedPlansSidebar } from "@/components/guided-plans-sidebar";
-import { PlanSectionCard, RolePlansCard } from "@/components/guided-plan-section-cards";
+import { PlanInsightsCard, RolePlansCard } from "@/components/guided-plan-section-cards";
 import { SectionHeader } from "@/components/section-header";
 
 const allRolesOption = "__all_roles__";
@@ -500,6 +500,12 @@ export function GuidedPlansConsole() {
       </div>
     );
   }, [assistantConversations, showAssistantHistory]);
+  const planSectionFooters = useMemo(
+    () => ({
+      "Guide Dialogue Shaping This Plan": assistantDialogueFooter
+    }),
+    [assistantDialogueFooter]
+  );
 
   return (
     <main className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
@@ -610,13 +616,7 @@ export function GuidedPlansConsole() {
                     onCancelFlag={() => setFlagTarget(null)}
                   />
                 ) : null}
-                {planSections.map((section) => (
-                  <PlanSectionCard
-                    key={section.title}
-                    section={section}
-                    footer={section.title === "Guide Dialogue Shaping This Plan" ? assistantDialogueFooter : undefined}
-                  />
-                ))}
+                <PlanInsightsCard sections={planSections} sectionFooters={planSectionFooters} />
               </div>
 
               <GuidedPlanFollowUpCard questions={plan.followUpQuestions} />

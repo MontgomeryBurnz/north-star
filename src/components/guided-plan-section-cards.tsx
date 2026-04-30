@@ -10,6 +10,12 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { GuidanceFlagForm } from "@/components/guidance-flag-form";
 
 const allRolesOption = "__all_roles__";
+const primaryInsightTitles = new Set([
+  "Signal From Noise",
+  "Recommended Work Path",
+  "Risks And Decisions",
+  "What Changed From Leadership Signal"
+]);
 
 function normalizeRoleKey(role: string) {
   return role.trim().toLowerCase();
@@ -73,26 +79,116 @@ function RolePlanSignalGroup({
   );
 }
 
-export function PlanSectionCard({
-  section,
-  footer
+function InsightPreview({ items }: { items: string[] }) {
+  const previewItems = items.slice(0, 2);
+  const hiddenCount = Math.max(items.length - previewItems.length, 0);
+
+  return (
+    <div className="grid gap-2">
+      {previewItems.map((item) => (
+        <p key={item} className="grid grid-cols-[auto_minmax(0,1fr)] gap-2 text-sm leading-6 text-zinc-300">
+          <ArrowRight className="mt-1 h-4 w-4 shrink-0 text-emerald-200" />
+          <span>{item}</span>
+        </p>
+      ))}
+      {hiddenCount ? (
+        <p className="text-xs font-medium uppercase tracking-[0.14em] text-zinc-500">
+          + {hiddenCount} more in source detail
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
+function DetailSection({
+  footer,
+  section
 }: {
-  section: GuidedPlanSection;
   footer?: ReactNode;
+  section: GuidedPlanSection;
 }) {
   return (
-    <Card className="bg-zinc-950/75">
-      <CardHeader className="border-b border-white/10">
-        <CardTitle className="text-zinc-50">{section.title}</CardTitle>
-      </CardHeader>
-      <CardContent className="grid gap-2 p-5">
+    <details className="group rounded-md border border-white/10 bg-white/[0.035] p-3">
+      <summary className="flex cursor-pointer list-none items-center justify-between gap-3">
+        <span className="text-sm font-semibold text-zinc-100">{section.title}</span>
+        <span className="rounded-full border border-white/10 px-2 py-0.5 text-[11px] uppercase tracking-[0.12em] text-zinc-500">
+          {section.items.length} signal{section.items.length === 1 ? "" : "s"}
+        </span>
+      </summary>
+      <div className="mt-3 grid gap-2 border-t border-white/10 pt-3">
         {section.items.map((item) => (
-          <p key={item} className="flex gap-2 rounded-md border border-white/10 bg-white/[0.035] px-3 py-2 text-sm leading-6 text-zinc-300">
-            <ArrowRight className="mt-1 h-4 w-4 shrink-0 text-emerald-200" />
-            {item}
+          <p key={item} className="grid grid-cols-[auto_minmax(0,1fr)] gap-2 text-sm leading-6 text-zinc-300">
+            <ArrowRight className="mt-1 h-4 w-4 shrink-0 text-cyan-200" />
+            <span>{item}</span>
           </p>
         ))}
         {footer}
+      </div>
+    </details>
+  );
+}
+
+export function PlanInsightsCard({
+  sectionFooters,
+  sections
+}: {
+  sectionFooters?: Record<string, ReactNode>;
+  sections: GuidedPlanSection[];
+}) {
+  const primarySections = sections.filter((section) => primaryInsightTitles.has(section.title));
+  const supportingSections = sections.filter((section) => !primaryInsightTitles.has(section.title));
+  const sectionsWithDetail = [...primarySections, ...supportingSections];
+
+  return (
+    <Card className="bg-zinc-950/75 lg:col-span-2">
+      <CardHeader className="border-b border-white/10">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <CardTitle className="text-zinc-50">Plan Insight Digest</CardTitle>
+            <p className="mt-2 max-w-3xl text-sm leading-6 text-zinc-400">
+              Critical delivery signal from the latest refresh.
+            </p>
+          </div>
+          <span className="rounded-md border border-white/10 bg-white/[0.035] px-3 py-1 text-xs text-zinc-400">
+            {sections.length} sections
+          </span>
+        </div>
+      </CardHeader>
+      <CardContent className="grid gap-4 p-4 sm:p-5">
+        <div className="grid gap-3 xl:grid-cols-2">
+          {primarySections.map((section) => (
+            <div key={section.title} className="grid gap-3 rounded-md border border-emerald-300/15 bg-emerald-300/[0.045] p-4">
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-sm font-semibold text-zinc-50">{section.title}</p>
+                <span className="rounded-full border border-emerald-200/20 px-2 py-0.5 text-[11px] uppercase tracking-[0.12em] text-emerald-100">
+                  Critical
+                </span>
+              </div>
+              <InsightPreview items={section.items} />
+            </div>
+          ))}
+        </div>
+
+        {supportingSections.length ? (
+          <div className="grid gap-3 rounded-md border border-white/10 bg-black/20 p-4">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <p className="text-sm font-semibold text-zinc-100">Source Detail</p>
+                <p className="mt-1 text-xs leading-5 text-zinc-500">
+                  Evidence, outputs, and requirements supporting the current plan.
+                </p>
+              </div>
+              <span className="rounded-full border border-white/10 px-2 py-0.5 text-[11px] uppercase tracking-[0.12em] text-zinc-500">
+                Supporting detail
+              </span>
+            </div>
+            <div className="grid gap-2">
+              {sectionsWithDetail.map((section) => (
+                <DetailSection key={section.title} section={section} footer={sectionFooters?.[section.title]} />
+              ))}
+            </div>
+          </div>
+        ) : null}
       </CardContent>
     </Card>
   );
