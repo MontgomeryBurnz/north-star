@@ -132,7 +132,7 @@ export function buildManagedAppUserRecord({
   const assignments = isProgramScopedUserType(userType)
     ? mergeAssignments({
         assignments: assignmentInputs,
-        existingAssignments: existing?.assignments ?? [],
+        existingAssignments: input.replaceAssignments ? [] : existing?.assignments ?? [],
         idFactory,
         now,
         programs

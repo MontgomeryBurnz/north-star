@@ -246,6 +246,62 @@ test("buildManagedAppUserRecord merges new assignments without dropping existing
   );
 });
 
+test("buildManagedAppUserRecord replaces assignments when editing existing access", () => {
+  const existing = buildManagedAppUserRecord({
+    idFactory: () => "user-1",
+    input: {
+      name: "Jordan Lee",
+      email: "jordan@example.com",
+      userType: "delivery-lead",
+      assignments: [
+        {
+          programId: "compliance-hub",
+          role: "Delivery Lead",
+          isPrimary: true
+        },
+        {
+          programId: "platform-modernization",
+          role: "Tech Lead"
+        }
+      ]
+    },
+    now: "2026-04-29T12:00:00.000Z",
+    programs: [program, platformProgram]
+  });
+
+  assert.equal(existing.ok, true);
+  if (!existing.ok) return;
+
+  const updated = buildManagedAppUserRecord({
+    existing: existing.record,
+    idFactory: () => "replacement-assignment",
+    input: {
+      id: existing.record.id,
+      name: "Jordan Lee",
+      email: "jordan@example.com",
+      userType: "delivery-lead",
+      replaceAssignments: true,
+      assignments: [
+        {
+          programId: "platform-modernization",
+          role: "Tech Lead",
+          isPrimary: true
+        }
+      ]
+    },
+    now: "2026-04-29T13:00:00.000Z",
+    programs: [program, platformProgram]
+  });
+
+  assert.equal(updated.ok, true);
+  if (!updated.ok) return;
+
+  assert.equal(updated.record.assignments.length, 1);
+  assert.equal(updated.record.assignments[0]?.programName, "Platform Modernization");
+  assert.equal(updated.record.assignments[0]?.role, "Tech Lead");
+  assert.equal(updated.record.assignments[0]?.isPrimary, true);
+});
+
 test("buildManagedAppUserRecord stores invitation and auth metadata", () => {
   const result = buildManagedAppUserRecord({
     idFactory: () => "id-1",

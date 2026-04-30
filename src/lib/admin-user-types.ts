@@ -43,6 +43,7 @@ export type ManagedAppUserInput = Partial<
 > & {
   assignment?: ManagedProgramAssignmentInput;
   assignments?: ManagedProgramAssignmentInput[];
+  replaceAssignments?: boolean;
 };
 
 export function isProgramScopedUserType(userType: AppUserType) {

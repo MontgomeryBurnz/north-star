@@ -1,7 +1,7 @@
 "use client";
 
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
-import { CheckCircle2, ChevronDown, MailCheck, MailWarning, PlusCircle, RefreshCw, ShieldCheck, UserPlus, UsersRound } from "lucide-react";
+import { CheckCircle2, ChevronDown, MailCheck, MailWarning, Pencil, PlusCircle, RefreshCw, ShieldCheck, UserPlus, UsersRound, XCircle } from "lucide-react";
 import type {
   AppUserCredentialStatus,
   AppUserType,
@@ -31,6 +31,7 @@ const credentialStatusLabels: Record<AppUserCredentialStatus, string> = {
 };
 
 const emptyForm = {
+  id: "",
   name: "",
   email: "",
   userType: "team-member" as AppUserType,
@@ -108,6 +109,8 @@ export function AdminUserManagementCard() {
   );
   const canAddProgramRole = Boolean(selectedProgram && newProgramRole.trim() && roleSaveState !== "saving");
   const brandedEmailActive = invitationProvider?.configured && invitationProvider.emailDelivery === "north-star-branded";
+  const editingUser = form.id ? users.find((user) => user.id === form.id) : undefined;
+  const isEditingUser = Boolean(form.id);
 
   const loadAdminUsers = useCallback(async () => {
     setStatus("Loading users and programs...");
@@ -141,6 +144,45 @@ export function AdminUserManagementCard() {
   useEffect(() => {
     void loadAdminUsers();
   }, [loadAdminUsers]);
+
+  function resetUserForm() {
+    setForm((current) => ({
+      ...emptyForm,
+      programId: current.programId,
+      role: current.role
+    }));
+    setAssignmentDrafts([]);
+    setSaveState("idle");
+    setStatus(null);
+    setStatusTone("neutral");
+  }
+
+  function editUserAccess(user: ManagedAppUser) {
+    const primaryAssignment = getPrimaryAssignment(user.assignments);
+    setForm({
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      userType: user.userType,
+      credentialStatus: user.credentialStatus,
+      programId: primaryAssignment?.programId ?? "",
+      role: primaryAssignment?.role ?? ""
+    });
+    setAssignmentDrafts(
+      user.userType === "admin"
+        ? []
+        : user.assignments.map((assignment) => ({
+            programId: assignment.programId,
+            programName: assignment.programName,
+            role: assignment.role,
+            isPrimary: assignment.isPrimary
+          }))
+    );
+    setExpandedUsers((current) => ({ ...current, [user.id]: true }));
+    setSaveState("idle");
+    setStatusTone("neutral");
+    setStatus(`${user.name} is loaded for access editing. Save changes to apply updates.`);
+  }
 
   function updateProgram(programId: string) {
     const nextProgram = programs.find((program) => program.id === programId);
@@ -213,12 +255,14 @@ export function AdminUserManagementCard() {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
+        id: form.id || undefined,
         name: form.name,
         email: form.email,
         userType: form.userType,
         credentialStatus: form.credentialStatus,
         sendInvite,
-        assignments: getAssignmentInputs()
+        assignments: getAssignmentInputs(),
+        replaceAssignments: isEditingUser
       })
     });
 
@@ -305,6 +349,7 @@ export function AdminUserManagementCard() {
     try {
       const submitter = (event.nativeEvent as SubmitEvent).submitter;
       const sendInvite = submitter instanceof HTMLButtonElement && submitter.value === "invite";
+      const wasEditing = isEditingUser;
       const { invitation, user: savedUser } = await saveUser(sendInvite);
 
       setUsers((current) => [savedUser, ...current.filter((user) => user.id !== savedUser.id)]);
@@ -320,8 +365,8 @@ export function AdminUserManagementCard() {
         setStatusTone("success");
         setStatus(
           savedUser.userType === "admin"
-            ? `${savedUser.name} was saved with Admin access and an account setup invite was sent.`
-            : `${savedUser.name} was saved with ${savedUser.assignments.length} program role assignment${
+            ? `${savedUser.name} was ${wasEditing ? "updated" : "saved"} with Admin access and an account setup invite was sent.`
+            : `${savedUser.name} was ${wasEditing ? "updated" : "saved"} with ${savedUser.assignments.length} program role assignment${
                 savedUser.assignments.length === 1 ? "" : "s"
               } and an account setup invite was sent.`
         );
@@ -332,8 +377,8 @@ export function AdminUserManagementCard() {
         setStatusTone("success");
         setStatus(
           savedUser.userType === "admin"
-            ? `${savedUser.name} was saved with Admin access to all programs.`
-            : `${savedUser.name} was saved with ${savedUser.assignments.length} role-specific program assignment${
+            ? `${savedUser.name} was ${wasEditing ? "updated" : "saved"} with Admin access to all programs.`
+            : `${savedUser.name} was ${wasEditing ? "updated" : "saved"} with ${savedUser.assignments.length} role-specific program assignment${
                 savedUser.assignments.length === 1 ? "" : "s"
               }.`
         );
@@ -357,11 +402,23 @@ export function AdminUserManagementCard() {
         <div className="grid gap-5 xl:grid-cols-[minmax(0,0.95fr)_minmax(20rem,0.65fr)]">
           <div className="grid gap-4">
           <form onSubmit={handleSubmit} className="grid gap-4 rounded-md border border-white/10 bg-white/[0.035] p-4">
-            <div>
-              <p className="text-sm font-medium text-zinc-100">Add user or role assignment</p>
-              <p className="mt-1 text-xs leading-5 text-zinc-500">
-                Admin users get all-program access. Scoped users can carry different roles across programs, which drives their default role-focused views.
-              </p>
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <p className="text-sm font-medium text-zinc-100">
+                  {isEditingUser ? `Edit access for ${editingUser?.name ?? form.name}` : "Add user or role assignment"}
+                </p>
+                <p className="mt-1 text-xs leading-5 text-zinc-500">
+                  {isEditingUser
+                    ? "Update the user profile, remove stale assignments, add new program-role access, and choose the default role."
+                    : "Admin users get all-program access. Scoped users can carry different roles across programs, which drives their default role-focused views."}
+                </p>
+              </div>
+              {isEditingUser ? (
+                <Button type="button" variant="outline" onClick={resetUserForm}>
+                  <XCircle className="h-4 w-4" />
+                  Cancel edit
+                </Button>
+              ) : null}
             </div>
 
             <div className="grid gap-3 md:grid-cols-2">
@@ -554,11 +611,11 @@ export function AdminUserManagementCard() {
               </p>
               <div className="flex flex-wrap gap-2">
                 <Button type="submit" name="intent" value="save" variant="outline" disabled={saveState === "saving" || !canSaveUser}>
-                  {saveState === "saving" && saveAction === "save" ? "Saving..." : "Save draft"}
+                  {saveState === "saving" && saveAction === "save" ? "Saving..." : isEditingUser ? "Save changes" : "Save draft"}
                 </Button>
                 <Button type="submit" name="intent" value="invite" disabled={saveState === "saving" || !canSaveUser || !invitationProvider?.configured}>
                   <UserPlus className="h-4 w-4" />
-                  {saveState === "saving" && saveAction === "invite" ? "Sending..." : "Save and invite"}
+                  {saveState === "saving" && saveAction === "invite" ? "Sending..." : isEditingUser ? "Save and invite again" : "Save and invite"}
                 </Button>
               </div>
             </div>
@@ -749,7 +806,19 @@ export function AdminUserManagementCard() {
                           <p className="mt-2 text-xs leading-5 text-zinc-500">Invited {formatDate(user.invitedAt)}</p>
                         ) : null}
                       </div>
-                      <p className="text-xs text-zinc-500">Updated {formatDate(user.updatedAt)}</p>
+                      <div className="flex flex-wrap items-center gap-2 lg:justify-end">
+                        <p className="text-xs text-zinc-500">Updated {formatDate(user.updatedAt)}</p>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={() => editUserAccess(user)}
+                          disabled={saveState === "saving"}
+                          className={form.id === user.id ? "border-emerald-300/40 bg-emerald-300/[0.08] text-emerald-100" : undefined}
+                        >
+                          <Pencil className="h-4 w-4" />
+                          {form.id === user.id ? "Editing" : "Edit access"}
+                        </Button>
+                      </div>
                     </div>
 
                     {hasGlobalAdminAccess ? (
