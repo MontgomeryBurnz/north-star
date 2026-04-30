@@ -5,6 +5,7 @@ import { CheckCircle2, ChevronDown, ShieldAlert, XCircle } from "lucide-react";
 import { useForegroundRefresh } from "@/hooks/use-foreground-refresh";
 import { useProgramCatalog } from "@/hooks/use-program-catalog";
 import { useRequestSequence } from "@/hooks/use-request-sequence";
+import { getBillingExpenseForecast, type BillingExpenseForecast } from "@/lib/openai-billing-forecast";
 import type { GuidanceModelProfile } from "@/lib/guidance-model-profile";
 import { isTeamActionPlanFlagSourceId, roleFromTeamActionPlanFlagSourceId } from "@/lib/guidance-feedback-flag-sources";
 import type { OpenAIBillingReconciliation, OpenAIBillingWindowKey } from "@/lib/openai-billing-types";
@@ -46,58 +47,6 @@ function formatMultiplier(value: number) {
   if (!Number.isFinite(value) || value <= 0) return "0x";
   if (value < 10) return `${value.toFixed(1)}x`;
   return `${Math.round(value)}x`;
-}
-
-const millisecondsPerDay = 24 * 60 * 60 * 1000;
-
-function getBillingWindowDays(reconciliation: OpenAIBillingReconciliation) {
-  const start = Date.parse(reconciliation.windowStart);
-  const end = Date.parse(reconciliation.windowEnd);
-
-  if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start) {
-    return 1;
-  }
-
-  return Math.max(1, (end - start) / millisecondsPerDay);
-}
-
-type BillingExpenseForecast = {
-  observedSpendUsd: number;
-  observedRequests: number;
-  observedTotalTokens: number;
-  observedDays: number;
-  dailyRunRateUsd: number;
-  projectedThirtyDaySpendUsd: number;
-  projectedNinetyDaySpendUsd: number;
-  averageRequestCostUsd: number;
-  averageMillionTokenCostUsd: number;
-  basisLabel: string;
-};
-
-function getBillingExpenseForecast(reconciliation: OpenAIBillingReconciliation | null): BillingExpenseForecast | null {
-  if (!reconciliation?.connected) return null;
-
-  const observedSpendUsd = reconciliation.actualSpendUsd ?? reconciliation.usageEstimatedSpendUsd ?? 0;
-  const observedRequests = reconciliation.actualRequests ?? 0;
-  const observedTotalTokens = reconciliation.actualTotalTokens ?? 0;
-  const observedDays = getBillingWindowDays(reconciliation);
-  const dailyRunRateUsd = observedSpendUsd / observedDays;
-
-  return {
-    observedSpendUsd,
-    observedRequests,
-    observedTotalTokens,
-    observedDays,
-    dailyRunRateUsd,
-    projectedThirtyDaySpendUsd: dailyRunRateUsd * 30,
-    projectedNinetyDaySpendUsd: dailyRunRateUsd * 90,
-    averageRequestCostUsd: observedRequests ? observedSpendUsd / observedRequests : 0,
-    averageMillionTokenCostUsd: observedTotalTokens ? (observedSpendUsd / observedTotalTokens) * 1_000_000 : 0,
-    basisLabel:
-      reconciliation.spendSource === "usage-estimate"
-        ? "OpenAI Usage API tokens and configured model rates"
-        : "OpenAI Costs API actual spend"
-  };
 }
 
 type UsageSummary = {
@@ -278,9 +227,14 @@ function getInitialCustomBillingRange() {
 type GovernanceDashboardProps = {
   embedded?: boolean;
   guidanceModelProfile: GuidanceModelProfile;
+  showOperatingCostPanels?: boolean;
 };
 
-export function GovernanceDashboard({ embedded = false, guidanceModelProfile }: GovernanceDashboardProps) {
+export function GovernanceDashboard({
+  embedded = false,
+  guidanceModelProfile,
+  showOperatingCostPanels = true
+}: GovernanceDashboardProps) {
   const governanceRequest = useRequestSequence();
   const [flags, setFlags] = useState<GuidanceFeedbackFlag[]>([]);
   const [justifications, setJustifications] = useState<GuidanceJustificationRecord[]>([]);
@@ -357,13 +311,16 @@ export function GovernanceDashboard({ embedded = false, guidanceModelProfile }: 
   }, [loadGovernance]);
 
   useEffect(() => {
+    if (!showOperatingCostPanels) return;
     void loadBillingReconciliation().catch(() => setBillingStatus("Could not sync OpenAI billing."));
-  }, [loadBillingReconciliation]);
+  }, [loadBillingReconciliation, showOperatingCostPanels]);
 
   useForegroundRefresh(
     () => {
       void refreshPrograms({ silent: true });
-      void loadBillingReconciliation().catch(() => null);
+      if (showOperatingCostPanels) {
+        void loadBillingReconciliation().catch(() => null);
+      }
       void loadGovernance().catch(() => null);
     },
     { enabled: true, intervalMs: selectedProgramId ? 15000 : 60000 }
@@ -695,11 +652,13 @@ export function GovernanceDashboard({ embedded = false, guidanceModelProfile }: 
             </CardContent>
           </Card>
 
-          <Card className="bg-zinc-950/80">
-            <CardHeader className="border-b border-white/10">
-              <CardTitle className="text-zinc-50">OpenAI billing sync</CardTitle>
-            </CardHeader>
-            <CardContent className="grid gap-4 p-5">
+          {showOperatingCostPanels ? (
+            <>
+              <Card className="bg-zinc-950/80">
+                <CardHeader className="border-b border-white/10">
+                  <CardTitle className="text-zinc-50">OpenAI billing sync</CardTitle>
+                </CardHeader>
+                <CardContent className="grid gap-4 p-5">
               <div className="grid gap-3 rounded-md border border-white/10 bg-white/[0.035] p-3">
                 <label className="grid gap-2">
                   <span className="text-xs font-medium uppercase tracking-[0.16em] text-zinc-300">Billing window</span>
@@ -841,14 +800,14 @@ export function GovernanceDashboard({ embedded = false, guidanceModelProfile }: 
                   </p>
                 </div>
               )}
-            </CardContent>
-          </Card>
+                </CardContent>
+              </Card>
 
-          <Card className="bg-zinc-950/80">
-            <CardHeader className="border-b border-white/10">
-              <CardTitle className="text-zinc-50">Expense forecast</CardTitle>
-            </CardHeader>
-            <CardContent className="grid gap-4 p-5">
+              <Card className="bg-zinc-950/80">
+                <CardHeader className="border-b border-white/10">
+                  <CardTitle className="text-zinc-50">Expense forecast</CardTitle>
+                </CardHeader>
+                <CardContent className="grid gap-4 p-5">
               {!billingForecast ? (
                 <p className="rounded-md border border-white/10 bg-white/[0.035] p-3 text-sm leading-6 text-zinc-400">
                   Sync OpenAI billing to forecast alpha spend from actual usage.
@@ -898,19 +857,19 @@ export function GovernanceDashboard({ embedded = false, guidanceModelProfile }: 
                   </p>
                 </>
               )}
-            </CardContent>
-          </Card>
+                </CardContent>
+              </Card>
 
-          <GuidanceModelProfileCard
-            guidanceModelProfile={guidanceModelProfile}
-            usageDescription="Used by governance to monitor model choice, reasoning level, cost basis, and cache posture while deciding which flags should influence future guidance."
-          />
+              <GuidanceModelProfileCard
+                guidanceModelProfile={guidanceModelProfile}
+                usageDescription="Used by governance to monitor model choice, reasoning level, cost basis, and cache posture while deciding which flags should influence future guidance."
+              />
 
-          <Card className="bg-zinc-950/80">
-            <CardHeader className="border-b border-white/10">
-              <CardTitle className="text-zinc-50">Model fit recommendation</CardTitle>
-            </CardHeader>
-            <CardContent className="grid gap-4 p-5">
+              <Card className="bg-zinc-950/80">
+                <CardHeader className="border-b border-white/10">
+                  <CardTitle className="text-zinc-50">Model fit recommendation</CardTitle>
+                </CardHeader>
+                <CardContent className="grid gap-4 p-5">
               <div className="rounded-md border border-cyan-300/20 bg-cyan-300/[0.055] p-3">
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <p className="text-xs font-medium uppercase tracking-[0.16em] text-cyan-200">Recommended GPT model</p>
@@ -943,8 +902,10 @@ export function GovernanceDashboard({ embedded = false, guidanceModelProfile }: 
                 This is a North Star governance recommendation from billing, cache, program usage, and review signals. It should become
                 eval-backed before any automatic model routing is switched on.
               </p>
-            </CardContent>
-          </Card>
+                </CardContent>
+              </Card>
+            </>
+          ) : null}
 
           <Card className="bg-zinc-950/80">
             <CardHeader className="border-b border-white/10">

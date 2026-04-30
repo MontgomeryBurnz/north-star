@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { AdminOperatingCostCenter } from "@/components/admin-operating-cost-center";
 import { AdminUserManagementCard } from "@/components/admin-user-management-card";
 import { GovernanceDashboard } from "@/components/governance-dashboard";
 import { SectionHeader } from "@/components/section-header";
@@ -12,6 +13,7 @@ export default async function AdminPage() {
   if (!access.authorized) {
     redirect("/login?redirect=/admin");
   }
+  const guidanceModelProfile = getGuidanceModelProfile();
 
   return (
     <main className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
@@ -25,7 +27,9 @@ export default async function AdminPage() {
         <AdminUserManagementCard />
       </section>
 
-      <GovernanceDashboard embedded guidanceModelProfile={getGuidanceModelProfile()} />
+      <AdminOperatingCostCenter guidanceModelProfile={guidanceModelProfile} />
+
+      <GovernanceDashboard embedded guidanceModelProfile={guidanceModelProfile} showOperatingCostPanels={false} />
     </main>
   );
 }
