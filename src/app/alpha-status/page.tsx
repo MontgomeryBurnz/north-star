@@ -5,7 +5,8 @@ import { getDashboardMetrics } from "@/lib/dashboard-metrics";
 import { getConfiguredGuidedPlanProvider } from "@/lib/guided-plan-service";
 import { getConfiguredLeadershipAuthProvider } from "@/lib/leadership-auth";
 import { getConfiguredPersistenceProvider } from "@/lib/program-repository";
-import { getSiteAccessConfig, requireSiteAccessPage } from "@/lib/site-access";
+import { requireSiteAccessPage } from "@/lib/app-page-access";
+import { getSiteAccessConfig } from "@/lib/site-access";
 import { isSupabaseConfigured } from "@/lib/supabase/server";
 
 function statusTone(value: boolean) {

@@ -1,8 +1,4 @@
-import { cookies } from "next/headers";
-import { redirect } from "next/navigation";
 import { NextResponse } from "next/server";
-import { getCurrentManagedUser } from "@/lib/current-managed-user";
-import { requiresUserSetup } from "@/lib/admin-user-types";
 
 export const siteAccessSessionCookieName = "site_access_session";
 
@@ -37,36 +33,6 @@ function getCookieValue(cookieHeader: string | null, name: string) {
     .map((part) => part.trim())
     .find((part) => part.startsWith(`${name}=`))
     ?.slice(name.length + 1);
-}
-
-export async function requireSiteAccessPage(redirectTo: string) {
-  const config = getSiteAccessConfig();
-  if (!config.enabled) return;
-
-  const cookieStore = await cookies();
-  const sessionToken = cookieStore.get(siteAccessSessionCookieName)?.value;
-  if (isSiteAccessSessionTokenValid(sessionToken)) {
-    const hasSupabaseSession = cookieStore
-      .getAll()
-      .some((cookie) => cookie.name.startsWith("sb-") && cookie.name.includes("auth-token"));
-    if (hasSupabaseSession) {
-      const currentUser = await getCurrentManagedUser();
-      if (requiresUserSetup(currentUser)) {
-        redirect("/auth/setup");
-      }
-    }
-    return;
-  }
-
-  redirect(`/login?redirect=${encodeURIComponent(redirectTo)}`);
-}
-
-export async function hasSiteAccessPageSession() {
-  const config = getSiteAccessConfig();
-  if (!config.enabled) return true;
-
-  const cookieStore = await cookies();
-  return isSiteAccessSessionTokenValid(cookieStore.get(siteAccessSessionCookieName)?.value);
 }
 
 export function isSiteAccessRequestAuthorized(request: Request) {

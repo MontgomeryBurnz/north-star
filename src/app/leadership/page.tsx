@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { LeadershipReviewConsole } from "@/components/leadership-review-console";
 import { getLeadershipAccessContext } from "@/lib/leadership-auth";
-import { requireSiteAccessPage } from "@/lib/site-access";
+import { requireSiteAccessPage } from "@/lib/app-page-access";
 
 export default async function LeadershipPage() {
   await requireSiteAccessPage("/leadership");

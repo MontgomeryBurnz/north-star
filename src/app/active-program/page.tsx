@@ -1,5 +1,5 @@
 import { ProgramWorkspace } from "@/components/program-workspace";
-import { requireSiteAccessPage } from "@/lib/site-access";
+import { requireSiteAccessPage } from "@/lib/app-page-access";
 
 export default async function ActiveProgramPage({
   searchParams

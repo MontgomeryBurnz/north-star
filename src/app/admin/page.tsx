@@ -5,7 +5,7 @@ import { GovernanceDashboard } from "@/components/governance-dashboard";
 import { SectionHeader } from "@/components/section-header";
 import { getGuidanceModelProfile } from "@/lib/guidance-model-profile";
 import { getAdminAccessContext } from "@/lib/leadership-auth";
-import { requireSiteAccessPage } from "@/lib/site-access";
+import { requireSiteAccessPage } from "@/lib/app-page-access";
 
 export default async function AdminPage() {
   await requireSiteAccessPage("/admin");

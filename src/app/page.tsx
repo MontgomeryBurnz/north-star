@@ -2,7 +2,7 @@ import { CommandCenterGrid } from "@/components/command-center-grid";
 import { HeroSection } from "@/components/hero-section";
 import { OperatorSignalStrip, type OperatorSignal } from "@/components/operator-signal-strip";
 import { getDashboardMetrics } from "@/lib/dashboard-metrics";
-import { requireSiteAccessPage } from "@/lib/site-access";
+import { requireSiteAccessPage } from "@/lib/app-page-access";
 
 export default async function Home() {
   await requireSiteAccessPage("/");

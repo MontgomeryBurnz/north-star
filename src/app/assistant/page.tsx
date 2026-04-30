@@ -1,5 +1,5 @@
 import { AssistantChat } from "@/components/assistant-chat";
-import { requireSiteAccessPage } from "@/lib/site-access";
+import { requireSiteAccessPage } from "@/lib/app-page-access";
 
 export const metadata = {
   title: "Guide | North Star"

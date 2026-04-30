@@ -3,7 +3,7 @@ import { frameworks } from "@/data";
 import { getFrameworkById, getRelatedInitiatives } from "@/lib/content";
 import { RelatedContent } from "@/components/related-content";
 import { SectionHeader } from "@/components/section-header";
-import { requireSiteAccessPage } from "@/lib/site-access";
+import { requireSiteAccessPage } from "@/lib/app-page-access";
 
 export function generateStaticParams() {
   return frameworks.map((framework) => ({ id: framework.id }));

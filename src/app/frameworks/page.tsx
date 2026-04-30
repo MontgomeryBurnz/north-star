@@ -1,7 +1,7 @@
 import { frameworks } from "@/data";
 import { FrameworkCard } from "@/components/framework-card";
 import { SectionHeader } from "@/components/section-header";
-import { requireSiteAccessPage } from "@/lib/site-access";
+import { requireSiteAccessPage } from "@/lib/app-page-access";
 
 export default async function FrameworksPage() {
   await requireSiteAccessPage("/frameworks");

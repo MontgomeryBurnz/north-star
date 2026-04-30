@@ -1,5 +1,5 @@
 import { GuidedPlansConsole } from "@/components/guided-plans-console";
-import { requireSiteAccessPage } from "@/lib/site-access";
+import { requireSiteAccessPage } from "@/lib/app-page-access";
 
 export default async function SystemsPage() {
   await requireSiteAccessPage("/systems");

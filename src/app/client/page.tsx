@@ -9,7 +9,7 @@ import {
   listPrograms,
   listProgramUpdates
 } from "@/lib/program-store";
-import { hasSiteAccessPageSession } from "@/lib/site-access";
+import { hasSiteAccessPageSession } from "@/lib/app-page-access";
 
 function assignedProgramIds(assignments: Array<{ programId: string }>) {
   return new Set(assignments.map((assignment) => assignment.programId));

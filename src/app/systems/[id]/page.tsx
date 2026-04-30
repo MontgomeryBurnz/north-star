@@ -4,7 +4,7 @@ import { getInitiativeById, getRelatedFrameworks, getRelatedProducts } from "@/l
 import { RelatedContent } from "@/components/related-content";
 import { SectionHeader } from "@/components/section-header";
 import { StatusBadge } from "@/components/status-badge";
-import { requireSiteAccessPage } from "@/lib/site-access";
+import { requireSiteAccessPage } from "@/lib/app-page-access";
 
 export function generateStaticParams() {
   return initiatives.map((initiative) => ({ id: initiative.id }));

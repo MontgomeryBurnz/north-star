@@ -4,7 +4,7 @@ import { getAIProductById, getRelatedInitiatives } from "@/lib/content";
 import { RelatedContent } from "@/components/related-content";
 import { SectionHeader } from "@/components/section-header";
 import { StatusBadge } from "@/components/status-badge";
-import { requireSiteAccessPage } from "@/lib/site-access";
+import { requireSiteAccessPage } from "@/lib/app-page-access";
 
 export function generateStaticParams() {
   return aiProducts.map((product) => ({ id: product.id }));
