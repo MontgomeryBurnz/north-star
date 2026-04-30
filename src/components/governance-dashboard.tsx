@@ -10,6 +10,7 @@ import { isTeamActionPlanFlagSourceId, roleFromTeamActionPlanFlagSourceId } from
 import type { OpenAIBillingReconciliation, OpenAIBillingWindowKey } from "@/lib/openai-billing-types";
 import type { GuidanceFeedbackFlag, GuidanceJustificationRecord, OpenAIUsageRecord } from "@/lib/program-intelligence-types";
 import { programsToSlicerOptions } from "@/lib/program-slicer";
+import { cn } from "@/lib/utils";
 import { ProgramSlicer } from "@/components/program-slicer";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -275,10 +276,11 @@ function getInitialCustomBillingRange() {
 }
 
 type GovernanceDashboardProps = {
+  embedded?: boolean;
   guidanceModelProfile: GuidanceModelProfile;
 };
 
-export function GovernanceDashboard({ guidanceModelProfile }: GovernanceDashboardProps) {
+export function GovernanceDashboard({ embedded = false, guidanceModelProfile }: GovernanceDashboardProps) {
   const governanceRequest = useRequestSequence();
   const [flags, setFlags] = useState<GuidanceFeedbackFlag[]>([]);
   const [justifications, setJustifications] = useState<GuidanceJustificationRecord[]>([]);
@@ -652,8 +654,10 @@ export function GovernanceDashboard({ guidanceModelProfile }: GovernanceDashboar
     );
   }
 
+  const Root = embedded ? "section" : "main";
+
   return (
-    <main className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
+    <Root className={cn(!embedded && "mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8", embedded && "mt-12")}>
       <SectionHeader
         eyebrow="Governance"
         title="Model Governance"
@@ -1088,6 +1092,6 @@ export function GovernanceDashboard({ guidanceModelProfile }: GovernanceDashboar
           )}
         </section>
       </section>
-    </main>
+    </Root>
   );
 }

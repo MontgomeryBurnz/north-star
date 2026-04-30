@@ -1,4 +1,5 @@
 import "server-only";
+import type { ManagedAppUserInput } from "@/lib/admin-user-types";
 import type { ActiveProgramReview } from "@/lib/active-program-types";
 import type { AssistantServiceResponse } from "@/lib/assistant-types";
 import type { LeadershipReviewInput } from "@/lib/leadership-feedback-types";
@@ -111,4 +112,12 @@ export async function listAllOpenAIUsageRecords() {
 
 export async function createOpenAIUsageRecord(programId: string, usage: OpenAIUsageRecordInput) {
   return getProgramRepository().createOpenAIUsageRecord(programId, usage);
+}
+
+export async function listManagedUsers() {
+  return getProgramRepository().listManagedUsers();
+}
+
+export async function upsertManagedUser(input: ManagedAppUserInput) {
+  return getProgramRepository().upsertManagedUser(input);
 }

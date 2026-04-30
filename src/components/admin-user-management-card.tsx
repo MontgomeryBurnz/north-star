@@ -1,0 +1,428 @@
+"use client";
+
+import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import { CheckCircle2, ChevronDown, ShieldCheck, UserPlus, UsersRound } from "lucide-react";
+import type {
+  AppUserCredentialStatus,
+  AppUserType,
+  ManagedAppUser,
+  ManagedProgramAssignment
+} from "@/lib/admin-user-types";
+import { appUserCredentialStatuses, appUserTypes } from "@/lib/admin-user-types";
+import type { StoredProgram } from "@/lib/program-intake-types";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+
+const baselineTeamRoles = [
+  "Product Management",
+  "Business Analysis",
+  "User Experience",
+  "Application Development",
+  "Data Engineering",
+  "Change Management"
+];
+
+const userTypeLabels: Record<AppUserType, string> = {
+  admin: "Admin",
+  leadership: "Leadership",
+  "delivery-lead": "Delivery Lead",
+  "team-member": "Team Member",
+  viewer: "Viewer"
+};
+
+const credentialStatusLabels: Record<AppUserCredentialStatus, string> = {
+  "not-invited": "Not invited",
+  invited: "Invited",
+  active: "Active",
+  disabled: "Disabled"
+};
+
+const emptyForm = {
+  name: "",
+  email: "",
+  userType: "team-member" as AppUserType,
+  credentialStatus: "not-invited" as AppUserCredentialStatus,
+  programId: "",
+  role: ""
+};
+
+function getProgramRoles(program: StoredProgram | undefined) {
+  const configured = program?.intake.teamRoles?.map((role) => role.trim()).filter(Boolean) ?? [];
+  return Array.from(new Set(configured.length ? configured : baselineTeamRoles));
+}
+
+function formatDate(value: string) {
+  return new Intl.DateTimeFormat(undefined, {
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit"
+  }).format(new Date(value));
+}
+
+function getPrimaryAssignment(assignments: ManagedProgramAssignment[]) {
+  return assignments.find((assignment) => assignment.isPrimary) ?? assignments[0];
+}
+
+export function AdminUserManagementCard() {
+  const [programs, setPrograms] = useState<StoredProgram[]>([]);
+  const [users, setUsers] = useState<ManagedAppUser[]>([]);
+  const [form, setForm] = useState(emptyForm);
+  const [expandedUsers, setExpandedUsers] = useState<Record<string, boolean>>({});
+  const [saveState, setSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle");
+  const [status, setStatus] = useState<string | null>(null);
+  const [statusTone, setStatusTone] = useState<"neutral" | "success" | "error">("neutral");
+
+  const selectedProgram = useMemo(
+    () => programs.find((program) => program.id === form.programId),
+    [form.programId, programs]
+  );
+  const availableRoles = useMemo(() => getProgramRoles(selectedProgram), [selectedProgram]);
+  const canSaveUser = Boolean(form.name.trim() && form.email.trim() && form.programId && form.role);
+
+  const loadAdminUsers = useCallback(async () => {
+    setStatus("Loading users and programs...");
+    setStatusTone("neutral");
+
+    try {
+      const [usersResponse, programsResponse] = await Promise.all([
+        fetch("/api/admin/users", { cache: "no-store" }),
+        fetch("/api/programs", { cache: "no-store" })
+      ]);
+
+      if (!usersResponse.ok || !programsResponse.ok) {
+        throw new Error("load-admin-users");
+      }
+
+      const usersPayload = (await usersResponse.json()) as { users: ManagedAppUser[] };
+      const programsPayload = (await programsResponse.json()) as { programs: StoredProgram[] };
+      setUsers(usersPayload.users);
+      setPrograms(programsPayload.programs);
+      setStatus(null);
+    } catch {
+      setStatusTone("error");
+      setStatus("Could not load Admin users. Confirm leadership access and try again.");
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadAdminUsers();
+  }, [loadAdminUsers]);
+
+  function updateProgram(programId: string) {
+    const nextProgram = programs.find((program) => program.id === programId);
+    const roles = getProgramRoles(nextProgram);
+    setForm((current) => ({
+      ...current,
+      programId,
+      role: roles.includes(current.role) ? current.role : roles[0] ?? ""
+    }));
+    setSaveState("idle");
+  }
+
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setSaveState("saving");
+    setStatus(null);
+    setStatusTone("neutral");
+
+    try {
+      const response = await fetch("/api/admin/users", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          name: form.name,
+          email: form.email,
+          userType: form.userType,
+          credentialStatus: form.credentialStatus,
+          assignment: form.programId && form.role
+            ? {
+                programId: form.programId,
+                role: form.role,
+                isPrimary: true
+              }
+            : undefined
+        })
+      });
+
+      const payload = (await response.json()) as { user?: ManagedAppUser; error?: string };
+      if (!response.ok || !payload.user) {
+        throw new Error(payload.error ?? "Could not save user.");
+      }
+      const savedUser = payload.user;
+
+      setUsers((current) => [savedUser, ...current.filter((user) => user.id !== savedUser.id)]);
+      setExpandedUsers((current) => ({ ...current, [savedUser.id]: true }));
+      setForm((current) => ({
+        ...emptyForm,
+        programId: current.programId,
+        role: current.role
+      }));
+      setSaveState("saved");
+      setStatusTone("success");
+      setStatus(`${savedUser.name} was saved with role-specific program access.`);
+    } catch (error) {
+      setSaveState("error");
+      setStatusTone("error");
+      setStatus(error instanceof Error ? error.message : "Could not save user.");
+    }
+  }
+
+  return (
+    <Card className="bg-zinc-950/80">
+      <CardHeader className="border-b border-white/10">
+        <CardTitle className="flex items-center gap-2 text-zinc-50">
+          <UsersRound className="h-4 w-4 text-emerald-200" />
+          User access and program roles
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="grid gap-5 p-5">
+        <div className="grid gap-5 xl:grid-cols-[minmax(0,0.95fr)_minmax(20rem,0.65fr)]">
+          <form onSubmit={handleSubmit} className="grid gap-4 rounded-md border border-white/10 bg-white/[0.035] p-4">
+            <div>
+              <p className="text-sm font-medium text-zinc-100">Add user or role assignment</p>
+              <p className="mt-1 text-xs leading-5 text-zinc-500">
+                Users can carry different roles across programs. Their assigned role becomes the default expanded view.
+              </p>
+            </div>
+
+            <div className="grid gap-3 md:grid-cols-2">
+              <label className="grid gap-2">
+                <span className="text-xs font-medium uppercase tracking-[0.16em] text-zinc-300">Name</span>
+                <input
+                  value={form.name}
+                  onChange={(event) => {
+                    setForm((current) => ({ ...current, name: event.target.value }));
+                    setSaveState("idle");
+                  }}
+                  placeholder="Full name"
+                  className="min-h-11 rounded-md border border-white/10 bg-zinc-950 px-3 py-3 text-sm text-zinc-100 outline-none transition-colors placeholder:text-zinc-500 focus:border-emerald-300/50"
+                />
+              </label>
+              <label className="grid gap-2">
+                <span className="text-xs font-medium uppercase tracking-[0.16em] text-zinc-300">Email</span>
+                <input
+                  value={form.email}
+                  onChange={(event) => {
+                    setForm((current) => ({ ...current, email: event.target.value }));
+                    setSaveState("idle");
+                  }}
+                  placeholder="name@company.com"
+                  type="email"
+                  className="min-h-11 rounded-md border border-white/10 bg-zinc-950 px-3 py-3 text-sm text-zinc-100 outline-none transition-colors placeholder:text-zinc-500 focus:border-emerald-300/50"
+                />
+              </label>
+              <label className="grid gap-2">
+                <span className="text-xs font-medium uppercase tracking-[0.16em] text-zinc-300">User type</span>
+                <select
+                  value={form.userType}
+                  onChange={(event) => {
+                    setForm((current) => ({ ...current, userType: event.target.value as AppUserType }));
+                    setSaveState("idle");
+                  }}
+                  className="min-h-11 rounded-md border border-white/10 bg-zinc-950 px-3 py-3 text-sm text-zinc-100 outline-none transition-colors focus:border-emerald-300/50"
+                >
+                  {appUserTypes.map((type) => (
+                    <option key={type} value={type}>
+                      {userTypeLabels[type]}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="grid gap-2">
+                <span className="text-xs font-medium uppercase tracking-[0.16em] text-zinc-300">Credential status</span>
+                <select
+                  value={form.credentialStatus}
+                  onChange={(event) => {
+                    setForm((current) => ({ ...current, credentialStatus: event.target.value as AppUserCredentialStatus }));
+                    setSaveState("idle");
+                  }}
+                  className="min-h-11 rounded-md border border-white/10 bg-zinc-950 px-3 py-3 text-sm text-zinc-100 outline-none transition-colors focus:border-emerald-300/50"
+                >
+                  {appUserCredentialStatuses.map((statusValue) => (
+                    <option key={statusValue} value={statusValue}>
+                      {credentialStatusLabels[statusValue]}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+
+            <div className="grid gap-3 md:grid-cols-2">
+              <label className="grid gap-2">
+                <span className="text-xs font-medium uppercase tracking-[0.16em] text-zinc-300">Program</span>
+                <select
+                  value={form.programId}
+                  onChange={(event) => updateProgram(event.target.value)}
+                  className="min-h-11 rounded-md border border-white/10 bg-zinc-950 px-3 py-3 text-sm text-zinc-100 outline-none transition-colors focus:border-emerald-300/50"
+                >
+                  <option value="">Select program...</option>
+                  {programs.map((program) => (
+                    <option key={program.id} value={program.id}>
+                      {program.intake.programName}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="grid gap-2">
+                <span className="text-xs font-medium uppercase tracking-[0.16em] text-zinc-300">Program role</span>
+                <select
+                  value={form.role}
+                  onChange={(event) => {
+                    setForm((current) => ({ ...current, role: event.target.value }));
+                    setSaveState("idle");
+                  }}
+                  disabled={!form.programId}
+                  className="min-h-11 rounded-md border border-white/10 bg-zinc-950 px-3 py-3 text-sm text-zinc-100 outline-none transition-colors disabled:text-zinc-500 focus:border-emerald-300/50"
+                >
+                  <option value="">Select role...</option>
+                  {availableRoles.map((role) => (
+                    <option key={role} value={role}>
+                      {role}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+
+            <div className="flex flex-wrap items-center justify-between gap-3 border-t border-white/10 pt-3">
+              <p className="text-xs leading-5 text-zinc-500">
+                Credentials are tracked as status only; no plaintext passwords are stored here.
+              </p>
+              <Button type="submit" disabled={saveState === "saving" || !canSaveUser}>
+                <UserPlus className="h-4 w-4" />
+                {saveState === "saving" ? "Saving..." : "Save user"}
+              </Button>
+            </div>
+          </form>
+
+          <div className="grid content-start gap-3 rounded-md border border-emerald-300/20 bg-emerald-300/[0.055] p-4">
+            <p className="flex items-center gap-2 text-sm font-medium text-emerald-100">
+              <ShieldCheck className="h-4 w-4" />
+              Access model
+            </p>
+            <p className="text-sm leading-6 text-zinc-300">
+              Admin is now the protected surface for model governance and role-based user setup. Program assignments create the foundation for role-aware views across Guided Plans, Active Program, Leadership, and Guide.
+            </p>
+            <div className="grid gap-2">
+              {appUserTypes.map((type) => (
+                <div key={type} className="rounded-md border border-white/10 bg-black/20 p-3">
+                  <p className="text-sm font-medium text-zinc-100">{userTypeLabels[type]}</p>
+                  <p className="mt-1 text-xs leading-5 text-zinc-500">
+                    {type === "admin"
+                      ? "Manages users, access posture, costs, model fit, and disputed guidance."
+                      : type === "leadership"
+                        ? "Reviews sponsor-level signals and role lanes relevant to their program scope."
+                        : type === "delivery-lead"
+                          ? "Owns the program cockpit, team signals, and plan execution loop."
+                          : type === "team-member"
+                            ? "Updates assigned role signals and can inspect adjacent team context."
+                            : "Reads assigned program context without changing program records."}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {status ? (
+          <div
+            className={`rounded-md border p-3 text-sm leading-6 ${
+              statusTone === "error"
+                ? "border-amber-300/25 bg-amber-300/[0.065] text-amber-100"
+                : statusTone === "success"
+                  ? "border-emerald-300/25 bg-emerald-300/[0.065] text-emerald-100"
+                  : "border-white/10 bg-white/[0.035] text-zinc-400"
+            }`}
+            aria-live="polite"
+          >
+            {saveState === "saved" ? <CheckCircle2 className="mr-2 inline h-4 w-4" /> : null}
+            {status}
+          </div>
+        ) : null}
+
+        <div className="grid gap-3">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <p className="text-sm font-medium text-zinc-100">Managed users</p>
+            <span className="rounded-full border border-white/10 bg-black/20 px-3 py-1 text-xs uppercase tracking-[0.14em] text-zinc-400">
+              {users.length} users
+            </span>
+          </div>
+
+          {users.length ? (
+            <div className="grid gap-3">
+              {users.map((user) => {
+                const primaryAssignment = getPrimaryAssignment(user.assignments);
+                const expanded = expandedUsers[user.id] ?? false;
+                const otherAssignments = user.assignments.filter((assignment) => assignment.id !== primaryAssignment?.id);
+
+                return (
+                  <div key={user.id} className="rounded-md border border-white/10 bg-white/[0.035] p-4">
+                    <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-start">
+                      <div className="min-w-0">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <p className="font-medium text-zinc-100">{user.name}</p>
+                          <span className="rounded-full border border-cyan-300/20 bg-cyan-300/[0.055] px-2.5 py-1 text-[11px] uppercase tracking-[0.12em] text-cyan-100">
+                            {userTypeLabels[user.userType]}
+                          </span>
+                          <span className="rounded-full border border-white/10 bg-black/20 px-2.5 py-1 text-[11px] uppercase tracking-[0.12em] text-zinc-300">
+                            {credentialStatusLabels[user.credentialStatus]}
+                          </span>
+                        </div>
+                        <p className="mt-1 truncate text-sm text-zinc-500">{user.email}</p>
+                      </div>
+                      <p className="text-xs text-zinc-500">Updated {formatDate(user.updatedAt)}</p>
+                    </div>
+
+                    {primaryAssignment ? (
+                      <div className="mt-4 rounded-md border border-emerald-300/20 bg-emerald-300/[0.055] p-3">
+                        <p className="text-xs font-medium uppercase tracking-[0.16em] text-emerald-200">Default expanded role</p>
+                        <p className="mt-2 text-sm font-medium text-zinc-100">
+                          {primaryAssignment.role} on {primaryAssignment.programName}
+                        </p>
+                        <p className="mt-1 text-xs leading-5 text-zinc-500">
+                          Role-specific UI should open this lane first while keeping adjacent program context available.
+                        </p>
+                      </div>
+                    ) : (
+                      <p className="mt-4 rounded-md border border-white/10 bg-black/20 p-3 text-sm leading-6 text-zinc-400">
+                        No program role assignments yet.
+                      </p>
+                    )}
+
+                    {otherAssignments.length ? (
+                      <div className="mt-3">
+                        <button
+                          type="button"
+                          onClick={() => setExpandedUsers((current) => ({ ...current, [user.id]: !expanded }))}
+                          className="flex w-full items-center justify-between gap-3 rounded-md border border-white/10 bg-black/20 px-3 py-2 text-left text-sm text-zinc-300 transition-colors hover:border-emerald-300/25 hover:text-zinc-100"
+                        >
+                          <span>{expanded ? "Hide" : "Show"} other program roles</span>
+                          <ChevronDown className={`h-4 w-4 transition-transform ${expanded ? "rotate-180" : ""}`} />
+                        </button>
+                        {expanded ? (
+                          <div className="mt-3 grid gap-2 md:grid-cols-2">
+                            {otherAssignments.map((assignment) => (
+                              <div key={assignment.id} className="rounded-md border border-white/10 bg-black/20 p-3">
+                                <p className="text-sm font-medium text-zinc-100">{assignment.role}</p>
+                                <p className="mt-1 text-xs leading-5 text-zinc-500">{assignment.programName}</p>
+                              </div>
+                            ))}
+                          </div>
+                        ) : null}
+                      </div>
+                    ) : null}
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <p className="rounded-md border border-white/10 bg-white/[0.035] p-4 text-sm leading-6 text-zinc-400">
+              No managed users yet. Add a user above to start building role-aware access.
+            </p>
+          )}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}

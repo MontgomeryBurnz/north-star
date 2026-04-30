@@ -13,7 +13,7 @@ const navItems = [
   { label: "New Program", href: "/new-program" },
   { label: "Active Program", href: "/active-program" },
   { label: "Guided Plans", href: "/systems" },
-  { label: "Governance", href: "/governance" },
+  { label: "Admin", href: "/admin" },
   { label: "Leadership", href: "/leadership" }
 ];
 

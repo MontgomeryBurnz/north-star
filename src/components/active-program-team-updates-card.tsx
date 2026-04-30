@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { ChevronDown, Save, Users2 } from "lucide-react";
+import { CheckCircle2, ChevronDown, RefreshCw, Save, Users2 } from "lucide-react";
 import type { TeamRoleUpdate, TeamRoleUpdateStatus } from "@/lib/active-program-types";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -49,6 +49,11 @@ type ActiveProgramTeamUpdatesCardProps = {
     total: number;
   };
   saveState: "idle" | "saving" | "saved" | "error";
+  saveConfirmation: {
+    savedAt?: string;
+    scope: string;
+    status: "saving" | "saved" | "error";
+  } | null;
   ownershipSaveState: "idle" | "dirty" | "saving" | "saved" | "error";
   ownershipSavedAt: string | null;
   formatTimestamp: (value: string) => string;
@@ -61,6 +66,7 @@ export function ActiveProgramTeamUpdatesCard({
   teamRoleUpdates,
   ownerCoverage,
   saveState,
+  saveConfirmation,
   ownershipSaveState,
   ownershipSavedAt,
   formatTimestamp,
@@ -160,6 +166,38 @@ export function ActiveProgramTeamUpdatesCard({
                 Open one role at a time to capture progress, risk, decisions, or support needs.
               </p>
             </div>
+          </div>
+
+          <div aria-live="polite">
+            {saveConfirmation?.status === "saving" ? (
+              <div className="rounded-md border border-cyan-300/20 bg-cyan-300/[0.055] p-3">
+                <p className="flex items-center gap-2 text-sm font-medium text-cyan-100">
+                  <RefreshCw className="h-4 w-4 animate-spin" />
+                  Saving update
+                </p>
+                <p className="mt-1 text-xs leading-5 text-zinc-300">
+                  {saveConfirmation.scope} is being saved and the guided plan refresh has started.
+                </p>
+              </div>
+            ) : saveConfirmation?.status === "saved" ? (
+              <div className="rounded-md border border-emerald-300/25 bg-emerald-300/[0.065] p-3">
+                <p className="flex items-center gap-2 text-sm font-medium text-emerald-100">
+                  <CheckCircle2 className="h-4 w-4" />
+                  Update saved
+                </p>
+                <p className="mt-1 text-xs leading-5 text-zinc-300">
+                  {saveConfirmation.scope} was saved and guidance refreshed
+                  {saveConfirmation.savedAt ? ` at ${saveConfirmation.savedAt}` : ""}.
+                </p>
+              </div>
+            ) : saveConfirmation?.status === "error" ? (
+              <div className="rounded-md border border-amber-300/25 bg-amber-300/[0.065] p-3">
+                <p className="text-sm font-medium text-amber-100">Saved locally only</p>
+                <p className="mt-1 text-xs leading-5 text-zinc-300">
+                  The server save or guided plan refresh did not complete. Try saving again when the connection is stable.
+                </p>
+              </div>
+            ) : null}
           </div>
 
           {teamRoleUpdates.map((roleUpdate) => {

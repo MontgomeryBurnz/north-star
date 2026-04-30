@@ -357,6 +357,11 @@ export function ActiveProgramReviewSection() {
   const [existingPrograms, setExistingPrograms] = useState<ExistingProgramOption[]>([]);
   const [updates, setUpdates] = useState<ActiveProgramUpdate[]>([]);
   const [saveState, setSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle");
+  const [saveConfirmation, setSaveConfirmation] = useState<{
+    savedAt?: string;
+    scope: string;
+    status: "saving" | "saved" | "error";
+  } | null>(null);
   const [leadershipSignal, setLeadershipSignal] = useState<DeliveryLeadershipSignal | null>(null);
   const [meetingInputs, setMeetingInputs] = useState<ProgramMeetingInput[]>([]);
   const [meetingInputDraft, setMeetingInputDraft] = useState(emptyMeetingInputDraft);
@@ -679,6 +684,7 @@ export function ActiveProgramReviewSection() {
     setOwnershipSavedAt(null);
     setSavedAt(null);
     setSaveState("idle");
+    setSaveConfirmation(null);
     setMeetingSaveState("idle");
   }
 
@@ -824,6 +830,10 @@ export function ActiveProgramReviewSection() {
     setUpdates(nextUpdates);
     setReview(nextReview);
     setSaveState("saving");
+    setSaveConfirmation({
+      scope: lastUpdatedRole ? `${lastUpdatedRole} signal` : "Cycle synthesis",
+      status: "saving"
+    });
 
     try {
       const response = await fetch(`/api/programs/${programId}/updates`, {
@@ -836,11 +846,20 @@ export function ActiveProgramReviewSection() {
       setSaveState("saved");
       const savedTime = timestamp.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
       setSavedAt(savedTime);
+      setSaveConfirmation({
+        savedAt: savedTime,
+        scope: lastUpdatedRole ? `${lastUpdatedRole} signal` : "Cycle synthesis",
+        status: "saved"
+      });
       setSavedOwnershipSignature(buildOwnershipSignature(nextReview.teamRoleUpdates, activeTeamRoles));
       setOwnershipSavedAt(savedTime);
     } catch {
       setSaveState("error");
       setSavedAt(timestamp.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }));
+      setSaveConfirmation({
+        scope: lastUpdatedRole ? `${lastUpdatedRole} signal` : "Cycle synthesis",
+        status: "error"
+      });
     }
   }
 
@@ -932,6 +951,7 @@ export function ActiveProgramReviewSection() {
               teamRoleUpdates={teamRoleUpdates}
               ownerCoverage={ownerCoverage}
               saveState={saveState}
+              saveConfirmation={saveConfirmation}
               ownershipSaveState={ownershipSaveState}
               ownershipSavedAt={ownershipSavedAt}
               formatTimestamp={formatTimestamp}

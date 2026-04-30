@@ -3,6 +3,8 @@ import { randomUUID } from "crypto";
 import { mkdir, readFile, writeFile } from "fs/promises";
 import path from "path";
 import { Pool } from "pg";
+import type { ManagedAppUser, ManagedAppUserInput } from "@/lib/admin-user-types";
+import { buildManagedAppUserRecord } from "@/lib/admin-user-service";
 import type { ActiveProgramReview, StoredProgramUpdate } from "@/lib/active-program-types";
 import type { AssistantConversationTurn } from "@/lib/assistant-conversation-types";
 import type { AssistantServiceResponse } from "@/lib/assistant-types";
@@ -44,6 +46,8 @@ type ProgramRepository = {
   listOpenAIUsageRecords(programId: string): Promise<OpenAIUsageRecord[]>;
   listAllOpenAIUsageRecords(): Promise<OpenAIUsageRecord[]>;
   createOpenAIUsageRecord(programId: string, usage: OpenAIUsageRecordInput): Promise<OpenAIUsageRecord>;
+  listManagedUsers(): Promise<ManagedAppUser[]>;
+  upsertManagedUser(input: ManagedAppUserInput): Promise<ManagedAppUser>;
 };
 
 type ProgramStoreFile = {
@@ -56,6 +60,7 @@ type ProgramStoreFile = {
   guidanceJustifications: GuidanceJustificationRecord[];
   guidanceFeedbackFlags: GuidanceFeedbackFlag[];
   openAIUsageRecords: OpenAIUsageRecord[];
+  managedUsers: ManagedAppUser[];
 };
 
 const emptyFileStore: ProgramStoreFile = {
@@ -67,7 +72,8 @@ const emptyFileStore: ProgramStoreFile = {
   meetingInputs: [],
   guidanceJustifications: [],
   guidanceFeedbackFlags: [],
-  openAIUsageRecords: []
+  openAIUsageRecords: [],
+  managedUsers: []
 };
 
 function buildGuidanceJustificationRecord(input: {
@@ -565,6 +571,30 @@ const fileRepository: ProgramRepository = {
     store.openAIUsageRecords = [record, ...store.openAIUsageRecords];
     await writeFileStore(store);
     return record;
+  },
+  async listManagedUsers() {
+    const store = await readFileStore();
+    return sortByUpdatedDesc(store.managedUsers);
+  },
+  async upsertManagedUser(input) {
+    const store = await readFileStore();
+    const email = input.email?.trim().toLowerCase();
+    const existing = store.managedUsers.find((user) => user.id === input.id || (email && user.email === email));
+    const result = buildManagedAppUserRecord({
+      existing,
+      idFactory: randomUUID,
+      input,
+      now: new Date().toISOString(),
+      programs: store.programs
+    });
+
+    if (!result.ok) {
+      throw new Error(result.error);
+    }
+
+    store.managedUsers = [result.record, ...store.managedUsers.filter((user) => user.id !== result.record.id)];
+    await writeFileStore(store);
+    return result.record;
   }
 };
 
@@ -690,6 +720,17 @@ async function ensurePostgresSchema() {
             created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
           );
 
+          CREATE TABLE IF NOT EXISTS managed_users (
+            id TEXT PRIMARY KEY,
+            email TEXT NOT NULL UNIQUE,
+            name TEXT NOT NULL,
+            user_type TEXT NOT NULL,
+            credential_status TEXT NOT NULL,
+            record JSONB NOT NULL,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+          );
+
           CREATE INDEX IF NOT EXISTS idx_program_updates_program_id_created_at
             ON program_updates(program_id, created_at DESC);
           CREATE INDEX IF NOT EXISTS idx_guided_plans_program_id_created_at
@@ -712,6 +753,8 @@ async function ensurePostgresSchema() {
             ON openai_usage_records(program_id, created_at DESC);
           CREATE INDEX IF NOT EXISTS idx_openai_usage_records_program_id_workflow_created_at
             ON openai_usage_records(program_id, workflow, created_at DESC);
+          CREATE INDEX IF NOT EXISTS idx_managed_users_updated_at
+            ON managed_users(updated_at DESC);
 
           DO $$
           DECLARE
@@ -727,7 +770,8 @@ async function ensurePostgresSchema() {
               'meeting_inputs',
               'guidance_justifications',
               'guidance_feedback_flags',
-              'openai_usage_records'
+              'openai_usage_records',
+              'managed_users'
             ];
             exposed_role_names TEXT[] := ARRAY['anon', 'authenticated'];
           BEGIN
@@ -857,6 +901,10 @@ function mapGuidanceFeedbackFlagRow(row: { record: GuidanceFeedbackFlag }): Guid
 }
 
 function mapOpenAIUsageRecordRow(row: { record: OpenAIUsageRecord }): OpenAIUsageRecord {
+  return row.record;
+}
+
+function mapManagedUserRow(row: { record: ManagedAppUser }): ManagedAppUser {
   return row.record;
 }
 
@@ -1285,6 +1333,59 @@ const postgresRepository: ProgramRepository = {
         VALUES ($1, $2, $3, $4, $5, $6::jsonb, $7)
       `,
       [record.id, programId, record.programName, record.workflow, record.sourceId ?? null, JSON.stringify(record), now]
+    );
+    return record;
+  },
+  async listManagedUsers() {
+    await ensurePostgresSchema();
+    const result = await getPool().query(`
+      SELECT record
+      FROM managed_users
+      ORDER BY updated_at DESC
+    `);
+    return result.rows.map(mapManagedUserRow);
+  },
+  async upsertManagedUser(input) {
+    await ensurePostgresSchema();
+    const users = await this.listManagedUsers();
+    const email = input.email?.trim().toLowerCase();
+    const existing = users.find((user) => user.id === input.id || (email && user.email === email));
+    const programs = await this.listPrograms();
+    const result = buildManagedAppUserRecord({
+      existing,
+      idFactory: randomUUID,
+      input,
+      now: new Date().toISOString(),
+      programs
+    });
+
+    if (!result.ok) {
+      throw new Error(result.error);
+    }
+
+    const record = result.record;
+    await getPool().query(
+      `
+        INSERT INTO managed_users (id, email, name, user_type, credential_status, record, created_at, updated_at)
+        VALUES ($1, $2, $3, $4, $5, $6::jsonb, $7, $8)
+        ON CONFLICT (id) DO UPDATE
+        SET email = EXCLUDED.email,
+            name = EXCLUDED.name,
+            user_type = EXCLUDED.user_type,
+            credential_status = EXCLUDED.credential_status,
+            record = EXCLUDED.record,
+            updated_at = EXCLUDED.updated_at
+      `,
+      [
+        record.id,
+        record.email,
+        record.name,
+        record.userType,
+        record.credentialStatus,
+        JSON.stringify(record),
+        new Date(record.createdAt),
+        new Date(record.updatedAt)
+      ]
     );
     return record;
   }

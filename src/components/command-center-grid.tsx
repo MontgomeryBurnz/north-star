@@ -67,13 +67,13 @@ const workflowSteps = [
     outcome: "Executive signal translated into team action."
   },
   {
-    href: "/governance",
+    href: "/admin",
     icon: ShieldCheck,
-    label: "Governance",
+    label: "Admin",
     title: "Protect the learning loop",
     detail:
-      "Review flagged justifications by program, approve or deny corrections, and keep one program's context from influencing another.",
-    outcome: "Cleaner guidance quality by program."
+      "Manage users, review flagged justifications by program, approve or deny corrections, and keep one program's context from influencing another.",
+    outcome: "Role-aware access and cleaner guidance quality by program."
   }
 ];
 
@@ -83,7 +83,7 @@ const refreshSources = [
   "Risks, blockers, decisions, and support requests",
   "Meeting recordings, notes, and recurring meeting context",
   "Guide conversations tied to the selected program",
-  "Leadership feedback and governance rulings",
+  "Leadership feedback and Admin rulings",
   "Team role changes that reshape action plans"
 ];
 

@@ -1,15 +1,5 @@
 import { redirect } from "next/navigation";
-import { GovernanceDashboard } from "@/components/governance-dashboard";
-import { getGuidanceModelProfile } from "@/lib/guidance-model-profile";
-import { getLeadershipAccessContext } from "@/lib/leadership-auth";
-import { requireSiteAccessPage } from "@/lib/site-access";
 
-export default async function GovernancePage() {
-  await requireSiteAccessPage("/governance");
-  const access = await getLeadershipAccessContext();
-  if (!access.authorized) {
-    redirect("/leadership/login?redirect=/governance");
-  }
-
-  return <GovernanceDashboard guidanceModelProfile={getGuidanceModelProfile()} />;
+export default function GovernanceRedirectPage() {
+  redirect("/admin");
 }
