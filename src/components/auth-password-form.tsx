@@ -50,7 +50,8 @@ export function AuthPasswordForm({ email, initialName = "", mode, redirectTo = "
         throw new Error(payload.error ?? "Could not update password.");
       }
 
-      router.push(redirectTo);
+      const payload = (await response.json()) as { redirectTo?: string };
+      router.push(payload.redirectTo ?? redirectTo);
       router.refresh();
     } catch (error) {
       setStatus(error instanceof Error ? error.message : "Could not update password.");

@@ -4,6 +4,7 @@ import { getSiteAccessConfig, isSiteAccessSessionTokenValid, siteAccessSessionCo
 function isPublicPath(pathname: string) {
   if (
     pathname === "/login" ||
+    pathname === "/client" ||
     pathname === "/auth/callback" ||
     pathname === "/auth/reset-password" ||
     pathname === "/auth/setup" ||

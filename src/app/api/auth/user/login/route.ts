@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { syncManagedUserFromAuthUser } from "@/lib/current-managed-user";
 import { attachSiteAccessCookie } from "@/lib/site-access";
 import { createSupabaseServerClient, isSupabaseConfigured } from "@/lib/supabase/server";
 
@@ -19,11 +20,22 @@ export async function POST(request: Request) {
   }
 
   const supabase = await createSupabaseServerClient();
-  const { error } = await supabase.auth.signInWithPassword({ email, password });
+  const { data, error } = await supabase.auth.signInWithPassword({ email, password });
 
-  if (error) {
+  if (error || !data.user) {
     return NextResponse.json({ error: "Invalid username or password." }, { status: 401 });
   }
 
-  return attachSiteAccessCookie(NextResponse.json({ ok: true }));
+  const managedUser = await syncManagedUserFromAuthUser(data.user);
+  if (!managedUser || managedUser.credentialStatus === "disabled") {
+    await supabase.auth.signOut({ scope: "local" });
+    return NextResponse.json({ error: "No active North Star access assignment was found for this user." }, { status: 403 });
+  }
+
+  const response = NextResponse.json({
+    ok: true,
+    redirectTo: managedUser.userType === "client" ? "/client" : undefined
+  });
+
+  return managedUser.userType === "client" ? response : attachSiteAccessCookie(response);
 }

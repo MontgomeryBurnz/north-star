@@ -45,18 +45,26 @@ export async function POST(request: Request) {
 
   const managedUsers = await listManagedUsers();
   const managedUser = matchManagedUser(managedUsers, data.user);
-  if (managedUser) {
-    await upsertManagedUser({
-      id: managedUser.id,
-      name: displayName || managedUser.name,
-      email: managedUser.email,
-      userType: managedUser.userType,
-      credentialStatus: "active",
-      authUserId: data.user.id,
-      lastAuthSyncAt: new Date().toISOString(),
-      invitationError: ""
-    });
+  if (!managedUser || managedUser.credentialStatus === "disabled") {
+    await supabase.auth.signOut({ scope: "local" });
+    return NextResponse.json({ error: "No active North Star access assignment was found for this user." }, { status: 403 });
   }
 
-  return attachSiteAccessCookie(NextResponse.json({ ok: true }));
+  const activeManagedUser = await upsertManagedUser({
+    id: managedUser.id,
+    name: displayName || managedUser.name,
+    email: managedUser.email,
+    userType: managedUser.userType,
+    credentialStatus: "active",
+    authUserId: data.user.id,
+    lastAuthSyncAt: new Date().toISOString(),
+    invitationError: ""
+  });
+
+  const response = NextResponse.json({
+    ok: true,
+    redirectTo: activeManagedUser.userType === "client" ? "/client" : undefined
+  });
+
+  return activeManagedUser.userType === "client" ? response : attachSiteAccessCookie(response);
 }

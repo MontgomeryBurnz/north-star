@@ -39,7 +39,8 @@ export function SiteAccessLoginForm({
       });
 
       if (!response.ok) throw new Error("Access denied.");
-      router.push(redirectTo);
+      const payload = (await response.json()) as { redirectTo?: string };
+      router.push(payload.redirectTo ?? redirectTo);
       router.refresh();
     } catch {
       setStatus("Could not grant access. Check the shared alpha password.");
@@ -64,7 +65,8 @@ export function SiteAccessLoginForm({
         throw new Error(payload.error ?? "Could not sign in.");
       }
 
-      router.push(redirectTo);
+      const payload = (await response.json()) as { redirectTo?: string };
+      router.push(payload.redirectTo ?? redirectTo);
       router.refresh();
     } catch (error) {
       setStatus(error instanceof Error ? error.message : "Could not sign in.");

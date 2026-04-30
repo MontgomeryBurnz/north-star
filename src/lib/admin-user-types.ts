@@ -1,4 +1,4 @@
-export const appUserTypes = ["admin", "leadership", "delivery-lead", "team-member", "viewer"] as const;
+export const appUserTypes = ["admin", "leadership", "delivery-lead", "team-member", "client", "viewer"] as const;
 
 export const appUserCredentialStatuses = ["not-invited", "invited", "active", "disabled"] as const;
 

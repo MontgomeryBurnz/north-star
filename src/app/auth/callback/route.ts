@@ -1,4 +1,6 @@
 import { NextResponse } from "next/server";
+import type { ManagedAppUser } from "@/lib/admin-user-types";
+import { syncManagedUserFromAuthUser } from "@/lib/current-managed-user";
 import { getConfiguredLeadershipAuthProvider, getLeadershipAccessContext } from "@/lib/leadership-auth";
 import { attachSiteAccessCookie } from "@/lib/site-access";
 import { createSupabaseServerClient, isSupabaseConfigured } from "@/lib/supabase/server";
@@ -30,13 +32,19 @@ export async function GET(request: Request) {
   const tokenHash = url.searchParams.get("token_hash");
   const tokenType = getTokenHashType(url.searchParams.get("type"));
   const next = getSafeNextPath(url.searchParams.get("next") || "/leadership");
+  let managedUser: ManagedAppUser | null = null;
+
+  function attachInternalAccessForNonClient(response: NextResponse) {
+    if (managedUser?.credentialStatus === "disabled") return response;
+    return managedUser?.userType === "client" ? response : attachSiteAccessCookie(response);
+  }
 
   if (!isSupabaseConfigured()) {
     return attachSiteAccessCookie(NextResponse.redirect(new URL(next, url.origin)));
   }
 
+  const supabase = await createSupabaseServerClient();
   if (code || (tokenHash && tokenType)) {
-    const supabase = await createSupabaseServerClient();
     const { error } = code
       ? await supabase.auth.exchangeCodeForSession(code)
       : await supabase.auth.verifyOtp({
@@ -51,15 +59,20 @@ export async function GET(request: Request) {
     }
   }
 
+  const {
+    data: { user }
+  } = await supabase.auth.getUser();
+  managedUser = user ? await syncManagedUserFromAuthUser(user) : null;
+
   const protectedLeadershipPath = next.startsWith("/leadership") || next.startsWith("/admin") || next.startsWith("/governance");
   if (!protectedLeadershipPath || getConfiguredLeadershipAuthProvider() !== "supabase") {
-    return attachSiteAccessCookie(NextResponse.redirect(new URL(next, url.origin)));
+    return attachInternalAccessForNonClient(NextResponse.redirect(new URL(next, url.origin)));
   }
 
   const access = await getLeadershipAccessContext();
   if (!access.authorized) {
-    return attachSiteAccessCookie(NextResponse.redirect(new URL("/leadership/login?error=access", url.origin)));
+    return attachInternalAccessForNonClient(NextResponse.redirect(new URL("/leadership/login?error=access", url.origin)));
   }
 
-  return attachSiteAccessCookie(NextResponse.redirect(new URL(next, url.origin)));
+  return attachInternalAccessForNonClient(NextResponse.redirect(new URL(next, url.origin)));
 }

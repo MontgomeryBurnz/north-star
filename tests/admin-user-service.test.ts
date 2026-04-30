@@ -203,6 +203,30 @@ test("buildManagedAppUserRecord requires program assignment for scoped user type
   });
 });
 
+test("buildManagedAppUserRecord treats client users as program-scoped", () => {
+  const result = buildManagedAppUserRecord({
+    idFactory: () => "client-1",
+    input: {
+      name: "Client Sponsor",
+      email: "sponsor@example.com",
+      userType: "client",
+      assignment: {
+        programId: "compliance-hub",
+        role: "Executive Sponsor"
+      }
+    },
+    now: "2026-04-29T12:00:00.000Z",
+    programs: [program]
+  });
+
+  assert.equal(result.ok, true);
+  if (!result.ok) return;
+
+  assert.equal(result.record.userType, "client");
+  assert.equal(result.record.assignments.length, 1);
+  assert.equal(result.record.assignments[0]?.role, "Executive Sponsor");
+});
+
 test("buildManagedAppUserRecord merges new assignments without dropping existing program roles", () => {
   const existing = buildManagedAppUserRecord({
     idFactory: () => "user-1",

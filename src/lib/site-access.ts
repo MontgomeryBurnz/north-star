@@ -48,6 +48,14 @@ export async function requireSiteAccessPage(redirectTo: string) {
   redirect(`/login?redirect=${encodeURIComponent(redirectTo)}`);
 }
 
+export async function hasSiteAccessPageSession() {
+  const config = getSiteAccessConfig();
+  if (!config.enabled) return true;
+
+  const cookieStore = await cookies();
+  return isSiteAccessSessionTokenValid(cookieStore.get(siteAccessSessionCookieName)?.value);
+}
+
 export function isSiteAccessRequestAuthorized(request: Request) {
   const config = getSiteAccessConfig();
   if (!config.enabled) return true;
