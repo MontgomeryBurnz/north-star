@@ -474,9 +474,10 @@ export function ClientPortalConsole({
           </div>
           <div className="flex items-center gap-2">
             {canReturnToInternal ? (
-              <Button asChild variant="outline" size="sm" className="hidden border-white/15 bg-black/20 text-zinc-100 hover:bg-white/[0.08] sm:inline-flex">
+              <Button asChild variant="outline" size="sm" className="border-white/15 bg-black/20 text-zinc-100 hover:bg-white/[0.08]">
                 <Link href="/">
-                  Internal console
+                  <span className="hidden sm:inline">Internal console</span>
+                  <span className="sm:hidden">Console</span>
                   <ArrowUpRight className="h-4 w-4" />
                 </Link>
               </Button>
