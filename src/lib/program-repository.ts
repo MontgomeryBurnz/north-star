@@ -13,6 +13,8 @@ import type { GuidedPlan } from "@/lib/guided-plan-types";
 import { enhanceLeadershipFeedback } from "@/lib/leadership-feedback-service";
 import type { LeadershipReviewInput, LeadershipReviewRecord } from "@/lib/leadership-feedback-types";
 import type {
+  ClientDecisionRequest,
+  ClientDecisionRequestInput,
   GuidanceFeedbackFlag,
   GuidanceJustificationRecord,
   OpenAIUsageRecord,
@@ -38,6 +40,8 @@ type ProgramRepository = {
   createLeadershipFeedback(programId: string, feedback: LeadershipReviewInput): Promise<LeadershipReviewRecord>;
   listMeetingInputs(programId: string): Promise<ProgramMeetingInput[]>;
   createMeetingInput(programId: string, input: Omit<ProgramMeetingInput, "id" | "programId" | "programName" | "createdAt" | "updatedAt">): Promise<ProgramMeetingInput>;
+  listClientDecisionRequests(programId: string): Promise<ClientDecisionRequest[]>;
+  createClientDecisionRequest(programId: string, input: ClientDecisionRequestInput): Promise<ClientDecisionRequest>;
   listGuidanceJustifications(programId: string): Promise<GuidanceJustificationRecord[]>;
   createGuidanceJustification(record: GuidanceJustificationRecord): Promise<GuidanceJustificationRecord>;
   listGuidanceFeedbackFlags(programId: string): Promise<GuidanceFeedbackFlag[]>;
@@ -58,6 +62,7 @@ type ProgramStoreFile = {
   guidedPlans: GuidedPlan[];
   leadershipFeedbacks: LeadershipReviewRecord[];
   meetingInputs: ProgramMeetingInput[];
+  clientDecisionRequests: ClientDecisionRequest[];
   guidanceJustifications: GuidanceJustificationRecord[];
   guidanceFeedbackFlags: GuidanceFeedbackFlag[];
   openAIUsageRecords: OpenAIUsageRecord[];
@@ -71,6 +76,7 @@ const emptyFileStore: ProgramStoreFile = {
   guidedPlans: [],
   leadershipFeedbacks: [],
   meetingInputs: [],
+  clientDecisionRequests: [],
   guidanceJustifications: [],
   guidanceFeedbackFlags: [],
   openAIUsageRecords: [],
@@ -506,6 +512,30 @@ const fileRepository: ProgramRepository = {
     await writeFileStore(store);
     return record;
   },
+  async listClientDecisionRequests(programId) {
+    const store = await readFileStore();
+    return sortByUpdatedDesc(store.clientDecisionRequests.filter((request) => request.programId === programId));
+  },
+  async createClientDecisionRequest(programId, input) {
+    const store = await readFileStore();
+    const now = new Date().toISOString();
+    const program = store.programs.find((item) => item.id === programId);
+    const record: ClientDecisionRequest = {
+      id: randomUUID(),
+      programId,
+      programName: program?.intake.programName || "Untitled program",
+      decisionText: input.decisionText.trim(),
+      requestedBy: input.requestedBy?.trim() || undefined,
+      status: "open",
+      createdAt: now,
+      updatedAt: now
+    };
+
+    store.clientDecisionRequests = [record, ...store.clientDecisionRequests];
+    store.programs = store.programs.map((item) => (item.id === programId ? { ...item, updatedAt: now } : item));
+    await writeFileStore(store);
+    return record;
+  },
   async listGuidanceJustifications(programId) {
     const store = await readFileStore();
     return sortByUpdatedDesc(store.guidanceJustifications.filter((record) => record.programId === programId));
@@ -704,6 +734,17 @@ async function ensurePostgresSchema() {
             updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
           );
 
+          CREATE TABLE IF NOT EXISTS client_decision_requests (
+            id TEXT PRIMARY KEY,
+            program_id TEXT NOT NULL REFERENCES programs(id) ON DELETE CASCADE,
+            program_name TEXT NOT NULL,
+            decision_text TEXT NOT NULL,
+            status TEXT NOT NULL,
+            record JSONB NOT NULL,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+          );
+
           CREATE TABLE IF NOT EXISTS guidance_justifications (
             id TEXT PRIMARY KEY,
             program_id TEXT NOT NULL REFERENCES programs(id) ON DELETE CASCADE,
@@ -756,6 +797,8 @@ async function ensurePostgresSchema() {
             ON artifacts(program_id, created_at DESC);
           CREATE INDEX IF NOT EXISTS idx_meeting_inputs_program_id_created_at
             ON meeting_inputs(program_id, created_at DESC);
+          CREATE INDEX IF NOT EXISTS idx_client_decision_requests_program_id_created_at
+            ON client_decision_requests(program_id, created_at DESC);
           CREATE INDEX IF NOT EXISTS idx_guidance_justifications_program_id_created_at
             ON guidance_justifications(program_id, created_at DESC);
           CREATE INDEX IF NOT EXISTS idx_guidance_feedback_flags_program_id_created_at
@@ -781,6 +824,7 @@ async function ensurePostgresSchema() {
               'assistant_conversations',
               'artifacts',
               'meeting_inputs',
+              'client_decision_requests',
               'guidance_justifications',
               'guidance_feedback_flags',
               'openai_usage_records',
@@ -903,6 +947,10 @@ function normalizeMeetingInput(input: ProgramMeetingInput): ProgramMeetingInput 
 
 function mapMeetingInputRow(row: { input: ProgramMeetingInput }): ProgramMeetingInput {
   return normalizeMeetingInput(row.input);
+}
+
+function mapClientDecisionRequestRow(row: { record: ClientDecisionRequest }): ClientDecisionRequest {
+  return row.record;
 }
 
 function mapGuidanceJustificationRow(row: { record: GuidanceJustificationRecord }): GuidanceJustificationRecord {
@@ -1219,6 +1267,54 @@ const postgresRepository: ProgramRepository = {
         record.sourceProvider,
         record.meetingSeriesId ?? null,
         new Date(record.capturedAt),
+        JSON.stringify(record),
+        now
+      ]
+    );
+    await getPool().query("UPDATE programs SET updated_at = $2 WHERE id = $1", [programId, now]);
+    return record;
+  },
+  async listClientDecisionRequests(programId) {
+    await ensurePostgresSchema();
+    const result = await getPool().query(
+      `
+        SELECT record
+        FROM client_decision_requests
+        WHERE program_id = $1
+        ORDER BY created_at DESC
+      `,
+      [programId]
+    );
+    return result.rows.map(mapClientDecisionRequestRow);
+  },
+  async createClientDecisionRequest(programId, input) {
+    await ensurePostgresSchema();
+    const now = new Date();
+    const program = await this.getProgram(programId);
+    const record: ClientDecisionRequest = {
+      id: randomUUID(),
+      programId,
+      programName: program?.intake.programName || "Untitled program",
+      decisionText: input.decisionText.trim(),
+      requestedBy: input.requestedBy?.trim() || undefined,
+      status: "open",
+      createdAt: now.toISOString(),
+      updatedAt: now.toISOString()
+    };
+
+    await getPool().query(
+      `
+        INSERT INTO client_decision_requests (
+          id, program_id, program_name, decision_text, status, record, created_at, updated_at
+        )
+        VALUES ($1, $2, $3, $4, $5, $6::jsonb, $7, $7)
+      `,
+      [
+        record.id,
+        programId,
+        record.programName,
+        record.decisionText,
+        record.status,
         JSON.stringify(record),
         now
       ]

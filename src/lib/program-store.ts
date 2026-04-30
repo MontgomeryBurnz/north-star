@@ -4,6 +4,7 @@ import type { ActiveProgramReview } from "@/lib/active-program-types";
 import type { AssistantServiceResponse } from "@/lib/assistant-types";
 import type { LeadershipReviewInput } from "@/lib/leadership-feedback-types";
 import type {
+  ClientDecisionRequestInput,
   GuidanceFeedbackFlag,
   GuidanceJustificationRecord,
   OpenAIUsageRecordInput,
@@ -73,6 +74,14 @@ export async function createMeetingInput(
   input: Omit<ProgramMeetingInput, "id" | "programId" | "programName" | "createdAt" | "updatedAt">
 ) {
   return getProgramRepository().createMeetingInput(programId, input);
+}
+
+export async function listClientDecisionRequests(programId: string) {
+  return getProgramRepository().listClientDecisionRequests(programId);
+}
+
+export async function createClientDecisionRequest(programId: string, input: ClientDecisionRequestInput) {
+  return getProgramRepository().createClientDecisionRequest(programId, input);
 }
 
 export async function listGuidanceJustifications(programId: string) {

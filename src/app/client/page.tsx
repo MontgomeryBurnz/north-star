@@ -4,6 +4,7 @@ import { buildClientPortalPortfolio, type ClientPortalProgramInput } from "@/lib
 import { getCurrentManagedUser } from "@/lib/current-managed-user";
 import {
   getLatestGuidedPlan,
+  listClientDecisionRequests,
   listLeadershipFeedback,
   listPrograms,
   listProgramUpdates
@@ -34,15 +35,17 @@ export default async function ClientPortalPage() {
 
   const programInputs = await Promise.all<ClientPortalProgramInput>(
     programs.map(async (program) => {
-      const [updates, latestPlan, leadershipFeedback] = await Promise.all([
+      const [updates, latestPlan, leadershipFeedback, clientDecisions] = await Promise.all([
         listProgramUpdates(program.id),
         getLatestGuidedPlan(program.id),
-        listLeadershipFeedback(program.id)
+        listLeadershipFeedback(program.id),
+        listClientDecisionRequests(program.id)
       ]);
       return {
         assignedRoles: currentUser?.assignments
           .filter((assignment) => assignment.programId === program.id)
           .map((assignment) => assignment.role),
+        clientDecisions,
         latestLeadership: leadershipFeedback[0] ?? null,
         latestPlan,
         latestUpdate: updates[0] ?? null,

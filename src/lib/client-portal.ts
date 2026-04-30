@@ -1,6 +1,7 @@
 import type { StoredProgramUpdate, TeamRoleUpdateStatus } from "./active-program-types.ts";
 import type { GuidedPlan } from "./guided-plan-types.ts";
 import type { LeadershipReviewRecord } from "./leadership-feedback-types.ts";
+import type { ClientDecisionRequest } from "./program-intelligence-types.ts";
 import type { StoredProgram } from "./program-intake-types.ts";
 import { firstNonEmpty, firstSignal, normalizeWhitespace, splitSignals } from "./text-signals.ts";
 
@@ -27,12 +28,17 @@ export type ClientPortalProgram = {
     blockedRoles: number;
     atRiskRoles: number;
     teamRoles: number;
+    phaseCompletionPercent: number;
+    programCompletionPercent: number;
   };
   outcomes: string[];
+  progressUpdates: string[];
   risks: string[];
   decisions: string[];
+  clientDecisions: ClientDecisionRequest[];
   recommendedPath: string[];
   timeline: Array<{
+    detail: string;
     label: string;
     status: "complete" | "current" | "next";
   }>;
@@ -55,6 +61,7 @@ export type ClientPortalPortfolio = {
 
 export type ClientPortalProgramInput = {
   assignedRoles?: string[];
+  clientDecisions?: ClientDecisionRequest[];
   latestLeadership?: LeadershipReviewRecord | null;
   latestPlan?: GuidedPlan | null;
   latestUpdate?: StoredProgramUpdate | null;
@@ -62,6 +69,13 @@ export type ClientPortalProgramInput = {
 };
 
 const timelinePhases = ["Intake", "Plan", "Execute", "Stabilize"] as const;
+
+const timelineDetails: Record<(typeof timelinePhases)[number], string> = {
+  Intake: "Scope, outcomes, stakeholders, and source context are established.",
+  Plan: "Guidance, sequencing, owners, and decision path are shaped.",
+  Execute: "Teams deliver against the current plan while risks are actively managed.",
+  Stabilize: "Launch readiness, adoption, controls, and operating handoff are tightened."
+};
 
 function clean(value: string | undefined | null) {
   return normalizeWhitespace(value ?? "");
@@ -120,9 +134,28 @@ function buildTimeline(currentPhase: string) {
   );
 
   return timelinePhases.map((label, index) => ({
+    detail: timelineDetails[label],
     label,
     status: index < currentIndex ? "complete" as const : index === currentIndex ? "current" as const : "next" as const
   }));
+}
+
+function getCurrentPhaseIndex(currentPhase: string) {
+  const phaseText = currentPhase.toLowerCase();
+  const matchedIndex = timelinePhases.findIndex((phase) => phaseText.includes(phase.toLowerCase()));
+  return matchedIndex >= 0 ? matchedIndex : 0;
+}
+
+function getCompletionMetrics(currentPhase: string, posture: ClientProgramPosture) {
+  const phaseIndex = getCurrentPhaseIndex(currentPhase);
+  const phaseCompletionPercent = Math.round(((phaseIndex + 1) / timelinePhases.length) * 100);
+  const postureAdjustment = posture === "on-track" ? 0 : posture === "watch" ? -4 : posture === "at-risk" ? -9 : -15;
+  const programCompletionPercent = Math.max(5, Math.min(98, phaseCompletionPercent + postureAdjustment));
+
+  return {
+    phaseCompletionPercent,
+    programCompletionPercent
+  };
 }
 
 export function buildClientPortalProgram(input: ClientPortalProgramInput): ClientPortalProgram {
@@ -149,6 +182,17 @@ export function buildClientPortalProgram(input: ClientPortalProgramInput): Clien
     riskText: risks.join(" "),
     roleUpdates
   });
+  const completion = getCompletionMetrics(currentPhase, posture);
+  const progressUpdates = visibleSignals(
+    firstNonEmpty(
+      review?.progressSinceLastReview,
+      input.latestPlan?.sourceInputs.items.join("\n"),
+      intake.currentStatus,
+      input.latestPlan?.summary
+    ),
+    "No current progress update has been captured yet.",
+    4
+  );
 
   return {
     id: input.program.id,
@@ -184,11 +228,15 @@ export function buildClientPortalProgram(input: ClientPortalProgramInput): Clien
       risks: countSignals(risks),
       blockedRoles,
       atRiskRoles,
-      teamRoles: roleUpdates.length || intake.teamRoles?.length || 0
+      teamRoles: roleUpdates.length || intake.teamRoles?.length || 0,
+      phaseCompletionPercent: completion.phaseCompletionPercent,
+      programCompletionPercent: completion.programCompletionPercent
     },
     outcomes,
+    progressUpdates,
     risks,
     decisions,
+    clientDecisions: input.clientDecisions ?? [],
     recommendedPath,
     timeline: buildTimeline(currentPhase)
   };

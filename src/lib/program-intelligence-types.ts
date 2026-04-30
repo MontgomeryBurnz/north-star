@@ -37,6 +37,22 @@ export type ProgramMeetingInput = {
   updatedAt: string;
 };
 
+export type ClientDecisionRequest = {
+  id: string;
+  programId: string;
+  programName: string;
+  decisionText: string;
+  requestedBy?: string;
+  status: "open" | "resolved";
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type ClientDecisionRequestInput = Omit<
+  ClientDecisionRequest,
+  "id" | "programId" | "programName" | "createdAt" | "updatedAt" | "status"
+>;
+
 export type OpenAIUsageWorkflow = "guided-plan" | "guide" | "assistant-briefing" | "leadership-feedback";
 
 export type OpenAIUsageMetadata = {

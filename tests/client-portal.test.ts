@@ -100,6 +100,9 @@ test("buildClientPortalProgram creates executive posture from program signals", 
   assert.equal(portalProgram.metrics.decisions, 1);
   assert.equal(portalProgram.assignedRoles[0], "Executive Sponsor");
   assert.equal(portalProgram.primaryOutcome, "Alpha workflow ready for sponsor validation");
+  assert.equal(portalProgram.metrics.phaseCompletionPercent, 75);
+  assert.equal(portalProgram.metrics.programCompletionPercent, 66);
+  assert.equal(portalProgram.progressUpdates[0], "Intake rules are complete.");
 });
 
 test("buildClientPortalPortfolio rolls program posture into portfolio metrics", () => {

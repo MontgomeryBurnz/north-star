@@ -8,6 +8,7 @@ const appTables = [
   "assistant_conversations",
   "artifacts",
   "meeting_inputs",
+  "client_decision_requests",
   "guidance_justifications",
   "guidance_feedback_flags",
   "openai_usage_records",
