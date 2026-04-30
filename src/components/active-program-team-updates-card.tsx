@@ -48,6 +48,7 @@ function firstRoleSignal(roleUpdate: TeamRoleUpdate) {
 
 type ActiveProgramTeamUpdatesCardProps = {
   teamRoleUpdates: TeamRoleUpdate[];
+  assignedOwnersByRole: Record<string, string[]>;
   ownerCoverage: {
     configured: number;
     total: number;
@@ -69,6 +70,7 @@ type ActiveProgramTeamUpdatesCardProps = {
 
 export function ActiveProgramTeamUpdatesCard({
   teamRoleUpdates,
+  assignedOwnersByRole,
   ownerCoverage,
   saveState,
   saveConfirmation,
@@ -122,7 +124,11 @@ export function ActiveProgramTeamUpdatesCard({
           ? "Save failed"
           : ownershipSaveState === "dirty"
             ? "Unsaved changes"
-            : "Not saved yet";
+          : "Not saved yet";
+  const hasAdminAssignedOwners = useMemo(
+    () => Object.values(assignedOwnersByRole).some((owners) => owners.length),
+    [assignedOwnersByRole]
+  );
   const ownershipStatusClassName =
     ownershipSaveState === "saved"
       ? "border-emerald-300/25 bg-emerald-300/10 text-emerald-100"
@@ -146,7 +152,7 @@ export function ActiveProgramTeamUpdatesCard({
             <div>
               <p className="text-sm font-medium text-zinc-100">Team ownership</p>
               <p className="mt-1 text-xs leading-5 text-zinc-500">
-                Map the regular owner once. Save ownership here or save the full cycle synthesis below.
+                Role assignments come from Admin. Add a fallback owner only while a role is not assigned there yet.
               </p>
             </div>
             <div className="flex flex-wrap items-center gap-2">
@@ -154,26 +160,37 @@ export function ActiveProgramTeamUpdatesCard({
                 {ownerCoverage.configured}/{ownerCoverage.total} mapped
               </span>
               <span className={`rounded-full border px-3 py-1 text-[11px] font-medium uppercase tracking-[0.14em] ${ownershipStatusClassName}`}>
-                {ownershipStatus}
+                {hasAdminAssignedOwners && ownershipSaveState === "saved" ? "Admin managed" : ownershipStatus}
               </span>
             </div>
           </div>
           <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-            {sortedTeamRoleUpdates.map((roleUpdate) => (
-              <label key={roleUpdate.role} className="grid min-w-0 gap-2">
-                <span className="truncate text-xs font-medium text-zinc-300">{roleUpdate.role}</span>
-                <input
-                  value={roleUpdate.updatedBy}
-                  onChange={(event) => onUpdateRoleField(roleUpdate.role, "updatedBy", event.target.value)}
-                  placeholder="Owner name"
-                  className="min-h-10 rounded-md border border-white/10 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 outline-none transition-colors placeholder:text-zinc-500 focus:border-cyan-300/50"
-                />
-              </label>
-            ))}
+            {sortedTeamRoleUpdates.map((roleUpdate) => {
+              const assignedOwners = assignedOwnersByRole[normalizeRoleKey(roleUpdate.role)] ?? [];
+
+              return (
+                <div key={roleUpdate.role} className="grid min-w-0 gap-2 rounded-md border border-white/10 bg-black/20 p-3">
+                  <span className="truncate text-xs font-medium text-zinc-300">{roleUpdate.role}</span>
+                  {assignedOwners.length ? (
+                    <div className="min-h-10 rounded-md border border-emerald-300/15 bg-emerald-300/[0.055] px-3 py-2">
+                      <p className="line-clamp-2 text-sm leading-5 text-emerald-100">{assignedOwners.join(", ")}</p>
+                      <p className="mt-1 text-[11px] uppercase tracking-[0.12em] text-emerald-200/75">Assigned in Admin</p>
+                    </div>
+                  ) : (
+                    <input
+                      value={roleUpdate.updatedBy}
+                      onChange={(event) => onUpdateRoleField(roleUpdate.role, "updatedBy", event.target.value)}
+                      placeholder="Fallback owner"
+                      className="min-h-10 rounded-md border border-white/10 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 outline-none transition-colors placeholder:text-zinc-500 focus:border-cyan-300/50"
+                    />
+                  )}
+                </div>
+              );
+            })}
           </div>
           <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-white/10 pt-3">
             <p className="text-xs leading-5 text-zinc-500">
-              Owner names are retained as the default updater for future team signals.
+              Admin assignments are the default role ownership model; fallback owners are retained only for unmapped roles.
             </p>
             <Button
               type="button"
@@ -183,7 +200,9 @@ export function ActiveProgramTeamUpdatesCard({
               disabled={ownershipSaveState === "saving" || ownershipSaveState === "idle" || ownershipSaveState === "saved"}
             >
               <Save className="h-4 w-4" />
-              {ownershipSaveState === "saving"
+              {hasAdminAssignedOwners && ownershipSaveState === "saved"
+                ? "Managed in Admin"
+                : ownershipSaveState === "saving"
                 ? "Saving..."
                 : ownershipSaveState === "saved"
                   ? "Ownership saved"
@@ -237,6 +256,8 @@ export function ActiveProgramTeamUpdatesCard({
           </div>
 
           {sortedTeamRoleUpdates.map((roleUpdate) => {
+            const assignedOwners = assignedOwnersByRole[normalizeRoleKey(roleUpdate.role)] ?? [];
+            const ownerDisplay = roleUpdate.updatedBy || assignedOwners.join(", ");
             const hasSaveableSignal = hasRoleSubmission(roleUpdate);
             const isExpanded = expandedRole === roleUpdate.role;
             const statusLabel = roleStatusOptions.find((option) => option.value === roleUpdate.status)?.label ?? "On track";
@@ -272,8 +293,8 @@ export function ActiveProgramTeamUpdatesCard({
                       </span>
                     </div>
                     <p className="mt-2 line-clamp-2 text-sm leading-6 text-zinc-400">
-                      {summary || roleUpdate.updatedBy || roleUpdate.lastUpdatedAt
-                        ? `${summary || "No weekly signal yet."}${roleUpdate.updatedBy ? ` Owner: ${roleUpdate.updatedBy}.` : ""}${
+                      {summary || ownerDisplay || roleUpdate.lastUpdatedAt
+                        ? `${summary || "No weekly signal yet."}${ownerDisplay ? ` Owner: ${ownerDisplay}.` : ""}${
                             roleUpdate.lastUpdatedAt ? ` Updated ${formatTimestamp(roleUpdate.lastUpdatedAt)}.` : ""
                           }`
                         : "No owner or weekly signal captured yet."}

@@ -7,6 +7,7 @@ import { useCurrentUserAssignments } from "@/hooks/use-current-user-assignments"
 import { useForegroundRefresh } from "@/hooks/use-foreground-refresh";
 import { useRequestSequence } from "@/hooks/use-request-sequence";
 import type { DeliveryLeadershipSignal } from "@/lib/leadership-feedback-types";
+import type { ProgramTeamAssignmentSummary } from "@/lib/program-team-assignments";
 import type { ProgramMeetingAttachment, ProgramMeetingInput } from "@/lib/program-intelligence-types";
 import type { ProgramArtifact, ProgramIntake } from "@/lib/program-intake-types";
 import { normalizeTeamRoles } from "@/lib/team-roles";
@@ -91,7 +92,7 @@ function optionFromSavedIntake(savedIntake: ProgramIntake): ExistingProgramOptio
       progressSinceLastReview: savedIntake.currentStatus,
       planChanges: "",
       activeRisks: savedIntake.risks,
-      stakeholderTemperature: savedIntake.stakeholders,
+      stakeholderTemperature: "",
       decisionsPending: savedIntake.decisionsNeeded,
       deliveryHealth: savedIntake.blockers,
       supportNeeded: savedIntake.constraints,
@@ -226,6 +227,25 @@ function roleUpdatesMatch(current: TeamRoleUpdate | undefined, next: TeamRoleUpd
   );
 }
 
+function normalizedMultilineText(value: string | undefined) {
+  return (value ?? "")
+    .split(/\r?\n|,/)
+    .map((item) => item.trim())
+    .filter(Boolean)
+    .join("\n")
+    .toLowerCase();
+}
+
+function normalizeStakeholderTemperature(value: string | undefined, intake?: ProgramIntake) {
+  const stakeholderTemperature = value?.trim() ?? "";
+  if (!stakeholderTemperature) return "";
+
+  const stakeholderList = normalizedMultilineText(intake?.stakeholders);
+  const temperatureLines = normalizedMultilineText(stakeholderTemperature);
+
+  return stakeholderList && temperatureLines === stakeholderList ? "" : stakeholderTemperature;
+}
+
 function normalizeTeamRoleUpdates(roleUpdates: TeamRoleUpdate[] | undefined, roles: string[]) {
   const byRole = new Map((roleUpdates ?? []).map((roleUpdate) => [normalizeProgramLabel(roleUpdate.role), roleUpdate]));
   return roles.map((role) => {
@@ -237,8 +257,13 @@ function normalizeTeamRoleUpdates(roleUpdates: TeamRoleUpdate[] | undefined, rol
   });
 }
 
-function buildOwnershipSignature(roleUpdates: TeamRoleUpdate[] | undefined, roles: string[]) {
+function buildFallbackOwnershipSignature(
+  roleUpdates: TeamRoleUpdate[] | undefined,
+  roles: string[],
+  assignedOwnersByRole: Record<string, string[]>
+) {
   return normalizeTeamRoleUpdates(roleUpdates, roles)
+    .filter((roleUpdate) => !(assignedOwnersByRole[normalizeProgramLabel(roleUpdate.role)]?.length))
     .map((roleUpdate) => `${normalizeProgramLabel(roleUpdate.role)}:${roleUpdate.updatedBy.trim()}`)
     .join("|");
 }
@@ -350,6 +375,7 @@ function normalizeReview(review: ActiveProgramReview, intake?: ProgramIntake) {
     {
       ...emptyReview,
       ...review,
+      stakeholderTemperature: normalizeStakeholderTemperature(review.stakeholderTemperature, intake),
       updateCadence: (review.updateCadence === "biweekly" ? "biweekly" : review.updateCadence ?? "weekly") as
         | "weekly"
         | "biweekly"
@@ -380,6 +406,7 @@ export function ActiveProgramReviewSection() {
   } | null>(null);
   const [leadershipSignal, setLeadershipSignal] = useState<DeliveryLeadershipSignal | null>(null);
   const [meetingInputs, setMeetingInputs] = useState<ProgramMeetingInput[]>([]);
+  const [teamAssignments, setTeamAssignments] = useState<ProgramTeamAssignmentSummary[]>([]);
   const [meetingInputDraft, setMeetingInputDraft] = useState(emptyMeetingInputDraft);
   const [meetingSaveState, setMeetingSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const [meetingUploadState, setMeetingUploadState] = useState<"idle" | "uploading" | "uploaded" | "error">("idle");
@@ -489,6 +516,37 @@ export function ActiveProgramReviewSection() {
   const defaultFocusRole = selectedProgramId ? getAssignmentForProgram(selectedProgramId)?.role ?? null : null;
 
   const activeTeamRoles = useMemo(() => getProgramTeamRoles(selectedProgram?.intake), [selectedProgram?.intake]);
+  const assignedOwnersByRole = useMemo(
+    () =>
+      Object.fromEntries(
+        teamAssignments.map((assignment) => [normalizeProgramLabel(assignment.role), assignment.owners])
+      ) as Record<string, string[]>,
+    [teamAssignments]
+  );
+
+  const loadTeamAssignments = useCallback(async () => {
+    if (!selectedProgramId) {
+      setTeamAssignments([]);
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/programs/${selectedProgramId}/team-assignments`, { cache: "no-store" });
+      if (!response.ok) {
+        setTeamAssignments([]);
+        return;
+      }
+
+      const payload = (await response.json()) as { assignments: ProgramTeamAssignmentSummary[] };
+      setTeamAssignments(payload.assignments);
+    } catch {
+      setTeamAssignments([]);
+    }
+  }, [selectedProgramId]);
+
+  useEffect(() => {
+    void loadTeamAssignments();
+  }, [loadTeamAssignments]);
 
   const loadMeetingInputs = useCallback(async () => {
     if (!selectedProgramId) {
@@ -523,7 +581,8 @@ export function ActiveProgramReviewSection() {
     void loadProgramUpdates();
     void loadLeadershipSignal();
     void loadMeetingInputs();
-  }, [loadLeadershipSignal, loadMeetingInputs, loadProgramUpdates, loadServerPrograms]);
+    void loadTeamAssignments();
+  }, [loadLeadershipSignal, loadMeetingInputs, loadProgramUpdates, loadServerPrograms, loadTeamAssignments]);
   useForegroundRefresh(refreshActiveProgramView, { enabled: true, intervalMs: selectedProgramId ? 15000 : null });
 
   const selectedProgramHistory = useMemo(() => {
@@ -563,23 +622,31 @@ export function ActiveProgramReviewSection() {
   }, [teamRoleUpdates]);
 
   const ownerCoverage = useMemo(() => {
-    const configured = teamRoleUpdates.filter((role) => role.updatedBy.trim()).length;
+    const configured = teamRoleUpdates.filter(
+      (role) => role.updatedBy.trim() || assignedOwnersByRole[normalizeProgramLabel(role.role)]?.length
+    ).length;
     return {
       configured,
       total: teamRoleUpdates.length
     };
-  }, [teamRoleUpdates]);
+  }, [assignedOwnersByRole, teamRoleUpdates]);
   const ownershipSignature = useMemo(
-    () => buildOwnershipSignature(review.teamRoleUpdates, activeTeamRoles),
-    [activeTeamRoles, review.teamRoleUpdates]
+    () => buildFallbackOwnershipSignature(review.teamRoleUpdates, activeTeamRoles, assignedOwnersByRole),
+    [activeTeamRoles, assignedOwnersByRole, review.teamRoleUpdates]
   );
-  const ownershipHasEntries = ownerCoverage.configured > 0;
+  const fallbackOwnershipHasEntries = useMemo(
+    () =>
+      teamRoleUpdates.some(
+        (roleUpdate) => !assignedOwnersByRole[normalizeProgramLabel(roleUpdate.role)]?.length && roleUpdate.updatedBy.trim()
+      ),
+    [assignedOwnersByRole, teamRoleUpdates]
+  );
   const ownershipSaveState = useMemo(() => {
+    if (!fallbackOwnershipHasEntries) return ownerCoverage.configured ? "saved" : "idle";
     if (saveState === "saving" && ownershipSignature !== savedOwnershipSignature) return "saving";
     if (saveState === "error" && ownershipSignature !== savedOwnershipSignature) return "error";
-    if (!ownershipHasEntries && !savedOwnershipSignature) return "idle";
     return ownershipSignature === savedOwnershipSignature ? "saved" : "dirty";
-  }, [ownershipHasEntries, ownershipSignature, saveState, savedOwnershipSignature]);
+  }, [fallbackOwnershipHasEntries, ownerCoverage.configured, ownershipSignature, saveState, savedOwnershipSignature]);
 
   const programSynthesis = useMemo(() => {
     return [
@@ -697,13 +764,13 @@ export function ActiveProgramReviewSection() {
     const nextReview = normalizeReview(latestForProgram?.review ?? selectedProgram.review, selectedProgram.intake);
     const nextRoles = getProgramTeamRoles(selectedProgram.intake);
     setReview(nextReview);
-    setSavedOwnershipSignature(buildOwnershipSignature(nextReview.teamRoleUpdates, nextRoles));
+    setSavedOwnershipSignature(buildFallbackOwnershipSignature(nextReview.teamRoleUpdates, nextRoles, assignedOwnersByRole));
     setOwnershipSavedAt(null);
     setSavedAt(null);
     setSaveState("idle");
     setSaveConfirmation(null);
     setMeetingSaveState("idle");
-  }, [existingPrograms, updates]);
+  }, [assignedOwnersByRole, existingPrograms, updates]);
 
   useEffect(() => {
     if (!assignmentsLoaded || selectedProgramId || !primaryAssignment) return;
@@ -874,7 +941,7 @@ export function ActiveProgramReviewSection() {
         scope: lastUpdatedRole ? `${lastUpdatedRole} signal` : "Cycle synthesis",
         status: "saved"
       });
-      setSavedOwnershipSignature(buildOwnershipSignature(nextReview.teamRoleUpdates, activeTeamRoles));
+      setSavedOwnershipSignature(buildFallbackOwnershipSignature(nextReview.teamRoleUpdates, activeTeamRoles, assignedOwnersByRole));
       setOwnershipSavedAt(savedTime);
       void loadProgramUpdates();
       void loadLeadershipSignal();
@@ -974,6 +1041,7 @@ export function ActiveProgramReviewSection() {
           <div className="grid gap-4">
             <ActiveProgramTeamUpdatesCard
               teamRoleUpdates={teamRoleUpdates}
+              assignedOwnersByRole={assignedOwnersByRole}
               ownerCoverage={ownerCoverage}
               saveState={saveState}
               saveConfirmation={saveConfirmation}
