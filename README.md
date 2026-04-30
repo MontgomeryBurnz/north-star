@@ -65,16 +65,34 @@ Leadership auth now also supports two modes:
 
 Managed users can also enter through the main `/login` page with Supabase email/password credentials. Admin invitations send users through `/auth/setup` so they can set their own password and use their invite email as their username. Password recovery is available from the same login page and routes through `/auth/reset-password`.
 
-External alpha invite and recovery emails require branded delivery through Resend with a verified sending domain. Supabase's default Auth email service is not treated as client-ready because it is restricted and rate-limited for non-production use.
+External alpha invite and recovery emails require a real outbound email sender. Supabase's default Auth email service is not treated as client-ready because it is restricted and rate-limited for non-production use.
 
-Branded North Star invite and recovery emails are sent through Resend only when these variables are configured, the sender domain is verified, and `NORTHSTAR_BRANDED_EMAILS_ENABLED=true`:
+There are two supported sender modes:
+
+1. Existing mailbox SMTP, which works before a final product domain is chosen.
+2. Resend branded delivery, which requires a verified sending domain.
+
+For SMTP mailbox delivery, configure:
+
+- `NORTHSTAR_EMAIL_DELIVERY_PROVIDER=smtp`
+- `NORTHSTAR_EMAIL_FROM`
+- `NORTHSTAR_EMAIL_REPLY_TO`
+- `NORTHSTAR_BRANDED_EMAILS_ENABLED=true`
+- `NORTHSTAR_SMTP_HOST`
+- `NORTHSTAR_SMTP_PORT`
+- `NORTHSTAR_SMTP_USER`
+- `NORTHSTAR_SMTP_PASS`
+- `NORTHSTAR_SMTP_SECURE`
+
+For Resend branded delivery, configure:
 
 - `RESEND_API_KEY`
 - `NORTHSTAR_EMAIL_FROM`
 - `NORTHSTAR_EMAIL_REPLY_TO`
+- `NORTHSTAR_EMAIL_DELIVERY_PROVIDER=resend`
 - `NORTHSTAR_BRANDED_EMAILS_ENABLED`
 
-When branded email is not ready, Admin can save users and role assignments but will not claim that an external invite email was sent.
+When email delivery is not ready, Admin can save users and role assignments but will not claim that an external invite email was sent.
 
 ## Production Alpha Setup
 

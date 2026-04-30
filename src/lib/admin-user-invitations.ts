@@ -143,15 +143,19 @@ export async function inviteManagedUser(user: ManagedAppUser, request: Request):
   const brandedEmail = getNorthStarEmailDeliveryStatus();
 
   if (!brandedEmail.configured) {
-    const setupDetail = brandedEmail.senderMode === "resend-test"
-      ? "Resend is still using a test sender, so it can only deliver to the Resend account owner."
-      : brandedEmail.credentialsConfigured && !brandedEmail.enabled
-        ? "Branded email credentials exist, but NORTHSTAR_BRANDED_EMAILS_ENABLED is not true."
-        : "A verified Resend sending domain and NORTHSTAR_EMAIL_FROM are required.";
+    const setupDetail = brandedEmail.provider === "smtp"
+      ? brandedEmail.credentialsConfigured
+        ? "SMTP mailbox delivery is configured, but NORTHSTAR_BRANDED_EMAILS_ENABLED is not true."
+        : "SMTP mailbox delivery needs NORTHSTAR_SMTP_HOST, NORTHSTAR_SMTP_PORT, NORTHSTAR_SMTP_USER, NORTHSTAR_SMTP_PASS, and NORTHSTAR_EMAIL_FROM."
+      : brandedEmail.senderMode === "resend-test"
+        ? "Resend is still using a test sender, so it can only deliver to the Resend account owner."
+        : brandedEmail.credentialsConfigured && !brandedEmail.enabled
+          ? "Branded email credentials exist, but NORTHSTAR_BRANDED_EMAILS_ENABLED is not true."
+          : "A verified Resend sending domain and NORTHSTAR_EMAIL_FROM are required.";
 
     return {
       ok: false,
-      error: `${setupDetail} External client invites require branded email delivery before North Star can send setup links.`
+      error: `${setupDetail} External client invites require a working email sender before North Star can send setup links.`
     };
   }
 

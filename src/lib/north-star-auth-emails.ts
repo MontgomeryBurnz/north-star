@@ -1,3 +1,6 @@
+import net from "node:net";
+import tls from "node:tls";
+
 export type NorthStarEmailInput = {
   actionLabel: string;
   actionUrl: string;
@@ -29,9 +32,17 @@ export type NorthStarEmailDeliveryStatus = {
   configured: boolean;
   credentialsConfigured: boolean;
   enabled: boolean;
-  provider: "resend";
+  provider: "resend" | "smtp";
   senderDomain?: string;
-  senderMode: "custom-domain" | "missing" | "resend-test";
+  senderMode: "custom-domain" | "mailbox" | "missing" | "resend-test";
+};
+
+type SmtpConfig = {
+  host: string;
+  password: string;
+  port: number;
+  secure: boolean;
+  user: string;
 };
 
 function escapeHtml(value: string) {
@@ -48,15 +59,66 @@ function getSenderDomain(fromAddress: string | undefined) {
   return match?.[1]?.trim().toLowerCase();
 }
 
+function getSenderEmail(fromAddress: string | undefined) {
+  const match = fromAddress?.match(/<([^>\s]+@[^>\s]+)>$/);
+  return match?.[1]?.trim() ?? fromAddress?.trim();
+}
+
+function sanitizeHeader(value: string) {
+  return value.replace(/[\r\n]+/g, " ").trim();
+}
+
+function isSmtpAddress(value: string | undefined): value is string {
+  return Boolean(value && /^[^<>\s@]+@[^<>\s@]+\.[^<>\s@]+$/.test(value));
+}
+
 function getSenderMode(senderDomain: string | undefined): NorthStarEmailDeliveryStatus["senderMode"] {
   if (!senderDomain) return "missing";
   return senderDomain.endsWith("resend.dev") ? "resend-test" : "custom-domain";
 }
 
+function getEmailDeliveryProvider(): NorthStarEmailDeliveryStatus["provider"] {
+  if (process.env.NORTHSTAR_EMAIL_DELIVERY_PROVIDER === "smtp") return "smtp";
+  if (process.env.NORTHSTAR_EMAIL_DELIVERY_PROVIDER === "resend") return "resend";
+  return process.env.NORTHSTAR_SMTP_HOST ? "smtp" : "resend";
+}
+
+function getSmtpConfig(): SmtpConfig | null {
+  const host = process.env.NORTHSTAR_SMTP_HOST?.trim();
+  const password = process.env.NORTHSTAR_SMTP_PASS;
+  const port = Number.parseInt(process.env.NORTHSTAR_SMTP_PORT || "", 10);
+  const user = process.env.NORTHSTAR_SMTP_USER?.trim();
+
+  if (!host || !password || !Number.isFinite(port) || !user) return null;
+
+  return {
+    host,
+    password,
+    port,
+    secure: process.env.NORTHSTAR_SMTP_SECURE === "true" || port === 465,
+    user
+  };
+}
+
 export function getNorthStarEmailDeliveryStatus(): NorthStarEmailDeliveryStatus {
+  const provider = getEmailDeliveryProvider();
   const senderDomain = getSenderDomain(process.env.NORTHSTAR_EMAIL_FROM);
-  const credentialsConfigured = Boolean(process.env.RESEND_API_KEY && process.env.NORTHSTAR_EMAIL_FROM);
   const enabled = process.env.NORTHSTAR_BRANDED_EMAILS_ENABLED === "true";
+
+  if (provider === "smtp") {
+    const credentialsConfigured = Boolean(getSmtpConfig() && process.env.NORTHSTAR_EMAIL_FROM);
+
+    return {
+      configured: enabled && credentialsConfigured,
+      credentialsConfigured,
+      enabled,
+      provider,
+      senderDomain,
+      senderMode: credentialsConfigured ? "mailbox" : "missing"
+    };
+  }
+
+  const credentialsConfigured = Boolean(process.env.RESEND_API_KEY && process.env.NORTHSTAR_EMAIL_FROM);
   const senderMode = getSenderMode(senderDomain);
 
   return {
@@ -159,6 +221,17 @@ export function buildNorthStarRecoveryText(input: NorthStarRecoveryEmailInput) {
 }
 
 export async function sendNorthStarEmail(input: SendNorthStarEmailInput) {
+  const delivery = getNorthStarEmailDeliveryStatus();
+
+  if (!delivery.configured) {
+    throw new Error("North Star email delivery is not enabled.");
+  }
+
+  if (delivery.provider === "smtp") {
+    await sendNorthStarSmtpEmail(input);
+    return;
+  }
+
   const apiKey = process.env.RESEND_API_KEY;
   const from = process.env.NORTHSTAR_EMAIL_FROM;
 
@@ -185,6 +258,185 @@ export async function sendNorthStarEmail(input: SendNorthStarEmailInput) {
   if (!response.ok) {
     const errorText = await response.text();
     throw new Error(formatNorthStarEmailSendError(errorText));
+  }
+}
+
+async function sendNorthStarSmtpEmail(input: SendNorthStarEmailInput) {
+  const config = getSmtpConfig();
+  const from = process.env.NORTHSTAR_EMAIL_FROM;
+  const envelopeFrom = getSenderEmail(from);
+  const envelopeTo = getSenderEmail(input.to);
+
+  if (!config || !from || !isSmtpAddress(envelopeFrom) || !isSmtpAddress(envelopeTo)) {
+    throw new Error("North Star SMTP email delivery is not configured.");
+  }
+
+  const client = await createSmtpConnection(config);
+
+  try {
+    await client.expect([220]);
+    await client.command(`EHLO ${process.env.NORTHSTAR_SMTP_HELO || "northstar-alpha.local"}`, [250]);
+
+    if (!config.secure) {
+      await client.command("STARTTLS", [220]);
+      await client.upgrade(config.host);
+      await client.command(`EHLO ${process.env.NORTHSTAR_SMTP_HELO || "northstar-alpha.local"}`, [250]);
+    }
+
+    await client.command("AUTH LOGIN", [334]);
+    await client.command(Buffer.from(config.user).toString("base64"), [334]);
+    await client.command(Buffer.from(config.password).toString("base64"), [235]);
+    await client.command(`MAIL FROM:<${envelopeFrom}>`, [250]);
+    await client.command(`RCPT TO:<${envelopeTo}>`, [250, 251]);
+    await client.command("DATA", [354]);
+    await client.writeData(buildSmtpMessage({ from, input }));
+    await client.command("QUIT", [221]);
+  } finally {
+    client.close();
+  }
+}
+
+function buildSmtpMessage({ from, input }: { from: string; input: SendNorthStarEmailInput }) {
+  const boundary = `northstar-${Date.now().toString(36)}`;
+  const replyTo = process.env.NORTHSTAR_EMAIL_REPLY_TO;
+  const headers = [
+    `From: ${sanitizeHeader(from)}`,
+    `To: ${sanitizeHeader(input.to)}`,
+    replyTo ? `Reply-To: ${sanitizeHeader(replyTo)}` : "",
+    `Subject: ${sanitizeHeader(input.subject)}`,
+    "MIME-Version: 1.0",
+    `Content-Type: multipart/alternative; boundary="${boundary}"`
+  ].filter(Boolean);
+
+  const message = [
+    ...headers,
+    "",
+    `--${boundary}`,
+    "Content-Type: text/plain; charset=UTF-8",
+    "Content-Transfer-Encoding: 8bit",
+    "",
+    input.text,
+    "",
+    `--${boundary}`,
+    "Content-Type: text/html; charset=UTF-8",
+    "Content-Transfer-Encoding: 8bit",
+    "",
+    input.html,
+    "",
+    `--${boundary}--`,
+    ""
+  ].join("\r\n");
+
+  return message.replace(/^\./gm, "..");
+}
+
+function createSmtpConnection(config: SmtpConfig) {
+  return new Promise<SmtpSession>((resolve, reject) => {
+    const socket = config.secure
+      ? tls.connect(config.port, config.host, { servername: config.host })
+      : net.connect(config.port, config.host);
+
+    const session = new SmtpSession(socket);
+    if (config.secure) {
+      socket.once("secureConnect", () => resolve(session));
+    } else {
+      socket.once("connect", () => resolve(session));
+    }
+    socket.once("error", reject);
+  });
+}
+
+class SmtpSession {
+  private buffer = "";
+  private pending:
+    | {
+        expected: number[];
+        reject: (error: Error) => void;
+        resolve: (line: string) => void;
+      }
+    | null = null;
+  private socket: net.Socket | tls.TLSSocket;
+  private timeout: NodeJS.Timeout | null = null;
+
+  constructor(socket: net.Socket | tls.TLSSocket) {
+    this.socket = socket;
+    this.socket.on("data", (chunk) => this.handleData(chunk.toString("utf8")));
+    this.socket.on("error", (error) => {
+      if (this.pending) {
+        this.pending.reject(error);
+        this.pending = null;
+      }
+    });
+  }
+
+  close() {
+    if (this.timeout) clearTimeout(this.timeout);
+    this.socket.destroy();
+  }
+
+  command(command: string, expected: number[]) {
+    this.socket.write(`${command}\r\n`);
+    return this.expect(expected);
+  }
+
+  expect(expected: number[]) {
+    return new Promise<string>((resolve, reject) => {
+      this.pending = { expected, reject, resolve };
+      this.timeout = setTimeout(() => {
+        this.pending = null;
+        reject(new Error("SMTP server timed out."));
+      }, 15000);
+      this.flush();
+    });
+  }
+
+  upgrade(host: string) {
+    this.socket.removeAllListeners("data");
+    return new Promise<void>((resolve, reject) => {
+      const secureSocket = tls.connect({ servername: host, socket: this.socket }, () => resolve());
+      this.socket = secureSocket;
+      this.socket.on("data", (chunk) => this.handleData(chunk.toString("utf8")));
+      this.socket.once("error", reject);
+    });
+  }
+
+  async writeData(message: string) {
+    this.socket.write(`${message}\r\n.\r\n`);
+    await this.expect([250]);
+  }
+
+  private flush() {
+    if (!this.pending) return;
+
+    const lines = this.buffer.split(/\r?\n/);
+    if (!this.buffer.endsWith("\n")) {
+      this.buffer = lines.pop() ?? "";
+    } else {
+      this.buffer = "";
+    }
+
+    for (const line of lines) {
+      if (!line) continue;
+      const code = Number.parseInt(line.slice(0, 3), 10);
+      const complete = line[3] === " ";
+      if (!complete || !Number.isFinite(code)) continue;
+
+      const pending = this.pending;
+      this.pending = null;
+      if (this.timeout) clearTimeout(this.timeout);
+
+      if (pending.expected.includes(code)) {
+        pending.resolve(line);
+      } else {
+        pending.reject(new Error(`SMTP server rejected the message: ${line}`));
+      }
+      break;
+    }
+  }
+
+  private handleData(data: string) {
+    this.buffer += data;
+    this.flush();
   }
 }
 

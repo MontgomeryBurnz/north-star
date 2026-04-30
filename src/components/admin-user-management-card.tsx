@@ -54,9 +54,9 @@ type InvitationProviderStatus = {
     configured: boolean;
     credentialsConfigured: boolean;
     enabled: boolean;
-    provider: "resend";
+    provider: "resend" | "smtp";
     senderDomain?: string;
-    senderMode: "custom-domain" | "missing" | "resend-test";
+    senderMode: "custom-domain" | "mailbox" | "missing" | "resend-test";
   };
   configured: boolean;
   emailDelivery: "north-star-branded" | "supabase-default";
@@ -133,6 +133,7 @@ export function AdminUserManagementCard() {
   const brandedEmailReady = Boolean(
     invitationProvider?.brandedEmail?.configured && invitationProvider.emailDelivery === "north-star-branded"
   );
+  const smtpEmailReady = brandedEmailReady && invitationProvider?.brandedEmail?.provider === "smtp";
   const brandedEmailAvailableButDisabled = Boolean(
     invitationProvider?.brandedEmail?.credentialsConfigured && !invitationProvider.brandedEmail.enabled
   );
@@ -814,7 +815,9 @@ export function AdminUserManagementCard() {
             <div className="flex flex-wrap items-center justify-between gap-3 border-t border-white/10 pt-3">
               <p className="text-xs leading-5 text-zinc-500">
                 {brandedEmailReady
-                  ? "Invites use branded North Star email and Supabase Auth setup links. No plaintext passwords are stored here."
+                  ? smtpEmailReady
+                    ? "Invites use the configured mailbox and Supabase Auth setup links. No plaintext passwords are stored here."
+                    : "Invites use branded North Star email and Supabase Auth setup links. No plaintext passwords are stored here."
                   : invitationProvider?.configured
                     ? "External invite email is not ready. Save the user as a draft until a verified sender is connected."
                     : "Supabase service-role invitations are not configured. Users can still be mapped for role-aware UI defaults."}
@@ -958,11 +961,13 @@ export function AdminUserManagementCard() {
                 {brandedEmailNeedsDomain
                   ? "Resend is configured with a test sender. It can only send to the Resend account owner until a sending domain is verified and NORTHSTAR_EMAIL_FROM uses that domain."
                   : brandedEmailReady
-                    ? "Branded North Star invites and recovery emails are configured through Resend. Keep the sending domain verified before inviting external alpha users."
+                    ? smtpEmailReady
+                      ? "Alpha invites and recovery emails are configured through an existing mailbox. This works before a final product domain is chosen."
+                      : "Branded North Star invites and recovery emails are configured through Resend. Keep the sending domain verified before inviting external alpha users."
                     : brandedEmailAvailableButDisabled
-                      ? "External client invites are paused. Set NORTHSTAR_BRANDED_EMAILS_ENABLED to true after a sending domain is verified."
+                      ? "External client invites are paused. Set NORTHSTAR_BRANDED_EMAILS_ENABLED to true after the sender is ready."
                   : invitationProvider?.configured
-                    ? "External client invites require a verified branded sender. Supabase default emails are not reliable for alpha client onboarding."
+                    ? "External client invites require either an existing mailbox SMTP sender or a verified branded sender. Supabase default emails are not reliable for alpha client onboarding."
                     : "Supabase invitations are not configured yet, so Admin can map users but cannot send account setup emails."}
               </p>
             </div>

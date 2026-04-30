@@ -60,10 +60,20 @@ test("getNorthStarEmailDeliveryStatus requires explicit branded email enablement
   const previousApiKey = process.env.RESEND_API_KEY;
   const previousFrom = process.env.NORTHSTAR_EMAIL_FROM;
   const previousEnabled = process.env.NORTHSTAR_BRANDED_EMAILS_ENABLED;
+  const previousProvider = process.env.NORTHSTAR_EMAIL_DELIVERY_PROVIDER;
+  const previousSmtpHost = process.env.NORTHSTAR_SMTP_HOST;
+  const previousSmtpPass = process.env.NORTHSTAR_SMTP_PASS;
+  const previousSmtpPort = process.env.NORTHSTAR_SMTP_PORT;
+  const previousSmtpUser = process.env.NORTHSTAR_SMTP_USER;
 
   process.env.RESEND_API_KEY = "test-key";
   process.env.NORTHSTAR_EMAIL_FROM = "North Star <invite@example.com>";
+  process.env.NORTHSTAR_EMAIL_DELIVERY_PROVIDER = "resend";
   delete process.env.NORTHSTAR_BRANDED_EMAILS_ENABLED;
+  delete process.env.NORTHSTAR_SMTP_HOST;
+  delete process.env.NORTHSTAR_SMTP_PASS;
+  delete process.env.NORTHSTAR_SMTP_PORT;
+  delete process.env.NORTHSTAR_SMTP_USER;
 
   assert.deepEqual(getNorthStarEmailDeliveryStatus(), {
     configured: false,
@@ -87,10 +97,35 @@ test("getNorthStarEmailDeliveryStatus requires explicit branded email enablement
     senderMode: "resend-test"
   });
 
+  process.env.NORTHSTAR_EMAIL_DELIVERY_PROVIDER = "smtp";
+  process.env.NORTHSTAR_EMAIL_FROM = "North Star Alpha <alpha@example.com>";
+  process.env.NORTHSTAR_SMTP_HOST = "smtp.example.com";
+  process.env.NORTHSTAR_SMTP_PORT = "587";
+  process.env.NORTHSTAR_SMTP_USER = "alpha@example.com";
+  process.env.NORTHSTAR_SMTP_PASS = "app-password";
+  assert.deepEqual(getNorthStarEmailDeliveryStatus(), {
+    configured: true,
+    credentialsConfigured: true,
+    enabled: true,
+    provider: "smtp",
+    senderDomain: "example.com",
+    senderMode: "mailbox"
+  });
+
   if (previousApiKey === undefined) delete process.env.RESEND_API_KEY;
   else process.env.RESEND_API_KEY = previousApiKey;
   if (previousFrom === undefined) delete process.env.NORTHSTAR_EMAIL_FROM;
   else process.env.NORTHSTAR_EMAIL_FROM = previousFrom;
   if (previousEnabled === undefined) delete process.env.NORTHSTAR_BRANDED_EMAILS_ENABLED;
   else process.env.NORTHSTAR_BRANDED_EMAILS_ENABLED = previousEnabled;
+  if (previousProvider === undefined) delete process.env.NORTHSTAR_EMAIL_DELIVERY_PROVIDER;
+  else process.env.NORTHSTAR_EMAIL_DELIVERY_PROVIDER = previousProvider;
+  if (previousSmtpHost === undefined) delete process.env.NORTHSTAR_SMTP_HOST;
+  else process.env.NORTHSTAR_SMTP_HOST = previousSmtpHost;
+  if (previousSmtpPass === undefined) delete process.env.NORTHSTAR_SMTP_PASS;
+  else process.env.NORTHSTAR_SMTP_PASS = previousSmtpPass;
+  if (previousSmtpPort === undefined) delete process.env.NORTHSTAR_SMTP_PORT;
+  else process.env.NORTHSTAR_SMTP_PORT = previousSmtpPort;
+  if (previousSmtpUser === undefined) delete process.env.NORTHSTAR_SMTP_USER;
+  else process.env.NORTHSTAR_SMTP_USER = previousSmtpUser;
 });
