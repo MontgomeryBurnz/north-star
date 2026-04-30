@@ -44,6 +44,12 @@ const emptyForm = {
 type AssignmentDraft = Pick<ManagedProgramAssignment, "programId" | "programName" | "role" | "isPrimary">;
 
 type InvitationProviderStatus = {
+  brandedEmail?: {
+    configured: boolean;
+    provider: "resend";
+    senderDomain?: string;
+    senderMode: "custom-domain" | "missing" | "resend-test";
+  };
   configured: boolean;
   emailDelivery: "north-star-branded" | "supabase-default";
   provider: "supabase";
@@ -111,6 +117,8 @@ export function AdminUserManagementCard() {
   );
   const canAddProgramRole = Boolean(selectedProgram && newProgramRole.trim() && roleSaveState !== "saving");
   const brandedEmailActive = invitationProvider?.configured && invitationProvider.emailDelivery === "north-star-branded";
+  const brandedEmailNeedsDomain = brandedEmailActive && invitationProvider?.brandedEmail?.senderMode === "resend-test";
+  const brandedEmailReady = brandedEmailActive && !brandedEmailNeedsDomain;
   const editingUser = form.id ? users.find((user) => user.id === form.id) : undefined;
   const isEditingUser = Boolean(form.id);
 
@@ -810,22 +818,24 @@ export function AdminUserManagementCard() {
 
             <div
               className={`rounded-md border p-3 ${
-                brandedEmailActive
+                brandedEmailReady
                   ? "border-emerald-300/25 bg-emerald-300/[0.075]"
                   : "border-amber-300/25 bg-amber-300/[0.07]"
               }`}
             >
               <p
                 className={`flex items-center gap-2 text-xs font-medium uppercase tracking-[0.16em] ${
-                  brandedEmailActive ? "text-emerald-100" : "text-amber-100"
+                  brandedEmailReady ? "text-emerald-100" : "text-amber-100"
                 }`}
               >
-                {brandedEmailActive ? <MailCheck className="h-4 w-4" /> : <MailWarning className="h-4 w-4" />}
+                {brandedEmailReady ? <MailCheck className="h-4 w-4" /> : <MailWarning className="h-4 w-4" />}
                 Email delivery
               </p>
               <p className="mt-2 text-sm leading-6 text-zinc-300">
-                {brandedEmailActive
-                  ? "Branded North Star invites and recovery emails are active in this environment."
+                {brandedEmailNeedsDomain
+                  ? "Resend is configured with a test sender. It can only send to the Resend account owner until a sending domain is verified and NORTHSTAR_EMAIL_FROM uses that domain."
+                  : brandedEmailActive
+                    ? "Branded North Star invites and recovery emails are configured through Resend. Keep the sending domain verified before inviting external alpha users."
                   : invitationProvider?.configured
                     ? "Supabase default emails are active. Add the Resend env vars in Vercel to turn on branded North Star invites and recovery emails."
                     : "Supabase invitations are not configured yet, so Admin can map users but cannot send account setup emails."}

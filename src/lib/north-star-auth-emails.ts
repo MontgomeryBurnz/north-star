@@ -25,6 +25,13 @@ type SendNorthStarEmailInput = {
   to: string;
 };
 
+export type NorthStarEmailDeliveryStatus = {
+  configured: boolean;
+  provider: "resend";
+  senderDomain?: string;
+  senderMode: "custom-domain" | "missing" | "resend-test";
+};
+
 function escapeHtml(value: string) {
   return value
     .replace(/&/g, "&amp;")
@@ -34,10 +41,24 @@ function escapeHtml(value: string) {
     .replace(/'/g, "&#039;");
 }
 
-export function getNorthStarEmailDeliveryStatus() {
+function getSenderDomain(fromAddress: string | undefined) {
+  const match = fromAddress?.match(/@([^>\\s]+)>?$/);
+  return match?.[1]?.trim().toLowerCase();
+}
+
+function getSenderMode(senderDomain: string | undefined): NorthStarEmailDeliveryStatus["senderMode"] {
+  if (!senderDomain) return "missing";
+  return senderDomain.endsWith("resend.dev") ? "resend-test" : "custom-domain";
+}
+
+export function getNorthStarEmailDeliveryStatus(): NorthStarEmailDeliveryStatus {
+  const senderDomain = getSenderDomain(process.env.NORTHSTAR_EMAIL_FROM);
+
   return {
     configured: Boolean(process.env.RESEND_API_KEY && process.env.NORTHSTAR_EMAIL_FROM),
-    provider: "resend" as const
+    provider: "resend",
+    senderDomain,
+    senderMode: getSenderMode(senderDomain)
   };
 }
 
@@ -156,6 +177,26 @@ export async function sendNorthStarEmail(input: SendNorthStarEmailInput) {
 
   if (!response.ok) {
     const errorText = await response.text();
-    throw new Error(errorText || "North Star branded email could not be sent.");
+    throw new Error(formatNorthStarEmailSendError(errorText));
   }
+}
+
+export function formatNorthStarEmailSendError(errorText: string) {
+  const fallback = "North Star branded email could not be sent.";
+  let message = errorText.trim();
+
+  try {
+    const parsed = JSON.parse(errorText) as { message?: unknown };
+    if (typeof parsed.message === "string") {
+      message = parsed.message;
+    }
+  } catch {
+    // Resend usually returns JSON, but preserve plain-text provider errors when it does not.
+  }
+
+  if (/only send testing emails/i.test(message) || /verify a domain/i.test(message)) {
+    return "Resend is still in testing mode for external recipients. Verify a sending domain in Resend, update NORTHSTAR_EMAIL_FROM to an address on that domain, redeploy, and then resend the invite.";
+  }
+
+  return message || fallback;
 }

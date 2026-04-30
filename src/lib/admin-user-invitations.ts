@@ -10,6 +10,7 @@ import { buildPublicAppUrl } from "@/lib/public-origin";
 import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/lib/supabase/server";
 
 export type InvitationProviderStatus = {
+  brandedEmail: ReturnType<typeof getNorthStarEmailDeliveryStatus>;
   configured: boolean;
   emailDelivery: "north-star-branded" | "supabase-default";
   provider: "supabase";
@@ -27,9 +28,12 @@ export type ManagedUserInvitationResult =
     };
 
 export function getInvitationProviderStatus(): InvitationProviderStatus {
+  const brandedEmail = getNorthStarEmailDeliveryStatus();
+
   return {
+    brandedEmail,
     configured: isSupabaseAdminConfigured(),
-    emailDelivery: getNorthStarEmailDeliveryStatus().configured ? "north-star-branded" : "supabase-default",
+    emailDelivery: brandedEmail.configured ? "north-star-branded" : "supabase-default",
     provider: "supabase"
   };
 }
