@@ -302,6 +302,34 @@ function drawGeoLine(
   context.stroke();
 }
 
+function isGeoPointInsidePolygon(lon: number, lat: number, polygon: Array<[number, number]>) {
+  let inside = false;
+
+  for (let current = 0, previous = polygon.length - 1; current < polygon.length; previous = current, current += 1) {
+    const [currentLon, currentLat] = polygon[current];
+    const [previousLon, previousLat] = polygon[previous];
+    const intersects =
+      currentLat > lat !== previousLat > lat &&
+      lon < ((previousLon - currentLon) * (lat - currentLat)) / (previousLat - currentLat) + currentLon;
+
+    if (intersects) inside = !inside;
+  }
+
+  return inside;
+}
+
+function getGeoBounds(points: Array<[number, number]>) {
+  return points.reduce(
+    (bounds, [lon, lat]) => ({
+      maxLat: Math.max(bounds.maxLat, lat),
+      maxLon: Math.max(bounds.maxLon, lon),
+      minLat: Math.min(bounds.minLat, lat),
+      minLon: Math.min(bounds.minLon, lon)
+    }),
+    { maxLat: -90, maxLon: -180, minLat: 90, minLon: 180 }
+  );
+}
+
 function createEarthTexture() {
   const size = 1536;
   const canvas = document.createElement("canvas");
@@ -435,6 +463,33 @@ function createEarthTexture() {
   context.restore();
 
   context.save();
+  context.shadowBlur = 4;
+  context.shadowColor = "rgba(190,242,100,0.7)";
+  LAND_MASSES.slice(0, -1).forEach((mass, massIndex) => {
+    const bounds = getGeoBounds(mass);
+    const density = [260, 130, 65, 130, 110, 260, 50][massIndex] ?? 80;
+    let placed = 0;
+    let attempts = 0;
+
+    while (placed < density && attempts < density * 12) {
+      attempts += 1;
+      const lon = bounds.minLon + random() * (bounds.maxLon - bounds.minLon);
+      const lat = bounds.minLat + random() * (bounds.maxLat - bounds.minLat);
+      if (!isGeoPointInsidePolygon(lon, lat, mass)) continue;
+
+      const { x, y } = lonLatToTexturePoint(lon, lat, width, height);
+      const radius = 0.55 + random() * 1.7;
+      context.globalAlpha = 0.14 + random() * 0.5;
+      context.fillStyle = random() > 0.78 ? "#fef9c3" : "#bbf7d0";
+      context.beginPath();
+      context.arc(x, y, radius, 0, Math.PI * 2);
+      context.fill();
+      placed += 1;
+    }
+  });
+  context.restore();
+
+  context.save();
   context.fillStyle = "rgba(236,253,245,0.72)";
   context.strokeStyle = "rgba(125,211,252,0.3)";
   context.lineWidth = 2;
@@ -521,6 +576,12 @@ function createNorthStarTexture() {
   if (!context) return canvas;
 
   const center = size / 2;
+  context.clearRect(0, 0, size, size);
+  context.save();
+  context.beginPath();
+  context.arc(center, center, center - 1, 0, Math.PI * 2);
+  context.clip();
+
   const halo = context.createRadialGradient(center, center, 0, center, center, center);
   halo.addColorStop(0, "rgba(255,255,255,1)");
   halo.addColorStop(0.12, "rgba(236,253,245,0.98)");
@@ -530,6 +591,7 @@ function createNorthStarTexture() {
 
   context.fillStyle = halo;
   context.fillRect(0, 0, size, size);
+  context.restore();
 
   context.save();
   context.translate(center, center);
@@ -552,6 +614,37 @@ function createNorthStarTexture() {
   context.beginPath();
   context.arc(center, center, 5, 0, Math.PI * 2);
   context.fill();
+
+  return canvas;
+}
+
+function createTrailGlowTexture() {
+  const size = 128;
+  const canvas = document.createElement("canvas");
+  const context = canvas.getContext("2d");
+
+  canvas.width = size;
+  canvas.height = size;
+
+  if (!context) return canvas;
+
+  const center = size / 2;
+  context.clearRect(0, 0, size, size);
+  context.save();
+  context.beginPath();
+  context.arc(center, center, center - 1, 0, Math.PI * 2);
+  context.clip();
+
+  const glow = context.createRadialGradient(center, center, 0, center, center, center);
+  glow.addColorStop(0, "rgba(255,255,255,0.96)");
+  glow.addColorStop(0.18, "rgba(236,253,245,0.86)");
+  glow.addColorStop(0.4, "rgba(134,239,172,0.48)");
+  glow.addColorStop(0.72, "rgba(34,197,94,0.16)");
+  glow.addColorStop(1, "rgba(34,197,94,0)");
+
+  context.fillStyle = glow;
+  context.fillRect(0, 0, size, size);
+  context.restore();
 
   return canvas;
 }
@@ -584,6 +677,30 @@ function createStarField(THREE: ThreeModule, count: number) {
   geometry.setAttribute("color", new THREE.BufferAttribute(colors, 3));
 
   return geometry;
+}
+
+function createShootingStarArc(THREE: ThreeModule, config: SceneConfig) {
+  const points: ThreeNamespace.Vector3[] = [];
+  const radiusX = config.earthRadius * 1.1;
+  const radiusY = config.earthRadius * 0.68;
+  const depth = config.earthRadius * 0.2;
+  const startAngle = -Math.PI * 0.84;
+  const endAngle = Math.PI * 0.2;
+  const pointCount = 72;
+
+  for (let index = 0; index < pointCount; index += 1) {
+    const progress = index / (pointCount - 1);
+    const angle = startAngle + (endAngle - startAngle) * progress;
+    points.push(
+      new THREE.Vector3(
+        Math.cos(angle) * radiusX,
+        Math.sin(angle) * radiusY - config.earthRadius * 0.02,
+        Math.sin(angle + Math.PI * 0.28) * depth + config.earthRadius * 0.16
+      )
+    );
+  }
+
+  return points;
 }
 
 function BrandMarkFallback({ variant }: { variant: MarkVariant }) {
@@ -631,6 +748,7 @@ function initializeBrandScene({
       antialias: true,
       canvas,
       powerPreference: "high-performance",
+      premultipliedAlpha: false,
       preserveDrawingBuffer: true
     })
   );
@@ -655,8 +773,11 @@ function initializeBrandScene({
   const northStarTexture = track(new THREE.CanvasTexture(createNorthStarTexture()));
   northStarTexture.colorSpace = THREE.SRGBColorSpace;
 
+  const trailGlowTexture = track(new THREE.CanvasTexture(createTrailGlowTexture()));
+  trailGlowTexture.colorSpace = THREE.SRGBColorSpace;
+
   const earthGroup = new THREE.Group();
-  earthGroup.rotation.set(-0.15, 0.18, 0.08);
+  earthGroup.rotation.set(-0.15, -0.42, 0.08);
   scene.add(earthGroup);
 
   const earthGeometry = track(new THREE.SphereGeometry(config.earthRadius, 96, 96));
@@ -712,34 +833,96 @@ function initializeBrandScene({
   );
   scene.add(new THREE.Points(starsGeometry, starsMaterial));
 
-  const northStarMaterial = track(
-    new THREE.SpriteMaterial({
+  const orbitGroup = new THREE.Group();
+  orbitGroup.rotation.set(-0.08, 0.05, 0.18);
+  scene.add(orbitGroup);
+
+  const orbitArc = createShootingStarArc(THREE, config);
+  const orbitCurve = new THREE.CatmullRomCurve3(orbitArc);
+  const trailGlowGeometry = track(
+    new THREE.TubeGeometry(orbitCurve, variant === "nav" ? 54 : 86, config.earthRadius * 0.032, 10, false)
+  );
+  const trailGlowMaterial = track(
+    new THREE.MeshBasicMaterial({
+      blending: THREE.AdditiveBlending,
+      color: "#22c55e",
+      depthTest: false,
+      depthWrite: false,
+      opacity: variant === "nav" ? 0.22 : 0.28,
+      transparent: true
+    })
+  );
+  orbitGroup.add(new THREE.Mesh(trailGlowGeometry, trailGlowMaterial));
+
+  const trailCoreGeometry = track(
+    new THREE.TubeGeometry(orbitCurve, variant === "nav" ? 54 : 86, config.earthRadius * 0.012, 8, false)
+  );
+  const trailCoreMaterial = track(
+    new THREE.MeshBasicMaterial({
       blending: THREE.AdditiveBlending,
       color: "#ecfdf5",
+      depthTest: false,
+      depthWrite: false,
+      opacity: variant === "nav" ? 0.7 : 0.82,
+      transparent: true
+    })
+  );
+  orbitGroup.add(new THREE.Mesh(trailCoreGeometry, trailCoreMaterial));
+
+  const trailSparkCount = variant === "nav" ? 16 : 32;
+  for (let index = 0; index < trailSparkCount; index += 1) {
+    const progress = index / (trailSparkCount - 1);
+    const point = orbitArc[Math.floor(progress * (orbitArc.length - 1))];
+    const material = track(
+      new THREE.SpriteMaterial({
+        alphaTest: 0.01,
+        blending: THREE.AdditiveBlending,
+        color: progress > 0.82 ? "#ecfdf5" : "#86efac",
+        depthTest: false,
+        depthWrite: false,
+        map: trailGlowTexture,
+        opacity: 0.04 + progress * progress * (variant === "nav" ? 0.32 : 0.46),
+        transparent: true
+      })
+    );
+    const spark = new THREE.Sprite(material);
+    spark.position.copy(point);
+    spark.scale.setScalar(config.northStarScale * (0.12 + progress * 0.2));
+    orbitGroup.add(spark);
+  }
+
+  const northStarMaterial = track(
+    new THREE.SpriteMaterial({
+      alphaTest: 0.01,
+      blending: THREE.AdditiveBlending,
+      color: "#ecfdf5",
+      depthTest: false,
       depthWrite: false,
       map: northStarTexture,
       transparent: true
     })
   );
   const northStar = new THREE.Sprite(northStarMaterial);
-  northStar.position.set(config.earthRadius * 1.08, config.earthRadius * 0.84, -0.82);
+  northStar.position.copy(orbitArc[orbitArc.length - 1]);
   northStar.scale.setScalar(config.northStarScale);
-  scene.add(northStar);
+  orbitGroup.add(northStar);
 
   const northStarHaloMaterial = track(
     new THREE.SpriteMaterial({
+      alphaTest: 0.01,
       blending: THREE.AdditiveBlending,
       color: "#34d399",
+      depthTest: false,
       depthWrite: false,
       map: northStarTexture,
-      opacity: 0.34,
+      opacity: 0.18,
       transparent: true
     })
   );
   const northStarHalo = new THREE.Sprite(northStarHaloMaterial);
   northStarHalo.position.copy(northStar.position);
-  northStarHalo.scale.setScalar(config.northStarScale * 2.8);
-  scene.add(northStarHalo);
+  northStarHalo.scale.setScalar(config.northStarScale * 1.9);
+  orbitGroup.add(northStarHalo);
 
   scene.add(new THREE.AmbientLight("#d1fae5", 0.42));
 
@@ -774,10 +957,13 @@ function initializeBrandScene({
     const delta = Math.min(timer.getDelta(), 0.05);
     const elapsed = timer.getElapsed();
 
-    earthGroup.rotation.y += delta * 0.045;
-    clouds.rotation.y += delta * 0.018;
+    earthGroup.rotation.y -= delta * 0.035;
+    clouds.rotation.y -= delta * 0.014;
+    orbitGroup.rotation.z += delta * 0.095;
     northStarMaterial.opacity = 0.92 + Math.sin(elapsed * 1.1) * 0.08;
-    northStarHaloMaterial.opacity = 0.28 + Math.sin(elapsed * 1.1) * 0.09;
+    northStarHaloMaterial.opacity = 0.16 + Math.sin(elapsed * 1.1) * 0.05;
+    trailGlowMaterial.opacity = (variant === "nav" ? 0.22 : 0.28) + Math.sin(elapsed * 1.1) * 0.04;
+    trailCoreMaterial.opacity = (variant === "nav" ? 0.7 : 0.82) + Math.sin(elapsed * 1.1) * 0.06;
 
     renderer.render(scene, camera);
 
