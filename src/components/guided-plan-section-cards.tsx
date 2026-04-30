@@ -251,7 +251,7 @@ export function PlanInsightsCard({
       <CardHeader className="border-b border-white/10">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <CardTitle className="text-zinc-50">Plan Insight Digest</CardTitle>
+            <CardTitle className="text-zinc-50">Program Guidance Digest</CardTitle>
             <p className="mt-2 max-w-3xl text-sm leading-6 text-zinc-400">
               A concise readout of what changed, what matters, and what needs a decision.
             </p>

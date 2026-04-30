@@ -53,7 +53,7 @@ export type ClientDecisionRequestInput = Omit<
   "id" | "programId" | "programName" | "createdAt" | "updatedAt" | "status"
 >;
 
-export type OpenAIUsageWorkflow = "guided-plan" | "guide" | "assistant-briefing" | "leadership-feedback";
+export type OpenAIUsageWorkflow = "guided-plan" | "guide" | "assistant-briefing" | "leadership-feedback" | "role-artifact";
 
 export type OpenAIUsageMetadata = {
   provider: "openai";

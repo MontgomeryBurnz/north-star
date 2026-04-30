@@ -22,6 +22,7 @@ import { GuidedPlanJustificationCard } from "@/components/guided-plan-justificat
 import { GuidedPlanOverviewCard } from "@/components/guided-plan-overview-card";
 import { GuidedPlansSidebar } from "@/components/guided-plans-sidebar";
 import { PlanInsightsCard, RolePlansCard } from "@/components/guided-plan-section-cards";
+import { RoleArtifactStudioCard } from "@/components/role-artifact-studio-card";
 import { SectionHeader } from "@/components/section-header";
 
 const allRolesOption = "__all_roles__";
@@ -58,6 +59,26 @@ function normalizePlanSection(section: GuidedPlanSection | undefined, fallbackTi
     title: section?.title || fallbackTitle,
     items: section?.items?.length ? section.items : fallbackItems
   };
+}
+
+function GuidedPlanLayerHeader({
+  description,
+  eyebrow,
+  id,
+  title
+}: {
+  description: string;
+  eyebrow: string;
+  id: string;
+  title: string;
+}) {
+  return (
+    <div className="rounded-md border border-white/10 bg-white/[0.025] p-4">
+      <p className="text-xs font-medium uppercase tracking-[0.18em] text-emerald-300">{eyebrow}</p>
+      <h2 id={id} className="mt-2 text-xl font-semibold text-zinc-50">{title}</h2>
+      <p className="mt-2 max-w-3xl text-sm leading-6 text-zinc-400">{description}</p>
+    </div>
+  );
 }
 
 function normalizeRolePlans(rolePlans: GuidedPlanRolePlans | undefined): GuidedPlanRolePlans {
@@ -516,7 +537,7 @@ export function GuidedPlansConsole() {
       <SectionHeader
         eyebrow="Guided plans"
         title="Find True North"
-        description="Select a saved program and review the latest path, outputs, risks, and leadership-driven changes. Guided plans refresh automatically as new program inputs are saved."
+        description="Review program health, team action plans, and role-ready artifacts generated from the latest grounded program context."
       />
 
       <section className="mt-10 grid gap-6 lg:grid-cols-[380px_minmax(0,1fr)]">
@@ -542,15 +563,30 @@ export function GuidedPlansConsole() {
         <section className="grid gap-4">
           {plan ? (
             <>
-              <GuidedPlanOverviewCard
-                plan={plan}
-                leadershipSignal={leadershipSignal}
-                lastAssistantDialogueAt={lastAssistantDialogueAt}
-                formatDate={formatDate}
-              />
-
-              <div className="grid gap-4 lg:grid-cols-2">
+              <section className="grid gap-4" aria-labelledby="program-health-guidance">
+                <GuidedPlanLayerHeader
+                  eyebrow="Layer 1"
+                  id="program-health-guidance"
+                  title="Program Health + Guidance"
+                  description="Start with the executive program posture: north star, current phase, plan digest, risks, decisions, and the rationale behind the latest refresh."
+                />
+                <GuidedPlanOverviewCard
+                  plan={plan}
+                  leadershipSignal={leadershipSignal}
+                  lastAssistantDialogueAt={lastAssistantDialogueAt}
+                  formatDate={formatDate}
+                />
                 <GuidedPlanGanttSummary currentPhaseLabel={currentPhase.label} ganttPhases={ganttPhases} />
+                <PlanInsightsCard sections={planSections} sectionFooters={planSectionFooters} />
+              </section>
+
+              <section className="grid gap-4" aria-labelledby="team-action-plans">
+                <GuidedPlanLayerHeader
+                  eyebrow="Layer 2"
+                  id="team-action-plans"
+                  title="Team Action Plans"
+                  description="Role-level guidance stays focused on actions, outcomes, risks, and mitigations for the actual team composition on this program."
+                />
                 {rolePlans ? (
                   <RolePlansCard
                     rolePlans={rolePlans}
@@ -620,8 +656,17 @@ export function GuidedPlansConsole() {
                     onCancelFlag={() => setFlagTarget(null)}
                   />
                 ) : null}
-                <PlanInsightsCard sections={planSections} sectionFooters={planSectionFooters} />
-              </div>
+              </section>
+
+              <section className="grid gap-4" aria-labelledby="role-artifact-studio">
+                <GuidedPlanLayerHeader
+                  eyebrow="Layer 3"
+                  id="role-artifact-studio"
+                  title="Role-Based Artifacts"
+                  description="Generate working outputs for specific roles, then iterate with feedback as the program changes."
+                />
+                <RoleArtifactStudioCard programId={plan.programId} />
+              </section>
             </>
           ) : (
             <GuidedPlanEmptyStateCard hasPrograms={programs.length > 0} />
