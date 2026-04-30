@@ -148,6 +148,10 @@ function shortenInsight(value: string, maxLength = 130) {
   return `${normalized.slice(0, breakPoint).trim()}...`;
 }
 
+function getRolePlanPreview(rolePlan: GuidedPlanRolePlan) {
+  return shortenInsight(rolePlan.actionPlan[0] ?? "Open this role to review the current action plan.", 190);
+}
+
 function getSectionGroup(sectionTitle: string) {
   const group = sectionGroups.find((item) => (item.sections as readonly string[]).includes(sectionTitle));
 
@@ -363,13 +367,24 @@ export function RolePlansCard({
   return (
     <Card className="bg-zinc-950/75">
       <CardHeader className="border-b border-white/10">
-        <CardTitle className="text-zinc-50">{rolePlans.title}</CardTitle>
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <CardTitle className="text-zinc-50">{rolePlans.title}</CardTitle>
+            <p className="mt-2 max-w-3xl text-sm leading-6 text-zinc-400">
+              Role-specific guidance is compact by default. Open the role you are working on, or switch the focus slicer to center one lane.
+            </p>
+          </div>
+          <span className="rounded-md border border-white/10 bg-white/[0.035] px-3 py-1 text-xs text-zinc-400">
+            {rolePlans.roles.length} roles
+          </span>
+        </div>
       </CardHeader>
-      <CardContent className="grid items-stretch gap-3 p-4 sm:p-5 xl:grid-cols-2">
+      <CardContent className="grid items-stretch gap-3 p-4 sm:p-5">
         {sortedRoles.map((rolePlan) => {
           const isFocusedRole =
             selectedRoleFocus !== allRolesOption && normalizeRoleKey(rolePlan.role) === selectedRoleKey;
-          const isExpanded = selectedRoleFocus === allRolesOption || isFocusedRole || expandedRoleKeys.has(normalizeRoleKey(rolePlan.role));
+          const isExpanded = isFocusedRole || expandedRoleKeys.has(normalizeRoleKey(rolePlan.role));
+          const canToggleRole = !isFocusedRole;
           const roleFlagSourceId = buildTeamActionPlanFlagSourceId(rolePlan.role);
           const isFlagTarget = flagTarget?.citationId === roleFlagSourceId;
           const signalGroups = [
@@ -383,7 +398,7 @@ export function RolePlansCard({
             <div
               key={rolePlan.role}
               className={`flex min-h-full flex-col rounded-md border bg-white/[0.035] p-3 sm:p-4 ${
-                isFocusedRole ? "border-cyan-300/25 xl:col-span-2" : "border-white/10"
+                isFocusedRole ? "border-cyan-300/25" : "border-white/10"
               }`}
             >
               <div className="flex items-center justify-between gap-3 border-b border-white/10 pb-3">
@@ -391,7 +406,7 @@ export function RolePlansCard({
                   <p className="text-sm font-semibold uppercase tracking-[0.12em] text-zinc-100">{rolePlan.role}</p>
                   {isFocusedRole ? <p className="mt-1 text-xs text-cyan-200">Focused role view</p> : null}
                 </div>
-                {!isFocusedRole && selectedRoleFocus !== allRolesOption ? (
+                {canToggleRole ? (
                   <Button
                     type="button"
                     variant="ghost"
@@ -405,7 +420,7 @@ export function RolePlansCard({
               </div>
               {isExpanded ? (
                 <div className="mt-3 flex flex-1 flex-col gap-3">
-                  <div className={`grid flex-1 gap-3 ${isFocusedRole ? "md:grid-cols-2" : ""}`}>
+                  <div className="grid flex-1 gap-3 lg:grid-cols-2">
                     {signalGroups.map((group) => (
                       <RolePlanSignalGroup
                         key={group.title}
@@ -443,9 +458,19 @@ export function RolePlansCard({
                   ) : null}
                 </div>
               ) : (
-                <p className="mt-3 text-sm leading-6 text-zinc-400">
-                  Expand this role to view its action plan, focus areas, outcomes, and mitigations.
-                </p>
+                <div className="mt-3 grid gap-3">
+                  <p className="text-sm leading-6 text-zinc-300">{getRolePlanPreview(rolePlan)}</p>
+                  <div className="flex flex-wrap gap-2">
+                    {rolePlan.keyFocusAreas.slice(0, 3).map((item) => (
+                      <span
+                        key={item}
+                        className="rounded-full border border-emerald-300/15 bg-emerald-300/[0.045] px-2.5 py-1 text-[11px] text-emerald-100"
+                      >
+                        {shortenInsight(item, 42)}
+                      </span>
+                    ))}
+                  </div>
+                </div>
               )}
             </div>
           );

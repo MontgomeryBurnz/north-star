@@ -10,6 +10,18 @@ type GuidedPlanOverviewCardProps = {
   formatDate: (value: string) => string;
 };
 
+function shortenReadout(value: string, maxLength = 220) {
+  const normalized = value.replace(/\s+/g, " ").trim();
+
+  if (normalized.length <= maxLength) return normalized;
+
+  const sentenceBreak = normalized.slice(0, maxLength).lastIndexOf(". ");
+  const wordBreak = normalized.lastIndexOf(" ", maxLength);
+  const breakPoint = sentenceBreak > 120 ? sentenceBreak + 1 : wordBreak > 120 ? wordBreak : maxLength;
+
+  return `${normalized.slice(0, breakPoint).trim()}...`;
+}
+
 export function GuidedPlanOverviewCard({
   plan,
   currentPhaseLabel,
@@ -36,16 +48,22 @@ export function GuidedPlanOverviewCard({
         </div>
       </CardHeader>
       <CardContent className="grid gap-4 p-4 sm:p-5">
-        <div className="grid gap-4 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)]">
-          <div className="rounded-md border border-emerald-300/20 bg-emerald-300/[0.055] p-4">
-            <p className="text-xs font-medium uppercase tracking-[0.18em] text-emerald-200">North star</p>
-            <p className="mt-2 text-sm leading-6 text-zinc-200">{plan.northStar}</p>
-          </div>
-          <div className="rounded-md border border-white/10 bg-white/[0.025] p-4">
-            <p className="text-xs font-medium uppercase tracking-[0.18em] text-zinc-500">Executive readout</p>
-            <p className="mt-2 text-sm leading-6 text-zinc-300">{plan.summary}</p>
-          </div>
+        <div className="rounded-md border border-emerald-300/20 bg-emerald-300/[0.055] p-4">
+          <p className="text-xs font-medium uppercase tracking-[0.18em] text-emerald-200">North star</p>
+          <p className="mt-2 text-sm leading-6 text-zinc-200">{plan.northStar}</p>
         </div>
+        <details className="group rounded-md border border-white/10 bg-white/[0.025] p-4">
+          <summary className="flex cursor-pointer list-none flex-wrap items-start justify-between gap-3">
+            <span className="min-w-0">
+              <span className="block text-xs font-medium uppercase tracking-[0.18em] text-zinc-500">Executive readout</span>
+              <span className="mt-2 block text-sm leading-6 text-zinc-300">{shortenReadout(plan.summary)}</span>
+            </span>
+            <span className="shrink-0 rounded-full border border-white/10 px-2.5 py-1 text-[11px] uppercase tracking-[0.12em] text-zinc-500 group-open:hidden">
+              Details
+            </span>
+          </summary>
+          <p className="mt-3 border-t border-white/10 pt-3 text-sm leading-6 text-zinc-300">{plan.summary}</p>
+        </details>
         {lastAssistantDialogueAt ? (
           <p className="rounded-md border border-cyan-300/15 bg-cyan-300/[0.04] px-3 py-2 text-xs leading-5 text-cyan-100">
             Last updated from Guide dialogue {formatDate(lastAssistantDialogueAt)}
