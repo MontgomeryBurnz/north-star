@@ -2,6 +2,7 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { SiteAccessLoginForm } from "@/components/site-access-login-form";
 import { getSiteAccessConfig, isSiteAccessSessionTokenValid, siteAccessSessionCookieName } from "@/lib/site-access";
+import { isSupabaseConfigured } from "@/lib/supabase/server";
 
 export default async function SiteLoginPage({
   searchParams
@@ -22,5 +23,5 @@ export default async function SiteLoginPage({
     redirect(redirectTo);
   }
 
-  return <SiteAccessLoginForm redirectTo={redirectTo} />;
+  return <SiteAccessLoginForm redirectTo={redirectTo} userAuthEnabled={isSupabaseConfigured()} />;
 }

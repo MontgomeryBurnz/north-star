@@ -40,6 +40,7 @@ const emptyForm = {
 
 type InvitationProviderStatus = {
   configured: boolean;
+  emailDelivery: "north-star-branded" | "supabase-default";
   provider: "supabase";
 };
 
@@ -249,7 +250,7 @@ export function AdminUserManagementCard() {
       setSaveState("saved");
       if (invitation?.ok) {
         setStatusTone("success");
-        setStatus(`${savedUser.name} was saved and a Supabase-backed invite was sent.`);
+        setStatus(`${savedUser.name} was saved and an account setup invite was sent.`);
       } else if (invitation && !invitation.ok) {
         setStatusTone("error");
         setStatus(`${savedUser.name} was saved, but the invite was not sent: ${invitation.error}`);
@@ -387,7 +388,9 @@ export function AdminUserManagementCard() {
             <div className="flex flex-wrap items-center justify-between gap-3 border-t border-white/10 pt-3">
               <p className="text-xs leading-5 text-zinc-500">
                 {invitationProvider?.configured
-                  ? "Invites are sent through Supabase Auth. No plaintext passwords are stored here."
+                  ? invitationProvider.emailDelivery === "north-star-branded"
+                    ? "Invites use the branded North Star email and Supabase Auth. No plaintext passwords are stored here."
+                    : "Invites are sent through Supabase Auth. No plaintext passwords are stored here."
                   : "Supabase service-role invitations are not configured. Users can still be mapped for role-aware UI defaults."}
               </p>
               <div className="flex flex-wrap gap-2">

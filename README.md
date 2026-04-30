@@ -63,6 +63,16 @@ Leadership auth now also supports two modes:
 - `env`: current local password gate
 - `supabase`: Microsoft sign-in through Supabase Auth, with leadership access filtered by allowed emails, domains, or roles
 
+Managed users can also enter through the main `/login` page with Supabase email/password credentials. Admin invitations send users through `/auth/setup` so they can set their own password and use their invite email as their username. Password recovery is available from the same login page and routes through `/auth/reset-password`.
+
+Branded North Star invite and recovery emails are sent through Resend when these optional variables are configured:
+
+- `RESEND_API_KEY`
+- `NORTHSTAR_EMAIL_FROM`
+- `NORTHSTAR_EMAIL_REPLY_TO`
+
+When Resend is not configured, the app falls back to Supabase Auth's default email delivery while still routing users into the North Star setup and reset screens.
+
 ## Production Alpha Setup
 
 Recommended stack:

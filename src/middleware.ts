@@ -4,7 +4,11 @@ import { getSiteAccessConfig, isSiteAccessSessionTokenValid, siteAccessSessionCo
 function isPublicPath(pathname: string) {
   if (
     pathname === "/login" ||
+    pathname === "/auth/callback" ||
+    pathname === "/auth/reset-password" ||
+    pathname === "/auth/setup" ||
     pathname.startsWith("/api/auth/site-access/login") ||
+    pathname.startsWith("/api/auth/user/") ||
     pathname.startsWith("/api/security/supabase-rls-check") ||
     pathname.startsWith("/_next/") ||
     pathname === "/favicon.ico"

@@ -59,3 +59,18 @@ export function isSiteAccessRequestAuthorized(request: Request) {
 export function createSiteAccessDeniedResponse() {
   return NextResponse.json({ error: "Site access required." }, { status: 401 });
 }
+
+export function attachSiteAccessCookie(response: NextResponse) {
+  const config = getSiteAccessConfig();
+  if (!config.enabled) return response;
+
+  response.cookies.set({
+    name: siteAccessSessionCookieName,
+    value: config.sessionToken,
+    httpOnly: true,
+    sameSite: "lax",
+    secure: process.env.NODE_ENV === "production",
+    path: "/"
+  });
+  return response;
+}

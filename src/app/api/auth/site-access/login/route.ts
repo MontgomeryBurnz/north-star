@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getSiteAccessConfig, isSiteAccessPasswordValid, siteAccessSessionCookieName } from "@/lib/site-access";
+import { attachSiteAccessCookie, getSiteAccessConfig, isSiteAccessPasswordValid } from "@/lib/site-access";
 
 export async function POST(request: Request) {
   const config = getSiteAccessConfig();
@@ -15,14 +15,5 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Invalid access password." }, { status: 401 });
   }
 
-  const response = NextResponse.json({ ok: true });
-  response.cookies.set({
-    name: siteAccessSessionCookieName,
-    value: config.sessionToken,
-    httpOnly: true,
-    sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
-    path: "/"
-  });
-  return response;
+  return attachSiteAccessCookie(NextResponse.json({ ok: true }));
 }
