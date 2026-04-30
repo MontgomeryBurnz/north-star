@@ -40,7 +40,7 @@ export async function POST(request: Request) {
       | null = null;
 
     if (body.sendInvite) {
-      const inviteResult = await inviteManagedUser(user, request.url);
+      const inviteResult = await inviteManagedUser(user, request);
 
       if (inviteResult.ok) {
         user = await upsertManagedUser({

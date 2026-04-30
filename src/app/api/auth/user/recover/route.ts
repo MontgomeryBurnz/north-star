@@ -5,23 +5,31 @@ import {
   getNorthStarEmailDeliveryStatus,
   sendNorthStarEmail
 } from "@/lib/north-star-auth-emails";
+import { buildPublicAppUrl } from "@/lib/public-origin";
 import { createSupabaseAdminClient, createSupabaseServerClient, isSupabaseAdminConfigured, isSupabaseConfigured } from "@/lib/supabase/server";
 
-function getRecoveryRedirectUrl(requestUrl: string) {
-  const origin = new URL(requestUrl).origin;
-  const redirectTo = new URL("/auth/callback", origin);
+function getRecoveryRedirectUrl(request: Request) {
+  const redirectTo = buildPublicAppUrl("/auth/callback", request);
   redirectTo.searchParams.set("next", "/auth/reset-password");
   return redirectTo.toString();
 }
 
-async function sendBrandedRecoveryEmail(email: string, requestUrl: string) {
+function getRecoveryActionUrl(request: Request, tokenHash: string) {
+  const actionUrl = buildPublicAppUrl("/auth/callback", request);
+  actionUrl.searchParams.set("token_hash", tokenHash);
+  actionUrl.searchParams.set("type", "recovery");
+  actionUrl.searchParams.set("next", "/auth/reset-password");
+  return actionUrl.toString();
+}
+
+async function sendBrandedRecoveryEmail(email: string, request: Request) {
   if (!isSupabaseAdminConfigured() || !getNorthStarEmailDeliveryStatus().configured) return false;
 
   const supabase = createSupabaseAdminClient();
   const { data, error } = await supabase.auth.admin.generateLink({
     email,
     options: {
-      redirectTo: getRecoveryRedirectUrl(requestUrl)
+      redirectTo: getRecoveryRedirectUrl(request)
     },
     type: "recovery"
   });
@@ -30,14 +38,18 @@ async function sendBrandedRecoveryEmail(email: string, requestUrl: string) {
     return false;
   }
 
+  const actionUrl = data.properties.hashed_token
+    ? getRecoveryActionUrl(request, data.properties.hashed_token)
+    : data.properties.action_link;
+
   await sendNorthStarEmail({
     html: buildNorthStarRecoveryEmail({
-      actionUrl: data.properties.action_link,
+      actionUrl,
       recipientEmail: email
     }),
     subject: "Reset your North Star access",
     text: buildNorthStarRecoveryText({
-      actionUrl: data.properties.action_link,
+      actionUrl,
       recipientEmail: email
     }),
     to: email
@@ -61,11 +73,11 @@ export async function POST(request: Request) {
   }
 
   try {
-    const sentBrandedEmail = await sendBrandedRecoveryEmail(email, request.url);
+    const sentBrandedEmail = await sendBrandedRecoveryEmail(email, request);
     if (!sentBrandedEmail) {
       const supabase = await createSupabaseServerClient();
       await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: getRecoveryRedirectUrl(request.url)
+        redirectTo: getRecoveryRedirectUrl(request)
       });
     }
   } catch {

@@ -8,9 +8,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { LoginBrandMark } from "@/components/login-brand-mark";
 
 export function SiteAccessLoginForm({
+  authError,
   redirectTo,
   userAuthEnabled
 }: {
+  authError?: "expired";
   redirectTo: string;
   userAuthEnabled: boolean;
 }) {
@@ -110,6 +112,12 @@ export function SiteAccessLoginForm({
             </CardTitle>
           </CardHeader>
           <CardContent className="grid gap-4 p-5">
+            {authError === "expired" ? (
+              <div className="rounded-md border border-amber-300/25 bg-amber-300/[0.07] p-3 text-sm leading-6 text-amber-100">
+                That setup or recovery link is invalid or has expired. Ask an Admin to resend the invitation, or use reset access below.
+              </div>
+            ) : null}
+
             {userAuthEnabled ? (
               <div className="grid grid-cols-2 gap-2 rounded-md border border-white/10 bg-black/20 p-1">
                 {[

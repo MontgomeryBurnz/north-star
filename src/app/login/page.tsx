@@ -7,11 +7,12 @@ import { isSupabaseConfigured } from "@/lib/supabase/server";
 export default async function SiteLoginPage({
   searchParams
 }: {
-  searchParams: Promise<{ redirect?: string }>;
+  searchParams: Promise<{ authError?: string; redirect?: string }>;
 }) {
   const resolvedSearchParams = await searchParams;
   const config = getSiteAccessConfig();
   const redirectTo = resolvedSearchParams.redirect || "/";
+  const authError = resolvedSearchParams.authError === "expired" ? "expired" : undefined;
 
   if (!config.enabled) {
     redirect(redirectTo);
@@ -23,5 +24,5 @@ export default async function SiteLoginPage({
     redirect(redirectTo);
   }
 
-  return <SiteAccessLoginForm redirectTo={redirectTo} userAuthEnabled={isSupabaseConfigured()} />;
+  return <SiteAccessLoginForm authError={authError} redirectTo={redirectTo} userAuthEnabled={isSupabaseConfigured()} />;
 }

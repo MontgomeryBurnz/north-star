@@ -6,6 +6,7 @@ import {
   getNorthStarEmailDeliveryStatus,
   sendNorthStarEmail
 } from "@/lib/north-star-auth-emails";
+import { buildPublicAppUrl } from "@/lib/public-origin";
 import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/lib/supabase/server";
 
 export type InvitationProviderStatus = {
@@ -33,7 +34,7 @@ export function getInvitationProviderStatus(): InvitationProviderStatus {
   };
 }
 
-export async function inviteManagedUser(user: ManagedAppUser, requestUrl: string): Promise<ManagedUserInvitationResult> {
+export async function inviteManagedUser(user: ManagedAppUser, request: Request): Promise<ManagedUserInvitationResult> {
   if (!isSupabaseAdminConfigured()) {
     return {
       ok: false,
@@ -41,8 +42,7 @@ export async function inviteManagedUser(user: ManagedAppUser, requestUrl: string
     };
   }
 
-  const origin = new URL(requestUrl).origin;
-  const redirectTo = new URL("/auth/callback", origin);
+  const redirectTo = buildPublicAppUrl("/auth/callback", request);
   redirectTo.searchParams.set("next", "/auth/setup");
 
   const supabase = createSupabaseAdminClient();
@@ -68,16 +68,25 @@ export async function inviteManagedUser(user: ManagedAppUser, requestUrl: string
       };
     }
 
+    const actionUrl = data.properties.hashed_token
+      ? buildSupabaseTokenCallbackUrl({
+          nextPath: "/auth/setup",
+          request,
+          tokenHash: data.properties.hashed_token,
+          type: "invite"
+        })
+      : data.properties.action_link;
+
     try {
       await sendNorthStarEmail({
         html: buildNorthStarInviteEmail({
-          actionUrl: data.properties.action_link,
+          actionUrl,
           recipientEmail: user.email,
           recipientName: user.name
         }),
         subject: "Activate your North Star access",
         text: buildNorthStarInviteText({
-          actionUrl: data.properties.action_link,
+          actionUrl,
           recipientEmail: user.email,
           recipientName: user.name
         }),
@@ -118,4 +127,22 @@ export async function inviteManagedUser(user: ManagedAppUser, requestUrl: string
     authUserId: data.user?.id,
     invitedAt: data.user?.invited_at ?? data.user?.confirmation_sent_at ?? new Date().toISOString()
   };
+}
+
+function buildSupabaseTokenCallbackUrl({
+  nextPath,
+  request,
+  tokenHash,
+  type
+}: {
+  nextPath: string;
+  request: Request;
+  tokenHash: string;
+  type: "invite" | "recovery";
+}) {
+  const callbackUrl = buildPublicAppUrl("/auth/callback", request);
+  callbackUrl.searchParams.set("token_hash", tokenHash);
+  callbackUrl.searchParams.set("type", type);
+  callbackUrl.searchParams.set("next", nextPath);
+  return callbackUrl.toString();
 }

@@ -399,6 +399,22 @@ export function AdminUserManagementCard() {
         </CardTitle>
       </CardHeader>
       <CardContent className="grid gap-5 p-5">
+        {status ? (
+          <div
+            className={`rounded-md border p-3 text-sm leading-6 ${
+              statusTone === "error"
+                ? "border-amber-300/25 bg-amber-300/[0.065] text-amber-100"
+                : statusTone === "success"
+                  ? "border-emerald-300/25 bg-emerald-300/[0.065] text-emerald-100"
+                  : "border-white/10 bg-white/[0.035] text-zinc-400"
+            }`}
+            aria-live="polite"
+          >
+            {statusTone === "success" ? <CheckCircle2 className="mr-2 inline h-4 w-4" /> : null}
+            {status}
+          </div>
+        ) : null}
+
         <div className="grid gap-5 xl:grid-cols-[minmax(0,0.95fr)_minmax(20rem,0.65fr)]">
           <div className="grid gap-4">
           <form onSubmit={handleSubmit} className="grid gap-4 rounded-md border border-white/10 bg-white/[0.035] p-4">
@@ -748,22 +764,6 @@ export function AdminUserManagementCard() {
             </div>
           </div>
         </div>
-
-        {status ? (
-          <div
-            className={`rounded-md border p-3 text-sm leading-6 ${
-              statusTone === "error"
-                ? "border-amber-300/25 bg-amber-300/[0.065] text-amber-100"
-                : statusTone === "success"
-                  ? "border-emerald-300/25 bg-emerald-300/[0.065] text-emerald-100"
-                  : "border-white/10 bg-white/[0.035] text-zinc-400"
-            }`}
-            aria-live="polite"
-          >
-            {saveState === "saved" ? <CheckCircle2 className="mr-2 inline h-4 w-4" /> : null}
-            {status}
-          </div>
-        ) : null}
 
         <div className="grid gap-3">
           <div className="flex flex-wrap items-center justify-between gap-3">
