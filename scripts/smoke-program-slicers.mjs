@@ -34,21 +34,18 @@ async function authenticate(session) {
       const leadershipUsername = arguments[1];
       const leadershipPassword = arguments[2];
 
-      return Promise.all([
-        fetch("/api/auth/site-access/login", {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({ password: sitePassword })
-        }),
-        fetch("/api/auth/leadership/login", {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({ username: leadershipUsername, password: leadershipPassword })
-        })
-      ]).then(([site, leadership]) => ({
+      return fetch("/api/auth/site-access/login", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ password: sitePassword })
+      }).then((site) => fetch("/api/auth/leadership/login", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ username: leadershipUsername, password: leadershipPassword })
+      }).then((leadership) => ({
         site: site.status,
         leadership: leadership.status
-      }));
+      })));
     `,
     [requiredSitePassword, leadershipUsername, requiredLeadershipPassword]
   );
