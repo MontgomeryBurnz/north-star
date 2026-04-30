@@ -6,7 +6,7 @@ import type {
   ManagedProgramAssignment,
   ManagedProgramAssignmentInput
 } from "./admin-user-types.ts";
-import { appUserCredentialStatuses, appUserTypes } from "./admin-user-types.ts";
+import { appUserCredentialStatuses, appUserTypes, isProgramScopedUserType } from "./admin-user-types.ts";
 import type { StoredProgram } from "./program-intake-types.ts";
 
 type BuildManagedUserRecordInput = {
@@ -136,6 +136,10 @@ export function buildManagedAppUserRecord({
     now,
     programs
   });
+
+  if (isProgramScopedUserType(userType) && assignments.length === 0) {
+    return { ok: false, error: "Select a program and program role for this user type." };
+  }
 
   return {
     ok: true,

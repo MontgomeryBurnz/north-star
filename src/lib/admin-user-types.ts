@@ -44,3 +44,7 @@ export type ManagedAppUserInput = Partial<
   assignment?: ManagedProgramAssignmentInput;
   assignments?: ManagedProgramAssignmentInput[];
 };
+
+export function isProgramScopedUserType(userType: AppUserType) {
+  return userType !== "admin";
+}

@@ -8,7 +8,7 @@ import type {
   ManagedAppUser,
   ManagedProgramAssignment
 } from "@/lib/admin-user-types";
-import { appUserCredentialStatuses, appUserTypes } from "@/lib/admin-user-types";
+import { appUserCredentialStatuses, appUserTypes, isProgramScopedUserType } from "@/lib/admin-user-types";
 import type { StoredProgram } from "@/lib/program-intake-types";
 import { normalizeTeamRoles } from "@/lib/team-roles";
 import { Button } from "@/components/ui/button";
@@ -80,7 +80,10 @@ export function AdminUserManagementCard() {
     [form.programId, programs]
   );
   const availableRoles = useMemo(() => getProgramRoles(selectedProgram), [selectedProgram]);
-  const canSaveUser = Boolean(form.name.trim() && form.email.trim() && form.programId && form.role);
+  const programAssignmentRequired = isProgramScopedUserType(form.userType);
+  const canSaveUser = Boolean(
+    form.name.trim() && form.email.trim() && (!programAssignmentRequired || (form.programId && form.role))
+  );
   const canAddProgramRole = Boolean(selectedProgram && newProgramRole.trim() && roleSaveState !== "saving");
   const brandedEmailActive = invitationProvider?.configured && invitationProvider.emailDelivery === "north-star-branded";
 
@@ -146,7 +149,7 @@ export function AdminUserManagementCard() {
         userType: form.userType,
         credentialStatus: form.credentialStatus,
         sendInvite,
-        assignment: form.programId && form.role
+        assignment: programAssignmentRequired && form.programId && form.role
           ? {
               programId: form.programId,
               role: form.role,
@@ -251,13 +254,21 @@ export function AdminUserManagementCard() {
       setSaveState("saved");
       if (invitation?.ok) {
         setStatusTone("success");
-        setStatus(`${savedUser.name} was saved and an account setup invite was sent.`);
+        setStatus(
+          savedUser.userType === "admin"
+            ? `${savedUser.name} was saved with Admin access and an account setup invite was sent.`
+            : `${savedUser.name} was saved and an account setup invite was sent.`
+        );
       } else if (invitation && !invitation.ok) {
         setStatusTone("error");
         setStatus(`${savedUser.name} was saved, but the invite was not sent: ${invitation.error}`);
       } else {
         setStatusTone("success");
-        setStatus(`${savedUser.name} was saved with role-specific program access.`);
+        setStatus(
+          savedUser.userType === "admin"
+            ? `${savedUser.name} was saved with Admin access to all programs.`
+            : `${savedUser.name} was saved with role-specific program access.`
+        );
       }
     } catch (error) {
       setSaveState("error");
@@ -281,7 +292,7 @@ export function AdminUserManagementCard() {
             <div>
               <p className="text-sm font-medium text-zinc-100">Add user or role assignment</p>
               <p className="mt-1 text-xs leading-5 text-zinc-500">
-                Users can carry different roles across programs. Send an invite to create the Supabase auth user and make their assigned role the default expanded view.
+                Admin users get all-program access. Scoped users can carry different roles across programs, which drives their default role-focused views.
               </p>
             </div>
 
@@ -316,7 +327,12 @@ export function AdminUserManagementCard() {
                 <select
                   value={form.userType}
                   onChange={(event) => {
-                    setForm((current) => ({ ...current, userType: event.target.value as AppUserType }));
+                    const userType = event.target.value as AppUserType;
+                    setForm((current) => ({
+                      ...current,
+                      userType,
+                      role: isProgramScopedUserType(userType) ? current.role : ""
+                    }));
                     setSaveState("idle");
                   }}
                   className="min-h-11 rounded-md border border-white/10 bg-zinc-950 px-3 py-3 text-sm text-zinc-100 outline-none transition-colors focus:border-emerald-300/50"
@@ -368,15 +384,15 @@ export function AdminUserManagementCard() {
                 <span className="text-xs font-medium uppercase tracking-[0.16em] text-zinc-300">Program role</span>
                 <select
                   data-admin-role-select
-                  value={form.role}
+                  value={programAssignmentRequired ? form.role : ""}
                   onChange={(event) => {
                     setForm((current) => ({ ...current, role: event.target.value }));
                     setSaveState("idle");
                   }}
-                  disabled={!form.programId}
+                  disabled={!form.programId || !programAssignmentRequired}
                   className="min-h-11 rounded-md border border-white/10 bg-zinc-950 px-3 py-3 text-sm text-zinc-100 outline-none transition-colors disabled:text-zinc-500 focus:border-emerald-300/50"
                 >
-                  <option value="">Select role...</option>
+                  <option value="">{programAssignmentRequired ? "Select role..." : "Admin all-program access"}</option>
                   {availableRoles.map((role) => (
                     <option key={role} value={role}>
                       {role}
@@ -385,6 +401,11 @@ export function AdminUserManagementCard() {
                 </select>
               </label>
             </div>
+            {!programAssignmentRequired ? (
+              <p className="rounded-md border border-emerald-300/20 bg-emerald-300/[0.055] p-3 text-sm leading-6 text-emerald-100">
+                Admin users have ultimate access and visibility across every program. A program role assignment is not required.
+              </p>
+            ) : null}
 
             <div className="flex flex-wrap items-center justify-between gap-3 border-t border-white/10 pt-3">
               <p className="text-xs leading-5 text-zinc-500">
@@ -487,7 +508,7 @@ export function AdminUserManagementCard() {
               Access model
             </p>
             <p className="text-sm leading-6 text-zinc-300">
-              Admin is now the protected surface for model governance and role-based user setup. Program assignments create the foundation for role-aware views across Guided Plans, Active Program, Leadership, and Guide.
+              Admin is now the protected surface for model governance and role-based user setup. Admin users have all-program visibility, while scoped user types use program assignments to shape role-aware views.
             </p>
             <div className="grid gap-2">
               {appUserTypes.map((type) => (
@@ -495,7 +516,7 @@ export function AdminUserManagementCard() {
                   <p className="text-sm font-medium text-zinc-100">{userTypeLabels[type]}</p>
                   <p className="mt-1 text-xs leading-5 text-zinc-500">
                     {type === "admin"
-                      ? "Manages users, access posture, costs, model fit, and disputed guidance."
+                      ? "Has ultimate access across users, programs, costs, model fit, and disputed guidance."
                       : type === "leadership"
                         ? "Reviews sponsor-level signals and role lanes relevant to their program scope."
                         : type === "delivery-lead"
@@ -562,6 +583,7 @@ export function AdminUserManagementCard() {
             <div className="grid gap-3">
               {users.map((user) => {
                 const primaryAssignment = getPrimaryAssignment(user.assignments);
+                const hasGlobalAdminAccess = user.userType === "admin";
                 const expanded = expandedUsers[user.id] ?? false;
                 const otherAssignments = user.assignments.filter((assignment) => assignment.id !== primaryAssignment?.id);
 
@@ -593,7 +615,15 @@ export function AdminUserManagementCard() {
                       <p className="text-xs text-zinc-500">Updated {formatDate(user.updatedAt)}</p>
                     </div>
 
-                    {primaryAssignment ? (
+                    {hasGlobalAdminAccess ? (
+                      <div className="mt-4 rounded-md border border-emerald-300/20 bg-emerald-300/[0.055] p-3">
+                        <p className="text-xs font-medium uppercase tracking-[0.16em] text-emerald-200">All-program access</p>
+                        <p className="mt-2 text-sm font-medium text-zinc-100">Admin visibility across every program</p>
+                        <p className="mt-1 text-xs leading-5 text-zinc-500">
+                          Admin users are not constrained by a program role assignment.
+                        </p>
+                      </div>
+                    ) : primaryAssignment ? (
                       <div className="mt-4 rounded-md border border-emerald-300/20 bg-emerald-300/[0.055] p-3">
                         <p className="text-xs font-medium uppercase tracking-[0.16em] text-emerald-200">Default expanded role</p>
                         <p className="mt-2 text-sm font-medium text-zinc-100">
@@ -609,7 +639,7 @@ export function AdminUserManagementCard() {
                       </p>
                     )}
 
-                    {otherAssignments.length ? (
+                    {!hasGlobalAdminAccess && otherAssignments.length ? (
                       <div className="mt-3">
                         <button
                           type="button"
