@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { buildCanonicalRedirectUrl } from "@/lib/public-origin";
 import { getSiteAccessConfig, isSiteAccessSessionTokenValid, siteAccessSessionCookieName } from "@/lib/site-access";
 
 function isPublicPath(pathname: string) {
@@ -22,7 +23,21 @@ function isPublicPath(pathname: string) {
   return /\.(.*)$/.test(pathname);
 }
 
+function isCanonicalRedirectEnabled() {
+  if (process.env.NORTHSTAR_CANONICAL_REDIRECT_ENABLED === "false") return false;
+  if (process.env.NODE_ENV === "development") return false;
+  if (process.env.VERCEL_ENV && process.env.VERCEL_ENV !== "production") return false;
+  return true;
+}
+
 export function middleware(request: NextRequest) {
+  if (isCanonicalRedirectEnabled()) {
+    const canonicalUrl = buildCanonicalRedirectUrl(request.url);
+    if (canonicalUrl) {
+      return NextResponse.redirect(canonicalUrl, 308);
+    }
+  }
+
   const { enabled } = getSiteAccessConfig();
   if (!enabled || isPublicPath(request.nextUrl.pathname)) {
     return NextResponse.next();

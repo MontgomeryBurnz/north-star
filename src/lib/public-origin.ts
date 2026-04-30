@@ -1,3 +1,5 @@
+const defaultPublicAppOrigin = "https://www.north-star.live";
+
 function normalizeOrigin(value: string | undefined | null) {
   const trimmed = value?.trim();
   if (!trimmed) return null;
@@ -55,6 +57,29 @@ export function getPublicAppOrigin(request?: Request | string) {
     normalizeOrigin(process.env.VERCEL_URL);
 
   return vercelOrigin ?? requestOrigin ?? "http://localhost:3000";
+}
+
+export function getCanonicalAppOrigin() {
+  return (
+    normalizeOrigin(process.env.NORTHSTAR_CANONICAL_URL) ??
+    normalizeOrigin(process.env.NORTHSTAR_APP_URL) ??
+    normalizeOrigin(process.env.NEXT_PUBLIC_NORTHSTAR_APP_URL) ??
+    normalizeOrigin(process.env.NEXT_PUBLIC_APP_URL) ??
+    normalizeOrigin(process.env.NEXT_PUBLIC_SITE_URL) ??
+    defaultPublicAppOrigin
+  );
+}
+
+export function buildCanonicalRedirectUrl(requestUrl: string) {
+  const currentUrl = new URL(requestUrl);
+  const currentOrigin = normalizeOrigin(currentUrl.origin);
+  const canonicalOrigin = getCanonicalAppOrigin();
+
+  if (isLocalOrigin(currentOrigin) || currentOrigin === canonicalOrigin) {
+    return null;
+  }
+
+  return new URL(`${currentUrl.pathname}${currentUrl.search}`, canonicalOrigin);
 }
 
 export function buildPublicAppUrl(path: string, request?: Request | string) {

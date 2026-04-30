@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { getPublicAppOrigin } from "../src/lib/public-origin.ts";
+import { buildCanonicalRedirectUrl, getCanonicalAppOrigin, getPublicAppOrigin } from "../src/lib/public-origin.ts";
 
 function withEnv(overrides: Record<string, string | undefined>, run: () => void) {
   const previous = new Map(Object.keys(overrides).map((key) => [key, process.env[key]]));
@@ -83,6 +83,41 @@ test("getPublicAppOrigin falls back to Vercel URL when request origin is local",
     },
     () => {
       assert.equal(getPublicAppOrigin("http://localhost:3000/api/admin/users"), "https://north-star.example.vercel.app");
+    }
+  );
+});
+
+test("getCanonicalAppOrigin defaults to the North Star domain", () => {
+  withEnv(
+    {
+      NEXT_PUBLIC_APP_URL: undefined,
+      NEXT_PUBLIC_NORTHSTAR_APP_URL: undefined,
+      NEXT_PUBLIC_SITE_URL: undefined,
+      NORTHSTAR_APP_URL: undefined,
+      NORTHSTAR_CANONICAL_URL: undefined
+    },
+    () => {
+      assert.equal(getCanonicalAppOrigin(), "https://www.north-star.live");
+    }
+  );
+});
+
+test("buildCanonicalRedirectUrl preserves path and query when moving to the clean domain", () => {
+  withEnv(
+    {
+      NEXT_PUBLIC_APP_URL: undefined,
+      NEXT_PUBLIC_NORTHSTAR_APP_URL: undefined,
+      NEXT_PUBLIC_SITE_URL: undefined,
+      NORTHSTAR_APP_URL: undefined,
+      NORTHSTAR_CANONICAL_URL: "https://www.north-star.live"
+    },
+    () => {
+      assert.equal(
+        buildCanonicalRedirectUrl("https://north-star-git-main.example.vercel.app/admin?program=abc")?.toString(),
+        "https://www.north-star.live/admin?program=abc"
+      );
+      assert.equal(buildCanonicalRedirectUrl("https://www.north-star.live/admin"), null);
+      assert.equal(buildCanonicalRedirectUrl("http://localhost:3000/admin"), null);
     }
   );
 });
