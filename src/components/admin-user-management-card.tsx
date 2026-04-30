@@ -6,7 +6,8 @@ import type {
   AppUserCredentialStatus,
   AppUserType,
   ManagedAppUser,
-  ManagedProgramAssignment
+  ManagedProgramAssignment,
+  ManagedProgramAssignmentInput
 } from "@/lib/admin-user-types";
 import { appUserCredentialStatuses, appUserTypes, isProgramScopedUserType } from "@/lib/admin-user-types";
 import type { StoredProgram } from "@/lib/program-intake-types";
@@ -38,6 +39,8 @@ const emptyForm = {
   role: ""
 };
 
+type AssignmentDraft = Pick<ManagedProgramAssignment, "programId" | "programName" | "role" | "isPrimary">;
+
 type InvitationProviderStatus = {
   configured: boolean;
   emailDelivery: "north-star-branded" | "supabase-default";
@@ -61,10 +64,15 @@ function getPrimaryAssignment(assignments: ManagedProgramAssignment[]) {
   return assignments.find((assignment) => assignment.isPrimary) ?? assignments[0];
 }
 
+function getAssignmentDraftKey(assignment: Pick<ManagedProgramAssignment, "programId" | "role">) {
+  return `${assignment.programId}::${assignment.role.trim().toLowerCase()}`;
+}
+
 export function AdminUserManagementCard() {
   const [programs, setPrograms] = useState<StoredProgram[]>([]);
   const [users, setUsers] = useState<ManagedAppUser[]>([]);
   const [form, setForm] = useState(emptyForm);
+  const [assignmentDrafts, setAssignmentDrafts] = useState<AssignmentDraft[]>([]);
   const [expandedUsers, setExpandedUsers] = useState<Record<string, boolean>>({});
   const [saveState, setSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const [saveAction, setSaveAction] = useState<"save" | "invite">("save");
@@ -81,8 +89,22 @@ export function AdminUserManagementCard() {
   );
   const availableRoles = useMemo(() => getProgramRoles(selectedProgram), [selectedProgram]);
   const programAssignmentRequired = isProgramScopedUserType(form.userType);
+  const selectedAssignmentDraftKey = form.programId && form.role
+    ? getAssignmentDraftKey({ programId: form.programId, role: form.role })
+    : "";
+  const hasSelectedAssignmentDraft = selectedAssignmentDraftKey
+    ? assignmentDrafts.some((assignment) => getAssignmentDraftKey(assignment) === selectedAssignmentDraftKey)
+    : false;
   const canSaveUser = Boolean(
-    form.name.trim() && form.email.trim() && (!programAssignmentRequired || (form.programId && form.role))
+    form.name.trim() && form.email.trim() && (!programAssignmentRequired || assignmentDrafts.length)
+  );
+  const canAddAssignmentDraft = Boolean(
+    programAssignmentRequired &&
+      selectedProgram &&
+      form.programId &&
+      form.role &&
+      !hasSelectedAssignmentDraft &&
+      saveState !== "saving"
   );
   const canAddProgramRole = Boolean(selectedProgram && newProgramRole.trim() && roleSaveState !== "saving");
   const brandedEmailActive = invitationProvider?.configured && invitationProvider.emailDelivery === "north-star-branded";
@@ -134,6 +156,53 @@ export function AdminUserManagementCard() {
     setRoleStatus(null);
   }
 
+  function addAssignmentDraft() {
+    if (!programAssignmentRequired || !selectedProgram || !form.programId || !form.role) return;
+    const nextAssignment: AssignmentDraft = {
+      programId: form.programId,
+      programName: selectedProgram.intake.programName,
+      role: form.role,
+      isPrimary: assignmentDrafts.length === 0
+    };
+
+    setAssignmentDrafts((current) => {
+      const key = getAssignmentDraftKey(nextAssignment);
+      if (current.some((assignment) => getAssignmentDraftKey(assignment) === key)) return current;
+      return [...current, nextAssignment];
+    });
+    setSaveState("idle");
+  }
+
+  function removeAssignmentDraft(assignmentKey: string) {
+    setAssignmentDrafts((current) => {
+      const nextAssignments = current.filter((assignment) => getAssignmentDraftKey(assignment) !== assignmentKey);
+      if (nextAssignments.some((assignment) => assignment.isPrimary)) return nextAssignments;
+      return nextAssignments.map((assignment, index) => ({ ...assignment, isPrimary: index === 0 }));
+    });
+    setSaveState("idle");
+  }
+
+  function makePrimaryAssignmentDraft(assignmentKey: string) {
+    setAssignmentDrafts((current) =>
+      current.map((assignment) => ({
+        ...assignment,
+        isPrimary: getAssignmentDraftKey(assignment) === assignmentKey
+      }))
+    );
+    setSaveState("idle");
+  }
+
+  function getAssignmentInputs(): ManagedProgramAssignmentInput[] {
+    if (!programAssignmentRequired) return [];
+    const hasPrimary = assignmentDrafts.some((assignment) => assignment.isPrimary);
+    return assignmentDrafts.map((assignment, index) => ({
+      programId: assignment.programId,
+      programName: assignment.programName,
+      role: assignment.role,
+      isPrimary: hasPrimary ? assignment.isPrimary : index === 0
+    }));
+  }
+
   async function saveUser(sendInvite: boolean) {
     setSaveAction(sendInvite ? "invite" : "save");
     setSaveState("saving");
@@ -149,13 +218,7 @@ export function AdminUserManagementCard() {
         userType: form.userType,
         credentialStatus: form.credentialStatus,
         sendInvite,
-        assignment: programAssignmentRequired && form.programId && form.role
-          ? {
-              programId: form.programId,
-              role: form.role,
-              isPrimary: true
-            }
-          : undefined
+        assignments: getAssignmentInputs()
       })
     });
 
@@ -251,13 +314,16 @@ export function AdminUserManagementCard() {
         programId: current.programId,
         role: current.role
       }));
+      setAssignmentDrafts([]);
       setSaveState("saved");
       if (invitation?.ok) {
         setStatusTone("success");
         setStatus(
           savedUser.userType === "admin"
             ? `${savedUser.name} was saved with Admin access and an account setup invite was sent.`
-            : `${savedUser.name} was saved and an account setup invite was sent.`
+            : `${savedUser.name} was saved with ${savedUser.assignments.length} program role assignment${
+                savedUser.assignments.length === 1 ? "" : "s"
+              } and an account setup invite was sent.`
         );
       } else if (invitation && !invitation.ok) {
         setStatusTone("error");
@@ -267,7 +333,9 @@ export function AdminUserManagementCard() {
         setStatus(
           savedUser.userType === "admin"
             ? `${savedUser.name} was saved with Admin access to all programs.`
-            : `${savedUser.name} was saved with role-specific program access.`
+            : `${savedUser.name} was saved with ${savedUser.assignments.length} role-specific program assignment${
+                savedUser.assignments.length === 1 ? "" : "s"
+              }.`
         );
       }
     } catch (error) {
@@ -333,6 +401,9 @@ export function AdminUserManagementCard() {
                       userType,
                       role: isProgramScopedUserType(userType) ? current.role : ""
                     }));
+                    if (!isProgramScopedUserType(userType)) {
+                      setAssignmentDrafts([]);
+                    }
                     setSaveState("idle");
                   }}
                   className="min-h-11 rounded-md border border-white/10 bg-zinc-950 px-3 py-3 text-sm text-zinc-100 outline-none transition-colors focus:border-emerald-300/50"
@@ -401,12 +472,78 @@ export function AdminUserManagementCard() {
                 </select>
               </label>
             </div>
-            {!programAssignmentRequired ? (
-              <p className="rounded-md border border-emerald-300/20 bg-emerald-300/[0.055] p-3 text-sm leading-6 text-emerald-100">
-                Admin users have ultimate access and visibility across every program. A program role assignment is not required.
-              </p>
-            ) : null}
 
+            <div className="grid gap-3 rounded-md border border-white/10 bg-black/20 p-3">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <p className="text-sm font-medium text-zinc-100">Program access</p>
+                  <p className="mt-1 text-xs leading-5 text-zinc-500">
+                    Add every program-role pair this user should carry. The default role opens first in role-aware views.
+                  </p>
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={addAssignmentDraft}
+                  disabled={!canAddAssignmentDraft}
+                >
+                  <PlusCircle className="h-4 w-4" />
+                  Add access
+                </Button>
+              </div>
+
+              {!programAssignmentRequired ? (
+                <p className="rounded-md border border-emerald-300/20 bg-emerald-300/[0.055] p-3 text-sm leading-6 text-emerald-100">
+                  Admin users have ultimate access and visibility across every program. A program role assignment is not required.
+                </p>
+              ) : assignmentDrafts.length ? (
+                <div className="grid gap-2">
+                  {assignmentDrafts.map((assignment) => {
+                    const assignmentKey = getAssignmentDraftKey(assignment);
+
+                    return (
+                      <div
+                        key={assignmentKey}
+                        className="grid gap-3 rounded-md border border-white/10 bg-zinc-950 p-3 md:grid-cols-[minmax(0,1fr)_auto] md:items-center"
+                      >
+                        <div className="min-w-0">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <p className="truncate text-sm font-medium text-zinc-100">{assignment.role}</p>
+                            {assignment.isPrimary ? (
+                              <span className="rounded-full border border-emerald-300/20 bg-emerald-300/[0.055] px-2.5 py-1 text-[11px] uppercase tracking-[0.12em] text-emerald-100">
+                                Default
+                              </span>
+                            ) : null}
+                          </div>
+                          <p className="mt-1 truncate text-xs text-zinc-500">{assignment.programName}</p>
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => makePrimaryAssignmentDraft(assignmentKey)}
+                            disabled={assignment.isPrimary}
+                          >
+                            Make default
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => removeAssignmentDraft(assignmentKey)}
+                          >
+                            Remove
+                          </Button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <p className="rounded-md border border-amber-300/20 bg-amber-300/[0.055] p-3 text-sm leading-6 text-amber-100">
+                  Scoped users need at least one program access assignment before saving.
+                </p>
+              )}
+            </div>
             <div className="flex flex-wrap items-center justify-between gap-3 border-t border-white/10 pt-3">
               <p className="text-xs leading-5 text-zinc-500">
                 {invitationProvider?.configured

@@ -129,13 +129,15 @@ export function buildManagedAppUserRecord({
   const assignmentInputs = [input.assignment, ...(input.assignments ?? [])].filter(
     (assignment): assignment is ManagedProgramAssignmentInput => Boolean(assignment)
   );
-  const assignments = mergeAssignments({
-    assignments: assignmentInputs,
-    existingAssignments: existing?.assignments ?? [],
-    idFactory,
-    now,
-    programs
-  });
+  const assignments = isProgramScopedUserType(userType)
+    ? mergeAssignments({
+        assignments: assignmentInputs,
+        existingAssignments: existing?.assignments ?? [],
+        idFactory,
+        now,
+        programs
+      })
+    : [];
 
   if (isProgramScopedUserType(userType) && assignments.length === 0) {
     return { ok: false, error: "Select a program and program role for this user type." };

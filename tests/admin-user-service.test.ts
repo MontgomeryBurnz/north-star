@@ -25,6 +25,16 @@ const program: StoredProgram = {
   }
 };
 
+const platformProgram: StoredProgram = {
+  ...program,
+  id: "platform-modernization",
+  intake: {
+    ...program.intake,
+    programName: "Platform Modernization",
+    teamRoles: ["Tech Lead", "Data Engineering"]
+  }
+};
+
 test("buildManagedAppUserRecord validates name and email", () => {
   const result = buildManagedAppUserRecord({
     idFactory: () => "id-1",
@@ -68,6 +78,54 @@ test("buildManagedAppUserRecord creates a primary role assignment for a program"
   assert.equal(result.record.assignments[0]?.isPrimary, true);
 });
 
+test("buildManagedAppUserRecord creates multiple program role assignments in one mutation", () => {
+  const result = buildManagedAppUserRecord({
+    idFactory: () => "id-1",
+    input: {
+      name: "Sam Rivera",
+      email: "sam@example.com",
+      userType: "team-member",
+      assignments: [
+        {
+          programId: "compliance-hub",
+          role: "Business Analysis",
+          isPrimary: true
+        },
+        {
+          programId: "platform-modernization",
+          role: "Data Engineering"
+        }
+      ]
+    },
+    now: "2026-04-29T12:00:00.000Z",
+    programs: [program, platformProgram]
+  });
+
+  assert.equal(result.ok, true);
+  if (!result.ok) return;
+
+  assert.equal(result.record.assignments.length, 2);
+  assert.deepEqual(
+    result.record.assignments.map((assignment) => ({
+      programName: assignment.programName,
+      role: assignment.role,
+      isPrimary: assignment.isPrimary
+    })),
+    [
+      {
+        programName: "Compliance Hub",
+        role: "Business Analysis",
+        isPrimary: true
+      },
+      {
+        programName: "Platform Modernization",
+        role: "Data Engineering",
+        isPrimary: false
+      }
+    ]
+  );
+});
+
 test("buildManagedAppUserRecord allows admin users without a program assignment", () => {
   const result = buildManagedAppUserRecord({
     idFactory: () => "admin-1",
@@ -86,6 +144,44 @@ test("buildManagedAppUserRecord allows admin users without a program assignment"
 
   assert.equal(result.record.userType, "admin");
   assert.equal(result.record.assignments.length, 0);
+});
+
+test("buildManagedAppUserRecord clears scoped assignments when a user becomes admin", () => {
+  const existing = buildManagedAppUserRecord({
+    idFactory: () => "user-1",
+    input: {
+      name: "Admin Candidate",
+      email: "candidate@example.com",
+      userType: "team-member",
+      assignment: {
+        programId: "compliance-hub",
+        role: "Business Analysis"
+      }
+    },
+    now: "2026-04-29T12:00:00.000Z",
+    programs: [program]
+  });
+
+  assert.equal(existing.ok, true);
+  if (!existing.ok) return;
+
+  const updated = buildManagedAppUserRecord({
+    existing: existing.record,
+    idFactory: () => "unused",
+    input: {
+      name: "Admin Candidate",
+      email: "candidate@example.com",
+      userType: "admin"
+    },
+    now: "2026-04-29T13:00:00.000Z",
+    programs: [program]
+  });
+
+  assert.equal(updated.ok, true);
+  if (!updated.ok) return;
+
+  assert.equal(updated.record.userType, "admin");
+  assert.equal(updated.record.assignments.length, 0);
 });
 
 test("buildManagedAppUserRecord requires program assignment for scoped user types", () => {
