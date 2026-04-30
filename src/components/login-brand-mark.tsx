@@ -7,40 +7,56 @@ type MarkVariant = "hero" | "nav";
 
 type SceneConfig = {
   className: string;
-  columns: number;
   earthScale: number;
-  matrixOpacity: number;
+  particleCount: number;
+  particleOpacity: number;
   starScale: number;
 };
 
-type MatrixRainState = {
-  drops: number[];
-  speeds: number[];
+type CelestialParticle = {
+  alpha: number;
+  drift: number;
+  length: number;
+  phase: number;
+  radius: number;
+  speed: number;
+  x: number;
+  y: number;
+};
+
+type CelestialParticleState = {
+  particles: CelestialParticle[];
 };
 
 const SCENE_CONFIG: Record<MarkVariant, SceneConfig> = {
   hero: {
     className: "h-44 w-44",
-    columns: 24,
     earthScale: 0.27,
-    matrixOpacity: 1,
+    particleCount: 76,
+    particleOpacity: 1,
     starScale: 1
   },
   nav: {
     className: "h-12 w-12",
-    columns: 10,
     earthScale: 0.31,
-    matrixOpacity: 0.7,
+    particleCount: 18,
+    particleOpacity: 0.5,
     starScale: 0.58
   }
 };
 
-const MATRIX_GLYPHS = "01NORTHSTAR*<>[]";
-
-function randomMatrixState(columns: number, height: number): MatrixRainState {
+function randomCelestialParticleState(count: number, width: number, height: number): CelestialParticleState {
   return {
-    drops: Array.from({ length: columns }, () => Math.random() * height),
-    speeds: Array.from({ length: columns }, () => 0.35 + Math.random() * 0.85)
+    particles: Array.from({ length: count }, () => ({
+      alpha: 0.16 + Math.random() * 0.48,
+      drift: (Math.random() - 0.5) * 0.16,
+      length: height * (0.07 + Math.random() * 0.23),
+      phase: Math.random() * Math.PI * 2,
+      radius: 0.45 + Math.random() * 1.35,
+      speed: 0.12 + Math.random() * 0.48,
+      x: Math.random() * width,
+      y: Math.random() * height
+    }))
   };
 }
 
@@ -83,41 +99,68 @@ function drawStar(
   context.restore();
 }
 
-function drawMatrixRain(
+function drawCelestialParticles(
   context: CanvasRenderingContext2D,
-  state: MatrixRainState,
+  state: CelestialParticleState,
   width: number,
   height: number,
-  columns: number,
-  opacity: number
+  opacity: number,
+  time: number
 ) {
-  const columnWidth = width / columns;
-  const fontSize = Math.max(5, Math.min(10, width / 18));
-
   context.save();
-  context.font = `${fontSize}px ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace`;
-  context.textAlign = "center";
+  context.lineCap = "round";
 
-  for (let index = 0; index < columns; index += 1) {
-    const x = index * columnWidth + columnWidth / 2;
-    const y = state.drops[index] ?? 0;
-    const char = MATRIX_GLYPHS[Math.floor(Math.random() * MATRIX_GLYPHS.length)];
+  for (const particle of state.particles) {
+    const twinkle = 0.62 + Math.sin(time * 1.9 + particle.phase) * 0.24;
+    const alpha = particle.alpha * opacity * twinkle;
+    const x = particle.x + Math.sin(time * 0.7 + particle.phase) * width * particle.drift;
+    const y = particle.y;
+    const tailLength = particle.length * (0.72 + twinkle * 0.28);
 
-    context.fillStyle = `rgba(116, 255, 126, ${0.3 * opacity})`;
-    context.shadowColor = "rgba(0, 255, 102, 0.65)";
-    context.shadowBlur = 7;
-    context.fillText(char, x, y);
+    const trail = context.createLinearGradient(x, y - tailLength, x, y);
+    trail.addColorStop(0, "rgba(64, 255, 92, 0)");
+    trail.addColorStop(0.7, `rgba(76, 255, 108, ${alpha * 0.18})`);
+    trail.addColorStop(1, `rgba(232, 255, 236, ${alpha * 0.86})`);
 
-    context.fillStyle = `rgba(220, 255, 224, ${0.55 * opacity})`;
-    context.shadowBlur = 12;
-    context.fillText(char, x, y - fontSize * 1.2);
+    context.strokeStyle = trail;
+    context.shadowColor = "rgba(76, 255, 108, 0.72)";
+    context.shadowBlur = 5 + particle.radius * 4;
+    context.lineWidth = Math.max(0.55, particle.radius * 0.45);
+    context.beginPath();
+    context.moveTo(x, y - tailLength);
+    context.lineTo(x, y);
+    context.stroke();
 
-    state.drops[index] = y + (state.speeds[index] ?? 0.5) * 2.1;
-    if (state.drops[index] > height + 20) {
-      state.drops[index] = -20 - Math.random() * height * 0.5;
+    context.fillStyle = `rgba(209, 255, 218, ${Math.min(0.92, alpha + 0.24)})`;
+    context.beginPath();
+    context.arc(x, y, particle.radius, 0, Math.PI * 2);
+    context.fill();
+
+    particle.y += particle.speed;
+    if (particle.y > height + tailLength + 8) {
+      particle.alpha = 0.16 + Math.random() * 0.48;
+      particle.length = height * (0.07 + Math.random() * 0.23);
+      particle.radius = 0.45 + Math.random() * 1.35;
+      particle.speed = 0.12 + Math.random() * 0.48;
+      particle.x = Math.random() * width;
+      particle.y = -tailLength - Math.random() * height * 0.4;
     }
   }
 
+  context.restore();
+}
+
+function drawAmbientGlow(context: CanvasRenderingContext2D, centerX: number, centerY: number, radius: number) {
+  context.save();
+  const glow = context.createRadialGradient(centerX, centerY, radius * 0.04, centerX, centerY, radius);
+  glow.addColorStop(0, "rgba(47, 151, 84, 0.28)");
+  glow.addColorStop(0.42, "rgba(0, 96, 46, 0.16)");
+  glow.addColorStop(0.76, "rgba(0, 28, 15, 0.08)");
+  glow.addColorStop(1, "rgba(0, 0, 0, 0)");
+  context.fillStyle = glow;
+  context.beginPath();
+  context.arc(centerX, centerY, radius, 0, Math.PI * 2);
+  context.fill();
   context.restore();
 }
 
@@ -300,22 +343,6 @@ function drawHudRings(context: CanvasRenderingContext2D, centerX: number, center
   context.restore();
 }
 
-function drawScanlines(context: CanvasRenderingContext2D, width: number, height: number) {
-  context.save();
-  context.globalAlpha = 0.14;
-  context.strokeStyle = "rgba(145, 255, 158, 0.22)";
-  context.lineWidth = 0.5;
-
-  for (let y = 0; y < height; y += 4) {
-    context.beginPath();
-    context.moveTo(0, y);
-    context.lineTo(width, y);
-    context.stroke();
-  }
-
-  context.restore();
-}
-
 function BrandMarkFallback({ variant }: { variant: MarkVariant }) {
   const isNav = variant === "nav";
 
@@ -357,7 +384,7 @@ function initializeCanvasScene({
   let time = 0;
   let width = 1;
   let height = 1;
-  let matrixState = randomMatrixState(config.columns, 1);
+  let particleState = randomCelestialParticleState(config.particleCount, 1, 1);
   const dpr = Math.min(window.devicePixelRatio || 1, 2);
   const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
@@ -368,7 +395,7 @@ function initializeCanvasScene({
     canvas.width = Math.floor(width * dpr);
     canvas.height = Math.floor(height * dpr);
     context.setTransform(dpr, 0, 0, dpr, 0, 0);
-    matrixState = randomMatrixState(config.columns, height);
+    particleState = randomCelestialParticleState(config.particleCount, width, height);
   };
 
   const render = (timestamp = 0) => {
@@ -381,25 +408,12 @@ function initializeCanvasScene({
     const centerX = width * 0.5;
     const centerY = height * (variant === "nav" ? 0.51 : 0.53);
     const earthRadius = Math.min(width, height) * config.earthScale;
-    const background = context.createRadialGradient(
-      width * 0.54,
-      height * 0.46,
-      Math.min(width, height) * 0.08,
-      width * 0.52,
-      height * 0.5,
-      Math.min(width, height) * 0.72
-    );
-    background.addColorStop(0, "rgba(13, 66, 38, 0.42)");
-    background.addColorStop(0.55, "rgba(0, 12, 8, 0.68)");
-    background.addColorStop(1, "rgba(0, 0, 0, 0)");
-    context.fillStyle = background;
-    context.fillRect(0, 0, width, height);
 
-    drawMatrixRain(context, matrixState, width, height, config.columns, config.matrixOpacity);
+    drawAmbientGlow(context, centerX, centerY, Math.min(width, height) * 0.66);
+    drawCelestialParticles(context, particleState, width, height, config.particleOpacity, time);
     drawEarth(context, centerX, centerY, earthRadius, time);
     drawOrbit(context, centerX, centerY, width * 0.35, height * 0.13, time, config.starScale);
     drawHudRings(context, centerX, centerY, earthRadius, time);
-    drawScanlines(context, width, height);
 
     if (!ready) {
       ready = true;
