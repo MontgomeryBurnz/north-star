@@ -9,6 +9,7 @@ import { useRequestSequence } from "@/hooks/use-request-sequence";
 import type { DeliveryLeadershipSignal } from "@/lib/leadership-feedback-types";
 import type { ProgramMeetingAttachment, ProgramMeetingInput } from "@/lib/program-intelligence-types";
 import type { ProgramArtifact, ProgramIntake } from "@/lib/program-intake-types";
+import { normalizeTeamRoles } from "@/lib/team-roles";
 import { firstSignal, splitLines } from "@/lib/text-signals";
 import { ActiveProgramCockpitCard } from "@/components/active-program-cockpit-card";
 import { ActiveProgramMeetingIntelligenceCard } from "@/components/active-program-meeting-intelligence-card";
@@ -65,15 +66,6 @@ function normalizeProgramLabel(value: string) {
 const reviewHistoryKey = "work-path-active-program-updates";
 const reviewDraftKey = "work-path-active-program-review";
 const intakeDraftKey = "work-path-program-intake";
-
-const defaultTeamRoles = [
-  "Product Management",
-  "Business Analysis",
-  "User Experience",
-  "Application Development",
-  "Data Engineering",
-  "Change Management"
-] as const;
 
 function mapLegacyConfidenceToStatus(confidence?: string): TeamRoleUpdateStatus {
   if (confidence === "low") return "blocked";
@@ -162,8 +154,7 @@ function inferMeetingTitleFromFileName(fileName: string) {
 }
 
 function getProgramTeamRoles(intake?: ProgramIntake) {
-  const configured = intake?.teamRoles?.map((role) => role.trim()).filter(Boolean) ?? [];
-  return Array.from(new Set((configured.length ? configured : [...defaultTeamRoles]).map((role) => role.trim()).filter(Boolean)));
+  return normalizeTeamRoles(intake?.teamRoles);
 }
 
 function startOfWeek(date: Date) {

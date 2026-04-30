@@ -1,7 +1,7 @@
 "use client";
 
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
-import { CheckCircle2, ChevronDown, ShieldCheck, UserPlus, UsersRound } from "lucide-react";
+import { CheckCircle2, ChevronDown, PlusCircle, RefreshCw, ShieldCheck, UserPlus, UsersRound } from "lucide-react";
 import type {
   AppUserCredentialStatus,
   AppUserType,
@@ -10,17 +10,9 @@ import type {
 } from "@/lib/admin-user-types";
 import { appUserCredentialStatuses, appUserTypes } from "@/lib/admin-user-types";
 import type { StoredProgram } from "@/lib/program-intake-types";
+import { normalizeTeamRoles } from "@/lib/team-roles";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-
-const baselineTeamRoles = [
-  "Product Management",
-  "Business Analysis",
-  "User Experience",
-  "Application Development",
-  "Data Engineering",
-  "Change Management"
-];
 
 const userTypeLabels: Record<AppUserType, string> = {
   admin: "Admin",
@@ -52,8 +44,7 @@ type InvitationProviderStatus = {
 };
 
 function getProgramRoles(program: StoredProgram | undefined) {
-  const configured = program?.intake.teamRoles?.map((role) => role.trim()).filter(Boolean) ?? [];
-  return Array.from(new Set(configured.length ? configured : baselineTeamRoles));
+  return program ? normalizeTeamRoles(program.intake.teamRoles) : [];
 }
 
 function formatDate(value: string) {
@@ -79,6 +70,9 @@ export function AdminUserManagementCard() {
   const [status, setStatus] = useState<string | null>(null);
   const [statusTone, setStatusTone] = useState<"neutral" | "success" | "error">("neutral");
   const [invitationProvider, setInvitationProvider] = useState<InvitationProviderStatus | null>(null);
+  const [newProgramRole, setNewProgramRole] = useState("");
+  const [roleSaveState, setRoleSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle");
+  const [roleStatus, setRoleStatus] = useState<string | null>(null);
 
   const selectedProgram = useMemo(
     () => programs.find((program) => program.id === form.programId),
@@ -86,6 +80,7 @@ export function AdminUserManagementCard() {
   );
   const availableRoles = useMemo(() => getProgramRoles(selectedProgram), [selectedProgram]);
   const canSaveUser = Boolean(form.name.trim() && form.email.trim() && form.programId && form.role);
+  const canAddProgramRole = Boolean(selectedProgram && newProgramRole.trim() && roleSaveState !== "saving");
 
   const loadAdminUsers = useCallback(async () => {
     setStatus("Loading users and programs...");
@@ -129,6 +124,9 @@ export function AdminUserManagementCard() {
       role: roles.includes(current.role) ? current.role : roles[0] ?? ""
     }));
     setSaveState("idle");
+    setNewProgramRole("");
+    setRoleSaveState("idle");
+    setRoleStatus(null);
   }
 
   async function saveUser(sendInvite: boolean) {
@@ -176,6 +174,63 @@ export function AdminUserManagementCard() {
     };
   }
 
+  async function addProgramRole() {
+    if (!selectedProgram) {
+      setRoleSaveState("error");
+      setRoleStatus("Select a program before adding a role.");
+      return;
+    }
+
+    const role = newProgramRole.trim();
+    if (!role) {
+      setRoleSaveState("error");
+      setRoleStatus("Enter a role name before adding it to the program.");
+      return;
+    }
+
+    setRoleSaveState("saving");
+    setRoleStatus(`Adding ${role} and refreshing guided plans...`);
+
+    try {
+      const response = await fetch(`/api/admin/programs/${selectedProgram.id}/roles`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ role })
+      });
+      const payload = (await response.json()) as {
+        error?: string;
+        program?: StoredProgram;
+        refreshedAt?: string;
+        role?: string;
+      };
+
+      if (!response.ok || !payload.program || !payload.role) {
+        throw new Error(payload.error ?? "Could not add role.");
+      }
+      const savedProgram = payload.program;
+      const savedRole = payload.role;
+
+      setPrograms((current) => [savedProgram, ...current.filter((program) => program.id !== savedProgram.id)]);
+      setForm((current) => ({
+        ...current,
+        programId: savedProgram.id,
+        role: savedRole
+      }));
+      setNewProgramRole("");
+      setRoleSaveState("saved");
+      setRoleStatus(
+        `${savedRole} was added to ${savedProgram.intake.programName}. Guidance refreshed${
+          payload.refreshedAt ? ` ${formatDate(payload.refreshedAt)}` : ""
+        }.`
+      );
+      setStatusTone("success");
+      setStatus(`${savedRole} was added and the guided plan was refreshed for ${savedProgram.intake.programName}.`);
+    } catch (error) {
+      setRoleSaveState("error");
+      setRoleStatus(error instanceof Error ? error.message : "Could not add role and refresh guidance.");
+    }
+  }
+
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
@@ -183,7 +238,6 @@ export function AdminUserManagementCard() {
       const submitter = (event.nativeEvent as SubmitEvent).submitter;
       const sendInvite = submitter instanceof HTMLButtonElement && submitter.value === "invite";
       const { invitation, user: savedUser } = await saveUser(sendInvite);
-
 
       setUsers((current) => [savedUser, ...current.filter((user) => user.id !== savedUser.id)]);
       setExpandedUsers((current) => ({ ...current, [savedUser.id]: true }));
@@ -220,6 +274,7 @@ export function AdminUserManagementCard() {
       </CardHeader>
       <CardContent className="grid gap-5 p-5">
         <div className="grid gap-5 xl:grid-cols-[minmax(0,0.95fr)_minmax(20rem,0.65fr)]">
+          <div className="grid gap-4">
           <form onSubmit={handleSubmit} className="grid gap-4 rounded-md border border-white/10 bg-white/[0.035] p-4">
             <div>
               <p className="text-sm font-medium text-zinc-100">Add user or role assignment</p>
@@ -344,6 +399,78 @@ export function AdminUserManagementCard() {
               </div>
             </div>
           </form>
+
+          <div className="grid gap-4 rounded-md border border-cyan-300/20 bg-cyan-300/[0.04] p-4">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <p className="flex items-center gap-2 text-sm font-medium text-zinc-100">
+                  <PlusCircle className="h-4 w-4 text-cyan-200" />
+                  Program role coverage
+                </p>
+                <p className="mt-1 text-xs leading-5 text-zinc-500">
+                  Add roles to the selected program. Saving a new role refreshes guided plans with the updated team composition.
+                </p>
+              </div>
+              <span className="rounded-full border border-white/10 bg-black/20 px-3 py-1 text-[11px] font-medium uppercase tracking-[0.14em] text-zinc-300">
+                {selectedProgram ? `${availableRoles.length} roles` : "No program"}
+              </span>
+            </div>
+
+            {selectedProgram ? (
+              <div className="flex flex-wrap gap-2">
+                {availableRoles.map((role) => (
+                  <span
+                    key={role}
+                    className="rounded-full border border-white/10 bg-black/20 px-3 py-1.5 text-xs text-zinc-300"
+                  >
+                    {role}
+                  </span>
+                ))}
+              </div>
+            ) : (
+              <p className="rounded-md border border-white/10 bg-black/20 p-3 text-sm leading-6 text-zinc-400">
+                Select a program above to manage its roles.
+              </p>
+            )}
+
+            <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_auto] md:items-end">
+              <label className="grid gap-2">
+                <span className="text-xs font-medium uppercase tracking-[0.16em] text-zinc-300">New program role</span>
+                <input
+                  value={newProgramRole}
+                  onChange={(event) => {
+                    setNewProgramRole(event.target.value);
+                    setRoleSaveState("idle");
+                    setRoleStatus(null);
+                  }}
+                  placeholder="Scrum Master, QA Lead, Security Lead..."
+                  disabled={!selectedProgram || roleSaveState === "saving"}
+                  className="min-h-11 rounded-md border border-white/10 bg-zinc-950 px-3 py-3 text-sm text-zinc-100 outline-none transition-colors placeholder:text-zinc-500 disabled:text-zinc-600 focus:border-cyan-300/50"
+                />
+              </label>
+              <Button type="button" onClick={() => void addProgramRole()} disabled={!canAddProgramRole}>
+                {roleSaveState === "saving" ? <RefreshCw className="h-4 w-4 animate-spin" /> : <PlusCircle className="h-4 w-4" />}
+                {roleSaveState === "saving" ? "Refreshing..." : "Add role"}
+              </Button>
+            </div>
+
+            {roleStatus ? (
+              <div
+                aria-live="polite"
+                className={`rounded-md border p-3 text-sm leading-6 ${
+                  roleSaveState === "error"
+                    ? "border-amber-300/25 bg-amber-300/[0.065] text-amber-100"
+                    : roleSaveState === "saved"
+                      ? "border-emerald-300/25 bg-emerald-300/[0.065] text-emerald-100"
+                      : "border-white/10 bg-black/20 text-zinc-400"
+                }`}
+              >
+                {roleSaveState === "saved" ? <CheckCircle2 className="mr-2 inline h-4 w-4" /> : null}
+                {roleStatus}
+              </div>
+            ) : null}
+          </div>
+          </div>
 
           <div className="grid content-start gap-3 rounded-md border border-emerald-300/20 bg-emerald-300/[0.055] p-4">
             <p className="flex items-center gap-2 text-sm font-medium text-emerald-100">

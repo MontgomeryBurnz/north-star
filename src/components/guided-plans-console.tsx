@@ -14,6 +14,7 @@ import { useProgramCatalog } from "@/hooks/use-program-catalog";
 import { useRequestSequence } from "@/hooks/use-request-sequence";
 import { buildTeamActionPlanFlagSourceId } from "@/lib/guidance-feedback-flag-sources";
 import { buildProgramGantt } from "@/lib/program-gantt";
+import { normalizeTeamRoles } from "@/lib/team-roles";
 import { Button } from "@/components/ui/button";
 import { GuidedPlanEmptyStateCard } from "@/components/guided-plan-empty-state-card";
 import { GuidedPlanFollowUpCard } from "@/components/guided-plan-follow-up-card";
@@ -23,15 +24,6 @@ import { GuidedPlanOverviewCard } from "@/components/guided-plan-overview-card";
 import { GuidedPlansSidebar } from "@/components/guided-plans-sidebar";
 import { PlanSectionCard, RolePlansCard } from "@/components/guided-plan-section-cards";
 import { SectionHeader } from "@/components/section-header";
-
-const defaultTeamRoles = [
-  "Product Management",
-  "Business Analysis",
-  "User Experience",
-  "Application Development",
-  "Data Engineering",
-  "Change Management"
-];
 
 const allRolesOption = "__all_roles__";
 
@@ -158,7 +150,7 @@ export function GuidedPlansConsole() {
   const ganttPhases = useMemo(() => buildProgramGantt(selectedProgram, latestUpdate), [latestUpdate, selectedProgram]);
   const currentPhase = ganttPhases.find((phase) => phase.status === "current") ?? ganttPhases[ganttPhases.length - 1];
   const teamRoles = useMemo(
-    () => (selectedProgram?.intake.teamRoles?.length ? selectedProgram.intake.teamRoles : defaultTeamRoles),
+    () => normalizeTeamRoles(selectedProgram?.intake.teamRoles),
     [selectedProgram]
   );
   const teamRoleSignature = useMemo(() => teamRoles.map((role) => normalizeRoleKey(role)).join("|"), [teamRoles]);
