@@ -54,6 +54,30 @@ function escapeHtml(value: string) {
     .replace(/'/g, "&#039;");
 }
 
+function getNorthStarEmailBrandHost(actionUrl: string) {
+  const candidates = [
+    process.env.NORTHSTAR_APP_URL,
+    process.env.NEXT_PUBLIC_NORTHSTAR_APP_URL,
+    process.env.NEXT_PUBLIC_APP_URL,
+    process.env.NEXT_PUBLIC_SITE_URL,
+    actionUrl,
+    "https://www.north-star.live"
+  ];
+
+  for (const candidate of candidates) {
+    if (!candidate?.trim()) continue;
+
+    try {
+      const withProtocol = /^https?:\/\//i.test(candidate) ? candidate : `https://${candidate}`;
+      return new URL(withProtocol).hostname.replace(/^www\./i, "");
+    } catch {
+      // Continue through less authoritative fallbacks.
+    }
+  }
+
+  return "north-star.live";
+}
+
 function getSenderDomain(fromAddress: string | undefined) {
   const match = fromAddress?.match(/@([^>\s]+)>?$/);
   return match?.[1]?.trim().toLowerCase();
@@ -138,6 +162,7 @@ export function buildNorthStarAuthEmail(input: NorthStarEmailInput) {
   const safeEyebrow = escapeHtml(input.eyebrow);
   const safePreview = escapeHtml(input.preview);
   const safeTitle = escapeHtml(input.title);
+  const safeBrandHost = escapeHtml(getNorthStarEmailBrandHost(input.actionUrl));
 
   return `<!doctype html>
 <html lang="en">
@@ -151,32 +176,43 @@ export function buildNorthStarAuthEmail(input: NorthStarEmailInput) {
     <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#050708;padding:32px 16px;">
       <tr>
         <td align="center">
-          <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:640px;overflow:hidden;border:1px solid rgba(110,231,183,0.26);border-radius:20px;background:#090d0f;">
+          <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:680px;overflow:hidden;border:1px solid rgba(110,231,183,0.28);border-radius:24px;background:#080c0d;box-shadow:0 24px 80px rgba(0,0,0,0.48);">
             <tr>
-              <td style="padding:34px 32px 26px;background:linear-gradient(135deg,#07130f 0%,#10231b 48%,#042f2e 100%);">
+              <td style="padding:34px 32px 28px;background:#06100d;background-image:radial-gradient(circle at 78% 28%,rgba(52,211,153,0.28),rgba(52,211,153,0) 28%),radial-gradient(circle at 18% 18%,rgba(103,232,249,0.16),rgba(103,232,249,0) 28%),linear-gradient(135deg,#06100d 0%,#0c1d17 54%,#031615 100%);">
                 <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
                   <tr>
-                    <td>
-                      <div style="display:inline-block;border:1px solid rgba(167,243,208,0.4);border-radius:14px;background:rgba(16,185,129,0.16);padding:12px 14px;color:#a7f3d0;font-size:18px;font-weight:800;letter-spacing:0.08em;">N</div>
+                    <td valign="top" style="width:150px;">
+                      <table role="presentation" width="132" height="132" cellspacing="0" cellpadding="0" style="border-collapse:collapse;">
+                        <tr>
+                          <td align="center" valign="middle" style="width:132px;height:132px;border-radius:999px;background:radial-gradient(circle at 50% 52%,rgba(34,197,94,0.2),rgba(3,7,18,0) 67%);">
+                            <div style="width:106px;height:106px;border-radius:999px;background:radial-gradient(circle at 33% 27%,#dfffea 0%,#39d978 24%,#0a331f 58%,#020605 100%);border:1px solid rgba(167,243,208,0.5);box-shadow:0 0 30px rgba(52,211,153,0.38),inset -18px -12px 32px rgba(0,0,0,0.76);">
+                              <div style="height:24px;line-height:24px;font-size:0;">&nbsp;</div>
+                              <div style="margin:0 auto;width:58px;height:58px;border-radius:999px;border:1px solid rgba(217,255,226,0.42);background:rgba(3,12,9,0.56);box-shadow:inset 0 0 18px rgba(167,243,208,0.18);color:#edfff4;font-size:34px;font-weight:900;line-height:58px;text-align:center;letter-spacing:-0.08em;text-shadow:0 0 18px rgba(167,243,208,0.9);">N</div>
+                              <div style="margin:-24px auto 0;width:94px;height:5px;border-radius:999px;background:linear-gradient(90deg,rgba(34,197,94,0),rgba(167,243,208,0.9),#ffffff);box-shadow:0 0 18px rgba(74,222,128,0.9);">&nbsp;</div>
+                              <div style="margin:-18px 13px 0 auto;width:17px;height:17px;border-radius:999px;background:#f3fff6;box-shadow:0 0 18px #ffffff,0 0 32px rgba(74,222,128,0.95),0 0 52px rgba(34,197,94,0.72);font-size:0;">&nbsp;</div>
+                            </div>
+                          </td>
+                        </tr>
+                      </table>
                     </td>
-                    <td align="right" style="color:#a7f3d0;font-size:12px;font-weight:700;letter-spacing:0.22em;text-transform:uppercase;">North Star</td>
+                    <td align="right" valign="top" style="color:#a7f3d0;font-size:12px;font-weight:800;letter-spacing:0.22em;text-transform:uppercase;">North Star<br><span style="display:inline-block;margin-top:8px;color:#67e8f9;font-size:11px;font-weight:700;letter-spacing:0.12em;text-transform:none;">${safeBrandHost}</span></td>
                   </tr>
                 </table>
                 <p style="margin:28px 0 12px;color:#67e8f9;font-size:12px;font-weight:800;letter-spacing:0.22em;text-transform:uppercase;">${safeEyebrow}</p>
-                <h1 style="margin:0;color:#ffffff;font-size:34px;line-height:1.08;letter-spacing:-0.02em;">${safeTitle}</h1>
+                <h1 style="margin:0;color:#ffffff;font-size:36px;line-height:1.06;letter-spacing:-0.02em;">${safeTitle}</h1>
                 <p style="margin:18px 0 0;color:#cbd5e1;font-size:16px;line-height:1.7;">${safeBody}</p>
               </td>
             </tr>
             <tr>
               <td style="padding:30px 32px;background:#090d0f;">
-                <a href="${safeActionUrl}" style="display:inline-block;border-radius:12px;background:#34d399;color:#022c22;font-size:15px;font-weight:800;text-decoration:none;padding:14px 20px;">${safeActionLabel}</a>
+                <a href="${safeActionUrl}" style="display:inline-block;border-radius:14px;background:#34d399;color:#022c22;font-size:15px;font-weight:900;text-decoration:none;padding:15px 22px;box-shadow:0 0 22px rgba(52,211,153,0.28);">${safeActionLabel}</a>
                 <p style="margin:22px 0 0;color:#94a3b8;font-size:13px;line-height:1.7;">If the button does not work, copy and paste this secure link into your browser:</p>
                 <p style="margin:8px 0 0;word-break:break-all;color:#67e8f9;font-size:12px;line-height:1.7;">${safeActionUrl}</p>
               </td>
             </tr>
             <tr>
-              <td style="border-top:1px solid rgba(255,255,255,0.08);padding:18px 32px;color:#64748b;font-size:12px;line-height:1.6;">
-                This secure link was generated for North Star access. If you were not expecting this message, you can ignore it.
+              <td style="border-top:1px solid rgba(255,255,255,0.08);padding:18px 32px;color:#64748b;font-size:12px;line-height:1.6;background:#070a0b;">
+                This secure link was generated for North Star access at ${safeBrandHost}. If you were not expecting this message, you can ignore it.
               </td>
             </tr>
           </table>
@@ -189,20 +225,21 @@ export function buildNorthStarAuthEmail(input: NorthStarEmailInput) {
 
 export function buildNorthStarInviteEmail(input: NorthStarInviteEmailInput) {
   const name = input.recipientName.trim() || input.recipientEmail;
+  const brandHost = getNorthStarEmailBrandHost(input.actionUrl);
 
   return buildNorthStarAuthEmail({
-    actionLabel: "Activate North Star access",
+    actionLabel: "Create North Star access",
     actionUrl: input.actionUrl,
-    body: `${name}, your North Star account is ready. Set your password, then use your email address as your username whenever you return to the application.`,
-    eyebrow: "Invitation",
-    preview: "Your North Star invitation is ready.",
-    title: "Step into North Star"
+    body: `${name}, your North Star workspace is ready at ${brandHost}. Create your password, then use your email address as your username whenever you return to the application.`,
+    eyebrow: "North Star invite",
+    preview: "Create your North Star password and enter the workspace.",
+    title: "Your North Star access is ready"
   });
 }
 
 export function buildNorthStarRecoveryEmail(input: NorthStarRecoveryEmailInput) {
   return buildNorthStarAuthEmail({
-    actionLabel: "Reset access",
+    actionLabel: "Reset North Star password",
     actionUrl: input.actionUrl,
     body: `Use this secure link to reset your North Star password. Your username is the email address receiving this message: ${input.recipientEmail}.`,
     eyebrow: "Account recovery",

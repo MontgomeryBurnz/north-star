@@ -16,8 +16,9 @@ test("buildNorthStarInviteEmail renders branded setup copy and escapes user cont
   });
 
   assert.match(html, /North Star/);
-  assert.match(html, /Activate North Star access/);
-  assert.match(html, /Step into North Star/);
+  assert.match(html, /Create North Star access/);
+  assert.match(html, /Your North Star access is ready/);
+  assert.match(html, /North Star invite/);
   assert.match(html, /&lt;Lead&gt;/);
   assert.doesNotMatch(html, /<Lead>/);
 });

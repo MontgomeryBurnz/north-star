@@ -193,7 +193,7 @@ export async function inviteManagedUser(user: ManagedAppUser, request: Request):
         recipientEmail: user.email,
         recipientName: user.name
       }),
-      subject: "Activate your North Star access",
+      subject: "Your North Star access is ready",
       text: buildNorthStarInviteText({
         actionUrl,
         recipientEmail: user.email,
