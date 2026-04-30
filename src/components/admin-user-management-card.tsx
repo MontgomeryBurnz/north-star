@@ -1,7 +1,7 @@
 "use client";
 
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
-import { CheckCircle2, ChevronDown, MailCheck, MailWarning, Pencil, PlusCircle, RefreshCw, ShieldCheck, Trash2, UserPlus, UsersRound, XCircle } from "lucide-react";
+import { CheckCircle2, ChevronDown, Copy, Link2, MailCheck, MailWarning, Pencil, PlusCircle, RefreshCw, ShieldCheck, Trash2, UserPlus, UsersRound, XCircle } from "lucide-react";
 import type {
   AppUserCredentialStatus,
   AppUserType,
@@ -42,6 +42,12 @@ const emptyForm = {
 };
 
 type AssignmentDraft = Pick<ManagedProgramAssignment, "programId" | "programName" | "role" | "isPrimary">;
+
+type SetupLinkState = {
+  userId: string;
+  userName: string;
+  url: string;
+};
 
 type InvitationProviderStatus = {
   brandedEmail?: {
@@ -93,6 +99,8 @@ export function AdminUserManagementCard() {
   const [roleSaveState, setRoleSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const [roleStatus, setRoleStatus] = useState<string | null>(null);
   const [deletingUserId, setDeletingUserId] = useState<string | null>(null);
+  const [copyingSetupLinkUserId, setCopyingSetupLinkUserId] = useState<string | null>(null);
+  const [setupLink, setSetupLink] = useState<SetupLinkState | null>(null);
 
   const selectedProgram = useMemo(
     () => programs.find((program) => program.id === form.programId),
@@ -260,6 +268,63 @@ export function AdminUserManagementCard() {
     }));
   }
 
+  async function writeSetupLinkToClipboard(link: SetupLinkState) {
+    try {
+      await navigator.clipboard.writeText(link.url);
+      setStatusTone("success");
+      setStatus(`Setup link copied for ${link.userName}. Share it directly if the invite email is delayed or quarantined.`);
+    } catch {
+      setStatusTone("success");
+      setStatus(`Setup link generated for ${link.userName}. Copy it from the field below.`);
+    }
+  }
+
+  async function copySetupLink(user: ManagedAppUser) {
+    setCopyingSetupLinkUserId(user.id);
+    setStatusTone("neutral");
+    setStatus(`Generating setup link for ${user.name}...`);
+
+    try {
+      const response = await fetch("/api/admin/users/setup-link", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ id: user.id })
+      });
+      const payload = (await response.json()) as {
+        error?: string;
+        invitationProvider?: InvitationProviderStatus;
+        setupLink?: { type: "invite" | "recovery"; url: string };
+        user?: ManagedAppUser;
+      };
+
+      if (payload.invitationProvider) {
+        setInvitationProvider(payload.invitationProvider);
+      }
+
+      if (payload.user) {
+        setUsers((current) => [payload.user as ManagedAppUser, ...current.filter((item) => item.id !== payload.user?.id)]);
+        setExpandedUsers((current) => ({ ...current, [payload.user?.id ?? user.id]: true }));
+      }
+
+      if (!response.ok || !payload.setupLink?.url) {
+        throw new Error(payload.error ?? "Could not generate setup link.");
+      }
+
+      const link = {
+        userId: payload.user?.id ?? user.id,
+        userName: payload.user?.name ?? user.name,
+        url: payload.setupLink.url
+      };
+      setSetupLink(link);
+      await writeSetupLinkToClipboard(link);
+    } catch (error) {
+      setStatusTone("error");
+      setStatus(error instanceof Error ? error.message : "Could not generate setup link.");
+    } finally {
+      setCopyingSetupLinkUserId(null);
+    }
+  }
+
   async function saveUser(sendInvite: boolean) {
     setSaveAction(sendInvite ? "invite" : "save");
     setSaveState("saving");
@@ -380,10 +445,10 @@ export function AdminUserManagementCard() {
         setStatusTone("success");
         setStatus(
           savedUser.userType === "admin"
-            ? `${savedUser.name} was ${wasEditing ? "updated" : "saved"} with Admin access and an account setup invite was sent.`
+            ? `${savedUser.name} was ${wasEditing ? "updated" : "saved"} with Admin access and an account setup invite was sent. If it does not arrive, use Copy setup link from the user card.`
             : `${savedUser.name} was ${wasEditing ? "updated" : "saved"} with ${savedUser.assignments.length} program role assignment${
                 savedUser.assignments.length === 1 ? "" : "s"
-              } and an account setup invite was sent.`
+              } and an account setup invite was sent. If it does not arrive, use Copy setup link from the user card.`
         );
       } else if (invitation && !invitation.ok) {
         setStatusTone("error");
@@ -492,6 +557,29 @@ export function AdminUserManagementCard() {
           >
             {statusTone === "success" ? <CheckCircle2 className="mr-2 inline h-4 w-4" /> : null}
             {status}
+          </div>
+        ) : null}
+
+        {setupLink ? (
+          <div className="grid gap-3 rounded-md border border-cyan-300/25 bg-cyan-300/[0.055] p-3">
+            <p className="flex items-center gap-2 text-xs font-medium uppercase tracking-[0.16em] text-cyan-100">
+              <Link2 className="h-4 w-4" />
+              Secure setup link
+            </p>
+            <p className="text-sm leading-6 text-zinc-300">
+              Use this only for {setupLink.userName} if the email invite is delayed, quarantined, or blocked.
+            </p>
+            <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto]">
+              <input
+                readOnly
+                value={setupLink.url}
+                className="min-h-11 rounded-md border border-white/10 bg-zinc-950 px-3 py-3 text-sm text-zinc-100 outline-none"
+              />
+              <Button type="button" variant="outline" onClick={() => void writeSetupLinkToClipboard(setupLink)}>
+                <Copy className="h-4 w-4" />
+                Copy link
+              </Button>
+            </div>
           </div>
         ) : null}
 
@@ -904,6 +992,17 @@ export function AdminUserManagementCard() {
                           <Pencil className="h-4 w-4" />
                           {form.id === user.id ? "Editing" : "Edit access"}
                         </Button>
+                        {user.credentialStatus !== "disabled" ? (
+                          <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => void copySetupLink(user)}
+                            disabled={copyingSetupLinkUserId === user.id || deletingUserId === user.id}
+                          >
+                            {copyingSetupLinkUserId === user.id ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Copy className="h-4 w-4" />}
+                            {copyingSetupLinkUserId === user.id ? "Generating..." : "Copy setup link"}
+                          </Button>
+                        ) : null}
                         <Button
                           type="button"
                           variant="outline"
