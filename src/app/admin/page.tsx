@@ -3,9 +3,11 @@ import { AdminOperatingCostCenter } from "@/components/admin-operating-cost-cent
 import { AdminUserManagementCard } from "@/components/admin-user-management-card";
 import { GovernanceDashboard } from "@/components/governance-dashboard";
 import { SectionHeader } from "@/components/section-header";
+import { getInvitationProviderStatus } from "@/lib/admin-user-invitations";
 import { getGuidanceModelProfile } from "@/lib/guidance-model-profile";
 import { getAdminAccessContext } from "@/lib/leadership-auth";
 import { requireSiteAccessPage } from "@/lib/app-page-access";
+import { listManagedUsers, listPrograms } from "@/lib/program-store";
 
 export default async function AdminPage() {
   await requireSiteAccessPage("/admin");
@@ -14,6 +16,10 @@ export default async function AdminPage() {
     redirect("/login?redirect=/admin");
   }
   const guidanceModelProfile = getGuidanceModelProfile();
+  const [initialUsers, initialPrograms] = await Promise.all([
+    listManagedUsers(),
+    listPrograms()
+  ]);
 
   return (
     <main className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
@@ -24,7 +30,11 @@ export default async function AdminPage() {
       />
 
       <section className="mt-10">
-        <AdminUserManagementCard />
+        <AdminUserManagementCard
+          initialInvitationProvider={getInvitationProviderStatus()}
+          initialPrograms={initialPrograms}
+          initialUsers={initialUsers}
+        />
       </section>
 
       <AdminOperatingCostCenter guidanceModelProfile={guidanceModelProfile} />

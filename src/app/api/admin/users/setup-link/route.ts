@@ -5,12 +5,12 @@ import { listManagedUsers, upsertManagedUser } from "@/lib/program-store";
 import { createSiteAccessDeniedResponse, isSiteAccessRequestAuthorized } from "@/lib/site-access";
 
 async function requireAdminAccess(request: Request) {
-  if (!isSiteAccessRequestAuthorized(request)) {
-    return createSiteAccessDeniedResponse();
-  }
-
   const access = await getAdminAccessContext();
   if (!access.authorized) {
+    if (!isSiteAccessRequestAuthorized(request)) {
+      return createSiteAccessDeniedResponse();
+    }
+
     return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
   }
 

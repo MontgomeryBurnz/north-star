@@ -7,12 +7,12 @@ import { createSiteAccessDeniedResponse, isSiteAccessRequestAuthorized } from "@
 import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/lib/supabase/server";
 
 async function requireAdminAccess(request: Request) {
-  if (!isSiteAccessRequestAuthorized(request)) {
-    return createSiteAccessDeniedResponse();
-  }
-
   const access = await getAdminAccessContext();
   if (!access.authorized) {
+    if (!isSiteAccessRequestAuthorized(request)) {
+      return createSiteAccessDeniedResponse();
+    }
+
     return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
   }
 

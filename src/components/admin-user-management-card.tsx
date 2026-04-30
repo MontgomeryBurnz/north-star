@@ -84,9 +84,20 @@ function getAssignmentDraftKey(assignment: Pick<ManagedProgramAssignment, "progr
   return `${assignment.programId}::${assignment.role.trim().toLowerCase()}`;
 }
 
-export function AdminUserManagementCard() {
-  const [programs, setPrograms] = useState<StoredProgram[]>([]);
-  const [users, setUsers] = useState<ManagedAppUser[]>([]);
+type AdminUserManagementCardProps = {
+  initialInvitationProvider: InvitationProviderStatus;
+  initialPrograms: StoredProgram[];
+  initialUsers: ManagedAppUser[];
+};
+
+export function AdminUserManagementCard({
+  initialInvitationProvider,
+  initialPrograms,
+  initialUsers
+}: AdminUserManagementCardProps) {
+  const hasInitialAdminData = Boolean(initialUsers.length || initialPrograms.length);
+  const [programs, setPrograms] = useState<StoredProgram[]>(initialPrograms);
+  const [users, setUsers] = useState<ManagedAppUser[]>(initialUsers);
   const [form, setForm] = useState(emptyForm);
   const [assignmentDrafts, setAssignmentDrafts] = useState<AssignmentDraft[]>([]);
   const [expandedUsers, setExpandedUsers] = useState<Record<string, boolean>>({});
@@ -94,7 +105,7 @@ export function AdminUserManagementCard() {
   const [saveAction, setSaveAction] = useState<"save" | "invite">("save");
   const [status, setStatus] = useState<string | null>(null);
   const [statusTone, setStatusTone] = useState<"neutral" | "success" | "error">("neutral");
-  const [invitationProvider, setInvitationProvider] = useState<InvitationProviderStatus | null>(null);
+  const [invitationProvider, setInvitationProvider] = useState<InvitationProviderStatus | null>(initialInvitationProvider);
   const [newProgramRole, setNewProgramRole] = useState("");
   const [roleSaveState, setRoleSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const [roleStatus, setRoleStatus] = useState<string | null>(null);
@@ -146,8 +157,8 @@ export function AdminUserManagementCard() {
 
     try {
       const [usersResponse, programsResponse] = await Promise.all([
-        fetch("/api/admin/users", { cache: "no-store" }),
-        fetch("/api/programs", { cache: "no-store" })
+        fetch("/api/admin/users", { cache: "no-store", credentials: "same-origin" }),
+        fetch("/api/programs", { cache: "no-store", credentials: "same-origin" })
       ]);
 
       if (!usersResponse.ok || !programsResponse.ok) {
@@ -165,9 +176,13 @@ export function AdminUserManagementCard() {
       setStatus(null);
     } catch {
       setStatusTone("error");
-      setStatus("Could not load Admin users. Confirm leadership access and try again.");
+      setStatus(
+        hasInitialAdminData
+          ? "Showing the latest server-loaded Admin data. Could not refresh from the browser session."
+          : "Could not load Admin users. Confirm Admin access and try again."
+      );
     }
-  }, []);
+  }, [hasInitialAdminData]);
 
   useEffect(() => {
     void loadAdminUsers();
