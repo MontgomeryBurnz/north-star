@@ -349,6 +349,7 @@ export function AdminUserManagementCard() {
               <label className="grid gap-2">
                 <span className="text-xs font-medium uppercase tracking-[0.16em] text-zinc-300">Program</span>
                 <select
+                  data-admin-program-select
                   value={form.programId}
                   onChange={(event) => updateProgram(event.target.value)}
                   className="min-h-11 rounded-md border border-white/10 bg-zinc-950 px-3 py-3 text-sm text-zinc-100 outline-none transition-colors focus:border-emerald-300/50"
@@ -364,6 +365,7 @@ export function AdminUserManagementCard() {
               <label className="grid gap-2">
                 <span className="text-xs font-medium uppercase tracking-[0.16em] text-zinc-300">Program role</span>
                 <select
+                  data-admin-role-select
                   value={form.role}
                   onChange={(event) => {
                     setForm((current) => ({ ...current, role: event.target.value }));
@@ -411,7 +413,10 @@ export function AdminUserManagementCard() {
                   Add roles to the selected program. Saving a new role refreshes guided plans with the updated team composition.
                 </p>
               </div>
-              <span className="rounded-full border border-white/10 bg-black/20 px-3 py-1 text-[11px] font-medium uppercase tracking-[0.14em] text-zinc-300">
+              <span
+                data-admin-role-coverage
+                className="rounded-full border border-white/10 bg-black/20 px-3 py-1 text-[11px] font-medium uppercase tracking-[0.14em] text-zinc-300"
+              >
                 {selectedProgram ? `${availableRoles.length} roles` : "No program"}
               </span>
             </div>

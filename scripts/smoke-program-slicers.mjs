@@ -9,7 +9,6 @@ const leadershipPassword = process.env.NORTHSTAR_LEADERSHIP_PASSWORD ?? process.
 
 const surfaces = [
   { name: "Guided Plans", path: "/systems" },
-  { name: "Admin", path: "/admin" },
   { name: "Leadership", path: "/leadership" },
   { name: "Guide", path: "/assistant" },
   { name: "Active Program", path: "/active-program" }
@@ -65,6 +64,19 @@ async function smokeSurface(session, surface) {
     const count = await session.execute("return document.querySelectorAll('[data-program-slicer]').length;");
     return count > 0;
   });
+  await session.waitFor(`${surface.name} program slicer options`, async () => {
+    const state = await session.execute(`
+      const slicer = document.querySelector("[data-program-slicer]");
+      const button = slicer?.querySelector('button[aria-haspopup="listbox"]');
+      return {
+        disabled: button?.disabled ?? true,
+        loginVisible: document.body.textContent.includes("Enter Alpha Password"),
+        text: button?.textContent?.trim() ?? ""
+      };
+    `);
+
+    return !state.loginVisible && !state.disabled && state.text && !state.text.includes("No saved programs yet");
+  }, 15_000);
 
   const before = await session.execute(`
     const slicer = document.querySelector("[data-program-slicer]");
@@ -116,6 +128,46 @@ async function smokeSurface(session, surface) {
   console.log(`✓ ${surface.name}: opened slicer and selected ${optionText || "a saved program"}.`);
 }
 
+async function smokeAdminProgramRoleSelect(session) {
+  await session.navigate(`${baseUrl}/admin?smoke=admin-program-role-select`);
+  await session.waitFor("Admin program role select", async () => {
+    const state = await session.execute(`
+      const select = document.querySelector("[data-admin-program-select]");
+      return {
+        found: Boolean(select),
+        loginVisible: document.body.textContent.includes("Enter Alpha Password"),
+        leadershipLoginVisible: document.body.textContent.includes("Leadership login"),
+        optionCount: select?.options?.length ?? 0
+      };
+    `);
+
+    return !state.loginVisible && !state.leadershipLoginVisible && state.found && state.optionCount > 1;
+  }, 15_000);
+
+  const selectedProgram = await session.execute(`
+    const select = document.querySelector("[data-admin-program-select]");
+    select.selectedIndex = 1;
+    select.dispatchEvent(new Event("input", { bubbles: true }));
+    select.dispatchEvent(new Event("change", { bubbles: true }));
+    return select.options[select.selectedIndex]?.textContent?.trim() ?? "";
+  `);
+
+  await session.waitFor("Admin role coverage loaded", async () => {
+    const state = await session.execute(`
+      const roleSelect = document.querySelector("[data-admin-role-select]");
+      const roleCoverage = document.querySelector("[data-admin-role-coverage]");
+      return {
+        roleOptionCount: roleSelect?.options?.length ?? 0,
+        roleCoverageText: roleCoverage?.textContent?.trim() ?? ""
+      };
+    `);
+
+    return state.roleOptionCount > 1 && state.roleCoverageText && !state.roleCoverageText.includes("No program");
+  }, 15_000);
+
+  console.log(`✓ Admin: selected ${selectedProgram || "a saved program"} and loaded role coverage.`);
+}
+
 async function main() {
   await withSafariBrowser(async (session) => {
     await authenticate(session);
@@ -123,6 +175,8 @@ async function main() {
     for (const surface of surfaces) {
       await smokeSurface(session, surface);
     }
+
+    await smokeAdminProgramRoleSelect(session);
   });
 
   console.log("Program slicer browser smoke test passed.");
