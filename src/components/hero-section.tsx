@@ -10,26 +10,26 @@ const quickStartActions = [
   {
     href: "/active-program?mode=setup",
     icon: FilePlus2,
-    label: "Create a program",
-    detail: "Start with a program name, outcomes, stakeholders, roles, and source artifacts."
+    label: "Capture context",
+    detail: "Start with the program outcomes, SME assumptions, roles, stakeholders, and source artifacts."
   },
   {
     href: "/active-program?mode=manage",
     icon: ListChecks,
-    label: "Manage program status",
-    detail: "Capture weekly team updates, risks, blockers, decisions, artifacts, and meeting context."
+    label: "Refresh signal",
+    detail: "Add team updates, risks, decisions, meeting context, and delivery changes as the work moves."
   },
   {
     href: "/systems",
     icon: Layers3,
-    label: "Review guided plans",
-    detail: "Use the refreshed plan, team action plans, risks, decisions, and change justifications."
+    label: "Use guided work",
+    detail: "Review program guidance, team action plans, role artifacts, risks, and decision paths."
   },
   {
     href: "/assistant",
     icon: MessageSquareText,
     label: "Open Guide",
-    detail: "Ask program-specific questions and let the dialogue improve the guidance context."
+    detail: "Ask program-specific questions and let the dialogue sharpen the intelligence layer."
   }
 ];
 
@@ -73,7 +73,7 @@ export function HeroSection({ metrics }: { metrics: DashboardMetrics }) {
             Let&apos;s Get Started
           </h1>
           <p className="mt-5 max-w-2xl text-base leading-7 text-zinc-300 md:mt-6 md:text-lg md:leading-8">
-            Use insight, intelligence, and data to find true north.
+            NorthStar combines SME insight, program data, and AI intelligence into one operating hub for getting work done.
           </p>
           <div className="mt-8 flex flex-col gap-3 sm:flex-row">
             <Button asChild size="lg">
@@ -100,7 +100,7 @@ export function HeroSection({ metrics }: { metrics: DashboardMetrics }) {
             <CardHeader className="p-5 sm:p-6">
               <CardTitle className="flex items-center gap-2 text-zinc-50">
                 <BookOpenCheck className="h-4 w-4 text-emerald-200" />
-                Quick start path
+                Intelligence hub path
               </CardTitle>
             </CardHeader>
             <CardContent className="grid gap-4 p-5 pt-0 sm:p-6 sm:pt-0">
@@ -148,11 +148,11 @@ export function HeroSection({ metrics }: { metrics: DashboardMetrics }) {
               <div className="rounded-md border border-cyan-300/20 bg-cyan-300/[0.055] p-4">
                 <div className="flex items-center gap-2 text-sm font-medium text-cyan-100">
                   <Gauge className="h-4 w-4" />
-                  What to validate first
+                  How NorthStar works
                 </div>
                 <p className="mt-3 text-sm leading-6 text-zinc-300">
-                  Create one realistic program, add one artifact, save one active update, submit one leadership review,
-                  and confirm the guided plan changes without a manual regenerate step.
+                  Capture what experts know, ground it in program evidence, keep the signal current, and let AI translate
+                  the latest context into plans, artifacts, decisions, and leadership-ready guidance.
                 </p>
               </div>
             </CardContent>
