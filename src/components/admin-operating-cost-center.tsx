@@ -68,12 +68,17 @@ function getVercelStatusLabel(vercel: VercelOperationsSnapshot | null) {
   if (!vercel) return "Syncing";
   if (vercel.connected && vercel.configuration.spendForecastReady) return "Connected";
   if (vercel.connected) return "Telemetry connected";
+  if (vercel.configuration.observabilityReady) return "Observability active";
   return "Needs setup";
 }
 
 function getVercelStatusTone(vercel: VercelOperationsSnapshot | null): "good" | "warn" | "neutral" {
   if (!vercel) return "neutral";
-  return vercel.connected && vercel.configuration.spendForecastReady ? "good" : "warn";
+  return vercel.connected && vercel.configuration.spendForecastReady
+    ? "good"
+    : vercel.configuration.observabilityReady
+      ? "good"
+      : "warn";
 }
 
 function StatusPill({ children, tone = "neutral" }: { children: string; tone?: "good" | "warn" | "neutral" }) {

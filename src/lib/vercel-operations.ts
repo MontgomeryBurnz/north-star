@@ -39,8 +39,8 @@ function asPositiveNumber(value: string | undefined) {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
 }
 
-function isEnabled(value: string | undefined) {
-  return ["1", "true", "yes", "on"].includes((value ?? "").trim().toLowerCase());
+function isDisabled(value: string | undefined) {
+  return ["0", "false", "no", "off"].includes((value ?? "").trim().toLowerCase());
 }
 
 function getVercelToken() {
@@ -149,8 +149,8 @@ function getSpendForecast(): VercelSpendForecast {
 
 function getObservabilityInstrumentation() {
   return {
-    webAnalytics: isEnabled(process.env.NORTHSTAR_VERCEL_WEB_ANALYTICS_ENABLED),
-    speedInsights: isEnabled(process.env.NORTHSTAR_VERCEL_SPEED_INSIGHTS_ENABLED)
+    webAnalytics: !isDisabled(process.env.NORTHSTAR_VERCEL_WEB_ANALYTICS_ENABLED),
+    speedInsights: !isDisabled(process.env.NORTHSTAR_VERCEL_SPEED_INSIGHTS_ENABLED)
   };
 }
 
@@ -201,16 +201,16 @@ function getConfigurationSnapshot(input: {
       ready: Boolean(input.spend.observedSpendUsd !== null && input.spend.observedDays)
     }),
     makeSetupItem({
-      key: "NORTHSTAR_VERCEL_WEB_ANALYTICS_ENABLED",
+      key: "@vercel/analytics",
       label: "Web Analytics instrumentation",
-      description: "Confirms the app is sending page-level usage events to Vercel Web Analytics.",
+      description: "The app shell includes Vercel Web Analytics for page-level usage events.",
       impact: "observability",
       ready: input.instrumentation.webAnalytics
     }),
     makeSetupItem({
-      key: "NORTHSTAR_VERCEL_SPEED_INSIGHTS_ENABLED",
+      key: "@vercel/speed-insights",
       label: "Speed Insights instrumentation",
-      description: "Confirms the app is sending Core Web Vitals to Vercel Speed Insights.",
+      description: "The app shell includes Vercel Speed Insights for Core Web Vitals.",
       impact: "observability",
       ready: input.instrumentation.speedInsights
     })
