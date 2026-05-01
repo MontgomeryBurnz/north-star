@@ -602,10 +602,10 @@ export function RolePlansCard({
       </CardHeader>
       <CardContent className="grid items-stretch gap-3 p-4 sm:p-5">
         {sortedRoles.map((rolePlan) => {
+          const roleKey = normalizeRoleKey(rolePlan.role);
           const isFocusedRole =
-            selectedRoleFocus !== allRolesOption && normalizeRoleKey(rolePlan.role) === selectedRoleKey;
-          const isExpanded = isFocusedRole || expandedRoleKeys.has(normalizeRoleKey(rolePlan.role));
-          const canToggleRole = !isFocusedRole;
+            selectedRoleFocus !== allRolesOption && roleKey === selectedRoleKey;
+          const isExpanded = expandedRoleKeys.has(roleKey);
           const roleFlagSourceId = buildTeamActionPlanFlagSourceId(rolePlan.role);
           const isFlagTarget = flagTarget?.citationId === roleFlagSourceId;
           const signalGroups = [
@@ -627,18 +627,16 @@ export function RolePlansCard({
                   <p className="text-sm font-semibold uppercase tracking-[0.12em] text-zinc-100">{rolePlan.role}</p>
                   {isFocusedRole ? <p className="mt-1 text-xs text-cyan-200">Focused role view</p> : null}
                 </div>
-                {canToggleRole ? (
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    aria-label={`${isExpanded ? "Collapse" : "Expand"} ${rolePlan.role} guidance`}
-                    className="h-9 shrink-0 px-2 text-zinc-300 hover:text-zinc-50"
-                    onClick={() => onToggleRole(rolePlan.role)}
-                  >
-                    {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-                  </Button>
-                ) : null}
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  aria-label={`${isExpanded ? "Collapse" : "Expand"} ${rolePlan.role} guidance`}
+                  className="h-9 shrink-0 px-2 text-zinc-300 hover:text-zinc-50"
+                  onClick={() => onToggleRole(rolePlan.role)}
+                >
+                  {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                </Button>
               </div>
               {isExpanded ? (
                 <div className="mt-3 flex flex-1 flex-col gap-3">

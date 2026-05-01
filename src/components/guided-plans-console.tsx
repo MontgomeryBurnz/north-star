@@ -286,25 +286,18 @@ export function GuidedPlansConsole() {
     setRoleRefreshConfirmation(null);
   }, []);
 
-  const toggleExpandedRole = useCallback(
-    (role: string) => {
-      if (normalizeRoleKey(role) === normalizeRoleKey(selectedRoleFocus)) {
-        return;
+  const toggleExpandedRole = useCallback((role: string) => {
+    setExpandedRoleKeys((current) => {
+      const next = new Set(current);
+      const key = normalizeRoleKey(role);
+      if (next.has(key)) {
+        next.delete(key);
+      } else {
+        next.add(key);
       }
-
-      setExpandedRoleKeys((current) => {
-        const next = new Set(current);
-        const key = normalizeRoleKey(role);
-        if (next.has(key)) {
-          next.delete(key);
-        } else {
-          next.add(key);
-        }
-        return next;
-      });
-    },
-    [selectedRoleFocus]
-  );
+      return next;
+    });
+  }, []);
 
   const addTeamRole = useCallback(async () => {
     if (!selectedProgram) return;
