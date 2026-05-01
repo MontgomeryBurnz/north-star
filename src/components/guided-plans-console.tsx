@@ -22,7 +22,6 @@ import { GuidedPlanLeadershipSignalCard } from "@/components/guided-plan-leaders
 import { GuidedPlanOverviewCard } from "@/components/guided-plan-overview-card";
 import { GuidedPlansSidebar } from "@/components/guided-plans-sidebar";
 import { GuidanceReviewPanel, RolePlansCard } from "@/components/guided-plan-section-cards";
-import { RoleArtifactStudioCard } from "@/components/role-artifact-studio-card";
 import { SectionHeader } from "@/components/section-header";
 
 const allRolesOption = "__all_roles__";
@@ -510,7 +509,7 @@ export function GuidedPlansConsole() {
       <SectionHeader
         eyebrow="Guided plans"
         title="Find True North"
-        description="Review program health, team action plans, and role-ready artifacts generated from the latest grounded program context."
+        description="Review program health, progress, leadership signal, and team action plans generated from the latest grounded program context."
       />
 
       <section className="mt-10 grid gap-6 lg:grid-cols-[380px_minmax(0,1fr)]">
@@ -582,10 +581,6 @@ export function GuidedPlansConsole() {
                     onCancelFlag={() => setFlagTarget(null)}
                   />
                 ) : null}
-              </section>
-
-              <section className="grid gap-4" aria-label="Role artifact studio">
-                <RoleArtifactStudioCard programId={plan.programId} />
               </section>
 
               <details className="group rounded-md border border-white/10 bg-zinc-950/60">

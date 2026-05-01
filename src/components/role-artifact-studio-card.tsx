@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { ArrowRight, ClipboardList, FileText, GitBranch, Loader2, Map, Sparkles } from "lucide-react";
+import { ArrowRight, ClipboardList, Download, FileText, GitBranch, Loader2, Map, Sparkles } from "lucide-react";
 import {
+  getRoleArtifactDefinition,
   roleArtifactDefinitions,
   type RoleArtifactDefinition,
   type RoleArtifactDraft,
@@ -22,8 +23,9 @@ function formatDate(value: string) {
 
 function ArtifactIcon({ type }: { type: RoleArtifactType }) {
   if (type === "ba-requirements-matrix") return <ClipboardList className="h-4 w-4 text-cyan-200" />;
-  if (type === "product-roadmap") return <GitBranch className="h-4 w-4 text-emerald-200" />;
-  return <Map className="h-4 w-4 text-amber-200" />;
+  if (type.startsWith("product-")) return <GitBranch className="h-4 w-4 text-emerald-200" />;
+  if (type.startsWith("ux-")) return <Map className="h-4 w-4 text-amber-200" />;
+  return <FileText className="h-4 w-4 text-cyan-200" />;
 }
 
 function serializeArtifact(artifact: RoleArtifactDraft) {
@@ -83,6 +85,10 @@ function summarizeCell(value: string | undefined, maxLength = 150) {
 
 function columnSafeKey(value: string) {
   return value.toLowerCase().replace(/[^a-z0-9]+/g, "-");
+}
+
+function artifactVersionLabel(artifact: RoleArtifactDraft) {
+  return `Version ${artifact.version ?? "draft"} / ${formatDate(artifact.generatedAt)}`;
 }
 
 function ArtifactTableDigest({ table }: { table: RoleArtifactDraft["tables"][number] }) {
@@ -246,18 +252,70 @@ function ArtifactOutput({ artifact }: { artifact: RoleArtifactDraft }) {
   );
 }
 
-export function RoleArtifactStudioCard({ programId }: { programId: string }) {
-  const [selectedType, setSelectedType] = useState<RoleArtifactType>("ba-requirements-matrix");
+export type RoleArtifactStudioRequest = {
+  artifactType: RoleArtifactType;
+  definition: RoleArtifactDefinition;
+  feedback?: string;
+  generationBrief?: string;
+  sourceLabel?: string;
+};
+
+function normalizeRole(value: string | undefined) {
+  return (value ?? "").trim().toLowerCase();
+}
+
+function matchesRoleFocus(definition: RoleArtifactDefinition, roleFocus: string | undefined) {
+  const role = normalizeRole(roleFocus);
+  if (!role || role === "__all_roles__") return true;
+  const definitionRole = normalizeRole(definition.role);
+
+  return definitionRole === role || definitionRole.includes(role) || role.includes(definitionRole);
+}
+
+function getDefaultDefinition(roleFocus: string | undefined) {
+  return roleArtifactDefinitions.find((definition) => matchesRoleFocus(definition, roleFocus)) ?? roleArtifactDefinitions[0];
+}
+
+export function RoleArtifactStudioCard({
+  launchRequest,
+  programId,
+  roleFocus = "__all_roles__"
+}: {
+  launchRequest?: RoleArtifactStudioRequest | null;
+  programId: string;
+  roleFocus?: string;
+}) {
+  const defaultDefinition = useMemo(() => getDefaultDefinition(roleFocus), [roleFocus]);
+  const [selectedType, setSelectedType] = useState<RoleArtifactType>(defaultDefinition.type);
+  const [customDefinition, setCustomDefinition] = useState<RoleArtifactDefinition | null>(null);
   const [feedback, setFeedback] = useState("");
   const [artifact, setArtifact] = useState<RoleArtifactDraft | null>(null);
   const [artifactHistory, setArtifactHistory] = useState<RoleArtifactDraft[]>([]);
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
-  const selectedDefinition = useMemo(
-    () => roleArtifactDefinitions.find((definition) => definition.type === selectedType) ?? roleArtifactDefinitions[0],
-    [selectedType]
+  const availableDefinitions = useMemo(
+    () => roleArtifactDefinitions.filter((definition) => matchesRoleFocus(definition, roleFocus)),
+    [roleFocus]
   );
+  const selectedDefinition = useMemo(
+    () => getRoleArtifactDefinition(selectedType, customDefinition ?? defaultDefinition),
+    [customDefinition, defaultDefinition, selectedType]
+  );
+
+  useEffect(() => {
+    if (launchRequest) {
+      setSelectedType(launchRequest.artifactType);
+      setCustomDefinition(launchRequest.definition);
+      setFeedback(launchRequest.feedback ?? launchRequest.generationBrief ?? "");
+      setStatus(launchRequest.sourceLabel ? `${launchRequest.sourceLabel} loaded into Artifact Studio.` : "Artifact brief loaded into the studio.");
+      return;
+    }
+
+    if (!customDefinition && !availableDefinitions.some((definition) => definition.type === selectedType)) {
+      setSelectedType(defaultDefinition.type);
+    }
+  }, [availableDefinitions, customDefinition, defaultDefinition.type, launchRequest, selectedType]);
 
   useEffect(() => {
     let isCancelled = false;
@@ -301,6 +359,7 @@ export function RoleArtifactStudioCard({ programId }: { programId: string }) {
 
   function selectArtifactType(type: RoleArtifactType) {
     setSelectedType(type);
+    setCustomDefinition(null);
     setArtifact(null);
     setStatus(null);
   }
@@ -314,6 +373,7 @@ export function RoleArtifactStudioCard({ programId }: { programId: string }) {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          artifactDefinition: selectedDefinition,
           artifactType: selectedType,
           feedback
         })
@@ -345,6 +405,22 @@ export function RoleArtifactStudioCard({ programId }: { programId: string }) {
     }
   }
 
+  function downloadArtifact() {
+    if (!artifact) return;
+
+    const filename = `${artifact.title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || "north-star-artifact"}-v${
+      artifact.version ?? "draft"
+    }.txt`;
+    const blob = new Blob([serializeArtifact(artifact)], { type: "text/plain;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = filename;
+    link.click();
+    URL.revokeObjectURL(url);
+    setStatus("Artifact export downloaded.");
+  }
+
   return (
     <Card className="bg-zinc-950/75">
       <CardHeader className="border-b border-white/10">
@@ -360,7 +436,7 @@ export function RoleArtifactStudioCard({ programId }: { programId: string }) {
       </CardHeader>
       <CardContent className="grid gap-4 p-4 sm:p-5">
         <div className="grid gap-2 xl:grid-cols-3">
-          {roleArtifactDefinitions.map((definition) => (
+          {(availableDefinitions.length ? availableDefinitions : roleArtifactDefinitions).map((definition) => (
             <ArtifactDefinitionButton
               key={definition.type}
               definition={definition}
@@ -396,6 +472,10 @@ export function RoleArtifactStudioCard({ programId }: { programId: string }) {
                 <Button type="button" variant="outline" onClick={() => void copyArtifact()} disabled={!artifact}>
                   <FileText className="h-4 w-4" />
                   Copy output
+                </Button>
+                <Button type="button" variant="outline" onClick={downloadArtifact} disabled={!artifact}>
+                  <Download className="h-4 w-4" />
+                  Export
                 </Button>
               </div>
               {artifact?.iterationPrompts.length ? (
@@ -449,6 +529,21 @@ export function RoleArtifactStudioCard({ programId }: { programId: string }) {
                       <span className="mt-1 block text-xs text-zinc-500">{formatDate(savedArtifact.generatedAt)}</span>
                     </button>
                   ))}
+                  {artifactHistory.length > 1 ? (
+                    <details className="rounded-md border border-cyan-300/15 bg-cyan-300/[0.035] p-3">
+                      <summary className="cursor-pointer list-none text-xs font-medium uppercase tracking-[0.14em] text-cyan-100">
+                        Compare latest versions
+                      </summary>
+                      <div className="mt-3 grid gap-3 border-t border-white/10 pt-3">
+                        {artifactHistory.slice(0, 2).map((savedArtifact) => (
+                          <div key={`${savedArtifact.id}-compare`} className="grid gap-1">
+                            <p className="text-xs font-semibold text-zinc-100">{artifactVersionLabel(savedArtifact)}</p>
+                            <p className="text-xs leading-5 text-zinc-400">{summarizeCell(savedArtifact.summary, 180)}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </details>
+                  ) : null}
                 </div>
               ) : (
                 <p className="text-sm leading-6 text-zinc-500">No saved outputs yet for this artifact.</p>

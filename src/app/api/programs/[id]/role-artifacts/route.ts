@@ -11,8 +11,41 @@ import {
   listRoleArtifacts
 } from "@/lib/program-store";
 import { generateRoleArtifactDraft } from "@/lib/role-artifact-service";
-import { isRoleArtifactType } from "@/lib/role-artifact-types";
+import {
+  buildCustomRoleArtifactDefinition,
+  getRoleArtifactDefinition,
+  isRoleArtifactType,
+  roleArtifactDefinitions,
+  type RoleArtifactDefinition
+} from "@/lib/role-artifact-types";
 import { createSiteAccessDeniedResponse, isSiteAccessRequestAuthorized } from "@/lib/site-access";
+
+function getRequestArtifactDefinition(input: {
+  artifactType: string;
+  requestedDefinition?: Partial<RoleArtifactDefinition>;
+}) {
+  const definition = input.requestedDefinition;
+  const catalogDefinition = roleArtifactDefinitions.find((item) => item.type === input.artifactType);
+  if (catalogDefinition) {
+    return {
+      ...catalogDefinition,
+      description: definition?.description?.trim() || catalogDefinition.description,
+      primaryColumns: definition?.primaryColumns?.length ? definition.primaryColumns : catalogDefinition.primaryColumns
+    };
+  }
+
+  if (!definition?.title?.trim()) {
+    return getRoleArtifactDefinition(input.artifactType);
+  }
+
+  return buildCustomRoleArtifactDefinition({
+    description: definition.description,
+    primaryColumns: definition.primaryColumns,
+    role: definition.role,
+    title: definition.title,
+    type: definition.type || input.artifactType
+  });
+}
 
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   if (!isSiteAccessRequestAuthorized(request)) {
@@ -24,7 +57,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
   const requestedArtifactType = searchParams.get("artifactType") ?? undefined;
 
   if (requestedArtifactType && !isRoleArtifactType(requestedArtifactType)) {
-    return NextResponse.json({ error: "A supported role artifact type is required." }, { status: 400 });
+    return NextResponse.json({ error: "A valid role artifact type is required." }, { status: 400 });
   }
   const artifactType = requestedArtifactType && isRoleArtifactType(requestedArtifactType) ? requestedArtifactType : undefined;
 
@@ -43,11 +76,15 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   }
 
   const { id } = await params;
-  const body = (await request.json().catch(() => null)) as { artifactType?: string; feedback?: string } | null;
+  const body = (await request.json().catch(() => null)) as {
+    artifactDefinition?: Partial<RoleArtifactDefinition>;
+    artifactType?: string;
+    feedback?: string;
+  } | null;
   const artifactType = body?.artifactType;
 
   if (!artifactType || !isRoleArtifactType(artifactType)) {
-    return NextResponse.json({ error: "A supported role artifact type is required." }, { status: 400 });
+    return NextResponse.json({ error: "A valid role artifact type is required." }, { status: 400 });
   }
 
   const program = await getProgram(id);
@@ -63,6 +100,10 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     listMeetingInputs(id)
   ]);
   const draft = await generateRoleArtifactDraft({
+    artifactDefinition: getRequestArtifactDefinition({
+      artifactType,
+      requestedDefinition: body?.artifactDefinition
+    }),
     artifactType,
     program,
     latestPlan,

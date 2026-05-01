@@ -144,7 +144,7 @@ function buildPromptContext(context: RoleArtifactGenerationContext, baseline: Ro
   return JSON.stringify(
     {
       artifactRequest: {
-        definition: getRoleArtifactDefinition(context.artifactType),
+        definition: getRoleArtifactDefinition(context.artifactType, context.artifactDefinition),
         feedback: context.feedback?.trim() || null
       },
       program: {

@@ -7,6 +7,7 @@ import {
   DatabaseZap,
   FileCheck2,
   FilePlus2,
+  FileText,
   Flag,
   Info,
   Layers3,
@@ -48,6 +49,15 @@ const workflowSteps = [
     detail:
       "Review program health, Gantt posture, Team Action Plans, risks, decisions, and change rationale before choosing the next move.",
     outcome: "A current execution path that stays tied to the latest evidence."
+  },
+  {
+    href: "/artifacts",
+    icon: FileText,
+    label: "Artifacts",
+    title: "Create the work products",
+    detail:
+      "Use AI-recommended artifact briefs or request a custom artifact, then generate, refine, version, and copy role-specific outputs.",
+    outcome: "Reusable work products that help each role move from guidance to execution."
   },
   {
     href: "/assistant",

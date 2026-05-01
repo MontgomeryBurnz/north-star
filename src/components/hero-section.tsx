@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowRight, BookOpenCheck, FilePlus2, Gauge, Info, Layers3, ListChecks, MessageSquareText, Sparkles } from "lucide-react";
+import { ArrowRight, BookOpenCheck, FilePlus2, FileText, Gauge, Info, Layers3, ListChecks, MessageSquareText, Sparkles } from "lucide-react";
 
 import { MotionDiv } from "@/components/motion";
 import { Button } from "@/components/ui/button";
@@ -23,7 +23,13 @@ const quickStartActions = [
     href: "/systems",
     icon: Layers3,
     label: "Use guided work",
-    detail: "Review program guidance, team action plans, role artifacts, risks, and decision paths."
+    detail: "Review program guidance, team action plans, risks, and decision paths."
+  },
+  {
+    href: "/artifacts",
+    icon: FileText,
+    label: "Create artifacts",
+    detail: "Generate role-specific work products that teams can refine, version, and export."
   },
   {
     href: "/assistant",

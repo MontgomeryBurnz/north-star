@@ -7,6 +7,7 @@ import type { ProgramMeetingInput } from "./program-intelligence-types.ts";
 import type { StoredProgram } from "./program-intake-types.ts";
 import {
   getRoleArtifactDefinition,
+  type RoleArtifactDefinition,
   type RoleArtifactDraft,
   type RoleArtifactSection,
   type RoleArtifactTable,
@@ -14,6 +15,7 @@ import {
 } from "./role-artifact-types.ts";
 
 export type RoleArtifactGenerationContext = {
+  artifactDefinition?: RoleArtifactDefinition;
   artifactType: RoleArtifactType;
   program: StoredProgram;
   latestPlan: GuidedPlan | null;
@@ -47,8 +49,12 @@ function splitSignals(value: string | undefined | null, fallback: string[]) {
   return items.length ? items : fallback;
 }
 
+function resolveRoleArtifactDefinition(context: RoleArtifactGenerationContext) {
+  return getRoleArtifactDefinition(context.artifactType, context.artifactDefinition);
+}
+
 function getRolePlan(context: RoleArtifactGenerationContext): GuidedPlanRolePlan | null {
-  const definition = getRoleArtifactDefinition(context.artifactType);
+  const definition = resolveRoleArtifactDefinition(context);
   const targetRole = definition.role.toLowerCase();
 
   return (
@@ -228,14 +234,113 @@ function uxUserJourney(context: RoleArtifactGenerationContext): Pick<RoleArtifac
   };
 }
 
+function valueForColumn(input: {
+  column: string;
+  definition: RoleArtifactDefinition;
+  index: number;
+  rolePlan: GuidedPlanRolePlan | null;
+  signals: ReturnType<typeof buildBaseSignals>;
+}) {
+  const { column, definition, index, rolePlan, signals } = input;
+  const normalizedColumn = column.toLowerCase();
+  const risks = splitSignals(signals.risk, ["Validate the highest-risk assumption before expanding scope."]);
+  const decisions = splitSignals(signals.decisions, ["Confirm the next accountable decision owner."]);
+  const requirements = splitSignals(signals.requirements, ["Clarify the next work item against source evidence."]);
+  const outcomes = rolePlan?.keyOutcomes?.length ? rolePlan.keyOutcomes : splitSignals(signals.outcome, ["Advance the highest-value program outcome."]);
+  const focusAreas = rolePlan?.keyFocusAreas?.length ? rolePlan.keyFocusAreas : splitSignals(signals.progress, ["Tighten the next execution checkpoint."]);
+  const actions = rolePlan?.actionPlan?.length ? rolePlan.actionPlan : splitSignals(signals.outputs, ["Create the next decision-ready work product."]);
+
+  if (normalizedColumn.includes("role") || normalizedColumn.includes("persona") || normalizedColumn.includes("user")) {
+    return excerpt(definition.role, 130);
+  }
+  if (normalizedColumn.includes("risk") || normalizedColumn.includes("impact") || normalizedColumn.includes("gap")) {
+    return excerpt(risks[index] ?? risks[0], 130);
+  }
+  if (normalizedColumn.includes("decision") || normalizedColumn.includes("owner") || normalizedColumn.includes("dependency")) {
+    return excerpt(decisions[index] ?? decisions[0], 130);
+  }
+  if (normalizedColumn.includes("source") || normalizedColumn.includes("evidence") || normalizedColumn.includes("signal")) {
+    return excerpt(index === 0 ? signals.outcome : signals.progress, 130);
+  }
+  if (normalizedColumn.includes("acceptance") || normalizedColumn.includes("validation") || normalizedColumn.includes("proof")) {
+    return excerpt(outcomes[index] ?? outcomes[0], 130);
+  }
+  if (normalizedColumn.includes("action") || normalizedColumn.includes("recommendation") || normalizedColumn.includes("method")) {
+    return excerpt(actions[index] ?? actions[0], 130);
+  }
+  if (normalizedColumn.includes("stage") || normalizedColumn.includes("horizon") || normalizedColumn.includes("step")) {
+    return ["Now", "Next", "Validate"][index] ?? `Item ${index + 1}`;
+  }
+  if (normalizedColumn.includes("requirement") || normalizedColumn.includes("story") || normalizedColumn.includes("epic") || normalizedColumn.includes("feature") || normalizedColumn.includes("item")) {
+    return excerpt(actions[index] ?? requirements[index] ?? focusAreas[index] ?? focusAreas[0], 130);
+  }
+
+  return excerpt(focusAreas[index] ?? outcomes[index] ?? requirements[index] ?? signals.progress, 130);
+}
+
+function genericArtifact(context: RoleArtifactGenerationContext): Pick<RoleArtifactDraft, "sections" | "summary" | "tables" | "iterationPrompts"> {
+  const definition = resolveRoleArtifactDefinition(context);
+  const signals = buildBaseSignals(context);
+  const rolePlan = getRolePlan(context);
+  const columns = definition.primaryColumns.length ? definition.primaryColumns : ["Work Item", "Source Signal", "Recommended Content", "Decision / Owner"];
+  const rows = [0, 1, 2].map((index) =>
+    columns.map((column) =>
+      valueForColumn({
+        column,
+        definition,
+        index,
+        rolePlan,
+        signals
+      })
+    )
+  );
+  const risks = splitSignals(signals.risk, ["Validate the top risk before the artifact is used as a decision input."]);
+  const decisions = splitSignals(signals.decisions, ["Confirm who owns the next decision tied to this artifact."]);
+
+  return {
+    summary: `${definition.title} generated for ${definition.role} using the latest grounded context for ${context.program.intake.programName}.`,
+    tables: [
+      {
+        title: definition.shortTitle,
+        columns,
+        rows
+      }
+    ],
+    sections: [
+      {
+        title: "How To Use This Artifact",
+        items: [
+          `Use this as the working draft for ${definition.role}.`,
+          `Anchor review to: ${excerpt(signals.outcome, 150)}`,
+          `Validate before reuse: ${excerpt(risks[0], 150)}`
+        ]
+      },
+      {
+        title: "Iteration Focus",
+        items: [
+          signals.feedback ? `User direction to incorporate: ${excerpt(signals.feedback, 150)}` : `Next decision to clarify: ${excerpt(decisions[0], 150)}`,
+          "Ask Guide to regenerate after new uploads, team updates, or leadership feedback materially changes the context."
+        ]
+      }
+    ],
+    iterationPrompts: [
+      "Make this more executive-ready.",
+      "Add more source traceability.",
+      "Rework this around the top risk."
+    ]
+  };
+}
+
 export function generateLocalRoleArtifactDraft(context: RoleArtifactGenerationContext): RoleArtifactDraft {
-  const definition = getRoleArtifactDefinition(context.artifactType);
+  const definition = resolveRoleArtifactDefinition(context);
   const body =
     context.artifactType === "ba-requirements-matrix"
       ? requirementsMatrix(context)
       : context.artifactType === "product-roadmap"
         ? productRoadmap(context)
-        : uxUserJourney(context);
+        : context.artifactType === "ux-user-journey"
+          ? uxUserJourney(context)
+          : genericArtifact(context);
 
   const sections: RoleArtifactSection[] = body.sections.map((section) => ({
     title: section.title,
