@@ -4,6 +4,7 @@ import { getSiteAccessConfig, isSiteAccessSessionTokenValid, siteAccessSessionCo
 
 function isPublicPath(pathname: string) {
   if (
+    pathname.startsWith("/api/") ||
     pathname === "/login" ||
     pathname === "/client" ||
     pathname === "/auth/activate" ||

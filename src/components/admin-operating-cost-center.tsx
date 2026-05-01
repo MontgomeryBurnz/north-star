@@ -41,6 +41,7 @@ function formatInteger(value: number | null | undefined) {
 }
 
 function formatPercent(value: number | null | undefined) {
+  if (value === null || value === undefined) return "Not connected";
   return `${Math.round((value ?? 0) * 100)}%`;
 }
 
@@ -79,6 +80,41 @@ function getVercelStatusTone(vercel: VercelOperationsSnapshot | null): "good" | 
     : vercel.configuration.observabilityReady
       ? "good"
       : "warn";
+}
+
+function getOpenAISpendValue(billing: OpenAIBillingReconciliation | null) {
+  return billing?.actualSpendUsd ?? billing?.usageEstimatedSpendUsd ?? billing?.localTrackedSpendUsd;
+}
+
+function getOpenAIRequestValue(billing: OpenAIBillingReconciliation | null) {
+  return billing?.actualRequests ?? billing?.localTrackedCalls;
+}
+
+function getOpenAITokenValue(billing: OpenAIBillingReconciliation | null) {
+  return billing?.actualTotalTokens ?? billing?.localTrackedTokens;
+}
+
+function getOpenAICachedTokenValue(billing: OpenAIBillingReconciliation | null) {
+  return billing?.actualCachedInputTokens ?? null;
+}
+
+function getOpenAICostBasisLabel(billing: OpenAIBillingReconciliation | null) {
+  if (!billing) return "Waiting for OpenAI billing sync";
+  if (billing.connected) return billing.windowLabel;
+  if (billing.localTrackedCalls || billing.localTrackedTokens || billing.localTrackedSpendUsd) {
+    return "App-tracked fallback until billing reconnects";
+  }
+  return billing.windowLabel;
+}
+
+async function getFailureMessage(response: Response, fallback: string) {
+  const contentType = response.headers.get("content-type") ?? "";
+  if (contentType.includes("application/json")) {
+    const payload = (await response.json().catch(() => null)) as { error?: string } | null;
+    if (payload?.error) return payload.error;
+  }
+
+  return fallback;
 }
 
 function StatusPill({ children, tone = "neutral" }: { children: string; tone?: "good" | "warn" | "neutral" }) {
@@ -204,12 +240,12 @@ export function AdminOperatingCostCenter({ guidanceModelProfile }: { guidanceMod
         cache: "no-store",
         credentials: "same-origin"
       });
-      if (!response.ok) throw new Error("OpenAI billing sync failed.");
+      if (!response.ok) throw new Error(await getFailureMessage(response, "OpenAI billing sync failed."));
       const payload = (await response.json()) as { billing: OpenAIBillingReconciliation };
       setBilling(payload.billing);
       setBillingStatus(null);
-    } catch {
-      setBillingStatus("OpenAI billing could not sync.");
+    } catch (error) {
+      setBillingStatus(error instanceof Error ? error.message : "OpenAI billing could not sync.");
     }
   }, [billingWindow]);
 
@@ -221,12 +257,12 @@ export function AdminOperatingCostCenter({ guidanceModelProfile }: { guidanceMod
         cache: "no-store",
         credentials: "same-origin"
       });
-      if (!response.ok) throw new Error("Vercel sync failed.");
+      if (!response.ok) throw new Error(await getFailureMessage(response, "Vercel sync failed."));
       const payload = (await response.json()) as { vercel: VercelOperationsSnapshot };
       setVercel(payload.vercel);
       setVercelStatus(null);
-    } catch {
-      setVercelStatus("Vercel telemetry could not sync.");
+    } catch (error) {
+      setVercelStatus(error instanceof Error ? error.message : "Vercel telemetry could not sync.");
     }
   }, [vercelWindow]);
 
@@ -249,8 +285,8 @@ export function AdminOperatingCostCenter({ guidanceModelProfile }: { guidanceMod
       <div className="mt-8 grid gap-4 lg:grid-cols-4">
         <MetricTile
           label="OpenAI current"
-          value={formatCurrency(billing?.actualSpendUsd ?? billing?.usageEstimatedSpendUsd)}
-          detail={billing?.windowLabel ?? "Waiting for OpenAI billing sync"}
+          value={formatCurrency(getOpenAISpendValue(billing))}
+          detail={getOpenAICostBasisLabel(billing)}
           tone="good"
         />
         <MetricTile
@@ -303,18 +339,22 @@ export function AdminOperatingCostCenter({ guidanceModelProfile }: { guidanceMod
               <div className="grid gap-3 md:grid-cols-3">
                 <MetricTile
                   label="Requests"
-                  value={formatInteger(billing?.actualRequests)}
-                  detail="Model requests in selected window"
+                  value={formatInteger(getOpenAIRequestValue(billing))}
+                  detail={billing?.connected ? "OpenAI requests in selected window" : "App-tracked calls in selected window"}
                 />
                 <MetricTile
                   label="Tokens"
-                  value={formatInteger(billing?.actualTotalTokens)}
-                  detail={`${formatInteger(billing?.actualCachedInputTokens)} cached input tokens`}
+                  value={formatInteger(getOpenAITokenValue(billing))}
+                  detail={
+                    billing?.connected
+                      ? `${formatInteger(getOpenAICachedTokenValue(billing))} cached input tokens`
+                      : "App-tracked token volume"
+                  }
                 />
                 <MetricTile
                   label="Cache rate"
                   value={formatPercent(billing?.actualCacheHitRate)}
-                  detail="Higher cache reuse improves cost efficiency"
+                  detail={billing?.connected ? "Higher cache reuse improves cost efficiency" : "Reconnect billing to show cache efficiency"}
                 />
               </div>
 
@@ -322,7 +362,9 @@ export function AdminOperatingCostCenter({ guidanceModelProfile }: { guidanceMod
                 <p>
                   {billingStatus ??
                     (billing?.syncedAt
-                      ? `Last synced ${formatDate(billing.syncedAt)}. Unallocated OpenAI spend: ${formatCurrency(billing.unallocatedSpendUsd)}.`
+                      ? billing.connected
+                        ? `Last synced ${formatDate(billing.syncedAt)}. Unallocated OpenAI spend: ${formatCurrency(billing.unallocatedSpendUsd)}.`
+                        : `Last checked ${formatDate(billing.syncedAt)}. Showing app-tracked usage until OpenAI billing reconnects.`
                       : "OpenAI billing has not synced yet.")}
                 </p>
                 {billing?.error ? <p className="mt-2 text-amber-100">{billing.error}</p> : null}

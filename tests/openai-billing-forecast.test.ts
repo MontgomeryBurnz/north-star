@@ -39,6 +39,36 @@ test("getBillingExpenseForecast projects run rate from the selected billing wind
   assert.equal(forecast.averageRequestCostUsd, 0.2);
 });
 
-test("getBillingExpenseForecast returns null until billing is connected", () => {
-  assert.equal(getBillingExpenseForecast({ ...connectedBilling, connected: false }), null);
+test("getBillingExpenseForecast falls back to app-tracked usage when billing is disconnected", () => {
+  const forecast = getBillingExpenseForecast({
+    ...connectedBilling,
+    connected: false,
+    actualSpendUsd: null,
+    usageEstimatedSpendUsd: null,
+    actualRequests: null,
+    actualTotalTokens: null
+  });
+
+  assert.ok(forecast);
+  assert.equal(forecast.observedSpendUsd, 10);
+  assert.equal(forecast.observedRequests, 50);
+  assert.equal(forecast.observedTotalTokens, 1200);
+  assert.equal(forecast.basisLabel, "North Star app-tracked OpenAI usage");
+});
+
+test("getBillingExpenseForecast returns null until any billing or app usage exists", () => {
+  assert.equal(
+    getBillingExpenseForecast({
+      ...connectedBilling,
+      connected: false,
+      actualSpendUsd: null,
+      usageEstimatedSpendUsd: null,
+      actualRequests: null,
+      actualTotalTokens: null,
+      localTrackedSpendUsd: 0,
+      localTrackedCalls: 0,
+      localTrackedTokens: 0
+    }),
+    null
+  );
 });
