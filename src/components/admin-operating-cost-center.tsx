@@ -393,7 +393,7 @@ export function AdminOperatingCostCenter({ guidanceModelProfile }: { guidanceMod
             <CardContent className="grid gap-4 p-5">
               <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_auto] md:items-end">
                 <SelectControl
-                  label="Deployment window"
+                  label="Deployment and cost window"
                   value={vercelWindow}
                   options={vercelWindowOptions}
                   onChange={setVercelWindow}
@@ -420,9 +420,37 @@ export function AdminOperatingCostCenter({ guidanceModelProfile }: { guidanceMod
                 <MetricTile
                   label="Vercel 90-day"
                   value={formatForecastCurrency(vercel?.spend.projectedNinetyDaySpendUsd)}
-                  detail="Quarterly platform view"
+                  detail={vercel?.spend.billingConnected ? "Projected from live billing charges" : "Quarterly platform view"}
                 />
               </div>
+
+              {vercel?.spend.billingConnected ? (
+                <div className="rounded-md border border-cyan-300/15 bg-cyan-300/[0.04] p-4">
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                      <p className="text-sm font-semibold text-zinc-100">Live Vercel billing</p>
+                      <p className="mt-1 text-xs leading-5 text-zinc-500">
+                        {formatCurrency(vercel.spend.observedSpendUsd)} across {formatInteger(vercel.spend.chargeCount)} charges in{" "}
+                        {vercel.windowLabel.toLowerCase()}.
+                      </p>
+                    </div>
+                    <StatusPill tone="good">Billing connected</StatusPill>
+                  </div>
+                  {vercel.spend.serviceBreakdown.length ? (
+                    <div className="mt-4 grid gap-2 md:grid-cols-2">
+                      {vercel.spend.serviceBreakdown.map((service) => (
+                        <div key={`${service.name}-${service.category}`} className="rounded-md border border-white/10 bg-black/20 p-3">
+                          <p className="text-sm font-medium text-zinc-100">{service.name}</p>
+                          <div className="mt-2 flex items-center justify-between gap-3 text-xs text-zinc-500">
+                            <span>{service.category}</span>
+                            <span className="font-semibold text-cyan-100">{formatCurrency(service.spendUsd)}</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : null}
+                </div>
+              ) : null}
 
               {vercel ? (
                 <div className="rounded-md border border-white/10 bg-white/[0.035] p-4">
@@ -480,9 +508,10 @@ export function AdminOperatingCostCenter({ guidanceModelProfile }: { guidanceMod
                       : "Vercel telemetry has not synced yet.")}
                 </p>
                 {vercel?.error ? <p className="mt-2 text-amber-100">{vercel.error}</p> : null}
+                {vercel?.spend.error ? <p className="mt-2 text-amber-100">{vercel.spend.error}</p> : null}
                 <p className="mt-2 text-xs leading-5 text-zinc-500">
-                  Vercel billing remains the source of truth. Admin uses deployment telemetry plus configured platform spend inputs to forecast
-                  operating cost until a billing export workflow is added.
+                  Vercel billing remains the source of truth. Admin now uses live Vercel billing charges when connected, with manual spend inputs
+                  only as a fallback.
                 </p>
               </div>
             </CardContent>

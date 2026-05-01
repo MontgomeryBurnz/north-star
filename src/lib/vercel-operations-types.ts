@@ -12,6 +12,8 @@ export type VercelDeploymentSummary = {
 
 export type VercelSpendForecast = {
   configured: boolean;
+  billingConnected: boolean;
+  chargeCount: number;
   observedSpendUsd: number | null;
   observedDays: number | null;
   fixedMonthlySpendUsd: number | null;
@@ -19,6 +21,12 @@ export type VercelSpendForecast = {
   projectedThirtyDaySpendUsd: number | null;
   projectedNinetyDaySpendUsd: number | null;
   basisLabel: string;
+  serviceBreakdown: Array<{
+    name: string;
+    category: string;
+    spendUsd: number;
+  }>;
+  error?: string;
 };
 
 export type VercelSetupItem = {

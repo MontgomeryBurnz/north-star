@@ -21,6 +21,13 @@ type VercelDeploymentsResponse = {
   deployments?: VercelDeploymentApiRecord[];
 };
 
+type VercelBillingChargeRecord = {
+  BilledCost?: number | string;
+  EffectiveCost?: number | string;
+  ServiceName?: string;
+  ServiceCategory?: string;
+};
+
 type VercelOperationsInput = {
   windowKey?: VercelOperationsWindowKey;
   now?: Date;
@@ -45,7 +52,7 @@ function isDisabled(value: string | undefined) {
 }
 
 function getVercelToken() {
-  return process.env.VERCEL_API_TOKEN?.trim() || process.env.VERCEL_TOKEN?.trim();
+  return process.env.NORTHSTAR_VERCEL_API_TOKEN?.trim() || process.env.VERCEL_API_TOKEN?.trim() || process.env.VERCEL_TOKEN?.trim();
 }
 
 function getVercelConfig() {
@@ -85,7 +92,7 @@ function getRuntimeSnapshot() {
   };
 }
 
-function getSpendForecast(): VercelSpendForecast {
+function getConfiguredSpendForecast(): VercelSpendForecast {
   const observedSpendUsd = asMoney(process.env.VERCEL_OBSERVED_SPEND_USD);
   const observedDays = asPositiveNumber(process.env.VERCEL_OBSERVED_SPEND_DAYS);
   const fixedMonthlySpendUsd = asMoney(process.env.VERCEL_FIXED_MONTHLY_SPEND_USD);
@@ -98,6 +105,8 @@ function getSpendForecast(): VercelSpendForecast {
 
   return {
     configured: projectedThirtyDaySpendUsd !== null || monthlyBudgetUsd !== null,
+    billingConnected: false,
+    chargeCount: 0,
     observedSpendUsd,
     observedDays,
     fixedMonthlySpendUsd,
@@ -107,7 +116,8 @@ function getSpendForecast(): VercelSpendForecast {
     basisLabel:
       projectedThirtyDaySpendUsd !== null
         ? "Admin-configured Vercel spend inputs"
-        : "Set fixed monthly spend or observed overage inputs"
+        : "Set fixed monthly spend or observed overage inputs",
+    serviceBreakdown: []
   };
 }
 
@@ -137,9 +147,9 @@ function getConfigurationSnapshot(input: {
   const observabilityReady = Boolean(input.instrumentation.webAnalytics && input.instrumentation.speedInsights);
   const setupItems = [
     makeSetupItem({
-      key: "VERCEL_API_TOKEN",
+      key: "NORTHSTAR_VERCEL_API_TOKEN",
       label: "Vercel API token",
-      description: "Allows Admin to sync deployment telemetry for the North Star project.",
+      description: "Allows Admin to sync deployment telemetry and billing charges for the North Star project.",
       impact: "deployment-telemetry",
       ready: Boolean(input.config.token)
     }),
@@ -151,18 +161,21 @@ function getConfigurationSnapshot(input: {
       ready: hasProjectReference
     }),
     makeSetupItem({
-      key: "VERCEL_FIXED_MONTHLY_SPEND_USD",
-      label: "Fixed platform spend",
-      description: "Sets the baseline Vercel subscription or known monthly platform cost.",
+      key: "/v1/billing/charges",
+      label: "Live billing charges",
+      description: "Pulls current Vercel usage and cost from the billing charges API for forecast reconciliation.",
       impact: "spend-forecast",
-      ready: input.spend.fixedMonthlySpendUsd !== null
+      ready: input.spend.billingConnected
     }),
     makeSetupItem({
-      key: "VERCEL_OBSERVED_SPEND_USD + VERCEL_OBSERVED_SPEND_DAYS",
-      label: "Observed overage run rate",
-      description: "Projects variable Vercel overage from recent spend over a known number of days.",
+      key: "VERCEL_FIXED_MONTHLY_SPEND_USD or VERCEL_OBSERVED_SPEND_USD",
+      label: "Manual forecast fallback",
+      description: "Optional fallback when billing API access is unavailable or a fixed subscription baseline needs to be overlaid.",
       impact: "spend-forecast",
-      ready: Boolean(input.spend.observedSpendUsd !== null && input.spend.observedDays)
+      ready:
+        input.spend.billingConnected ||
+        input.spend.fixedMonthlySpendUsd !== null ||
+        Boolean(input.spend.observedSpendUsd !== null && input.spend.observedDays)
     }),
     makeSetupItem({
       key: "@vercel/analytics",
@@ -273,13 +286,144 @@ async function fetchVercelDeployments(input: {
   return (await response.json()) as VercelDeploymentsResponse;
 }
 
+function parseMoneyValue(value: number | string | undefined) {
+  const parsed = Number(value ?? 0);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function parseJsonLines(text: string): VercelBillingChargeRecord[] {
+  return text
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line) => JSON.parse(line) as VercelBillingChargeRecord);
+}
+
+function summarizeBillingCharges(input: {
+  charges: VercelBillingChargeRecord[];
+  days: number;
+  monthlyBudgetUsd: number | null;
+}): VercelSpendForecast {
+  const byService = new Map<string, { category: string; spendUsd: number }>();
+  let observedSpendUsd = 0;
+
+  for (const charge of input.charges) {
+    const spendUsd = parseMoneyValue(charge.EffectiveCost ?? charge.BilledCost);
+    observedSpendUsd += spendUsd;
+
+    const name = charge.ServiceName?.trim() || charge.ServiceCategory?.trim() || "Vercel service";
+    const category = charge.ServiceCategory?.trim() || "Uncategorized";
+    const existing = byService.get(name);
+    if (existing) {
+      existing.spendUsd += spendUsd;
+    } else {
+      byService.set(name, { category, spendUsd });
+    }
+  }
+
+  const projectedThirtyDaySpendUsd = input.days > 0 ? (observedSpendUsd / input.days) * 30 : observedSpendUsd;
+  const serviceBreakdown = [...byService.entries()]
+    .map(([name, value]) => ({ name, category: value.category, spendUsd: value.spendUsd }))
+    .sort((a, b) => b.spendUsd - a.spendUsd)
+    .slice(0, 6);
+
+  return {
+    configured: true,
+    billingConnected: true,
+    chargeCount: input.charges.length,
+    observedSpendUsd,
+    observedDays: input.days,
+    fixedMonthlySpendUsd: null,
+    monthlyBudgetUsd: input.monthlyBudgetUsd,
+    projectedThirtyDaySpendUsd,
+    projectedNinetyDaySpendUsd: projectedThirtyDaySpendUsd * 3,
+    basisLabel: "Live Vercel billing charges",
+    serviceBreakdown
+  };
+}
+
+async function fetchVercelBillingCharges(input: {
+  teamId?: string;
+  teamSlug?: string;
+  token: string;
+  from: Date;
+  to: Date;
+}) {
+  const params = new URLSearchParams({
+    from: input.from.toISOString(),
+    to: input.to.toISOString()
+  });
+
+  if (input.teamId) params.set("teamId", input.teamId);
+  if (!input.teamId && input.teamSlug) params.set("slug", input.teamSlug);
+
+  const response = await fetch(`https://api.vercel.com/v1/billing/charges?${params.toString()}`, {
+    headers: {
+      authorization: `Bearer ${input.token}`,
+      "content-type": "application/json"
+    },
+    cache: "no-store"
+  });
+
+  const text = await response.text();
+
+  if (!response.ok) {
+    let message = text;
+    try {
+      const payload = JSON.parse(text) as { error?: { message?: string }; message?: string };
+      message = payload?.error?.message || payload?.message || text;
+    } catch {
+      message = text;
+    }
+    throw new Error(`Vercel billing sync failed: ${message || `HTTP ${response.status}`}`);
+  }
+
+  return parseJsonLines(text);
+}
+
+async function getSpendForecast(input: {
+  config: ReturnType<typeof getVercelConfig>;
+  token?: string;
+  windowStart: Date;
+  windowEnd: Date;
+  windowDays: number;
+}): Promise<VercelSpendForecast> {
+  const configured = getConfiguredSpendForecast();
+  if (!input.token) return configured;
+
+  try {
+    return summarizeBillingCharges({
+      charges: await fetchVercelBillingCharges({
+        teamId: input.config.teamId,
+        teamSlug: input.config.teamSlug,
+        token: input.token,
+        from: input.windowStart,
+        to: input.windowEnd
+      }),
+      days: input.windowDays,
+      monthlyBudgetUsd: configured.monthlyBudgetUsd
+    });
+  } catch (error) {
+    return {
+      ...configured,
+      error: error instanceof Error ? error.message : "Vercel billing sync failed."
+    };
+  }
+}
+
 export async function getVercelOperationsSnapshot(
   input: VercelOperationsInput = {}
 ): Promise<VercelOperationsSnapshot> {
   const window = getWindow(input);
   const config = getVercelConfig();
   const runtime = getRuntimeSnapshot();
-  const spend = getSpendForecast();
+  const spend = await getSpendForecast({
+    config,
+    token: config.token,
+    windowStart: window.start,
+    windowEnd: window.end,
+    windowDays: window.windowKey === "last-7-days" ? 7 : 30
+  });
   const instrumentation = getObservabilityInstrumentation();
   const configuration = getConfigurationSnapshot({ config, spend, instrumentation });
   const base = {
