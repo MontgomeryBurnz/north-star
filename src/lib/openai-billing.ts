@@ -24,6 +24,16 @@ type OpenAICompletionsUsageResponse = {
   next_page?: string | null;
 };
 
+type OpenAIUsageSummary = {
+  inputTokens: number;
+  cachedInputTokens: number;
+  outputTokens: number;
+  totalTokens: number;
+  requests: number;
+  cacheHitRate: number;
+  estimatedSpendUsd: number;
+};
+
 export type OpenAIBillingWindowInput = {
   windowKey?: OpenAIBillingWindowKey;
   customStartDate?: string;
@@ -129,6 +139,11 @@ function getOpenAIProjectId() {
   return process.env.OPENAI_BILLING_PROJECT_ID?.trim();
 }
 
+function getValidOpenAIProjectId() {
+  const projectId = getOpenAIProjectId();
+  return projectId && /^proj_[A-Za-z0-9_-]+$/.test(projectId) ? projectId : undefined;
+}
+
 function getConfiguredOpenAIModel() {
   return process.env.OPENAI_MODEL?.trim() || "gpt-5.5";
 }
@@ -161,10 +176,17 @@ async function fetchOpenAIJson<T>(path: string, params: URLSearchParams, adminKe
   });
 
   if (!response.ok) {
-    throw new Error(`OpenAI billing sync failed with HTTP ${response.status}.`);
+    const payload = (await response.json().catch(() => null)) as { error?: { message?: string }; message?: string } | null;
+    const message = payload?.error?.message || payload?.message || response.statusText;
+    throw new Error(`OpenAI billing sync failed with HTTP ${response.status}: ${message}`);
   }
 
   return (await response.json()) as T;
+}
+
+function appendArrayParam(params: URLSearchParams, key: string, value: string | undefined) {
+  if (!value) return;
+  params.append(`${key}[]`, value);
 }
 
 async function fetchOpenAICosts(input: {
@@ -183,7 +205,7 @@ async function fetchOpenAICosts(input: {
       bucket_width: "1d",
       limit: "180"
     });
-    if (input.projectId) params.append("project_ids", input.projectId);
+    appendArrayParam(params, "project_ids", input.projectId);
     if (page) params.set("page", page);
 
     const payload = await fetchOpenAIJson<OpenAICostsResponse>("/v1/organization/costs", params, input.adminKey);
@@ -220,8 +242,8 @@ async function fetchOpenAICompletionsUsage(input: {
       bucket_width: "1d",
       limit: "31"
     });
-    if (input.projectId) params.append("project_ids", input.projectId);
-    params.append("group_by", "model");
+    appendArrayParam(params, "project_ids", input.projectId);
+    appendArrayParam(params, "group_by", "model");
     if (page) params.set("page", page);
 
     const payload = await fetchOpenAIJson<OpenAICompletionsUsageResponse>(
@@ -283,7 +305,7 @@ export async function getOpenAIBillingReconciliation(
   const { windowKey, label, start, end, startTime, endTime } = getBillingWindow(windowInput);
   const local = summarizeLocalUsage(localUsageRecords, start, end);
   const adminKey = getOpenAIAdminKey();
-  const projectId = getOpenAIProjectId() || undefined;
+  const projectId = getValidOpenAIProjectId();
   const base = {
     source: "openai-costs-api" as const,
     windowKey,
@@ -318,27 +340,49 @@ export async function getOpenAIBillingReconciliation(
   }
 
   try {
-    const [actualSpendUsd, usage] = await Promise.all([
+    const [costsResult, usageResult] = await Promise.allSettled([
       fetchOpenAICosts({ adminKey, startTime, endTime, projectId }),
       fetchOpenAICompletionsUsage({ adminKey, startTime, endTime, projectId })
     ]);
-    const reconciledSpendUsd = actualSpendUsd > 0 ? actualSpendUsd : usage.estimatedSpendUsd;
+    const costsError = costsResult.status === "rejected" ? costsResult.reason : null;
+    const usageError = usageResult.status === "rejected" ? usageResult.reason : null;
+
+    if (costsResult.status === "rejected" && usageResult.status === "rejected") {
+      throw new Error(
+        [costsError, usageError]
+          .map((error) => (error instanceof Error ? error.message : String(error)))
+          .filter(Boolean)
+          .join(" ")
+      );
+    }
+
+    const costsApiSpendUsd = costsResult.status === "fulfilled" ? costsResult.value : null;
+    const usage: OpenAIUsageSummary | null = usageResult.status === "fulfilled" ? usageResult.value : null;
+    const reconciledSpendUsd = costsApiSpendUsd !== null && costsApiSpendUsd > 0 ? costsApiSpendUsd : usage?.estimatedSpendUsd ?? 0;
+    const partialError =
+      costsError || usageError
+        ? [costsError, usageError]
+            .map((error) => (error instanceof Error ? error.message : String(error)))
+            .filter(Boolean)
+            .join(" ")
+        : undefined;
 
     return {
       ...base,
       configured: true,
       connected: true,
       actualSpendUsd: reconciledSpendUsd,
-      costsApiSpendUsd: actualSpendUsd,
-      usageEstimatedSpendUsd: usage.estimatedSpendUsd,
-      spendSource: actualSpendUsd > 0 ? "costs-api" : "usage-estimate",
-      actualInputTokens: usage.inputTokens,
-      actualCachedInputTokens: usage.cachedInputTokens,
-      actualOutputTokens: usage.outputTokens,
-      actualTotalTokens: usage.totalTokens,
-      actualRequests: usage.requests,
-      actualCacheHitRate: usage.cacheHitRate,
-      unallocatedSpendUsd: reconciledSpendUsd - local.spendUsd
+      costsApiSpendUsd,
+      usageEstimatedSpendUsd: usage?.estimatedSpendUsd ?? null,
+      spendSource: costsApiSpendUsd !== null && costsApiSpendUsd > 0 ? "costs-api" : usage ? "usage-estimate" : null,
+      actualInputTokens: usage?.inputTokens ?? null,
+      actualCachedInputTokens: usage?.cachedInputTokens ?? null,
+      actualOutputTokens: usage?.outputTokens ?? null,
+      actualTotalTokens: usage?.totalTokens ?? null,
+      actualRequests: usage?.requests ?? null,
+      actualCacheHitRate: usage?.cacheHitRate ?? null,
+      unallocatedSpendUsd: reconciledSpendUsd - local.spendUsd,
+      error: partialError
     };
   } catch (error) {
     return {
