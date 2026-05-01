@@ -186,29 +186,27 @@ function ArtifactDetailTable({ table }: { table: RoleArtifactDraft["tables"][num
 function ArtifactOutput({ artifact }: { artifact: RoleArtifactDraft }) {
   const primaryTable = artifact.tables[0];
   const totalRows = artifact.tables.reduce((total, table) => total + table.rows.length, 0);
+  const supportingItemCount = artifact.sections.reduce((total, section) => total + section.items.length, 0);
 
   return (
     <div className="grid gap-4">
       <div className="rounded-lg border border-emerald-300/15 bg-emerald-300/[0.045] p-4 sm:p-5">
-        <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_280px]">
+        <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_260px]">
           <div>
-            <p className="text-xs font-medium uppercase tracking-[0.16em] text-emerald-200">Executive snapshot</p>
+            <p className="text-xs font-medium uppercase tracking-[0.16em] text-emerald-200">Generated work product</p>
             <p className="mt-2 text-base font-semibold text-zinc-100">{artifact.title}</p>
             <p className="mt-2 max-w-4xl text-sm leading-6 text-zinc-300">{artifact.summary}</p>
           </div>
-          <div className="grid grid-cols-3 gap-2 xl:grid-cols-1">
-            <div className="rounded-md border border-white/10 bg-black/20 p-3">
-              <p className="text-[11px] uppercase tracking-[0.14em] text-zinc-500">Version</p>
-              <p className="mt-1 text-sm font-semibold text-zinc-100">{artifact.version ? `v${artifact.version}` : "Draft"}</p>
-            </div>
-            <div className="rounded-md border border-white/10 bg-black/20 p-3">
-              <p className="text-[11px] uppercase tracking-[0.14em] text-zinc-500">Items</p>
-              <p className="mt-1 text-sm font-semibold text-zinc-100">{totalRows}</p>
-            </div>
-            <div className="rounded-md border border-white/10 bg-black/20 p-3">
-              <p className="text-[11px] uppercase tracking-[0.14em] text-zinc-500">Source</p>
-              <p className="mt-1 text-sm font-semibold text-zinc-100">{artifact.provider === "openai" ? "OpenAI" : "Local"}</p>
-            </div>
+          <div className="flex flex-wrap content-start gap-2 xl:justify-end">
+            {[
+              artifact.version ? `v${artifact.version}` : "Draft",
+              `${totalRows} items`,
+              artifact.provider === "openai" ? "OpenAI" : "Local"
+            ].map((label) => (
+              <span key={label} className="rounded-full border border-white/10 bg-black/20 px-3 py-1 text-[11px] uppercase tracking-[0.12em] text-zinc-300">
+                {label}
+              </span>
+            ))}
           </div>
         </div>
       </div>
@@ -217,7 +215,7 @@ function ArtifactOutput({ artifact }: { artifact: RoleArtifactDraft }) {
         <section className="grid gap-3">
           <div className="flex flex-wrap items-end justify-between gap-3">
             <div>
-              <p className="text-xs font-medium uppercase tracking-[0.16em] text-zinc-500">At a glance</p>
+              <p className="text-xs font-medium uppercase tracking-[0.16em] text-zinc-500">Artifact preview</p>
               <p className="mt-1 text-sm text-zinc-300">{primaryTable.title}</p>
             </div>
             <span className="rounded-full border border-white/10 px-2 py-0.5 text-[11px] uppercase tracking-[0.12em] text-zinc-500">
@@ -228,31 +226,36 @@ function ArtifactOutput({ artifact }: { artifact: RoleArtifactDraft }) {
         </section>
       ) : null}
 
-      <section className="grid gap-3 md:grid-cols-2">
-        {artifact.sections.map((section) => (
-          <details key={section.title} className="rounded-md border border-white/10 bg-white/[0.035] p-3">
-            <summary className="cursor-pointer list-none">
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <p className="text-xs font-medium uppercase tracking-[0.16em] text-zinc-300">{section.title}</p>
-                  <p className="mt-2 text-xs leading-5 text-zinc-500">{summarizeCell(section.items[0], 120)}</p>
+      {artifact.sections.length ? (
+        <details className="rounded-md border border-white/10 bg-white/[0.03] p-3">
+          <summary className="flex cursor-pointer list-none flex-wrap items-center justify-between gap-3">
+            <span>
+              <span className="block text-xs font-medium uppercase tracking-[0.16em] text-zinc-300">Supporting guidance</span>
+              <span className="mt-1 block text-xs leading-5 text-zinc-500">
+                {supportingItemCount} notes across {artifact.sections.length} sections. Open only when the team needs generation rationale or refinement prompts.
+              </span>
+            </span>
+            <span className="rounded-full border border-white/10 px-2 py-0.5 text-[11px] uppercase tracking-[0.12em] text-zinc-500">
+              View notes
+            </span>
+          </summary>
+          <div className="mt-3 grid gap-3 border-t border-white/10 pt-3 md:grid-cols-2">
+            {artifact.sections.map((section) => (
+              <div key={section.title} className="rounded-md border border-white/10 bg-black/20 p-3">
+                <p className="text-xs font-medium uppercase tracking-[0.16em] text-zinc-300">{section.title}</p>
+                <div className="mt-3 grid gap-2">
+                  {section.items.map((item) => (
+                    <p key={item} className="grid grid-cols-[auto_minmax(0,1fr)] gap-2 text-sm leading-6 text-zinc-300">
+                      <ArrowRight className="mt-1 h-4 w-4 shrink-0 text-cyan-200" />
+                      <span>{item}</span>
+                    </p>
+                  ))}
                 </div>
-                <span className="rounded-full border border-white/10 px-2 py-0.5 text-[11px] uppercase tracking-[0.12em] text-zinc-500">
-                  {section.items.length}
-                </span>
               </div>
-            </summary>
-            <div className="mt-3 grid gap-2">
-              {section.items.map((item) => (
-                <p key={item} className="grid grid-cols-[auto_minmax(0,1fr)] gap-2 text-sm leading-6 text-zinc-300">
-                  <ArrowRight className="mt-1 h-4 w-4 shrink-0 text-cyan-200" />
-                  <span>{item}</span>
-                </p>
-              ))}
-            </div>
-          </details>
-        ))}
-      </section>
+            ))}
+          </div>
+        </details>
+      ) : null}
 
       <details className="rounded-md border border-cyan-300/15 bg-cyan-300/[0.035] p-3">
         <summary className="flex cursor-pointer list-none flex-wrap items-center justify-between gap-3">
@@ -269,7 +272,7 @@ function ArtifactOutput({ artifact }: { artifact: RoleArtifactDraft }) {
 
       <section className="grid gap-3">
         <div>
-          <p className="text-xs font-medium uppercase tracking-[0.16em] text-zinc-500">Detailed artifact table</p>
+          <p className="text-xs font-medium uppercase tracking-[0.16em] text-zinc-500">Full export table</p>
           <p className="mt-1 text-sm text-zinc-400">Collapsed by default so the studio stays readable after generation.</p>
         </div>
         {artifact.tables.map((table) => (
@@ -330,6 +333,14 @@ export function RoleArtifactStudioCard({
     () => getRoleArtifactDefinition(selectedType, customDefinition ?? defaultDefinition),
     [customDefinition, defaultDefinition, selectedType]
   );
+
+  useEffect(() => {
+    setSelectedType(defaultDefinition.type);
+    setCustomDefinition(null);
+    setArtifact(null);
+    setArtifactHistory([]);
+    setStatus(null);
+  }, [defaultDefinition.type, roleFocus]);
 
   useEffect(() => {
     if (launchRequest) {

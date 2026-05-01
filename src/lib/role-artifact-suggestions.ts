@@ -65,7 +65,39 @@ function roleMatches(definition: RoleArtifactDefinition, roleFocus: string | und
   const role = compact(roleFocus).toLowerCase();
   if (!role || role === allRolesOption) return true;
 
-  return definition.role.toLowerCase() === role || definition.role.toLowerCase().includes(role) || role.includes(definition.role.toLowerCase());
+  return roleTextMatches(definition.role, roleFocus);
+}
+
+function roleTextMatches(value: string | undefined, roleFocus: string | undefined) {
+  const role = compact(roleFocus).toLowerCase();
+  if (!role || role === allRolesOption) return true;
+
+  const candidate = compact(value).toLowerCase();
+  if (!candidate || candidate === "all roles") return false;
+
+  return candidate === role || candidate.includes(role) || role.includes(candidate);
+}
+
+function suggestionMatchesRole(suggestion: RoleArtifactSuggestion, roleFocus: string | undefined) {
+  const role = compact(roleFocus).toLowerCase();
+  if (!role || role === allRolesOption) return true;
+
+  return roleTextMatches(suggestion.role, roleFocus) || roleTextMatches(suggestion.definition.role, roleFocus);
+}
+
+function filterSuggestionsByRole(suggestions: RoleArtifactSuggestion[], roleFocus: string | undefined) {
+  return suggestions.filter((suggestion) => suggestionMatchesRole(suggestion, roleFocus));
+}
+
+function mergeRoleSuggestions(primary: RoleArtifactSuggestion[], fallback: RoleArtifactSuggestion[]) {
+  const seen = new Set<string>();
+
+  return [...primary, ...fallback].filter((suggestion) => {
+    const key = `${suggestion.artifactType}:${suggestion.role}:${suggestion.title}`.toLowerCase();
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
 }
 
 function getConfiguredModel() {
@@ -362,6 +394,7 @@ export async function suggestRoleArtifacts(context: RoleArtifactSuggestionContex
                 "You are North Star recommending role-based work products for a complex program.",
                 "Use the provided grounded program context only.",
                 "Recommend artifacts that would help the selected role or cross-functional team move work forward.",
+                "When roleFocus is a specific role, every suggestion must be directly tailored to that role only.",
                 "Prefer the provided artifact catalog when it fits, but you may suggest a custom artifact when the context justifies it.",
                 "Explain why each artifact matters, what source signals justify it, the recommended format, and expected business value."
               ].join(" ")
@@ -402,9 +435,15 @@ ${buildPromptContext(context)}`
     return { modelUsage: modelUsage ?? undefined, provider: "local", suggestions: fallbackSuggestions };
   }
 
+  const roleFilteredSuggestions = filterSuggestionsByRole(normalizeOpenAISuggestions(payload), context.roleFocus);
+
+  if (!roleFilteredSuggestions.length) {
+    return { modelUsage: modelUsage ?? undefined, provider: "local", suggestions: fallbackSuggestions };
+  }
+
   return {
     modelUsage: modelUsage ?? undefined,
     provider: "openai",
-    suggestions: normalizeOpenAISuggestions(payload)
+    suggestions: mergeRoleSuggestions(roleFilteredSuggestions, fallbackSuggestions).slice(0, 6)
   };
 }

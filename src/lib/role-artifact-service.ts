@@ -267,7 +267,9 @@ export async function generateRoleArtifactDraft(context: RoleArtifactGenerationC
                 "Use only the provided program inputs, uploaded artifact excerpts, active updates, leadership feedback, Guide dialogue, meeting inputs, and guided plan.",
                 "Do not invent client facts. If information is missing, call it out as a gap or validation need.",
                 "Make the output practical for the named role to iterate against immediately.",
-                "Keep content concise, structured, and specific to the selected artifact type."
+                "Keep content concise, structured, and specific to the selected artifact type.",
+                "Make tables the primary artifact. Avoid repeating the same context in summary, sections, and sourceSummary.",
+                "Use sections only for non-duplicative supporting guidance, assumptions, validation gaps, or iteration notes."
               ].join(" ")
             }
           ]

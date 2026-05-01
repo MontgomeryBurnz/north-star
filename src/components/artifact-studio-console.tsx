@@ -32,6 +32,24 @@ function getProviderLabel(provider: "local" | "openai" | null) {
   return "Awaiting analysis";
 }
 
+function normalizeRole(value: string | undefined) {
+  return (value ?? "").trim().toLowerCase();
+}
+
+function roleTextMatches(value: string | undefined, roleFocus: string) {
+  const role = normalizeRole(roleFocus);
+  if (!role || role === allRolesOption) return true;
+
+  const candidate = normalizeRole(value);
+  if (!candidate || candidate === "all roles") return false;
+
+  return candidate === role || candidate.includes(role) || role.includes(candidate);
+}
+
+function suggestionMatchesRole(suggestion: RoleArtifactSuggestion, roleFocus: string) {
+  return roleTextMatches(suggestion.role, roleFocus) || roleTextMatches(suggestion.definition.role, roleFocus);
+}
+
 function EmptyArtifactState({ hasPrograms }: { hasPrograms: boolean }) {
   return (
     <Card className="bg-zinc-950/75">
@@ -223,6 +241,7 @@ export function ArtifactStudioConsole() {
     if (!assignmentsLoaded || !selectedProgramId) {
       setSelectedRoleFocus(allRolesOption);
       setCustomRole(allRolesOption);
+      setLaunchRequest(null);
       return;
     }
 
@@ -230,6 +249,7 @@ export function ArtifactStudioConsole() {
     const nextRole = assignedRole && teamRoles.some((role) => role.toLowerCase() === assignedRole.toLowerCase()) ? assignedRole : allRolesOption;
     setSelectedRoleFocus(nextRole);
     setCustomRole(nextRole);
+    setLaunchRequest(null);
   }, [assignmentsLoaded, getAssignmentForProgram, selectedProgramId, teamRoles]);
 
   useEffect(() => {
@@ -270,6 +290,11 @@ export function ArtifactStudioConsole() {
       setIsLoadingSuggestions(false);
     }
   }, [selectedProgramId, selectedRoleFocus]);
+
+  const visibleSuggestions = useMemo(
+    () => suggestions.filter((suggestion) => suggestionMatchesRole(suggestion, selectedRoleFocus)),
+    [selectedRoleFocus, suggestions]
+  );
 
   useEffect(() => {
     void loadSuggestions();
@@ -336,8 +361,10 @@ export function ArtifactStudioConsole() {
                   <select
                     value={selectedRoleFocus}
                     onChange={(event) => {
-                      setSelectedRoleFocus(event.target.value);
-                      setCustomRole(event.target.value);
+                      const nextRole = event.target.value;
+                      setSelectedRoleFocus(nextRole);
+                      setCustomRole(nextRole);
+                      setLaunchRequest(null);
                     }}
                     className="h-12 w-full appearance-none rounded-md border border-white/10 bg-zinc-950 px-3 pr-10 text-sm text-zinc-100 outline-none transition-colors focus:border-emerald-300/50 focus:ring-2 focus:ring-emerald-300/15"
                   >
@@ -356,7 +383,7 @@ export function ArtifactStudioConsole() {
               <StudioMetric label="Current program" value={selectedProgram?.intake.programName ?? "Not selected"} />
               <StudioMetric label="Role lens" value={formatRoleLabel(selectedRoleFocus)} />
               <StudioMetric label="Recommendation source" value={getProviderLabel(suggestionProvider)} />
-              <StudioMetric label="Briefs ready" value={selectedProgramId ? String(suggestions.length) : "0"} />
+              <StudioMetric label="Briefs ready" value={selectedProgramId ? String(visibleSuggestions.length) : "0"} />
             </div>
 
             <div className="rounded-md border border-emerald-300/20 bg-emerald-300/[0.045] p-3">
@@ -402,9 +429,9 @@ export function ArtifactStudioConsole() {
                       <p className="mt-3 text-sm font-medium text-zinc-100">Analyzing program context...</p>
                     </div>
                   </div>
-                ) : suggestions.length ? (
+                ) : visibleSuggestions.length ? (
                   <div className="grid gap-4 lg:grid-cols-2 2xl:grid-cols-3" data-studio-suggestions="true">
-                    {suggestions.map((suggestion) => (
+                    {visibleSuggestions.map((suggestion) => (
                       <ArtifactSuggestionCard
                         key={suggestion.id}
                         suggestion={suggestion}

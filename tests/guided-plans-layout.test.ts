@@ -27,8 +27,10 @@ test("Team Action Plan focused roles can still collapse", () => {
 test("Artifact Studio output uses a digest-first full-width layout", () => {
   const source = readFileSync(new URL("../src/components/role-artifact-studio-card.tsx", import.meta.url), "utf8");
 
-  assert.match(source, /At a glance/);
-  assert.match(source, /Detailed artifact table/);
+  assert.match(source, /Artifact preview/);
+  assert.match(source, /Full export table/);
+  assert.match(source, /Supporting guidance/);
+  assert.doesNotMatch(source, /Executive snapshot/);
   assert.match(source, /xl:grid-cols-\[minmax\(0,1fr\)_300px\]/);
   assert.doesNotMatch(source, /xl:grid-cols-\[minmax\(0,0\.78fr\)_minmax\(0,1\.22fr\)\]/);
 });
@@ -41,4 +43,17 @@ test("Studio recommendations use a full-width brief browser", () => {
   assert.match(source, /lg:grid-cols-2 2xl:grid-cols-3/);
   assert.doesNotMatch(source, /xl:grid-cols-\[430px_minmax\(0,1fr\)\]/);
   assert.doesNotMatch(source, /xl:sticky xl:top-24/);
+});
+
+test("Studio role filtering is enforced after OpenAI recommendations return", () => {
+  const serverSource = readFileSync(new URL("../src/lib/role-artifact-suggestions.ts", import.meta.url), "utf8");
+  const clientSource = readFileSync(new URL("../src/components/artifact-studio-console.tsx", import.meta.url), "utf8");
+  const generationSource = readFileSync(new URL("../src/lib/role-artifact-service.ts", import.meta.url), "utf8");
+
+  assert.match(serverSource, /filterSuggestionsByRole\(normalizeOpenAISuggestions\(payload\), context\.roleFocus\)/);
+  assert.match(serverSource, /When roleFocus is a specific role, every suggestion must be directly tailored to that role only\./);
+  assert.match(clientSource, /visibleSuggestions/);
+  assert.match(clientSource, /suggestionMatchesRole\(suggestion, selectedRoleFocus\)/);
+  assert.match(generationSource, /Make tables the primary artifact/);
+  assert.match(generationSource, /Avoid repeating the same context/);
 });
