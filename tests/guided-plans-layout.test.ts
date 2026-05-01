@@ -29,6 +29,6 @@ test("Artifact Studio output uses a digest-first full-width layout", () => {
 
   assert.match(source, /At a glance/);
   assert.match(source, /Detailed artifact table/);
-  assert.match(source, /xl:grid-cols-\[minmax\(0,1fr\)_320px\]/);
+  assert.match(source, /xl:grid-cols-\[minmax\(0,1fr\)_300px\]/);
   assert.doesNotMatch(source, /xl:grid-cols-\[minmax\(0,0\.78fr\)_minmax\(0,1\.22fr\)\]/);
 });
