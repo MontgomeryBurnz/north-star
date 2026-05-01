@@ -21,6 +21,7 @@ model Program {
   assistantConversations AssistantConversation[]
   artifacts           Artifact[]
   meetingInputs       MeetingInput[]
+  roleArtifacts       RoleArtifact[]
   guidanceJustifications GuidanceJustification[]
   guidanceFeedbackFlags GuidanceFeedbackFlag[]
 
@@ -119,6 +120,23 @@ model MeetingInput {
 
   @@index([programId, createdAt(sort: Desc)])
   @@map("meeting_inputs")
+}
+
+model RoleArtifact {
+  id           String   @id
+  programId    String   @map("program_id")
+  programName  String   @map("program_name")
+  artifactType String   @map("artifact_type")
+  version      Int
+  record       Json
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  program Program @relation(fields: [programId], references: [id], onDelete: Cascade)
+
+  @@index([programId, createdAt(sort: Desc)])
+  @@index([programId, artifactType, createdAt(sort: Desc)])
+  @@map("role_artifacts")
 }
 
 model GuidanceJustification {

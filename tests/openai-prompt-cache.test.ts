@@ -13,6 +13,6 @@ test("getNorthStarPromptCacheKey creates stable normalized workflow keys", () =>
 test("getNorthStarPromptCacheKey caps long cache keys", () => {
   const cacheKey = getNorthStarPromptCacheKey("leadership feedback", "x".repeat(200));
 
-  assert.equal(cacheKey.length, 120);
+  assert.equal(cacheKey.length, 64);
   assert.ok(cacheKey.startsWith("north-star:leadership-feedback:"));
 });

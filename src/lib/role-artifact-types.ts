@@ -26,6 +26,8 @@ export type RoleArtifactTable = {
 export type RoleArtifactDraft = {
   id: string;
   artifactType: RoleArtifactType;
+  programId?: string;
+  programName?: string;
   role: string;
   title: string;
   summary: string;
@@ -34,6 +36,8 @@ export type RoleArtifactDraft = {
   tables: RoleArtifactTable[];
   iterationPrompts: string[];
   provider: "local" | "openai";
+  version?: number;
+  feedback?: string;
   generatedAt: string;
   modelUsage?: OpenAIUsageMetadata;
 };

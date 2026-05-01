@@ -12,6 +12,7 @@ import type {
 } from "@/lib/program-intelligence-types";
 import type { ProgramIntake } from "@/lib/program-intake-types";
 import { getProgramRepository } from "@/lib/program-repository";
+import type { RoleArtifactDraft, RoleArtifactType } from "@/lib/role-artifact-types";
 
 export async function listPrograms() {
   return getProgramRepository().listPrograms();
@@ -74,6 +75,14 @@ export async function createMeetingInput(
   input: Omit<ProgramMeetingInput, "id" | "programId" | "programName" | "createdAt" | "updatedAt">
 ) {
   return getProgramRepository().createMeetingInput(programId, input);
+}
+
+export async function listRoleArtifacts(programId: string, artifactType?: RoleArtifactType) {
+  return getProgramRepository().listRoleArtifacts(programId, artifactType);
+}
+
+export async function createRoleArtifact(programId: string, artifact: RoleArtifactDraft) {
+  return getProgramRepository().createRoleArtifact(programId, artifact);
 }
 
 export async function listClientDecisionRequests(programId: string) {

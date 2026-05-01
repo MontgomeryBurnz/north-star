@@ -3,7 +3,7 @@
 import { useMemo, type ReactNode } from "react";
 import { ArrowRight, ChevronDown, ChevronUp, Flag } from "lucide-react";
 import type { GuidedPlanRolePlan, GuidedPlanRolePlans, GuidedPlanSection } from "@/lib/guided-plan-types";
-import type { GuidanceFeedbackFlagTargetType } from "@/lib/program-intelligence-types";
+import type { GuidanceFeedbackFlagTargetType, GuidanceJustificationRecord } from "@/lib/program-intelligence-types";
 import { buildTeamActionPlanFlagSourceId } from "@/lib/guidance-feedback-flag-sources";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -72,6 +72,14 @@ const sectionToneStyles: Record<
     cardClassName: "border-rose-300/15 bg-rose-300/[0.045]",
     iconClassName: "text-rose-200"
   }
+};
+
+const triggerLabels: Record<GuidanceJustificationRecord["triggeredBy"][number], string> = {
+  artifact: "Upload",
+  "active-update": "Active update",
+  "leadership-feedback": "Leadership",
+  "assistant-dialogue": "Guide dialogue",
+  "meeting-input": "Meeting input"
 };
 
 function normalizeRoleKey(role: string) {
@@ -309,6 +317,219 @@ export function PlanInsightsCard({
               ))}
             </div>
           </div>
+        ) : null}
+      </CardContent>
+    </Card>
+  );
+}
+
+export function GuidanceReviewPanel({
+  flagContext,
+  flagReason,
+  flagTarget,
+  isSubmittingFlag,
+  justification,
+  onCancelFlag,
+  onFlagContextChange,
+  onFlagReasonChange,
+  onOpenCitationFlag,
+  onOpenWholeFlag,
+  onSubmitFlag,
+  pendingFlagCount,
+  sectionFooters,
+  sections
+}: {
+  flagContext: string;
+  flagReason: string;
+  flagTarget: FlagTarget | null;
+  isSubmittingFlag: boolean;
+  justification: GuidanceJustificationRecord | null;
+  onCancelFlag: () => void;
+  onFlagContextChange: (value: string) => void;
+  onFlagReasonChange: (value: string) => void;
+  onOpenCitationFlag: (citationId: string, citationLabel: string) => void;
+  onOpenWholeFlag: () => void;
+  onSubmitFlag: () => void | Promise<void>;
+  pendingFlagCount: number;
+  sectionFooters?: Record<string, ReactNode>;
+  sections: GuidedPlanSection[];
+}) {
+  const primarySections = sections.filter((section) => primaryInsightTitles.has(section.title));
+  const visibleGroups = sectionGroups
+    .map((group) => ({
+      ...group,
+      matchingSections: sections.filter((section) => (group.sections as readonly string[]).includes(section.title))
+    }))
+    .filter((group) => group.matchingSections.length);
+  const unmatchedSections = sections.filter(
+    (section) => !sectionGroups.some((group) => (group.sections as readonly string[]).includes(section.title))
+  );
+
+  return (
+    <Card className="bg-zinc-950/75">
+      <CardHeader className="border-b border-white/10">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <CardTitle className="text-zinc-50">Guidance Review</CardTitle>
+            <p className="mt-2 max-w-3xl text-sm leading-6 text-zinc-400">
+              Inspect evidence, refresh drivers, and detailed guidance only when a plan needs review or a flag needs context.
+            </p>
+          </div>
+          <span className="rounded-md border border-white/10 bg-white/[0.035] px-3 py-1 text-xs text-zinc-400">
+            {pendingFlagCount ? `${pendingFlagCount} pending flag${pendingFlagCount === 1 ? "" : "s"}` : "No pending flags"}
+          </span>
+        </div>
+      </CardHeader>
+      <CardContent className="grid gap-4 p-4 sm:p-5">
+        <div className="grid gap-3 lg:grid-cols-[minmax(0,1.25fr)_minmax(220px,0.75fr)]">
+          <div className="rounded-md border border-emerald-300/20 bg-emerald-300/[0.055] p-4">
+            <p className="text-xs font-medium uppercase tracking-[0.16em] text-emerald-200">Latest refresh</p>
+            <p className="mt-3 text-sm leading-6 text-zinc-200">
+              {justification?.summary ?? "The next saved plan refresh will capture source evidence and rationale here."}
+            </p>
+            {justification?.triggeredBy.length ? (
+              <div className="mt-4 flex flex-wrap gap-2">
+                {justification.triggeredBy.map((trigger) => (
+                  <span
+                    key={trigger}
+                    className="rounded-full border border-emerald-200/20 bg-black/20 px-3 py-1 text-xs text-emerald-100"
+                  >
+                    {triggerLabels[trigger]}
+                  </span>
+                ))}
+              </div>
+            ) : null}
+          </div>
+
+          <div className="grid gap-3 rounded-md border border-white/10 bg-black/20 p-4">
+            <div className="grid gap-1">
+              <p className="text-xs font-medium uppercase tracking-[0.16em] text-zinc-400">Evidence loaded</p>
+              <p className="text-3xl font-semibold text-zinc-50">{justification?.citations.length ?? 0}</p>
+              <p className="text-xs leading-5 text-zinc-500">Source signals supporting the latest plan.</p>
+            </div>
+            <div className="mt-auto flex justify-end border-t border-white/10 pt-3">
+              <Button type="button" variant="outline" onClick={onOpenWholeFlag} disabled={!justification}>
+                <Flag className="h-4 w-4" />
+                Flag guidance
+              </Button>
+            </div>
+            {justification && flagTarget?.justificationId === justification.id && flagTarget.scope === "whole" && !flagTarget.citationId ? (
+              <GuidanceFlagForm
+                reason={flagReason}
+                context={flagContext}
+                isSubmitting={isSubmittingFlag}
+                reasonPlaceholder="What is inaccurate or misframed?"
+                contextPlaceholder="Add the program context governance should use to review this challenge."
+                onReasonChange={onFlagReasonChange}
+                onContextChange={onFlagContextChange}
+                onSubmit={onSubmitFlag}
+                onCancel={onCancelFlag}
+              />
+            ) : null}
+          </div>
+        </div>
+
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+          {primarySections.map((section) => (
+            <CompactInsightTile key={section.title} section={section} />
+          ))}
+        </div>
+
+        <details className="rounded-md border border-white/10 bg-black/20 p-4">
+          <summary className="flex cursor-pointer list-none flex-wrap items-center justify-between gap-3">
+            <span>
+              <span className="block text-sm font-semibold text-zinc-100">Detailed Guidance</span>
+              <span className="mt-1 block text-xs leading-5 text-zinc-500">
+                Expand for grouped inputs, execution rationale, outcomes, risks, and questions.
+              </span>
+            </span>
+            <span className="rounded-full border border-white/10 px-2 py-0.5 text-[11px] uppercase tracking-[0.12em] text-zinc-500">
+              {sections.length} sections
+            </span>
+          </summary>
+          <div className="mt-4 grid gap-3 border-t border-white/10 pt-4">
+            {visibleGroups.map((group) => (
+              <details key={group.title} className="rounded-md border border-white/10 bg-white/[0.025] p-3">
+                <summary className="flex cursor-pointer list-none items-center justify-between gap-3">
+                  <span>
+                    <span className="block text-sm font-semibold text-zinc-100">{group.title}</span>
+                    <span className="mt-1 block text-xs leading-5 text-zinc-500">{group.description}</span>
+                  </span>
+                  <span className="rounded-full border border-white/10 px-2 py-0.5 text-[11px] uppercase tracking-[0.12em] text-zinc-500">
+                    {group.matchingSections.length}
+                  </span>
+                </summary>
+                <div className="mt-3 grid gap-2 border-t border-white/10 pt-3">
+                  {group.matchingSections.map((section) => (
+                    <DetailSection key={section.title} section={section} footer={sectionFooters?.[section.title]} />
+                  ))}
+                </div>
+              </details>
+            ))}
+            {unmatchedSections.map((section) => (
+              <DetailSection key={section.title} section={section} footer={sectionFooters?.[section.title]} />
+            ))}
+          </div>
+        </details>
+
+        {justification?.citations.length ? (
+          <details className="rounded-md border border-white/10 bg-black/20 p-4">
+            <summary className="flex cursor-pointer list-none flex-wrap items-center justify-between gap-3">
+              <span>
+                <span className="block text-sm font-semibold text-zinc-100">Source Evidence</span>
+                <span className="mt-1 block text-xs leading-5 text-zinc-500">
+                  Review the source rationale behind this refresh and flag specific citations when needed.
+                </span>
+              </span>
+              <span className="rounded-full border border-white/10 px-2 py-0.5 text-[11px] uppercase tracking-[0.12em] text-zinc-500">
+                {justification.citations.length}
+              </span>
+            </summary>
+            <div className="mt-4 grid gap-3 border-t border-white/10 pt-4 xl:grid-cols-2">
+              {justification.citations.map((citation) => {
+                const isFlagTarget =
+                  flagTarget?.justificationId === justification.id && flagTarget.citationId === citation.sourceId;
+                const preview = shortenInsight(citation.rationale, 150);
+
+                return (
+                  <div
+                    key={`${citation.sourceId}-${citation.label}`}
+                    className="flex min-h-full flex-col gap-3 rounded-md border border-white/10 bg-white/[0.035] p-3 sm:p-4"
+                  >
+                    <div>
+                      <p className="text-xs font-medium uppercase tracking-[0.16em] text-cyan-200">{citation.label}</p>
+                      <p className="mt-2 text-sm leading-6 text-zinc-300">{preview}</p>
+                    </div>
+                    <div className="mt-auto flex justify-end border-t border-white/10 pt-3">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="text-zinc-300 hover:text-zinc-50"
+                        onClick={() => onOpenCitationFlag(citation.sourceId, citation.label)}
+                      >
+                        <Flag className="h-4 w-4" />
+                        Flag citation
+                      </Button>
+                    </div>
+                    {isFlagTarget ? (
+                      <GuidanceFlagForm
+                        reason={flagReason}
+                        context={flagContext}
+                        isSubmitting={isSubmittingFlag}
+                        reasonPlaceholder="Why is this citation inaccurate or incomplete?"
+                        contextPlaceholder="Add the operator context governance should use to review this challenge."
+                        onReasonChange={onFlagReasonChange}
+                        onContextChange={onFlagContextChange}
+                        onSubmit={onSubmitFlag}
+                        onCancel={onCancelFlag}
+                      />
+                    ) : null}
+                  </div>
+                );
+              })}
+            </div>
+          </details>
         ) : null}
       </CardContent>
     </Card>

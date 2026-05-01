@@ -69,7 +69,7 @@ function drawStar(
 ) {
   context.save();
   context.translate(x, y);
-  context.shadowColor = "rgba(108, 255, 123, 0.95)";
+  context.shadowColor = "rgba(110, 231, 183, 0.95)";
   context.shadowBlur = 18 * glow;
 
   const points = 8;
@@ -87,9 +87,9 @@ function drawStar(
 
   const gradient = context.createRadialGradient(0, 0, 0, 0, 0, radius);
   gradient.addColorStop(0, "#ffffff");
-  gradient.addColorStop(0.22, "#d9ffe1");
-  gradient.addColorStop(0.55, "#6cff7b");
-  gradient.addColorStop(1, "#00ff66");
+  gradient.addColorStop(0.22, "#d1fae5");
+  gradient.addColorStop(0.55, "#6ee7b7");
+  gradient.addColorStop(1, "#34d399");
   context.fillStyle = gradient;
   context.fill();
 
@@ -118,12 +118,12 @@ function drawCelestialParticles(
     const tailLength = particle.length * (0.72 + twinkle * 0.28);
 
     const trail = context.createLinearGradient(x, y - tailLength, x, y);
-    trail.addColorStop(0, "rgba(64, 255, 92, 0)");
-    trail.addColorStop(0.7, `rgba(76, 255, 108, ${alpha * 0.18})`);
+    trail.addColorStop(0, "rgba(52, 211, 153, 0)");
+    trail.addColorStop(0.7, `rgba(110, 231, 183, ${alpha * 0.18})`);
     trail.addColorStop(1, `rgba(232, 255, 236, ${alpha * 0.86})`);
 
     context.strokeStyle = trail;
-    context.shadowColor = "rgba(76, 255, 108, 0.72)";
+    context.shadowColor = "rgba(52, 211, 153, 0.72)";
     context.shadowBlur = 5 + particle.radius * 4;
     context.lineWidth = Math.max(0.55, particle.radius * 0.45);
     context.beginPath();
@@ -153,8 +153,8 @@ function drawCelestialParticles(
 function drawAmbientGlow(context: CanvasRenderingContext2D, centerX: number, centerY: number, radius: number) {
   context.save();
   const glow = context.createRadialGradient(centerX, centerY, radius * 0.04, centerX, centerY, radius);
-  glow.addColorStop(0, "rgba(47, 151, 84, 0.28)");
-  glow.addColorStop(0.42, "rgba(0, 96, 46, 0.16)");
+  glow.addColorStop(0, "rgba(52, 211, 153, 0.26)");
+  glow.addColorStop(0.42, "rgba(6, 120, 86, 0.16)");
   glow.addColorStop(0.76, "rgba(0, 28, 15, 0.08)");
   glow.addColorStop(1, "rgba(0, 0, 0, 0)");
   context.fillStyle = glow;
@@ -169,8 +169,8 @@ function drawEarth(context: CanvasRenderingContext2D, centerX: number, centerY: 
 
   const atmosphere = context.createRadialGradient(centerX, centerY, radius * 0.7, centerX, centerY, radius * 1.55);
   atmosphere.addColorStop(0, "rgba(0, 0, 0, 0)");
-  atmosphere.addColorStop(0.56, "rgba(19, 255, 110, 0.15)");
-  atmosphere.addColorStop(1, "rgba(19, 255, 110, 0)");
+  atmosphere.addColorStop(0.56, "rgba(52, 211, 153, 0.15)");
+  atmosphere.addColorStop(1, "rgba(52, 211, 153, 0)");
   context.fillStyle = atmosphere;
   context.beginPath();
   context.arc(centerX, centerY, radius * 1.55, 0, Math.PI * 2);
@@ -184,9 +184,9 @@ function drawEarth(context: CanvasRenderingContext2D, centerX: number, centerY: 
     centerY,
     radius
   );
-  globe.addColorStop(0, "#68ff8d");
-  globe.addColorStop(0.22, "#1d7f48");
-  globe.addColorStop(0.58, "#061b13");
+  globe.addColorStop(0, "#a7f3d0");
+  globe.addColorStop(0.22, "#047857");
+  globe.addColorStop(0.58, "#064e3b");
   globe.addColorStop(1, "#010705");
   context.fillStyle = globe;
   context.beginPath();
@@ -198,8 +198,8 @@ function drawEarth(context: CanvasRenderingContext2D, centerX: number, centerY: 
   context.clip();
 
   const drift = (-time * 0.24) % (Math.PI * 2);
-  context.fillStyle = "rgba(118, 255, 132, 0.65)";
-  context.shadowColor = "rgba(74, 255, 104, 0.75)";
+  context.fillStyle = "rgba(110, 231, 183, 0.65)";
+  context.shadowColor = "rgba(52, 211, 153, 0.75)";
   context.shadowBlur = 8;
 
   for (let index = 0; index < 48; index += 1) {
@@ -227,14 +227,14 @@ function drawEarth(context: CanvasRenderingContext2D, centerX: number, centerY: 
     const x = centerX + Math.sin(angle) * radius * 0.82;
     const y = centerY + yBand * 0.48;
     context.globalAlpha = 0.08 + Math.max(0, depth) * 0.42;
-    context.fillStyle = index % 7 === 0 ? "#f7fee7" : "#bef264";
+    context.fillStyle = index % 7 === 0 ? "#ecfdf5" : "#6ee7b7";
     context.beginPath();
     context.arc(x, y, 0.55 + (index % 3) * 0.35, 0, Math.PI * 2);
     context.fill();
   }
 
   context.globalAlpha = 1;
-  context.strokeStyle = "rgba(130, 255, 146, 0.24)";
+  context.strokeStyle = "rgba(110, 231, 183, 0.24)";
   context.lineWidth = 0.65;
 
   for (let index = -2; index <= 2; index += 1) {
@@ -261,8 +261,8 @@ function drawEarth(context: CanvasRenderingContext2D, centerX: number, centerY: 
   context.restore();
 
   context.save();
-  context.strokeStyle = "rgba(130, 255, 146, 0.85)";
-  context.shadowColor = "rgba(0, 255, 102, 0.85)";
+  context.strokeStyle = "rgba(110, 231, 183, 0.85)";
+  context.shadowColor = "rgba(52, 211, 153, 0.85)";
   context.shadowBlur = 14;
   context.lineWidth = 1.25;
   context.beginPath();
@@ -291,14 +291,14 @@ function drawOrbit(
   context.translate(centerX, centerY);
   context.rotate(orbitRotation);
 
-  context.strokeStyle = "rgba(0, 255, 102, 0.2)";
+  context.strokeStyle = "rgba(52, 211, 153, 0.2)";
   context.lineWidth = 1;
   context.beginPath();
   context.ellipse(0, 0, radiusX, radiusY, 0, Math.PI, Math.PI * 2);
   context.stroke();
 
-  context.strokeStyle = "rgba(95, 255, 110, 0.82)";
-  context.shadowColor = "rgba(0, 255, 102, 0.92)";
+  context.strokeStyle = "rgba(110, 231, 183, 0.82)";
+  context.shadowColor = "rgba(52, 211, 153, 0.92)";
   context.shadowBlur = 13;
   context.lineWidth = 2.2;
   context.beginPath();
@@ -312,8 +312,8 @@ function drawOrbit(
     Math.cos(starAngle) * radiusX,
     Math.sin(starAngle) * radiusY
   );
-  trailGradient.addColorStop(0, "rgba(0, 255, 102, 0)");
-  trailGradient.addColorStop(0.6, "rgba(60, 255, 95, 0.36)");
+  trailGradient.addColorStop(0, "rgba(52, 211, 153, 0)");
+  trailGradient.addColorStop(0.6, "rgba(110, 231, 183, 0.36)");
   trailGradient.addColorStop(1, "rgba(220, 255, 225, 0.92)");
   context.strokeStyle = trailGradient;
   context.lineWidth = 3.3;
@@ -331,7 +331,7 @@ function drawOrbit(
 
 function drawHudRings(context: CanvasRenderingContext2D, centerX: number, centerY: number, radius: number, time: number) {
   context.save();
-  context.strokeStyle = "rgba(0, 255, 102, 0.18)";
+  context.strokeStyle = "rgba(52, 211, 153, 0.18)";
   context.lineWidth = 0.8;
   context.setLineDash([3, 6]);
   context.beginPath();
@@ -350,7 +350,7 @@ function BrandMarkFallback({ variant }: { variant: MarkVariant }) {
     <div
       aria-hidden="true"
       className={cn(
-        "relative rounded-full bg-[radial-gradient(circle_at_38%_34%,rgba(236,253,245,0.9)_0%,rgba(116,255,126,0.46)_10%,rgba(20,184,166,0.25)_26%,rgba(3,7,18,0.64)_62%,transparent_74%)] shadow-[0_0_36px_rgba(52,211,153,0.42)]",
+        "relative rounded-full bg-[radial-gradient(circle_at_38%_34%,rgba(236,253,245,0.9)_0%,rgba(110,231,183,0.46)_10%,rgba(20,184,166,0.25)_26%,rgba(3,7,18,0.64)_62%,transparent_74%)] shadow-[0_0_36px_rgba(52,211,153,0.42)]",
         isNav ? "h-12 w-12" : "h-44 w-44"
       )}
     >

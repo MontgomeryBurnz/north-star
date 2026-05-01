@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ArrowRight, ClipboardList, FileText, GitBranch, Loader2, Map, Sparkles } from "lucide-react";
 import {
   roleArtifactDefinitions,
@@ -81,9 +81,16 @@ function ArtifactOutput({ artifact }: { artifact: RoleArtifactDraft }) {
           <p className="text-sm font-semibold text-zinc-100">{artifact.title}</p>
           <p className="mt-1 text-sm leading-6 text-zinc-400">{artifact.summary}</p>
         </div>
-        <span className="rounded-full border border-emerald-300/20 bg-emerald-300/[0.075] px-3 py-1 text-[11px] uppercase tracking-[0.14em] text-emerald-100">
-          {artifact.provider === "openai" ? "OpenAI generated" : "Local draft"}
-        </span>
+        <div className="flex flex-wrap gap-2">
+          {artifact.version ? (
+            <span className="rounded-full border border-white/10 bg-white/[0.035] px-3 py-1 text-[11px] uppercase tracking-[0.14em] text-zinc-400">
+              v{artifact.version}
+            </span>
+          ) : null}
+          <span className="rounded-full border border-emerald-300/20 bg-emerald-300/[0.075] px-3 py-1 text-[11px] uppercase tracking-[0.14em] text-emerald-100">
+            {artifact.provider === "openai" ? "OpenAI generated" : "Local draft"}
+          </span>
+        </div>
       </div>
 
       <div className="rounded-md border border-cyan-300/15 bg-cyan-300/[0.045] p-3">
@@ -146,12 +153,54 @@ export function RoleArtifactStudioCard({ programId }: { programId: string }) {
   const [selectedType, setSelectedType] = useState<RoleArtifactType>("ba-requirements-matrix");
   const [feedback, setFeedback] = useState("");
   const [artifact, setArtifact] = useState<RoleArtifactDraft | null>(null);
+  const [artifactHistory, setArtifactHistory] = useState<RoleArtifactDraft[]>([]);
+  const [isLoadingHistory, setIsLoadingHistory] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const selectedDefinition = useMemo(
     () => roleArtifactDefinitions.find((definition) => definition.type === selectedType) ?? roleArtifactDefinitions[0],
     [selectedType]
   );
+
+  useEffect(() => {
+    let isCancelled = false;
+
+    async function loadArtifactHistory() {
+      setIsLoadingHistory(true);
+      setStatus(null);
+
+      try {
+        const response = await fetch(`/api/programs/${programId}/role-artifacts?artifactType=${selectedType}`, {
+          cache: "no-store"
+        });
+        if (!response.ok) {
+          throw new Error("history");
+        }
+
+        const payload = (await response.json()) as { artifacts: RoleArtifactDraft[] };
+        if (isCancelled) return;
+
+        setArtifactHistory(payload.artifacts);
+        setArtifact(payload.artifacts[0] ?? null);
+      } catch {
+        if (!isCancelled) {
+          setArtifactHistory([]);
+          setArtifact(null);
+          setStatus("Could not load saved artifact history.");
+        }
+      } finally {
+        if (!isCancelled) {
+          setIsLoadingHistory(false);
+        }
+      }
+    }
+
+    void loadArtifactHistory();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [programId, selectedType]);
 
   function selectArtifactType(type: RoleArtifactType) {
     setSelectedType(type);
@@ -177,9 +226,10 @@ export function RoleArtifactStudioCard({ programId }: { programId: string }) {
         throw new Error("generate");
       }
 
-      const payload = (await response.json()) as { artifact: RoleArtifactDraft };
+      const payload = (await response.json()) as { artifact: RoleArtifactDraft; history?: RoleArtifactDraft[] };
       setArtifact(payload.artifact);
-      setStatus(`${payload.artifact.title} generated ${formatDate(payload.artifact.generatedAt)}.`);
+      setArtifactHistory(payload.history ?? [payload.artifact, ...artifactHistory]);
+      setStatus(`${payload.artifact.title} saved as version ${payload.artifact.version ?? artifactHistory.length + 1}.`);
     } catch {
       setStatus("Could not generate this role artifact.");
     } finally {
@@ -268,6 +318,43 @@ export function RoleArtifactStudioCard({ programId }: { programId: string }) {
               </div>
             ) : null}
             {status ? <p className="text-sm leading-6 text-zinc-400">{status}</p> : null}
+
+            <div className="grid gap-2 rounded-md border border-white/10 bg-zinc-950/60 p-3">
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-xs font-medium uppercase tracking-[0.16em] text-zinc-500">Version history</p>
+                <span className="rounded-full border border-white/10 px-2 py-0.5 text-[11px] uppercase tracking-[0.12em] text-zinc-500">
+                  {artifactHistory.length}
+                </span>
+              </div>
+              {isLoadingHistory ? (
+                <p className="text-sm leading-6 text-zinc-500">Loading saved outputs...</p>
+              ) : artifactHistory.length ? (
+                <div className="grid gap-2">
+                  {artifactHistory.slice(0, 5).map((savedArtifact) => (
+                    <button
+                      key={savedArtifact.id}
+                      type="button"
+                      onClick={() => setArtifact(savedArtifact)}
+                      className={`rounded-md border px-3 py-2 text-left transition-colors ${
+                        artifact?.id === savedArtifact.id
+                          ? "border-emerald-300/30 bg-emerald-300/[0.07]"
+                          : "border-white/10 bg-white/[0.025] hover:border-white/20"
+                      }`}
+                    >
+                      <span className="flex items-center justify-between gap-3">
+                        <span className="text-sm font-medium text-zinc-100">Version {savedArtifact.version ?? "draft"}</span>
+                        <span className="text-[11px] uppercase tracking-[0.12em] text-zinc-500">
+                          {savedArtifact.provider === "openai" ? "OpenAI" : "Local"}
+                        </span>
+                      </span>
+                      <span className="mt-1 block text-xs text-zinc-500">{formatDate(savedArtifact.generatedAt)}</span>
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm leading-6 text-zinc-500">No saved outputs yet for this artifact.</p>
+              )}
+            </div>
           </div>
 
           <div className="min-h-64 rounded-md border border-white/10 bg-zinc-950/75 p-4">

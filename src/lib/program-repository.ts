@@ -22,6 +22,7 @@ import type {
   ProgramMeetingInput
 } from "@/lib/program-intelligence-types";
 import type { ProgramIntake, StoredProgram } from "@/lib/program-intake-types";
+import type { RoleArtifactDraft, RoleArtifactType } from "@/lib/role-artifact-types";
 
 type ProgramRepository = {
   provider: "file" | "postgres";
@@ -40,6 +41,8 @@ type ProgramRepository = {
   createLeadershipFeedback(programId: string, feedback: LeadershipReviewInput): Promise<LeadershipReviewRecord>;
   listMeetingInputs(programId: string): Promise<ProgramMeetingInput[]>;
   createMeetingInput(programId: string, input: Omit<ProgramMeetingInput, "id" | "programId" | "programName" | "createdAt" | "updatedAt">): Promise<ProgramMeetingInput>;
+  listRoleArtifacts(programId: string, artifactType?: RoleArtifactType): Promise<RoleArtifactDraft[]>;
+  createRoleArtifact(programId: string, artifact: RoleArtifactDraft): Promise<RoleArtifactDraft>;
   listClientDecisionRequests(programId: string): Promise<ClientDecisionRequest[]>;
   createClientDecisionRequest(programId: string, input: ClientDecisionRequestInput): Promise<ClientDecisionRequest>;
   listGuidanceJustifications(programId: string): Promise<GuidanceJustificationRecord[]>;
@@ -62,6 +65,7 @@ type ProgramStoreFile = {
   guidedPlans: GuidedPlan[];
   leadershipFeedbacks: LeadershipReviewRecord[];
   meetingInputs: ProgramMeetingInput[];
+  roleArtifacts: RoleArtifactDraft[];
   clientDecisionRequests: ClientDecisionRequest[];
   guidanceJustifications: GuidanceJustificationRecord[];
   guidanceFeedbackFlags: GuidanceFeedbackFlag[];
@@ -76,6 +80,7 @@ const emptyFileStore: ProgramStoreFile = {
   guidedPlans: [],
   leadershipFeedbacks: [],
   meetingInputs: [],
+  roleArtifacts: [],
   clientDecisionRequests: [],
   guidanceJustifications: [],
   guidanceFeedbackFlags: [],
@@ -190,6 +195,31 @@ function sortByUpdatedDesc<T extends { updatedAt?: string; createdAt?: string }>
     const bValue = new Date(b.updatedAt ?? b.createdAt ?? 0).getTime();
     return bValue - aValue;
   });
+}
+
+function sortRoleArtifactsDesc(records: RoleArtifactDraft[]) {
+  return [...records].sort((a, b) => new Date(b.generatedAt).getTime() - new Date(a.generatedAt).getTime());
+}
+
+function nextRoleArtifactVersion(records: RoleArtifactDraft[]) {
+  return records.reduce((highest, artifact) => Math.max(highest, artifact.version ?? 0), 0) + 1;
+}
+
+function buildRoleArtifactRecord(input: {
+  artifact: RoleArtifactDraft;
+  programId: string;
+  programName: string;
+  version: number;
+}): RoleArtifactDraft {
+  return {
+    ...input.artifact,
+    id: input.artifact.id || randomUUID(),
+    programId: input.programId,
+    programName: input.programName,
+    version: input.version,
+    feedback: input.artifact.feedback?.trim() || undefined,
+    generatedAt: input.artifact.generatedAt || new Date().toISOString()
+  };
 }
 
 function normalizeLeadershipInput(feedback: LeadershipReviewInput): LeadershipReviewInput {
@@ -512,6 +542,36 @@ const fileRepository: ProgramRepository = {
     await writeFileStore(store);
     return record;
   },
+  async listRoleArtifacts(programId, artifactType) {
+    const store = await readFileStore();
+    const records = store.roleArtifacts.filter(
+      (artifact) => artifact.programId === programId && (!artifactType || artifact.artifactType === artifactType)
+    );
+    return sortRoleArtifactsDesc(records);
+  },
+  async createRoleArtifact(programId, artifact) {
+    const store = await readFileStore();
+    const now = new Date().toISOString();
+    const program = store.programs.find((item) => item.id === programId);
+    const programName = program?.intake.programName || artifact.programName || "Untitled program";
+    const existing = store.roleArtifacts.filter(
+      (record) => record.programId === programId && record.artifactType === artifact.artifactType
+    );
+    const record = buildRoleArtifactRecord({
+      artifact: {
+        ...artifact,
+        generatedAt: artifact.generatedAt || now
+      },
+      programId,
+      programName,
+      version: nextRoleArtifactVersion(existing)
+    });
+
+    store.roleArtifacts = [record, ...store.roleArtifacts];
+    store.programs = store.programs.map((item) => (item.id === programId ? { ...item, updatedAt: now } : item));
+    await writeFileStore(store);
+    return record;
+  },
   async listClientDecisionRequests(programId) {
     const store = await readFileStore();
     return sortByUpdatedDesc(store.clientDecisionRequests.filter((request) => request.programId === programId));
@@ -734,6 +794,17 @@ async function ensurePostgresSchema() {
             updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
           );
 
+          CREATE TABLE IF NOT EXISTS role_artifacts (
+            id TEXT PRIMARY KEY,
+            program_id TEXT NOT NULL REFERENCES programs(id) ON DELETE CASCADE,
+            program_name TEXT NOT NULL,
+            artifact_type TEXT NOT NULL,
+            version INTEGER NOT NULL,
+            record JSONB NOT NULL,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+          );
+
           CREATE TABLE IF NOT EXISTS client_decision_requests (
             id TEXT PRIMARY KEY,
             program_id TEXT NOT NULL REFERENCES programs(id) ON DELETE CASCADE,
@@ -797,6 +868,10 @@ async function ensurePostgresSchema() {
             ON artifacts(program_id, created_at DESC);
           CREATE INDEX IF NOT EXISTS idx_meeting_inputs_program_id_created_at
             ON meeting_inputs(program_id, created_at DESC);
+          CREATE INDEX IF NOT EXISTS idx_role_artifacts_program_id_created_at
+            ON role_artifacts(program_id, created_at DESC);
+          CREATE INDEX IF NOT EXISTS idx_role_artifacts_program_id_type_created_at
+            ON role_artifacts(program_id, artifact_type, created_at DESC);
           CREATE INDEX IF NOT EXISTS idx_client_decision_requests_program_id_created_at
             ON client_decision_requests(program_id, created_at DESC);
           CREATE INDEX IF NOT EXISTS idx_guidance_justifications_program_id_created_at
@@ -824,6 +899,7 @@ async function ensurePostgresSchema() {
               'assistant_conversations',
               'artifacts',
               'meeting_inputs',
+              'role_artifacts',
               'client_decision_requests',
               'guidance_justifications',
               'guidance_feedback_flags',
@@ -947,6 +1023,10 @@ function normalizeMeetingInput(input: ProgramMeetingInput): ProgramMeetingInput 
 
 function mapMeetingInputRow(row: { input: ProgramMeetingInput }): ProgramMeetingInput {
   return normalizeMeetingInput(row.input);
+}
+
+function mapRoleArtifactRow(row: { record: RoleArtifactDraft }): RoleArtifactDraft {
+  return row.record;
 }
 
 function mapClientDecisionRequestRow(row: { record: ClientDecisionRequest }): ClientDecisionRequest {
@@ -1270,6 +1350,46 @@ const postgresRepository: ProgramRepository = {
         JSON.stringify(record),
         now
       ]
+    );
+    await getPool().query("UPDATE programs SET updated_at = $2 WHERE id = $1", [programId, now]);
+    return record;
+  },
+  async listRoleArtifacts(programId, artifactType) {
+    await ensurePostgresSchema();
+    const result = await getPool().query(
+      `
+        SELECT record
+        FROM role_artifacts
+        WHERE program_id = $1
+          AND ($2::text IS NULL OR artifact_type = $2)
+        ORDER BY created_at DESC
+      `,
+      [programId, artifactType ?? null]
+    );
+    return result.rows.map(mapRoleArtifactRow);
+  },
+  async createRoleArtifact(programId, artifact) {
+    await ensurePostgresSchema();
+    const now = new Date();
+    const program = await this.getProgram(programId);
+    const programName = program?.intake.programName || artifact.programName || "Untitled program";
+    const existing = await this.listRoleArtifacts(programId, artifact.artifactType);
+    const record = buildRoleArtifactRecord({
+      artifact: {
+        ...artifact,
+        generatedAt: artifact.generatedAt || now.toISOString()
+      },
+      programId,
+      programName,
+      version: nextRoleArtifactVersion(existing)
+    });
+
+    await getPool().query(
+      `
+        INSERT INTO role_artifacts (id, program_id, program_name, artifact_type, version, record, created_at, updated_at)
+        VALUES ($1, $2, $3, $4, $5, $6::jsonb, $7, $7)
+      `,
+      [record.id, programId, record.programName, record.artifactType, record.version, JSON.stringify(record), now]
     );
     await getPool().query("UPDATE programs SET updated_at = $2 WHERE id = $1", [programId, now]);
     return record;
