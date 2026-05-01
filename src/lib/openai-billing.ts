@@ -186,7 +186,7 @@ async function fetchOpenAIJson<T>(path: string, params: URLSearchParams, adminKe
 
 function appendArrayParam(params: URLSearchParams, key: string, value: string | undefined) {
   if (!value) return;
-  params.append(`${key}[]`, value);
+  params.append(key, value);
 }
 
 async function fetchOpenAICosts(input: {
