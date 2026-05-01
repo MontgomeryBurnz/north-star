@@ -55,9 +55,9 @@ function CurrentUserMenu({ className, mobile = false }: { className?: string; mo
   const pathname = usePathname();
   const { currentUser, loaded, primaryAssignment } = useCurrentUserAssignments();
   const [open, setOpen] = useState(false);
-  const roleLabel = currentUser ? userTypeLabels[currentUser.userType] : "Alpha access";
-  const displayName = currentUser?.name || (loaded ? "Shared alpha" : "Loading user");
-  const detail = currentUser?.email ?? primaryAssignment?.programName ?? "Shared workspace session";
+  const roleLabel = currentUser ? userTypeLabels[currentUser.userType] : "North Star access";
+  const displayName = currentUser?.name || (loaded ? "Signed in" : "Loading user");
+  const detail = currentUser?.email ?? primaryAssignment?.programName ?? "Authenticated workspace session";
 
   useEffect(() => {
     setOpen(false);

@@ -56,7 +56,6 @@ export default async function SiteLoginPage({
     <SiteAccessLoginForm
       authError={authError}
       redirectTo={redirectTo}
-      requireUserAuth={Boolean(requiredAccessSurface)}
       userAuthEnabled={isSupabaseConfigured()}
     />
   );

@@ -4,6 +4,8 @@ loadEnvFile();
 
 const baseUrl = (process.env.SMOKE_BASE_URL ?? "http://localhost:3000").replace(/\/$/, "");
 const sitePassword = process.env.NORTHSTAR_SITE_PASSWORD ?? process.env.SITE_ACCESS_PASSWORD;
+const testUserEmail = process.env.NORTHSTAR_TEST_USER_EMAIL ?? process.env.NORTHSTAR_USER_EMAIL;
+const testUserPassword = process.env.NORTHSTAR_TEST_USER_PASSWORD ?? process.env.NORTHSTAR_USER_PASSWORD;
 const leadershipUsername = process.env.NORTHSTAR_LEADERSHIP_USERNAME ?? process.env.LEADERSHIP_AUTH_USERNAME ?? "leadership";
 const leadershipPassword = process.env.NORTHSTAR_LEADERSHIP_PASSWORD ?? process.env.LEADERSHIP_AUTH_PASSWORD;
 
@@ -20,13 +22,31 @@ function requireCredential(value, label) {
 }
 
 async function authenticate(session) {
-  const requiredSitePassword = requireCredential(sitePassword, "NORTHSTAR_SITE_PASSWORD");
-  const requiredLeadershipPassword = requireCredential(leadershipPassword, "NORTHSTAR_LEADERSHIP_PASSWORD");
-
   await session.navigate(`${baseUrl}/login?redirect=%2F`);
   await session.waitFor("login page origin", () =>
     session.execute("return location.origin === arguments[0];", [baseUrl])
   );
+
+  if (testUserEmail && testUserPassword) {
+    const userResult = await session.execute(
+      `
+        return fetch("/api/auth/user/login", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ email: arguments[0], password: arguments[1] })
+        }).then((response) => response.status);
+      `,
+      [testUserEmail, testUserPassword]
+    );
+
+    if (userResult !== 200) {
+      throw new Error(`User authentication failed with HTTP ${userResult}.`);
+    }
+    return;
+  }
+
+  const requiredSitePassword = requireCredential(sitePassword, "NORTHSTAR_SITE_PASSWORD");
+  const requiredLeadershipPassword = requireCredential(leadershipPassword, "NORTHSTAR_LEADERSHIP_PASSWORD");
 
   const authResult = await session.execute(
     `
@@ -67,7 +87,7 @@ async function smokeSurface(session, surface) {
       const button = slicer?.querySelector('button[aria-haspopup="listbox"]');
       return {
         disabled: button?.disabled ?? true,
-        loginVisible: document.body.textContent.includes("Enter Alpha Password"),
+        loginVisible: document.body.textContent.includes("North Star access") && document.body.textContent.includes("Email / username"),
         text: button?.textContent?.trim() ?? ""
       };
     `);
@@ -81,7 +101,7 @@ async function smokeSurface(session, surface) {
     return {
       buttonText: button?.textContent?.trim() ?? "",
       expanded: button?.getAttribute("aria-expanded") ?? "",
-      loginVisible: document.body.textContent.includes("Enter Alpha Password")
+      loginVisible: document.body.textContent.includes("North Star access") && document.body.textContent.includes("Email / username")
     };
   `);
 
@@ -132,7 +152,7 @@ async function smokeAdminProgramRoleSelect(session) {
       const select = document.querySelector("[data-admin-program-select]");
       return {
         found: Boolean(select),
-        loginVisible: document.body.textContent.includes("Enter Alpha Password"),
+        loginVisible: document.body.textContent.includes("North Star access") && document.body.textContent.includes("Email / username"),
         leadershipLoginVisible: document.body.textContent.includes("Leadership login"),
         optionCount: select?.options?.length ?? 0
       };

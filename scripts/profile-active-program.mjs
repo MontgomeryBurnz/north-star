@@ -5,8 +5,33 @@ loadEnvFile();
 
 const baseUrl = (process.env.SMOKE_BASE_URL ?? "http://localhost:3000").replace(/\/$/, "");
 const sitePassword = process.env.NORTHSTAR_SITE_PASSWORD ?? process.env.SITE_ACCESS_PASSWORD;
+const testUserEmail = process.env.NORTHSTAR_TEST_USER_EMAIL ?? process.env.NORTHSTAR_USER_EMAIL;
+const testUserPassword = process.env.NORTHSTAR_TEST_USER_PASSWORD ?? process.env.NORTHSTAR_USER_PASSWORD;
 
 async function authenticateSite(session) {
+  if (testUserEmail && testUserPassword) {
+    await session.navigate(`${baseUrl}/login?redirect=%2Factive-program`);
+    await session.waitFor("login page origin", () =>
+      session.execute("return location.origin === arguments[0];", [baseUrl])
+    );
+
+    const status = await session.execute(
+      `
+        return fetch("/api/auth/user/login", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ email: arguments[0], password: arguments[1] })
+        }).then((response) => response.status);
+      `,
+      [testUserEmail, testUserPassword]
+    );
+
+    if (status !== 200) {
+      throw new Error(`User authentication failed with HTTP ${status}.`);
+    }
+    return;
+  }
+
   if (!sitePassword) return;
 
   await session.navigate(`${baseUrl}/login?redirect=%2Factive-program`);
@@ -40,7 +65,7 @@ async function main() {
       const ready = await session.execute(`
       return document.readyState === "complete" &&
         Boolean(document.querySelector('[data-program-slicer]')) &&
-        !document.body.textContent.includes("Enter Alpha Password");
+        !(document.body.textContent.includes("North Star access") && document.body.textContent.includes("Email / username"));
     `);
       return ready;
     }, 15_000);

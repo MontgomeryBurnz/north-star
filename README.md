@@ -29,7 +29,7 @@ Program slicers can be smoke-tested through a real Safari WebDriver session:
 SMOKE_BASE_URL=http://localhost:3000 npm run smoke:slicers
 ```
 
-Use `SMOKE_BASE_URL` to target production or a Vercel preview. The script reads `.env.local` by default and also accepts `NORTHSTAR_SITE_PASSWORD`, `NORTHSTAR_LEADERSHIP_USERNAME`, and `NORTHSTAR_LEADERSHIP_PASSWORD`.
+Use `SMOKE_BASE_URL` to target production or a Vercel preview. The script reads `.env.local` by default and accepts `NORTHSTAR_TEST_USER_EMAIL` and `NORTHSTAR_TEST_USER_PASSWORD` for an Admin or Leadership test account. The legacy shared site password path is only available when explicitly re-enabled for local troubleshooting.
 
 Active Program performance can be profiled with:
 
@@ -63,7 +63,7 @@ Leadership auth now also supports two modes:
 - `env`: current local password gate
 - `supabase`: Microsoft sign-in through Supabase Auth, with leadership access filtered by allowed emails, domains, or roles
 
-Managed users can also enter through the main `/login` page with Supabase email/password credentials. Admin invitations send users through `/auth/setup` so they can set their own password and use their invite email as their username. Password recovery is available from the same login page and routes through `/auth/reset-password`.
+Managed users enter through the main `/login` page with Supabase email/password credentials. Admin invitations send users through `/auth/setup` so they can set their own password and use their invite email as their username. Password recovery is available from the same login page and routes through `/auth/reset-password`.
 
 External alpha invite and recovery emails require a real outbound email sender. Supabase's default Auth email service is not treated as client-ready because it is restricted and rate-limited for non-production use.
 

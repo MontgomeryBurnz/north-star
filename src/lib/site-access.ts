@@ -3,13 +3,13 @@ import { NextResponse } from "next/server";
 export const siteAccessSessionCookieName = "site_access_session";
 
 export function getSiteAccessConfig() {
-  const password = process.env.SITE_ACCESS_PASSWORD ?? process.env.LEADERSHIP_AUTH_PASSWORD ?? "";
+  const password = process.env.SITE_ACCESS_PASSWORD ?? "";
   const sessionToken = process.env.SITE_ACCESS_SESSION_TOKEN ?? process.env.LEADERSHIP_AUTH_SESSION_TOKEN ?? "";
   const explicitlyEnabled = process.env.SITE_ACCESS_ENABLED;
   const enabled = explicitlyEnabled ? explicitlyEnabled === "true" : process.env.NODE_ENV === "production";
 
   return {
-    enabled: enabled && Boolean(password && sessionToken),
+    enabled: enabled && Boolean(sessionToken),
     password,
     sessionToken
   };

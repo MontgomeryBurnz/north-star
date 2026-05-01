@@ -72,8 +72,10 @@ Use these values in Vercel:
 
 ```bash
 SITE_ACCESS_ENABLED=true
-SITE_ACCESS_PASSWORD=replace-with-a-shared-alpha-password
 SITE_ACCESS_SESSION_TOKEN=replace-with-a-long-random-token
+# Optional local troubleshooting only. Keep unset in production so shared password login remains disabled.
+# SITE_ACCESS_PASSWORD=replace-with-a-local-only-password
+# SITE_ACCESS_PASSWORD_LOGIN_ENABLED=true
 
 PERSISTENCE_PROVIDER=postgres
 DATABASE_URL=postgresql://...

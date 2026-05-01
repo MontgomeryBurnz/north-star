@@ -32,9 +32,9 @@ export default async function AlphaStatusPage() {
   const supabaseConfigured = isSupabaseConfigured();
   const deploymentChecks = [
     {
-      label: "Alpha access gate",
+      label: "Workspace access session",
       ok: siteAccess.enabled,
-      detail: siteAccess.enabled ? "Shared password gate is active in front of the app." : "The public URL is not gated yet."
+      detail: siteAccess.enabled ? "Authenticated users receive the internal workspace session required by app routes." : "The public URL is not gated yet."
     },
     {
       label: "Postgres persistence",
