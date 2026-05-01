@@ -20,7 +20,7 @@ const navItems: NavItem[] = [
   { label: "Console", href: "/" },
   { label: "Programs", href: "/active-program", activePaths: ["/active-program", "/new-program"] },
   { label: "Guided Plans", href: "/systems" },
-  { label: "Artifacts", href: "/artifacts" },
+  { label: "Studio", href: "/artifacts" },
   { label: "Client Portal", href: "/client" },
   { label: "Admin", href: "/admin" },
   { label: "Leadership", href: "/leadership" }

@@ -32,3 +32,13 @@ test("Artifact Studio output uses a digest-first full-width layout", () => {
   assert.match(source, /xl:grid-cols-\[minmax\(0,1fr\)_300px\]/);
   assert.doesNotMatch(source, /xl:grid-cols-\[minmax\(0,0\.78fr\)_minmax\(0,1\.22fr\)\]/);
 });
+
+test("Studio recommendations use a full-width brief browser", () => {
+  const source = readFileSync(new URL("../src/components/artifact-studio-console.tsx", import.meta.url), "utf8");
+
+  assert.match(source, /Recommended briefs/);
+  assert.match(source, /data-studio-suggestions/);
+  assert.match(source, /lg:grid-cols-2 2xl:grid-cols-3/);
+  assert.doesNotMatch(source, /xl:grid-cols-\[430px_minmax\(0,1fr\)\]/);
+  assert.doesNotMatch(source, /xl:sticky xl:top-24/);
+});

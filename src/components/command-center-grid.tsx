@@ -53,8 +53,8 @@ const workflowSteps = [
   {
     href: "/artifacts",
     icon: FileText,
-    label: "Artifacts",
-    title: "Create the work products",
+    label: "Studio",
+    title: "Create role-ready work products",
     detail:
       "Use AI-recommended artifact briefs or request a custom artifact, then generate, refine, version, and copy role-specific outputs.",
     outcome: "Reusable work products that help each role move from guidance to execution."

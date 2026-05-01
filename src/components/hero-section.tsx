@@ -28,7 +28,7 @@ const quickStartActions = [
   {
     href: "/artifacts",
     icon: FileText,
-    label: "Create artifacts",
+    label: "Open Studio",
     detail: "Generate role-specific work products that teams can refine, version, and export."
   },
   {

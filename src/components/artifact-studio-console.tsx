@@ -62,36 +62,37 @@ function ArtifactSuggestionCard({
     <button
       type="button"
       onClick={() => onUseSuggestion(suggestion)}
-      className="group grid gap-3 rounded-lg border border-white/10 bg-zinc-950/70 p-4 text-left transition-colors hover:border-emerald-300/35 hover:bg-emerald-300/[0.045] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300/35"
+      className="group flex min-h-full flex-col rounded-lg border border-white/10 bg-zinc-950/70 p-5 text-left transition-colors hover:border-emerald-300/35 hover:bg-emerald-300/[0.045] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300/35"
     >
-      <span className="flex items-start justify-between gap-3">
-        <span className="min-w-0">
-          <span className="text-[11px] font-medium uppercase tracking-[0.16em] text-emerald-300">{suggestion.role}</span>
-          <span className="mt-2 block text-base font-semibold leading-6 text-zinc-50">{suggestion.title}</span>
+      <span className="flex flex-wrap items-center gap-2">
+        <span className="rounded-full border border-emerald-300/20 bg-emerald-300/[0.07] px-2.5 py-1 text-[11px] font-medium uppercase tracking-[0.13em] text-emerald-100">
+          {suggestion.role}
         </span>
-        <span className="shrink-0 rounded-full border border-white/10 bg-white/[0.035] px-2 py-1 text-[10px] uppercase tracking-[0.12em] text-zinc-500">
-          {suggestion.expectedOutput}
-        </span>
-      </span>
-
-      <span className="text-sm leading-6 text-zinc-300">{suggestion.whyItMatters}</span>
-
-      <span className="grid gap-2 rounded-md border border-white/10 bg-black/20 p-3">
-        <span>
-          <span className="text-[11px] font-medium uppercase tracking-[0.14em] text-cyan-200">Source signal</span>
-          <span className="mt-1 block text-xs leading-5 text-zinc-400">{suggestionSourceText(suggestion)}</span>
-        </span>
-        <span className="flex flex-wrap gap-2">
-          <span className="rounded-full border border-white/10 px-2 py-0.5 text-[11px] uppercase tracking-[0.12em] text-zinc-500">
-            {suggestion.recommendedFormat}
-          </span>
-          <span className="rounded-full border border-emerald-300/20 bg-emerald-300/[0.06] px-2 py-0.5 text-[11px] uppercase tracking-[0.12em] text-emerald-100">
-            {suggestion.businessValue}
-          </span>
+        <span className="rounded-full border border-white/10 bg-white/[0.035] px-2.5 py-1 text-[11px] uppercase tracking-[0.13em] text-zinc-400">
+          {suggestion.recommendedFormat}
         </span>
       </span>
 
-      <span className="flex items-center gap-2 text-sm font-medium text-emerald-100">
+      <span className="mt-4 block text-lg font-semibold leading-6 text-zinc-50">{suggestion.title}</span>
+      <span className="mt-2 block text-sm leading-6 text-zinc-300">{suggestion.whyItMatters}</span>
+
+      <span className="mt-4 grid gap-3 border-t border-white/10 pt-4 sm:grid-cols-2">
+        <span className="grid gap-1">
+          <span className="text-[11px] font-medium uppercase tracking-[0.14em] text-zinc-500">Output</span>
+          <span className="text-xs leading-5 text-zinc-300">{suggestion.expectedOutput}</span>
+        </span>
+        <span className="grid gap-1">
+          <span className="text-[11px] font-medium uppercase tracking-[0.14em] text-zinc-500">Value</span>
+          <span className="text-xs leading-5 text-zinc-300">{suggestion.businessValue}</span>
+        </span>
+      </span>
+
+      <span className="mt-3 rounded-md border border-cyan-300/15 bg-cyan-300/[0.035] px-3 py-2">
+        <span className="text-[11px] font-medium uppercase tracking-[0.14em] text-cyan-100">Grounded by</span>
+        <span className="mt-1 block text-xs leading-5 text-zinc-400">{suggestionSourceText(suggestion)}</span>
+      </span>
+
+      <span className="mt-auto flex items-center gap-2 pt-4 text-sm font-medium text-emerald-100">
         Load brief
         <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
       </span>
@@ -311,7 +312,7 @@ export function ArtifactStudioConsole() {
     <main className="mx-auto max-w-[1500px] px-4 py-14 sm:px-6 lg:px-8">
       <div className="grid gap-8">
         <SectionHeader
-          eyebrow="Artifacts"
+          eyebrow="Studio"
           title="Artifact Studio"
           description="Create reusable work products from program intelligence, then refine and version them as the work evolves."
         />
@@ -374,59 +375,62 @@ export function ArtifactStudioConsole() {
         {!selectedProgramId ? (
           <EmptyArtifactState hasPrograms={programs.length > 0} />
         ) : (
-          <section className="grid gap-6 xl:grid-cols-[430px_minmax(0,1fr)]">
-            <aside className="grid content-start gap-5 xl:sticky xl:top-24">
-              <Card className="bg-zinc-950/75">
-                <CardHeader className="border-b border-white/10">
-                  <div className="flex flex-wrap items-start justify-between gap-3">
-                    <div>
-                      <p className="text-xs font-medium uppercase tracking-[0.18em] text-emerald-300">Recommended artifacts</p>
-                      <CardTitle className="mt-2 text-zinc-50">Choose the next work product.</CardTitle>
-                      <p className="mt-2 text-sm leading-6 text-zinc-400">
-                        Recommendations are focused on {formatRoleLabel(selectedRoleFocus)}.
-                      </p>
-                    </div>
-                    <Button type="button" variant="outline" size="sm" onClick={() => void loadSuggestions()} disabled={isLoadingSuggestions}>
-                      {isLoadingSuggestions ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
-                      Refresh
-                    </Button>
+          <section className="grid gap-6">
+            <Card className="bg-zinc-950/75">
+              <CardHeader className="border-b border-white/10">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div className="max-w-3xl">
+                    <p className="text-xs font-medium uppercase tracking-[0.18em] text-emerald-300">Recommended briefs</p>
+                    <CardTitle className="mt-2 text-zinc-50">Choose the next work product.</CardTitle>
+                    <p className="mt-2 text-sm leading-6 text-zinc-400">
+                      Recommendations are focused on {formatRoleLabel(selectedRoleFocus)} and spread across the page so role,
+                      format, value, and grounding are easy to scan.
+                    </p>
                   </div>
-                </CardHeader>
-                <CardContent className="grid gap-3 p-4">
-                  {status ? <p className="text-sm leading-6 text-zinc-400">{status}</p> : null}
-                  {isLoadingSuggestions ? (
-                    <div className="grid min-h-44 place-items-center rounded-md border border-white/10 bg-white/[0.025] p-6 text-center">
-                      <div>
-                        <Loader2 className="mx-auto h-6 w-6 animate-spin text-emerald-200" />
-                        <p className="mt-3 text-sm font-medium text-zinc-100">Analyzing program context...</p>
-                      </div>
+                  <Button type="button" variant="outline" size="sm" onClick={() => void loadSuggestions()} disabled={isLoadingSuggestions}>
+                    {isLoadingSuggestions ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+                    Refresh
+                  </Button>
+                </div>
+              </CardHeader>
+              <CardContent className="grid gap-4 p-4 sm:p-5">
+                {status ? <p className="text-sm leading-6 text-zinc-400">{status}</p> : null}
+                {isLoadingSuggestions ? (
+                  <div className="grid min-h-44 place-items-center rounded-md border border-white/10 bg-white/[0.025] p-6 text-center">
+                    <div>
+                      <Loader2 className="mx-auto h-6 w-6 animate-spin text-emerald-200" />
+                      <p className="mt-3 text-sm font-medium text-zinc-100">Analyzing program context...</p>
                     </div>
-                  ) : (
-                    <div className="grid max-h-[670px] gap-3 overflow-y-auto pr-1">
-                      {suggestions.map((suggestion) => (
-                        <ArtifactSuggestionCard
-                          key={suggestion.id}
-                          suggestion={suggestion}
-                          onUseSuggestion={useSuggestion}
-                        />
-                      ))}
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
+                  </div>
+                ) : suggestions.length ? (
+                  <div className="grid gap-4 lg:grid-cols-2 2xl:grid-cols-3" data-studio-suggestions="true">
+                    {suggestions.map((suggestion) => (
+                      <ArtifactSuggestionCard
+                        key={suggestion.id}
+                        suggestion={suggestion}
+                        onUseSuggestion={useSuggestion}
+                      />
+                    ))}
+                  </div>
+                ) : (
+                  <div className="rounded-md border border-white/10 bg-white/[0.025] p-5 text-sm leading-6 text-zinc-400">
+                    No recommendations are available for this role yet. Refresh the brief browser or request a custom artifact below.
+                  </div>
+                )}
+              </CardContent>
+            </Card>
 
-              <CustomArtifactPanel
-                customBrief={customBrief}
-                customRole={customRole}
-                customTitle={customTitle}
-                disabled={!selectedProgramId}
-                onBriefChange={setCustomBrief}
-                onRequest={requestCustomArtifact}
-                onRoleChange={setCustomRole}
-                onTitleChange={setCustomTitle}
-                roleOptions={roleOptions}
-              />
-            </aside>
+            <CustomArtifactPanel
+              customBrief={customBrief}
+              customRole={customRole}
+              customTitle={customTitle}
+              disabled={!selectedProgramId}
+              onBriefChange={setCustomBrief}
+              onRequest={requestCustomArtifact}
+              onRoleChange={setCustomRole}
+              onTitleChange={setCustomTitle}
+              roleOptions={roleOptions}
+            />
 
             <RoleArtifactStudioCard
               key={selectedProgramId}
