@@ -220,9 +220,11 @@ export function AdminOperatingCostCenter({ guidanceModelProfile }: { guidanceMod
   const [billing, setBilling] = useState<OpenAIBillingReconciliation | null>(null);
   const [billingWindow, setBillingWindow] = useState<OpenAIBillingWindowKey>("month-to-date");
   const [billingStatus, setBillingStatus] = useState<string | null>(null);
+  const [isBillingSyncing, setIsBillingSyncing] = useState(false);
   const [vercel, setVercel] = useState<VercelOperationsSnapshot | null>(null);
   const [vercelWindow, setVercelWindow] = useState<VercelOperationsWindowKey>("last-30-days");
   const [vercelStatus, setVercelStatus] = useState<string | null>(null);
+  const [isVercelSyncing, setIsVercelSyncing] = useState(false);
 
   const billingForecast = useMemo(() => getBillingExpenseForecast(billing), [billing]);
   const totalThirtyDayForecast = useMemo(() => {
@@ -233,9 +235,10 @@ export function AdminOperatingCostCenter({ guidanceModelProfile }: { guidanceMod
   }, [billingForecast?.projectedThirtyDaySpendUsd, vercel?.spend.projectedThirtyDaySpendUsd]);
 
   const loadBilling = useCallback(async () => {
+    setIsBillingSyncing(true);
     setBillingStatus("Syncing OpenAI...");
     try {
-      const params = new URLSearchParams({ window: billingWindow });
+      const params = new URLSearchParams({ refresh: String(Date.now()), window: billingWindow });
       const response = await fetch(`/api/openai-billing?${params.toString()}`, {
         cache: "no-store",
         credentials: "same-origin"
@@ -246,13 +249,16 @@ export function AdminOperatingCostCenter({ guidanceModelProfile }: { guidanceMod
       setBillingStatus(null);
     } catch (error) {
       setBillingStatus(error instanceof Error ? error.message : "OpenAI billing could not sync.");
+    } finally {
+      setIsBillingSyncing(false);
     }
   }, [billingWindow]);
 
   const loadVercel = useCallback(async () => {
+    setIsVercelSyncing(true);
     setVercelStatus("Syncing Vercel...");
     try {
-      const params = new URLSearchParams({ window: vercelWindow });
+      const params = new URLSearchParams({ refresh: String(Date.now()), window: vercelWindow });
       const response = await fetch(`/api/admin/vercel-operations?${params.toString()}`, {
         cache: "no-store",
         credentials: "same-origin"
@@ -263,6 +269,8 @@ export function AdminOperatingCostCenter({ guidanceModelProfile }: { guidanceMod
       setVercelStatus(null);
     } catch (error) {
       setVercelStatus(error instanceof Error ? error.message : "Vercel telemetry could not sync.");
+    } finally {
+      setIsVercelSyncing(false);
     }
   }, [vercelWindow]);
 
@@ -330,9 +338,9 @@ export function AdminOperatingCostCenter({ guidanceModelProfile }: { guidanceMod
                   options={billingWindowOptions}
                   onChange={setBillingWindow}
                 />
-                <Button type="button" variant="outline" onClick={() => void loadBilling()}>
-                  <RefreshCw className="h-4 w-4" />
-                  Sync
+                <Button type="button" variant="outline" onClick={() => void loadBilling()} disabled={isBillingSyncing}>
+                  <RefreshCw className={`h-4 w-4 ${isBillingSyncing ? "animate-spin" : ""}`} />
+                  {isBillingSyncing ? "Syncing" : "Sync"}
                 </Button>
               </div>
 
@@ -390,9 +398,9 @@ export function AdminOperatingCostCenter({ guidanceModelProfile }: { guidanceMod
                   options={vercelWindowOptions}
                   onChange={setVercelWindow}
                 />
-                <Button type="button" variant="outline" onClick={() => void loadVercel()}>
-                  <RefreshCw className="h-4 w-4" />
-                  Sync
+                <Button type="button" variant="outline" onClick={() => void loadVercel()} disabled={isVercelSyncing}>
+                  <RefreshCw className={`h-4 w-4 ${isVercelSyncing ? "animate-spin" : ""}`} />
+                  {isVercelSyncing ? "Syncing" : "Sync"}
                 </Button>
               </div>
 

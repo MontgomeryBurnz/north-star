@@ -6,6 +6,7 @@ import type {
   VercelSetupItem,
   VercelSpendForecast
 } from "@/lib/vercel-operations-types";
+import { inferVercelProjectName, inferVercelTeamSlug, getVercelHostFromUrl } from "@/lib/vercel-project-inference";
 
 type VercelDeploymentApiRecord = {
   uid?: string;
@@ -47,50 +48,13 @@ function getVercelToken() {
   return process.env.VERCEL_API_TOKEN?.trim() || process.env.VERCEL_TOKEN?.trim();
 }
 
-function getTeamSlugFromHost(host: string) {
-  const slug = host.replace(/\.vercel\.app$/, "");
-  const match = slug.match(/-git-.+-([^.]+)$/);
-  return match?.[1];
-}
-
-function getHostFromUrl(value: string | undefined) {
-  if (!value?.trim()) return "";
-  try {
-    return new URL(value.startsWith("http") ? value : `https://${value}`).hostname;
-  } catch {
-    return value.replace(/^https?:\/\//, "").split("/")[0] ?? "";
-  }
-}
-
-function inferProjectName() {
-  const explicit =
-    process.env.NORTHSTAR_VERCEL_PROJECT_NAME?.trim() ||
-    process.env.VERCEL_PROJECT_NAME?.trim() ||
-    process.env.VERCEL_GIT_REPO_SLUG?.trim();
-  if (explicit) return explicit;
-
-  const host = getHostFromUrl(process.env.VERCEL_PROJECT_PRODUCTION_URL || process.env.VERCEL_URL);
-  if (!host) return undefined;
-
-  const slug = host.replace(/\.vercel\.app$/, "");
-  const gitIndex = slug.indexOf("-git-");
-  return gitIndex > 0 ? slug.slice(0, gitIndex) : slug;
-}
-
 function getVercelConfig() {
-  const deploymentHost = getHostFromUrl(process.env.VERCEL_URL);
-  const productionHost = getHostFromUrl(process.env.VERCEL_PROJECT_PRODUCTION_URL);
-
   return {
     token: getVercelToken(),
     projectId: process.env.NORTHSTAR_VERCEL_PROJECT_ID?.trim() || process.env.VERCEL_PROJECT_ID?.trim() || undefined,
-    projectName: inferProjectName(),
+    projectName: inferVercelProjectName(),
     teamId: process.env.NORTHSTAR_VERCEL_TEAM_ID?.trim() || process.env.VERCEL_TEAM_ID?.trim() || undefined,
-    teamSlug:
-      process.env.NORTHSTAR_VERCEL_TEAM_SLUG?.trim() ||
-      process.env.VERCEL_TEAM_SLUG?.trim() ||
-      getTeamSlugFromHost(deploymentHost || productionHost) ||
-      undefined
+    teamSlug: inferVercelTeamSlug()
   };
 }
 
@@ -114,8 +78,8 @@ function getRuntimeSnapshot() {
   return {
     environment: process.env.VERCEL_ENV ?? process.env.NODE_ENV ?? "unknown",
     region: process.env.VERCEL_REGION ?? "unknown",
-    deploymentUrl: process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "",
-    productionUrl: process.env.VERCEL_PROJECT_PRODUCTION_URL ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}` : "",
+    deploymentUrl: process.env.VERCEL_URL ? `https://${getVercelHostFromUrl(process.env.VERCEL_URL)}` : "",
+    productionUrl: process.env.VERCEL_PROJECT_PRODUCTION_URL ? `https://${getVercelHostFromUrl(process.env.VERCEL_PROJECT_PRODUCTION_URL)}` : "",
     gitBranch: process.env.VERCEL_GIT_COMMIT_REF ?? "unknown",
     gitSha: process.env.VERCEL_GIT_COMMIT_SHA ?? "unknown"
   };
@@ -301,7 +265,9 @@ async function fetchVercelDeployments(input: {
   });
 
   if (!response.ok) {
-    throw new Error(`Vercel deployments sync failed with HTTP ${response.status}.`);
+    const errorPayload = (await response.json().catch(() => null)) as { error?: { message?: string }; message?: string } | null;
+    const message = errorPayload?.error?.message || errorPayload?.message || `HTTP ${response.status}`;
+    throw new Error(`Vercel deployments sync failed: ${message}`);
   }
 
   return (await response.json()) as VercelDeploymentsResponse;
