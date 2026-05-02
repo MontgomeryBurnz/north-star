@@ -29,8 +29,11 @@ test("Artifact Studio output keeps generated detail compact and export-first", (
 
   assert.match(source, /Export DOCX/);
   assert.match(source, /Export CSV/);
-  assert.match(source, /Generated artifact detail/);
-  assert.match(source, /Inputs behind this artifact/);
+  assert.match(source, /sliceTableTitle\(artifact, table\)/);
+  assert.match(source, /\$\{title\} Slice/);
+  assert.doesNotMatch(source, /Generated work product/);
+  assert.doesNotMatch(source, /Generated artifact detail/);
+  assert.doesNotMatch(source, /Inputs behind this artifact/);
   assert.doesNotMatch(source, /Artifact preview/);
   assert.doesNotMatch(source, /Executive snapshot/);
   assert.match(source, /xl:grid-cols-\[minmax\(0,1fr\)_300px\]/);

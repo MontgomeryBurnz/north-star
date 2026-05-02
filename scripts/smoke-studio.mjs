@@ -177,8 +177,11 @@ async function generateArtifact(session) {
       const output = document.querySelector("[data-studio-artifact-output]");
       const csv = document.querySelector("[data-studio-export-csv]");
       const docx = document.querySelector("[data-studio-export-docx]");
+      const slice = output?.querySelector("details:not([open]) summary");
       return Boolean(
-        output?.textContent.includes("Generated work product")
+        slice?.textContent.includes("Slice")
+        && !output?.textContent.includes("Generated work product")
+        && !output?.textContent.includes("Inputs behind this artifact")
         && csv
         && docx
         && !csv.disabled

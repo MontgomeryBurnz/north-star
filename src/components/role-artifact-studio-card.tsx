@@ -192,13 +192,17 @@ function artifactVersionLabel(artifact: RoleArtifactDraft) {
   return `Version ${artifact.version ?? "draft"} / ${formatDate(artifact.generatedAt)}`;
 }
 
-function ArtifactDetailTable({ table }: { table: RoleArtifactDraft["tables"][number] }) {
+function sliceTableTitle(artifact: RoleArtifactDraft, table: RoleArtifactDraft["tables"][number]) {
+  const title = table.title.trim() || artifact.title.trim() || "Artifact";
+  return /\bslice\b/i.test(title) ? title : `${title} Slice`;
+}
+
+function ArtifactDetailTable({ table, title }: { table: RoleArtifactDraft["tables"][number]; title: string }) {
   return (
     <details className="rounded-md border border-white/10 bg-black/20">
       <summary className="flex cursor-pointer list-none flex-wrap items-center justify-between gap-3 px-3 py-3">
         <span>
-          <span className="block text-sm font-semibold text-zinc-100">{table.title}</span>
-          <span className="mt-1 block text-xs leading-5 text-zinc-500">Full structured detail for export, review, and iteration.</span>
+          <span className="block text-sm font-semibold text-zinc-100">{title}</span>
         </span>
         <span className="rounded-full border border-white/10 px-2 py-0.5 text-[11px] uppercase tracking-[0.12em] text-zinc-500">
           {table.rows.length} rows
@@ -233,55 +237,11 @@ function ArtifactDetailTable({ table }: { table: RoleArtifactDraft["tables"][num
 }
 
 function ArtifactOutput({ artifact }: { artifact: RoleArtifactDraft }) {
-  const totalRows = artifact.tables.reduce((total, table) => total + table.rows.length, 0);
-
   return (
-    <div className="grid gap-4">
-      <div className="rounded-lg border border-emerald-300/15 bg-emerald-300/[0.045] p-4 sm:p-5">
-        <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_260px]">
-          <div>
-            <p className="text-xs font-medium uppercase tracking-[0.16em] text-emerald-200">Generated work product</p>
-            <p className="mt-2 text-base font-semibold text-zinc-100">{artifact.title}</p>
-            <p className="mt-2 max-w-4xl text-sm leading-6 text-zinc-300">{artifact.summary}</p>
-          </div>
-          <div className="flex flex-wrap content-start gap-2 xl:justify-end">
-            {[
-              artifact.version ? `v${artifact.version}` : "Draft",
-              `${totalRows} items`,
-              artifact.provider === "openai" ? "Generated" : "Starter"
-            ].map((label) => (
-              <span key={label} className="rounded-full border border-white/10 bg-black/20 px-3 py-1 text-[11px] uppercase tracking-[0.12em] text-zinc-300">
-                {label}
-              </span>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      <details className="rounded-md border border-cyan-300/15 bg-cyan-300/[0.035] p-3">
-        <summary className="flex cursor-pointer list-none flex-wrap items-center justify-between gap-3">
-          <span>
-            <span className="block text-xs font-medium uppercase tracking-[0.16em] text-cyan-100">Inputs behind this artifact</span>
-            <span className="mt-1 block text-xs leading-5 text-zinc-500">
-              Open to see which program signals grounded this output.
-            </span>
-          </span>
-          <span className="rounded-full border border-cyan-200/20 px-2 py-0.5 text-[11px] uppercase tracking-[0.12em] text-cyan-100">
-            View
-          </span>
-        </summary>
-        <p className="mt-3 border-t border-white/10 pt-3 text-sm leading-6 text-zinc-300">{artifact.sourceSummary}</p>
-      </details>
-
-      <section className="grid gap-3">
-        <div>
-          <p className="text-xs font-medium uppercase tracking-[0.16em] text-zinc-500">Generated artifact detail</p>
-          <p className="mt-1 text-sm text-zinc-400">Open the structured table only when you need to review or export the full detail.</p>
-        </div>
-        {artifact.tables.map((table) => (
-          <ArtifactDetailTable key={table.title} table={table} />
-        ))}
-      </section>
+    <div className="grid gap-3">
+      {artifact.tables.map((table) => (
+        <ArtifactDetailTable key={table.title} table={table} title={sliceTableTitle(artifact, table)} />
+      ))}
     </div>
   );
 }
