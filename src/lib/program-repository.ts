@@ -3,6 +3,7 @@ import { randomUUID } from "crypto";
 import { mkdir, readFile, writeFile } from "fs/promises";
 import path from "path";
 import { Pool } from "pg";
+import type { AuditEventInput, AuditEventRecord } from "@/lib/audit-event-types";
 import type { ManagedAppUser, ManagedAppUserInput } from "@/lib/admin-user-types";
 import { buildManagedAppUserRecord } from "@/lib/admin-user-service";
 import type { ActiveProgramReview, StoredProgramUpdate } from "@/lib/active-program-types";
@@ -53,6 +54,8 @@ type ProgramRepository = {
   listOpenAIUsageRecords(programId: string): Promise<OpenAIUsageRecord[]>;
   listAllOpenAIUsageRecords(): Promise<OpenAIUsageRecord[]>;
   createOpenAIUsageRecord(programId: string, usage: OpenAIUsageRecordInput): Promise<OpenAIUsageRecord>;
+  listAuditEvents(limit?: number): Promise<AuditEventRecord[]>;
+  createAuditEvent(input: AuditEventInput): Promise<AuditEventRecord>;
   listManagedUsers(): Promise<ManagedAppUser[]>;
   upsertManagedUser(input: ManagedAppUserInput): Promise<ManagedAppUser>;
   deleteManagedUser(userId: string): Promise<ManagedAppUser | null>;
@@ -70,6 +73,7 @@ type ProgramStoreFile = {
   guidanceJustifications: GuidanceJustificationRecord[];
   guidanceFeedbackFlags: GuidanceFeedbackFlag[];
   openAIUsageRecords: OpenAIUsageRecord[];
+  auditEvents: AuditEventRecord[];
   managedUsers: ManagedAppUser[];
 };
 
@@ -85,6 +89,7 @@ const emptyFileStore: ProgramStoreFile = {
   guidanceJustifications: [],
   guidanceFeedbackFlags: [],
   openAIUsageRecords: [],
+  auditEvents: [],
   managedUsers: []
 };
 
@@ -293,6 +298,14 @@ function buildOpenAIUsageRecord(input: {
     programName: input.programName,
     createdAt: input.createdAt ?? new Date().toISOString(),
     ...input.usage
+  };
+}
+
+function buildAuditEventRecord(input: AuditEventInput): AuditEventRecord {
+  return {
+    ...input,
+    id: randomUUID(),
+    createdAt: new Date().toISOString()
   };
 }
 
@@ -663,6 +676,17 @@ const fileRepository: ProgramRepository = {
     await writeFileStore(store);
     return record;
   },
+  async listAuditEvents(limit = 50) {
+    const store = await readFileStore();
+    return sortByUpdatedDesc(store.auditEvents).slice(0, limit);
+  },
+  async createAuditEvent(input) {
+    const store = await readFileStore();
+    const record = buildAuditEventRecord(input);
+    store.auditEvents = [record, ...store.auditEvents];
+    await writeFileStore(store);
+    return record;
+  },
   async listManagedUsers() {
     const store = await readFileStore();
     return sortByUpdatedDesc(store.managedUsers);
@@ -856,6 +880,22 @@ async function ensurePostgresSchema() {
             updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
           );
 
+          CREATE TABLE IF NOT EXISTS audit_events (
+            id TEXT PRIMARY KEY,
+            event_type TEXT NOT NULL,
+            surface TEXT NOT NULL,
+            program_id TEXT REFERENCES programs(id) ON DELETE SET NULL,
+            program_name TEXT,
+            entity_type TEXT NOT NULL,
+            entity_id TEXT,
+            entity_label TEXT,
+            actor JSONB,
+            summary TEXT NOT NULL,
+            metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
+            record JSONB NOT NULL,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+          );
+
           CREATE INDEX IF NOT EXISTS idx_program_updates_program_id_created_at
             ON program_updates(program_id, created_at DESC);
           CREATE INDEX IF NOT EXISTS idx_guided_plans_program_id_created_at
@@ -886,6 +926,12 @@ async function ensurePostgresSchema() {
             ON openai_usage_records(program_id, workflow, created_at DESC);
           CREATE INDEX IF NOT EXISTS idx_managed_users_updated_at
             ON managed_users(updated_at DESC);
+          CREATE INDEX IF NOT EXISTS idx_audit_events_created_at
+            ON audit_events(created_at DESC);
+          CREATE INDEX IF NOT EXISTS idx_audit_events_program_id_created_at
+            ON audit_events(program_id, created_at DESC);
+          CREATE INDEX IF NOT EXISTS idx_audit_events_event_type_created_at
+            ON audit_events(event_type, created_at DESC);
 
           DO $$
           DECLARE
@@ -904,7 +950,8 @@ async function ensurePostgresSchema() {
               'guidance_justifications',
               'guidance_feedback_flags',
               'openai_usage_records',
-              'managed_users'
+              'managed_users',
+              'audit_events'
             ];
             exposed_role_names TEXT[] := ARRAY['anon', 'authenticated'];
           BEGIN
@@ -1042,6 +1089,10 @@ function mapGuidanceFeedbackFlagRow(row: { record: GuidanceFeedbackFlag }): Guid
 }
 
 function mapOpenAIUsageRecordRow(row: { record: OpenAIUsageRecord }): OpenAIUsageRecord {
+  return row.record;
+}
+
+function mapAuditEventRow(row: { record: AuditEventRecord }): AuditEventRecord {
   return row.record;
 }
 
@@ -1562,6 +1613,47 @@ const postgresRepository: ProgramRepository = {
         VALUES ($1, $2, $3, $4, $5, $6::jsonb, $7)
       `,
       [record.id, programId, record.programName, record.workflow, record.sourceId ?? null, JSON.stringify(record), now]
+    );
+    return record;
+  },
+  async listAuditEvents(limit = 50) {
+    await ensurePostgresSchema();
+    const result = await getPool().query(
+      `
+        SELECT record
+        FROM audit_events
+        ORDER BY created_at DESC
+        LIMIT $1
+      `,
+      [limit]
+    );
+    return result.rows.map(mapAuditEventRow);
+  },
+  async createAuditEvent(input) {
+    await ensurePostgresSchema();
+    const record = buildAuditEventRecord(input);
+    await getPool().query(
+      `
+        INSERT INTO audit_events (
+          id, event_type, surface, program_id, program_name, entity_type, entity_id, entity_label, actor, summary, metadata, record, created_at
+        )
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9::jsonb, $10, $11::jsonb, $12::jsonb, $13)
+      `,
+      [
+        record.id,
+        record.eventType,
+        record.surface,
+        record.programId ?? null,
+        record.programName ?? null,
+        record.entityType,
+        record.entityId ?? null,
+        record.entityLabel ?? null,
+        JSON.stringify(record.actor ?? null),
+        record.summary,
+        JSON.stringify(record.metadata ?? {}),
+        JSON.stringify(record),
+        new Date(record.createdAt)
+      ]
     );
     return record;
   },

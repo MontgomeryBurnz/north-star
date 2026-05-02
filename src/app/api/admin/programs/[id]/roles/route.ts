@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
+import { auditActorFromAccess } from "@/lib/audit-event-service";
 import { getAdminAccessContext } from "@/lib/leadership-auth";
-import { createGuidedPlan, getProgram, upsertProgram } from "@/lib/program-store";
+import { createAuditEvent, createGuidedPlan, getProgram, upsertProgram } from "@/lib/program-store";
 import { createSiteAccessDeniedResponse, isSiteAccessRequestAuthorized } from "@/lib/site-access";
 import { addProgramRoleToIntake } from "@/lib/team-roles";
 
@@ -20,6 +21,7 @@ async function requireAdminAccess(request: Request) {
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const denied = await requireAdminAccess(request);
   if (denied) return denied;
+  const access = await getAdminAccessContext();
 
   const { id } = await params;
   const body = (await request.json()) as { role?: string };
@@ -46,6 +48,37 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   if (!plan) {
     return NextResponse.json({ error: "Program role was saved, but guidance could not be refreshed." }, { status: 500 });
   }
+
+  const actor = auditActorFromAccess(access);
+  await createAuditEvent({
+    actor,
+    entityId: savedProgram.id,
+    entityLabel: roleMutation.role,
+    entityType: "program-role",
+    eventType: "program.role.add",
+    metadata: {
+      roleCount: roleMutation.roles.length
+    },
+    programId: savedProgram.id,
+    programName: savedProgram.intake.programName,
+    summary: `${roleMutation.role} role added to ${savedProgram.intake.programName}.`,
+    surface: "Admin"
+  });
+  await createAuditEvent({
+    actor,
+    entityId: plan.id,
+    entityLabel: plan.programName,
+    entityType: "guided-plan",
+    eventType: "guidance.refresh",
+    metadata: {
+      role: roleMutation.role,
+      trigger: "program-role"
+    },
+    programId: savedProgram.id,
+    programName: plan.programName,
+    summary: `${plan.programName} guidance refreshed after role change.`,
+    surface: "Guided Plans"
+  });
 
   return NextResponse.json({
     plan,

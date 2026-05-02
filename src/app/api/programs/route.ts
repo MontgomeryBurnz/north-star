@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
-import { listPrograms, upsertProgram } from "@/lib/program-store";
+import { buildSystemAuditActor } from "@/lib/audit-event-service";
+import { createAuditEvent, listPrograms, upsertProgram } from "@/lib/program-store";
 import type { ProgramIntake } from "@/lib/program-intake-types";
 import { createSiteAccessDeniedResponse, isSiteAccessRequestAuthorized } from "@/lib/site-access";
 
@@ -45,6 +46,21 @@ export async function POST(request: Request) {
     leadershipReviewCadence: body.leadershipReviewCadence === "biweekly" ? "biweekly" : "weekly",
     artifacts: body.artifacts ?? [],
     reviewedContext: body.reviewedContext
+  });
+  await createAuditEvent({
+    actor: buildSystemAuditActor(),
+    entityId: program.id,
+    entityLabel: program.intake.programName,
+    entityType: "program",
+    eventType: "program.create_or_update",
+    metadata: {
+      artifactCount: program.intake.artifacts.length,
+      roleCount: program.intake.teamRoles?.length ?? 0
+    },
+    programId: program.id,
+    programName: program.intake.programName,
+    summary: `${program.intake.programName} program record saved.`,
+    surface: "Program Hub"
   });
 
   return NextResponse.json({ program });

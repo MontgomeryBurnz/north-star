@@ -4,7 +4,6 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
 }
 
 model Program {
@@ -15,15 +14,16 @@ model Program {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  updates             ProgramUpdate[]
-  guidedPlans         GuidedPlan[]
-  leadershipFeedbacks LeadershipFeedback[]
+  updates                ProgramUpdate[]
+  guidedPlans            GuidedPlan[]
+  leadershipFeedbacks    LeadershipFeedback[]
   assistantConversations AssistantConversation[]
-  artifacts           Artifact[]
-  meetingInputs       MeetingInput[]
-  roleArtifacts       RoleArtifact[]
+  artifacts              Artifact[]
+  meetingInputs          MeetingInput[]
+  roleArtifacts          RoleArtifact[]
   guidanceJustifications GuidanceJustification[]
-  guidanceFeedbackFlags GuidanceFeedbackFlag[]
+  guidanceFeedbackFlags  GuidanceFeedbackFlag[]
+  auditEvents            AuditEvent[]
 
   @@map("programs")
 }
@@ -167,4 +167,27 @@ model GuidanceFeedbackFlag {
   @@index([programId, createdAt(sort: Desc)])
   @@index([guidanceJustificationId, createdAt(sort: Desc)])
   @@map("guidance_feedback_flags")
+}
+
+model AuditEvent {
+  id          String   @id
+  eventType   String   @map("event_type")
+  surface     String
+  programId   String?  @map("program_id")
+  programName String?  @map("program_name")
+  entityType  String   @map("entity_type")
+  entityId    String?  @map("entity_id")
+  entityLabel String?  @map("entity_label")
+  actor       Json?
+  summary     String
+  metadata    Json
+  record      Json
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  program Program? @relation(fields: [programId], references: [id], onDelete: SetNull)
+
+  @@index([createdAt(sort: Desc)])
+  @@index([programId, createdAt(sort: Desc)])
+  @@index([eventType, createdAt(sort: Desc)])
+  @@map("audit_events")
 }

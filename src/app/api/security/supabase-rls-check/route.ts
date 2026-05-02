@@ -11,11 +11,13 @@ const appTables = [
   "assistant_conversations",
   "artifacts",
   "meeting_inputs",
+  "role_artifacts",
   "client_decision_requests",
   "guidance_justifications",
   "guidance_feedback_flags",
   "openai_usage_records",
-  "managed_users"
+  "managed_users",
+  "audit_events"
 ];
 
 const exposedRoles = ["anon", "authenticated"];

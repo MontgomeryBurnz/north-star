@@ -1,29 +1,18 @@
 import { Activity, BrainCircuit, FileText, KeyRound, MailCheck, ShieldCheck, type LucideIcon } from "lucide-react";
 import type { InvitationProviderStatus } from "@/lib/admin-user-invitations";
+import type { AuditEventRecord } from "@/lib/audit-event-types";
 import type { ManagedAppUser } from "@/lib/admin-user-types";
 import type { GuidanceModelProfile } from "@/lib/guidance-model-profile";
-import type { GuidedPlan } from "@/lib/guided-plan-types";
-import type { GuidanceFeedbackFlag, OpenAIUsageRecord } from "@/lib/program-intelligence-types";
-import type { StoredProgram } from "@/lib/program-intake-types";
+import type { GuidanceFeedbackFlag } from "@/lib/program-intelligence-types";
 import { isSupabaseAdminConfigured, isSupabaseConfigured } from "@/lib/supabase/server";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 type AdminTrustOperationsCardProps = {
+  auditEvents: AuditEventRecord[];
   guidanceFlags: GuidanceFeedbackFlag[];
   guidanceModelProfile: GuidanceModelProfile;
   invitationProvider: InvitationProviderStatus;
-  latestGuidedPlans: GuidedPlan[];
-  programs: StoredProgram[];
-  usageRecords: OpenAIUsageRecord[];
   users: ManagedAppUser[];
-};
-
-type AuditEvent = {
-  detail: string;
-  id: string;
-  label: string;
-  timestamp: string;
-  type: string;
 };
 
 const permissionRows = [
@@ -62,6 +51,16 @@ function formatTimestamp(value: string | undefined) {
     hour: "numeric",
     minute: "2-digit"
   }).format(new Date(value));
+}
+
+function formatAuditType(value: AuditEventRecord["eventType"]) {
+  if (value.startsWith("artifact.")) return "Studio";
+  if (value.startsWith("flag.")) return "Flag";
+  if (value.startsWith("guidance.")) return "Guidance";
+  if (value.startsWith("leadership.")) return "Leadership";
+  if (value.startsWith("program.")) return "Program";
+  if (value.startsWith("user.")) return "User access";
+  return "Audit";
 }
 
 function readinessLabel(ready: boolean) {
@@ -121,82 +120,11 @@ function AuditCoverageTile({
   );
 }
 
-function buildAuditEvents({
-  guidanceFlags,
-  latestGuidedPlans,
-  programs,
-  usageRecords,
-  users
-}: Pick<AdminTrustOperationsCardProps, "guidanceFlags" | "latestGuidedPlans" | "programs" | "usageRecords" | "users">) {
-  const userEvents: AuditEvent[] = users.flatMap((user) => {
-    const events: AuditEvent[] = [
-      {
-        detail: `${user.userType} access for ${user.email}`,
-        id: `${user.id}-updated`,
-        label: `${user.name} access updated`,
-        timestamp: user.updatedAt,
-        type: "User access"
-      }
-    ];
-
-    if (user.invitedAt) {
-      events.push({
-        detail: `${user.credentialStatus} invitation state`,
-        id: `${user.id}-invited`,
-        label: `${user.name} invited`,
-        timestamp: user.invitedAt,
-        type: "Invite"
-      });
-    }
-
-    return events;
-  });
-
-  const programEvents: AuditEvent[] = programs.map((program) => ({
-    detail: `${program.intake.teamRoles?.length ?? 0} configured team roles`,
-    id: `${program.id}-updated`,
-    label: `${program.intake.programName} program updated`,
-    timestamp: program.updatedAt,
-    type: "Program"
-  }));
-
-  const planEvents: AuditEvent[] = latestGuidedPlans.map((plan) => ({
-    detail: "Latest guided plan refresh",
-    id: `${plan.id}-plan`,
-    label: `${plan.programName} guidance refreshed`,
-    timestamp: plan.createdAt,
-    type: "Guidance"
-  }));
-
-  const flagEvents: AuditEvent[] = guidanceFlags.map((flag) => ({
-    detail: `${flag.status} ${flag.targetLabel ?? flag.targetType ?? "guidance"} review`,
-    id: `${flag.id}-flag`,
-    label: `${flag.programName} flag ${flag.status}`,
-    timestamp: flag.updatedAt,
-    type: "Flag"
-  }));
-
-  const usageEvents: AuditEvent[] = usageRecords.slice(0, 8).map((record) => ({
-    detail: `${record.workflow} · ${record.totalTokens.toLocaleString()} tokens`,
-    id: `${record.id}-usage`,
-    label: `${record.programName} intelligence call recorded`,
-    timestamp: record.createdAt,
-    type: "Usage"
-  }));
-
-  return [...userEvents, ...programEvents, ...planEvents, ...flagEvents, ...usageEvents]
-    .filter((event) => event.timestamp)
-    .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
-    .slice(0, 6);
-}
-
 export function AdminTrustOperationsCard({
+  auditEvents,
   guidanceFlags,
   guidanceModelProfile,
   invitationProvider,
-  latestGuidedPlans,
-  programs,
-  usageRecords,
   users
 }: AdminTrustOperationsCardProps) {
   const supabaseReady = isSupabaseConfigured() && isSupabaseAdminConfigured();
@@ -206,9 +134,12 @@ export function AdminTrustOperationsCard({
     process.env.NORTHSTAR_VERCEL_API_TOKEN && (process.env.NORTHSTAR_VERCEL_PROJECT_ID || process.env.NORTHSTAR_VERCEL_PROJECT_NAME)
   );
   const emailReady = Boolean(invitationProvider.brandedEmail.configured);
-  const recentEvents = buildAuditEvents({ guidanceFlags, latestGuidedPlans, programs, usageRecords, users });
+  const recentEvents = auditEvents.slice(0, 8);
   const pendingFlags = guidanceFlags.filter((flag) => flag.status === "pending").length;
   const reviewedFlags = guidanceFlags.length - pendingFlags;
+  const userAccessEvents = auditEvents.filter((event) => event.eventType.startsWith("user.")).length;
+  const guidanceRefreshEvents = auditEvents.filter((event) => event.eventType === "guidance.refresh").length;
+  const exportEvents = auditEvents.filter((event) => event.eventType === "artifact.export" || event.eventType === "artifact.copy").length;
 
   return (
     <Card className="bg-zinc-950/80">
@@ -286,10 +217,10 @@ export function AdminTrustOperationsCard({
         <section className="grid gap-3">
           <p className="text-sm font-semibold text-zinc-100">Audit coverage</p>
           <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-            <AuditCoverageTile label="User access" value={String(users.length).padStart(2, "0")} detail="Managed users, assignments, invite state, and updates." />
-            <AuditCoverageTile label="Guidance refreshes" value={String(latestGuidedPlans.length).padStart(2, "0")} detail="Latest generated plans by program." />
+            <AuditCoverageTile label="User access" value={String(userAccessEvents).padStart(2, "0")} detail="Invites, setup links, role assignments, and removals." />
+            <AuditCoverageTile label="Guidance refreshes" value={String(guidanceRefreshEvents).padStart(2, "0")} detail="Plan refreshes triggered by program signal." />
             <AuditCoverageTile label="Guidance flags" value={`${pendingFlags}/${reviewedFlags}`} detail="Pending flags / reviewed flags." />
-            <AuditCoverageTile label="Exports" value="DOCX / CSV" detail="Studio export formats are standardized with copy output." />
+            <AuditCoverageTile label="Exports" value={String(exportEvents).padStart(2, "0")} detail="Studio copy, DOCX export, and CSV export activity." />
           </div>
         </section>
 
@@ -307,12 +238,14 @@ export function AdminTrustOperationsCard({
             <div className="grid gap-2">
               {recentEvents.map((event) => (
                 <div key={event.id} className="grid gap-2 rounded-md border border-white/10 bg-black/20 p-3 md:grid-cols-[9rem_minmax(0,1fr)_10rem] md:items-center">
-                  <span className="text-[11px] font-medium uppercase tracking-[0.14em] text-emerald-200">{event.type}</span>
+                  <span className="text-[11px] font-medium uppercase tracking-[0.14em] text-emerald-200">{formatAuditType(event.eventType)}</span>
                   <span>
-                    <span className="block text-sm font-medium text-zinc-100">{event.label}</span>
-                    <span className="mt-1 block text-xs leading-5 text-zinc-500">{event.detail}</span>
+                    <span className="block text-sm font-medium text-zinc-100">{event.summary}</span>
+                    <span className="mt-1 block text-xs leading-5 text-zinc-500">
+                      {[event.surface, event.programName, event.entityLabel].filter(Boolean).join(" · ")}
+                    </span>
                   </span>
-                  <span className="text-xs text-zinc-500 md:text-right">{formatTimestamp(event.timestamp)}</span>
+                  <span className="text-xs text-zinc-500 md:text-right">{formatTimestamp(event.createdAt)}</span>
                 </div>
               ))}
             </div>

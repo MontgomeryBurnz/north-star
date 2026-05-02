@@ -251,6 +251,7 @@ function ArtifactDetailTable({ table, title }: { table: RoleArtifactDraft["table
       <summary className="flex cursor-pointer list-none flex-wrap items-center justify-between gap-3 px-3 py-3">
         <span>
           <span className="block text-sm font-semibold text-zinc-100">{title}</span>
+          <span className="mt-1 block text-xs leading-5 text-zinc-500">Open when you need the generated rows for review or export.</span>
         </span>
         <span className="rounded-full border border-white/10 px-2 py-0.5 text-[11px] uppercase tracking-[0.12em] text-zinc-500">
           {table.rows.length} rows
@@ -425,11 +426,40 @@ export function RoleArtifactStudioCard({
     }
   }
 
+  function recordArtifactAudit(format: "clipboard" | "csv" | "docx") {
+    if (!artifact) return;
+
+    void fetch("/api/audit-events", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        entityId: artifact.id,
+        entityLabel: artifact.title,
+        entityType: "role-artifact",
+        eventType: format === "clipboard" ? "artifact.copy" : "artifact.export",
+        metadata: {
+          artifactType: artifact.artifactType,
+          format,
+          role: artifact.role,
+          version: artifact.version
+        },
+        programId: artifact.programId,
+        programName: artifact.programName,
+        summary:
+          format === "clipboard"
+            ? `${artifact.title} copied from Studio.`
+            : `${artifact.title} exported from Studio as ${format.toUpperCase()}.`,
+        surface: "Studio"
+      })
+    }).catch(() => undefined);
+  }
+
   async function copyArtifact() {
     if (!artifact) return;
 
     try {
       await navigator.clipboard.writeText(serializeArtifact(artifact));
+      recordArtifactAudit("clipboard");
       setStatus("Artifact copied to clipboard.");
     } catch {
       setStatus("Could not copy the artifact from this browser.");
@@ -442,6 +472,7 @@ export function RoleArtifactStudioCard({
     try {
       const blob = await buildDocxBlob(artifact);
       downloadBlob(blob, `${artifactFilenameBase(artifact)}.docx`);
+      recordArtifactAudit("docx");
       setStatus("DOCX export downloaded.");
     } catch {
       setStatus("Could not create the DOCX export in this browser.");
@@ -453,6 +484,7 @@ export function RoleArtifactStudioCard({
 
     const blob = new Blob([serializeArtifactCsv(artifact)], { type: "text/csv;charset=utf-8" });
     downloadBlob(blob, `${artifactFilenameBase(artifact)}.csv`);
+    recordArtifactAudit("csv");
     setStatus("CSV export downloaded.");
   }
 

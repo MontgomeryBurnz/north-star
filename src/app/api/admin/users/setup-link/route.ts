@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { createManagedUserSetupLink, getInvitationProviderStatus } from "@/lib/admin-user-invitations";
+import { auditActorFromAccess } from "@/lib/audit-event-service";
 import { getAdminAccessContext } from "@/lib/leadership-auth";
-import { listManagedUsers, upsertManagedUser } from "@/lib/program-store";
+import { createAuditEvent, listManagedUsers, upsertManagedUser } from "@/lib/program-store";
 import { createSiteAccessDeniedResponse, isSiteAccessRequestAuthorized } from "@/lib/site-access";
 
 async function requireAdminAccess(request: Request) {
@@ -20,6 +21,7 @@ async function requireAdminAccess(request: Request) {
 export async function POST(request: Request) {
   const denied = await requireAdminAccess(request);
   if (denied) return denied;
+  const access = await getAdminAccessContext();
 
   const body = (await request.json().catch(() => ({}))) as { id?: string };
   const userId = body.id?.trim();
@@ -72,6 +74,19 @@ export async function POST(request: Request) {
     invitedAt: linkResult.invitedAt,
     lastAuthSyncAt: new Date().toISOString(),
     invitationError: ""
+  });
+  await createAuditEvent({
+    actor: auditActorFromAccess(access),
+    entityId: updatedUser.id,
+    entityLabel: updatedUser.name,
+    entityType: "managed-user",
+    eventType: "user.invite.link",
+    metadata: {
+      linkType: linkResult.type,
+      userType: updatedUser.userType
+    },
+    summary: `${updatedUser.name} setup link was created.`,
+    surface: "Admin"
   });
 
   return NextResponse.json({

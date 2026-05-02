@@ -50,6 +50,7 @@ test("Studio recommendations use a full-width brief browser", () => {
   assert.match(source, /Refresh intelligence/);
   assert.match(source, /Select a role to continue/);
   assert.match(source, /Select a program first/);
+  assert.match(source, /Inputs used/);
   assert.match(source, /data-studio-suggestions/);
   assert.match(source, /lg:grid-cols-2 2xl:grid-cols-3/);
   assert.match(source, /Load \{suggestion\.title\}/);
@@ -57,6 +58,7 @@ test("Studio recommendations use a full-width brief browser", () => {
   assert.doesNotMatch(source, /void loadSuggestions\(\);\s*\n\s*}, \[loadSuggestions\]/);
   assert.doesNotMatch(source, /Recommendation source/);
   assert.doesNotMatch(source, /All roles/);
+  assert.doesNotMatch(source, /Studio context/);
   assert.doesNotMatch(source, /defaultStudioRole/);
   assert.doesNotMatch(source, /xl:grid-cols-\[430px_minmax\(0,1fr\)\]/);
   assert.doesNotMatch(source, /xl:sticky xl:top-24/);
@@ -116,6 +118,22 @@ test("Buyer-ready surfaces map each module to a clear user job", () => {
   assert.match(leadershipSource, /What input do leaders need to give/);
 });
 
+test("Primary workflow pages share the product header template and stronger empty states", () => {
+  const programSource = readFileSync(new URL("../src/components/program-workspace.tsx", import.meta.url), "utf8");
+  const guidedSource = readFileSync(new URL("../src/components/guided-plans-console.tsx", import.meta.url), "utf8");
+  const studioSource = readFileSync(new URL("../src/components/artifact-studio-console.tsx", import.meta.url), "utf8");
+  const leadershipSource = readFileSync(new URL("../src/components/leadership-review-console.tsx", import.meta.url), "utf8");
+  const adminSource = readFileSync(new URL("../src/app/admin/page.tsx", import.meta.url), "utf8");
+  const guidedEmptyStateSource = readFileSync(new URL("../src/components/guided-plan-empty-state-card.tsx", import.meta.url), "utf8");
+
+  for (const source of [programSource, guidedSource, studioSource, leadershipSource, adminSource]) {
+    assert.match(source, /ProductPageHeader/);
+  }
+
+  assert.match(guidedEmptyStateSource, /Select a program to begin/);
+  assert.match(studioSource, /Select a program to begin/);
+});
+
 test("Admin includes Trust and Operations controls", () => {
   const adminSource = readFileSync(new URL("../src/app/admin/page.tsx", import.meta.url), "utf8");
   const trustSource = readFileSync(new URL("../src/components/admin-trust-operations-card.tsx", import.meta.url), "utf8");
@@ -126,5 +144,24 @@ test("Admin includes Trust and Operations controls", () => {
   assert.match(trustSource, /Reliability indicators/);
   assert.match(trustSource, /Audit coverage/);
   assert.match(trustSource, /Recent audit activity/);
-  assert.match(trustSource, new RegExp("DOCX / CSV"));
+  assert.match(trustSource, /DOCX export/);
+});
+
+test("Admin audit history uses persisted audit events instead of inferred activity", () => {
+  const repositorySource = readFileSync(new URL("../src/lib/program-repository.ts", import.meta.url), "utf8");
+  const storeSource = readFileSync(new URL("../src/lib/program-store.ts", import.meta.url), "utf8");
+  const adminSource = readFileSync(new URL("../src/app/admin/page.tsx", import.meta.url), "utf8");
+  const trustSource = readFileSync(new URL("../src/components/admin-trust-operations-card.tsx", import.meta.url), "utf8");
+  const auditApiSource = readFileSync(new URL("../src/app/api/audit-events/route.ts", import.meta.url), "utf8");
+
+  assert.match(repositorySource, /CREATE TABLE IF NOT EXISTS audit_events/);
+  assert.match(repositorySource, /listAuditEvents/);
+  assert.match(repositorySource, /createAuditEvent/);
+  assert.match(storeSource, /export async function listAuditEvents/);
+  assert.match(storeSource, /export async function createAuditEvent/);
+  assert.match(adminSource, /listAuditEvents\(40\)/);
+  assert.match(trustSource, /auditEvents\.slice\(0, 8\)/);
+  assert.match(auditApiSource, /artifact\.copy/);
+  assert.match(auditApiSource, /artifact\.export/);
+  assert.doesNotMatch(trustSource, /buildAuditEvents/);
 });

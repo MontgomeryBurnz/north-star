@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
 import type { ManagedAppUser, ManagedAppUserInput } from "@/lib/admin-user-types";
 import { getInvitationProviderStatus, inviteManagedUser } from "@/lib/admin-user-invitations";
+import { auditActorFromAccess } from "@/lib/audit-event-service";
 import { getAdminAccessContext } from "@/lib/leadership-auth";
-import { deleteManagedUser, listManagedUsers, upsertManagedUser } from "@/lib/program-store";
+import { createAuditEvent, deleteManagedUser, listManagedUsers, upsertManagedUser } from "@/lib/program-store";
 import { createSiteAccessDeniedResponse, isSiteAccessRequestAuthorized } from "@/lib/site-access";
 import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/lib/supabase/server";
 
@@ -67,6 +68,7 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   const denied = await requireAdminAccess(request);
   if (denied) return denied;
+  const access = await getAdminAccessContext();
 
   const body = (await request.json()) as ManagedAppUserInput & { sendInvite?: boolean };
 
@@ -111,6 +113,22 @@ export async function POST(request: Request) {
       }
     }
 
+    await createAuditEvent({
+      actor: auditActorFromAccess(access),
+      entityId: user.id,
+      entityLabel: user.name,
+      entityType: "managed-user",
+      eventType: body.sendInvite ? "user.invite.send" : "user.access.update",
+      metadata: {
+        assignmentCount: user.assignments.length,
+        credentialStatus: user.credentialStatus,
+        invitationOk: invitation?.ok,
+        userType: user.userType
+      },
+      summary: body.sendInvite ? `${user.name} was invited to North Star.` : `${user.name} access was updated.`,
+      surface: "Admin"
+    });
+
     return NextResponse.json({ invitation, invitationProvider: getInvitationProviderStatus(), user });
   } catch (error) {
     return NextResponse.json(
@@ -123,6 +141,7 @@ export async function POST(request: Request) {
 export async function DELETE(request: Request) {
   const denied = await requireAdminAccess(request);
   if (denied) return denied;
+  const access = await getAdminAccessContext();
 
   const body = (await request.json().catch(() => ({}))) as { id?: string };
   const userId = body.id?.trim();
@@ -141,6 +160,21 @@ export async function DELETE(request: Request) {
   try {
     const authDeletion = await deleteLinkedAuthUser(user);
     const deletedUser = await deleteManagedUser(userId);
+    await createAuditEvent({
+      actor: auditActorFromAccess(access),
+      entityId: user.id,
+      entityLabel: user.name,
+      entityType: "managed-user",
+      eventType: "user.access.remove",
+      metadata: {
+        authDeleted: authDeletion.deleted,
+        authSkipped: authDeletion.skipped,
+        email: user.email,
+        userType: user.userType
+      },
+      summary: `${user.name} access was removed.`,
+      surface: "Admin"
+    });
 
     return NextResponse.json({
       authDeletion,

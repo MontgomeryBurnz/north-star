@@ -17,14 +17,14 @@ export function GuidedPlanEmptyStateCard({ hasPrograms = false }: GuidedPlanEmpt
           </div>
           <div>
             <p className="text-xs font-medium uppercase tracking-[0.18em] text-emerald-200">
-              {hasPrograms ? "Select a program" : "Create a program"}
+              {hasPrograms ? "Select a program to begin" : "Create a program"}
             </p>
             <h2 className="mt-2 text-2xl font-semibold text-zinc-50">
-              {hasPrograms ? "Choose a program to review guided plans." : "Create a program to unlock guided plans."}
+              {hasPrograms ? "Select a program to begin." : "Create a program to unlock guided plans."}
             </h2>
             <p className="mt-3 max-w-2xl text-sm leading-6 text-zinc-300">
               {hasPrograms
-                ? "Use the Program source slicer to load the current plan, team action plans, rationale, risks, decisions, and leadership-driven changes for one active program."
+                ? "Load one active program to review health, timeline, team action plans, and the evidence behind the current guidance."
                 : "Save a program first. North Star will generate guided plans automatically as intake, uploads, program updates, and leadership feedback are captured."}
             </p>
           </div>

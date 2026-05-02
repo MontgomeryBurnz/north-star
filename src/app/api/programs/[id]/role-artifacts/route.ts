@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
+import { buildSystemAuditActor } from "@/lib/audit-event-service";
 import {
+  createAuditEvent,
   createOpenAIUsageRecord,
   createRoleArtifact,
   getLatestGuidedPlan,
@@ -121,6 +123,22 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   if (artifact.modelUsage) {
     await createOpenAIUsageRecord(id, { ...artifact.modelUsage, sourceId: artifact.id });
   }
+  await createAuditEvent({
+    actor: buildSystemAuditActor(),
+    entityId: artifact.id,
+    entityLabel: artifact.title,
+    entityType: "role-artifact",
+    eventType: "artifact.generate",
+    metadata: {
+      artifactType: artifact.artifactType,
+      role: artifact.role,
+      version: artifact.version
+    },
+    programId: id,
+    programName: artifact.programName,
+    summary: `${artifact.title} generated for ${artifact.role}.`,
+    surface: "Studio"
+  });
 
   const history = await listRoleArtifacts(id, artifactType);
   return NextResponse.json({ artifact, history });

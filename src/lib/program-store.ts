@@ -1,4 +1,5 @@
 import "server-only";
+import type { AuditEventInput } from "@/lib/audit-event-types";
 import type { ManagedAppUserInput } from "@/lib/admin-user-types";
 import type { ActiveProgramReview } from "@/lib/active-program-types";
 import type { AssistantServiceResponse } from "@/lib/assistant-types";
@@ -130,6 +131,14 @@ export async function listAllOpenAIUsageRecords() {
 
 export async function createOpenAIUsageRecord(programId: string, usage: OpenAIUsageRecordInput) {
   return getProgramRepository().createOpenAIUsageRecord(programId, usage);
+}
+
+export async function listAuditEvents(limit?: number) {
+  return getProgramRepository().listAuditEvents(limit);
+}
+
+export async function createAuditEvent(input: AuditEventInput) {
+  return getProgramRepository().createAuditEvent(input);
 }
 
 export async function listManagedUsers() {

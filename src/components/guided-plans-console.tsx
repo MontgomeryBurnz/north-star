@@ -22,7 +22,7 @@ import { GuidedPlanLeadershipSignalCard } from "@/components/guided-plan-leaders
 import { GuidedPlanOverviewCard } from "@/components/guided-plan-overview-card";
 import { GuidedPlansSidebar } from "@/components/guided-plans-sidebar";
 import { GuidanceReviewPanel, RolePlansCard } from "@/components/guided-plan-section-cards";
-import { SectionHeader } from "@/components/section-header";
+import { ProductPageHeader } from "@/components/product-page-header";
 
 const allRolesOption = "__all_roles__";
 
@@ -506,7 +506,7 @@ export function GuidedPlansConsole() {
 
   return (
     <main className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
-      <SectionHeader
+      <ProductPageHeader
         eyebrow="Guided plans"
         title="What should we do next?"
         description="Review program health, progress, leadership signal, timeline posture, and role-specific action plans from the latest program context."

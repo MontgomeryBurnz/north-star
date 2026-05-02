@@ -15,8 +15,8 @@ import { normalizeTeamRoles } from "@/lib/team-roles";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ProgramSlicer } from "@/components/program-slicer";
+import { ProductPageHeader } from "@/components/product-page-header";
 import { RoleArtifactStudioCard, type RoleArtifactStudioRequest } from "@/components/role-artifact-studio-card";
-import { SectionHeader } from "@/components/section-header";
 
 function formatRoleLabel(value: string) {
   return value;
@@ -73,7 +73,7 @@ function EmptyArtifactState({ hasPrograms }: { hasPrograms: boolean }) {
         <div>
           <Sparkles className="mx-auto h-7 w-7 text-emerald-200" />
           <p className="mt-4 text-lg font-semibold text-zinc-50">
-            {hasPrograms ? "Select a program to open Studio." : "Create a program before generating artifacts."}
+            {hasPrograms ? "Select a program to begin." : "Create a program before generating artifacts."}
           </p>
           <p className="mx-auto mt-2 max-w-lg text-sm leading-6 text-zinc-500">
             Studio uses the selected program&apos;s uploads, guided plan, team updates, leadership feedback, Guide dialogue,
@@ -390,7 +390,7 @@ export function ArtifactStudioConsole() {
   return (
     <main className="mx-auto max-w-[1500px] px-4 py-14 sm:px-6 lg:px-8">
       <div className="grid gap-8">
-        <SectionHeader
+        <ProductPageHeader
           eyebrow="Studio"
           title="What should we create next?"
           description="Generate, refine, version, copy, and export role-specific work products from the selected program context."
@@ -444,16 +444,21 @@ export function ArtifactStudioConsole() {
               <StudioMetric label="Briefs ready" value={selectedProgramId && selectedRoleFocus ? String(visibleSuggestions.length) : "Select role"} />
             </div>
 
-            <div className="rounded-md border border-emerald-300/20 bg-emerald-300/[0.045] p-3">
-              <p className="flex items-center gap-2 text-sm font-medium text-emerald-100">
-                <BrainCircuit className="h-4 w-4" />
-                Studio context
-              </p>
-              <p className="mt-2 text-sm leading-6 text-zinc-300">
-                Inputs used: uploads, guided plans, team updates, leadership feedback, Guide dialogue, meeting inputs,
+            <details className="group rounded-md border border-cyan-300/20 bg-cyan-300/[0.035] p-3">
+              <summary className="flex cursor-pointer list-none items-center justify-between gap-3">
+                <span className="flex items-center gap-2 text-sm font-medium text-cyan-100">
+                  <BrainCircuit className="h-4 w-4" />
+                  Inputs used
+                </span>
+                <span className="rounded-full border border-cyan-200/20 px-2 py-0.5 text-[11px] uppercase tracking-[0.12em] text-cyan-100">
+                  View
+                </span>
+              </summary>
+              <p className="mt-3 border-t border-white/10 pt-3 text-sm leading-6 text-zinc-300">
+                Studio uses uploads, guided plans, team updates, leadership feedback, Guide dialogue, meeting inputs,
                 risks, decisions, timeline, and role composition to shape each artifact.
               </p>
-            </div>
+            </details>
           </CardContent>
         </Card>
 

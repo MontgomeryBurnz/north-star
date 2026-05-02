@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
+import { auditActorFromAccess } from "@/lib/audit-event-service";
 import { getAdminAccessContext } from "@/lib/leadership-auth";
-import { reviewGuidanceFeedbackFlag } from "@/lib/program-store";
+import { createAuditEvent, reviewGuidanceFeedbackFlag } from "@/lib/program-store";
 import { createSiteAccessDeniedResponse, isSiteAccessRequestAuthorized } from "@/lib/site-access";
 
 export async function PATCH(
@@ -40,6 +41,24 @@ export async function PATCH(
   if (!flag) {
     return NextResponse.json({ error: "Flag not found." }, { status: 404 });
   }
+
+  await createAuditEvent({
+    actor: auditActorFromAccess(access),
+    entityId: flag.id,
+    entityLabel: flag.targetLabel ?? flag.targetType ?? "Guidance flag",
+    entityType: "guidance-flag",
+    eventType: "flag.review",
+    metadata: {
+      reviewedBy: flag.reviewedBy,
+      status: flag.status,
+      targetRole: flag.targetRole,
+      targetType: flag.targetType
+    },
+    programId: id,
+    programName: flag.programName,
+    summary: `${flag.programName} guidance flag ${flag.status}.`,
+    surface: "Admin"
+  });
 
   return NextResponse.json({ flag });
 }

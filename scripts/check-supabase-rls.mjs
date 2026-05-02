@@ -11,11 +11,13 @@ const appTables = [
   "assistant_conversations",
   "artifacts",
   "meeting_inputs",
+  "role_artifacts",
   "client_decision_requests",
   "guidance_justifications",
   "guidance_feedback_flags",
   "openai_usage_records",
-  "managed_users"
+  "managed_users",
+  "audit_events"
 ];
 
 const exposedRoles = ["anon", "authenticated"];
@@ -81,8 +83,18 @@ try {
 
   const { rows: roleRows } = await pool.query(
     `
-      WITH app_tables AS (
+      WITH expected_tables AS (
         SELECT unnest($1::text[]) AS table_name
+      ),
+      app_tables AS (
+        SELECT expected_tables.table_name
+          FROM expected_tables
+          JOIN pg_namespace n
+            ON n.nspname = 'public'
+          JOIN pg_class c
+            ON c.relname = expected_tables.table_name
+           AND c.relkind IN ('r', 'p')
+           AND c.relnamespace = n.oid
       ),
       exposed_roles AS (
         SELECT rolname

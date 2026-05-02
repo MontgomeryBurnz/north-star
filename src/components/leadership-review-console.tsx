@@ -17,7 +17,7 @@ import { LeadershipExecutiveSummary } from "@/components/leadership-executive-su
 import { LeadershipProgramTimeline } from "@/components/leadership-program-timeline";
 import { LeadershipReviewWorkbench } from "@/components/leadership-review-workbench";
 import { LeadershipReviewSidebar, type LeadershipLaneOption } from "@/components/leadership-review-sidebar";
-import { SectionHeader } from "@/components/section-header";
+import { ProductPageHeader } from "@/components/product-page-header";
 
 const emptyLeadershipReview: LeadershipReviewInput = {
   programName: "",
@@ -844,7 +844,7 @@ export function LeadershipReviewConsole() {
 
   return (
     <main className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
-      <SectionHeader
+      <ProductPageHeader
         eyebrow="Leadership review"
         title="What input do leaders need to give?"
         description="Review posture, progress, and delivery risk in one place, then add sponsor guidance that turns into concise delivery signal."
