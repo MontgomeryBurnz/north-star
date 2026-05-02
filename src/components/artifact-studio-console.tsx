@@ -128,6 +128,7 @@ function ArtifactSuggestionCard({
         variant="ghost"
         className="mt-auto h-auto min-h-10 self-start whitespace-normal px-0 pt-4 text-left text-emerald-100 hover:bg-transparent hover:text-emerald-50"
         onClick={() => onUseSuggestion(suggestion)}
+        data-studio-load-brief
       >
         Load {suggestion.title}
         <ArrowRight className="h-4 w-4 shrink-0" />
@@ -412,6 +413,7 @@ export function ArtifactStudioConsole() {
                 <span className="text-xs font-medium uppercase tracking-[0.16em] text-zinc-300">Role focus</span>
                 <span className="relative block">
                   <select
+                    data-studio-role-select
                     value={selectedRoleFocus}
                     disabled={isRoleSelectionDisabled}
                     onChange={(event) => {
@@ -469,7 +471,14 @@ export function ArtifactStudioConsole() {
                       Start from the role catalog, then refresh intelligence briefs when the latest program signal should reshape the recommendations.
                     </p>
                   </div>
-                  <Button type="button" variant="outline" size="sm" onClick={() => void loadSuggestions()} disabled={isLoadingSuggestions || !selectedRoleFocus}>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => void loadSuggestions()}
+                    disabled={isLoadingSuggestions || !selectedRoleFocus}
+                    data-studio-refresh-intelligence
+                  >
                     {isLoadingSuggestions ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
                     Refresh intelligence
                   </Button>

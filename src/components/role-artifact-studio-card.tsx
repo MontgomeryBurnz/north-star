@@ -163,6 +163,7 @@ function ArtifactCatalogSelect({
       <span className="text-xs font-medium uppercase tracking-[0.16em] text-zinc-300">Artifact type</span>
       <span className="relative block">
         <select
+          data-studio-artifact-type-select
           value={selectedType}
           onChange={(event) => onSelect(event.target.value)}
           className="h-12 w-full appearance-none rounded-md border border-white/10 bg-zinc-950 px-3 pr-10 text-sm text-zinc-100 outline-none transition-colors focus:border-emerald-300/50 focus:ring-2 focus:ring-emerald-300/15"
@@ -519,19 +520,19 @@ export function RoleArtifactStudioCard({
                 />
               </label>
               <div className="flex flex-wrap gap-2">
-                <Button type="button" onClick={() => void generateArtifact()} disabled={isGenerating}>
+                <Button type="button" onClick={() => void generateArtifact()} disabled={isGenerating} data-studio-generate-artifact>
                   {isGenerating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
                   {artifact ? "Regenerate artifact" : "Generate artifact"}
                 </Button>
-                <Button type="button" variant="outline" onClick={() => void copyArtifact()} disabled={!artifact}>
+                <Button type="button" variant="outline" onClick={() => void copyArtifact()} disabled={!artifact} data-studio-copy-output>
                   <Copy className="h-4 w-4" />
                   Copy output
                 </Button>
-                <Button type="button" variant="outline" onClick={() => void downloadDocxArtifact()} disabled={!artifact}>
+                <Button type="button" variant="outline" onClick={() => void downloadDocxArtifact()} disabled={!artifact} data-studio-export-docx>
                   <Download className="h-4 w-4" />
                   Export DOCX
                 </Button>
-                <Button type="button" variant="outline" onClick={downloadCsvArtifact} disabled={!artifact}>
+                <Button type="button" variant="outline" onClick={downloadCsvArtifact} disabled={!artifact} data-studio-export-csv>
                   <Download className="h-4 w-4" />
                   Export CSV
                 </Button>
@@ -612,7 +613,7 @@ export function RoleArtifactStudioCard({
             </div>
           </div>
 
-          <div className="min-h-72 rounded-lg border border-white/10 bg-zinc-950/75 p-4 sm:p-5">
+          <div className="min-h-72 rounded-lg border border-white/10 bg-zinc-950/75 p-4 sm:p-5" data-studio-artifact-output>
             {artifact ? (
               <ArtifactOutput artifact={artifact} />
             ) : (

@@ -39,6 +39,15 @@ SMOKE_BASE_URL=http://localhost:3000 npm run profile:active-program
 
 On macOS, Safari must have Developer > Allow Remote Automation enabled. If another WebDriver server is preferred, set `SMOKE_WEBDRIVER_URL`.
 
+Provision or refresh the Codex QA account, then run the authenticated Studio smoke test:
+
+```bash
+npm run qa:ensure-user
+SMOKE_BASE_URL=https://www.north-star.live npm run smoke:studio
+```
+
+The Studio smoke test signs in, selects a program, selects a role, loads a recommended brief, generates an artifact, and verifies export behavior. It reads `NORTHSTAR_TEST_USER_EMAIL` and `NORTHSTAR_TEST_USER_PASSWORD` from ignored `.env.local`.
+
 ## Alpha Architecture
 
 The app now supports two persistence modes:
@@ -126,6 +135,7 @@ For actual deployment steps, use:
 
 - [DEPLOYMENT.md](./DEPLOYMENT.md)
 - [ALPHA_CHECKLIST.md](./ALPHA_CHECKLIST.md)
+- [NorthStar project map](./docs/northstar-project-map.md)
 
 ## Data Model
 
