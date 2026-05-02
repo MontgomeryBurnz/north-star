@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   ArrowRight,
+  ChevronDown,
   ClipboardList,
   Copy,
   Download,
@@ -11,8 +12,7 @@ import {
   History,
   Loader2,
   Map,
-  Sparkles,
-  WandSparkles
+  Sparkles
 } from "lucide-react";
 import {
   getRoleArtifactDefinition,
@@ -150,36 +150,33 @@ function downloadBlob(blob: Blob, filename: string) {
   URL.revokeObjectURL(url);
 }
 
-function ArtifactDefinitionButton({
-  definition,
-  isSelected,
-  onSelect
+function ArtifactCatalogSelect({
+  definitions,
+  onSelect,
+  selectedType
 }: {
-  definition: RoleArtifactDefinition;
-  isSelected: boolean;
+  definitions: RoleArtifactDefinition[];
   onSelect: (type: RoleArtifactType) => void;
+  selectedType: RoleArtifactType;
 }) {
   return (
-    <button
-      type="button"
-      onClick={() => onSelect(definition.type)}
-      className={`flex min-h-20 w-full min-w-[230px] items-start justify-between gap-3 rounded-md border px-3 py-3 text-left transition-colors sm:w-auto ${
-        isSelected
-          ? "border-emerald-300/40 bg-emerald-300/[0.08] text-zinc-50 shadow-[0_0_24px_rgba(52,211,153,0.08)]"
-          : "border-white/10 bg-white/[0.035] text-zinc-300 hover:border-white/20 hover:bg-white/[0.055]"
-      }`}
-    >
-      <span>
-        <span className="flex items-center gap-2 text-sm font-semibold text-zinc-100">
-          <ArtifactIcon type={definition.type} />
-          {definition.shortTitle}
-        </span>
-        <span className="mt-1 block text-xs text-zinc-500">{definition.role}</span>
+    <label className="grid gap-2">
+      <span className="text-xs font-medium uppercase tracking-[0.16em] text-zinc-300">Artifact type</span>
+      <span className="relative block">
+        <select
+          value={selectedType}
+          onChange={(event) => onSelect(event.target.value)}
+          className="h-12 w-full appearance-none rounded-md border border-white/10 bg-zinc-950 px-3 pr-10 text-sm text-zinc-100 outline-none transition-colors focus:border-emerald-300/50 focus:ring-2 focus:ring-emerald-300/15"
+        >
+          {definitions.map((definition) => (
+            <option key={definition.type} value={definition.type}>
+              {definition.shortTitle} - {definition.outputLabel}
+            </option>
+          ))}
+        </select>
+        <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400" />
       </span>
-      <span className="rounded-full border border-white/10 px-2 py-0.5 text-[11px] uppercase tracking-[0.12em] text-zinc-500">
-        {definition.outputLabel}
-      </span>
-    </button>
+    </label>
   );
 }
 
@@ -333,7 +330,7 @@ function normalizeRole(value: string | undefined) {
 
 function matchesRoleFocus(definition: RoleArtifactDefinition, roleFocus: string | undefined) {
   const role = normalizeRole(roleFocus);
-  if (!role || role === "__all_roles__") return true;
+  if (!role) return true;
   const definitionRole = normalizeRole(definition.role);
 
   return definitionRole === role || definitionRole.includes(role) || role.includes(definitionRole);
@@ -346,7 +343,7 @@ function getDefaultDefinition(roleFocus: string | undefined) {
 export function RoleArtifactStudioCard({
   launchRequest,
   programId,
-  roleFocus = "__all_roles__"
+  roleFocus = "Product Management"
 }: {
   launchRequest?: RoleArtifactStudioRequest | null;
   programId: string;
@@ -517,15 +514,18 @@ export function RoleArtifactStudioCard({
         </div>
       </CardHeader>
       <CardContent className="grid gap-5 p-4 sm:p-5">
-        <div className="flex gap-3 overflow-x-auto pb-2">
-          {(availableDefinitions.length ? availableDefinitions : roleArtifactDefinitions).map((definition) => (
-            <ArtifactDefinitionButton
-              key={definition.type}
-              definition={definition}
-              isSelected={definition.type === selectedType}
-              onSelect={selectArtifactType}
-            />
-          ))}
+        <div className="grid gap-4 rounded-lg border border-white/10 bg-white/[0.025] p-4 lg:grid-cols-[minmax(0,1fr)_260px] lg:items-end">
+          <ArtifactCatalogSelect
+            definitions={availableDefinitions.length ? availableDefinitions : roleArtifactDefinitions}
+            selectedType={selectedType}
+            onSelect={selectArtifactType}
+          />
+          <div className="rounded-md border border-emerald-300/15 bg-emerald-300/[0.045] p-3">
+            <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-emerald-200">Role catalog</p>
+            <p className="mt-1 text-sm leading-6 text-zinc-300">
+              {(availableDefinitions.length ? availableDefinitions : roleArtifactDefinitions).length} reusable artifact types for this role lens.
+            </p>
+          </div>
         </div>
 
         <div className="grid gap-4 rounded-lg border border-white/10 bg-black/20 p-4 sm:p-5">
@@ -533,7 +533,7 @@ export function RoleArtifactStudioCard({
             <div className="grid content-start gap-4">
               <div className="rounded-md border border-cyan-300/15 bg-cyan-300/[0.035] p-3">
                 <p className="flex items-center gap-2 text-sm font-semibold text-zinc-100">
-                  <WandSparkles className="h-4 w-4 text-cyan-100" />
+                  <ArtifactIcon type={selectedDefinition.type} />
                   {selectedDefinition.title}
                 </p>
                 <p className="mt-1 text-sm leading-6 text-zinc-400">{selectedDefinition.description}</p>

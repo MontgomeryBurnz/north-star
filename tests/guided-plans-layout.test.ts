@@ -41,10 +41,13 @@ test("Studio recommendations use a full-width brief browser", () => {
   const source = readFileSync(new URL("../src/components/artifact-studio-console.tsx", import.meta.url), "utf8");
 
   assert.match(source, /Recommended briefs/);
+  assert.match(source, /buildStarterSuggestion/);
+  assert.match(source, /Refresh intelligence/);
   assert.match(source, /data-studio-suggestions/);
   assert.match(source, /lg:grid-cols-2 2xl:grid-cols-3/);
   assert.match(source, /Load \{suggestion\.title\}/);
   assert.match(source, /scrollIntoView/);
+  assert.doesNotMatch(source, /void loadSuggestions\(\);\s*\n\s*}, \[loadSuggestions\]/);
   assert.doesNotMatch(source, /Recommendation source/);
   assert.doesNotMatch(source, /All roles/);
   assert.doesNotMatch(source, /xl:grid-cols-\[430px_minmax\(0,1fr\)\]/);
@@ -55,6 +58,7 @@ test("Studio role filtering is enforced after OpenAI recommendations return", ()
   const serverSource = readFileSync(new URL("../src/lib/role-artifact-suggestions.ts", import.meta.url), "utf8");
   const clientSource = readFileSync(new URL("../src/components/artifact-studio-console.tsx", import.meta.url), "utf8");
   const generationSource = readFileSync(new URL("../src/lib/role-artifact-service.ts", import.meta.url), "utf8");
+  const workbenchSource = readFileSync(new URL("../src/components/role-artifact-studio-card.tsx", import.meta.url), "utf8");
 
   assert.match(serverSource, /filterSuggestionsByRole\(normalizeOpenAISuggestions\(payload\), context\.roleFocus\)/);
   assert.match(serverSource, /When roleFocus is a specific role, every suggestion must be directly tailored to that role only\./);
@@ -62,6 +66,9 @@ test("Studio role filtering is enforced after OpenAI recommendations return", ()
   assert.match(clientSource, /suggestionMatchesRole\(suggestion, selectedRoleFocus\)/);
   assert.match(generationSource, /Make tables the primary artifact/);
   assert.match(generationSource, /Avoid repeating the same context/);
+  assert.match(workbenchSource, /Artifact type/);
+  assert.match(workbenchSource, /ArtifactCatalogSelect/);
+  assert.doesNotMatch(workbenchSource, /ArtifactDefinitionButton/);
 });
 
 test("Studio catalog includes starter artifacts for expanded delivery roles", () => {

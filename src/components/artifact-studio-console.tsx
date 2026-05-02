@@ -7,6 +7,8 @@ import { useProgramCatalog } from "@/hooks/use-program-catalog";
 import { programsToSlicerOptions } from "@/lib/program-slicer";
 import {
   buildCustomRoleArtifactDefinition,
+  roleArtifactDefinitions,
+  type RoleArtifactDefinition,
   type RoleArtifactSuggestion
 } from "@/lib/role-artifact-types";
 import { normalizeTeamRoles } from "@/lib/team-roles";
@@ -44,6 +46,28 @@ function suggestionMatchesRole(suggestion: RoleArtifactSuggestion, roleFocus: st
   return roleTextMatches(suggestion.role, roleFocus) || roleTextMatches(suggestion.definition.role, roleFocus);
 }
 
+function definitionMatchesRole(definition: RoleArtifactDefinition, roleFocus: string) {
+  return roleTextMatches(definition.role, roleFocus);
+}
+
+function buildStarterSuggestion(definition: RoleArtifactDefinition, programName: string | undefined): RoleArtifactSuggestion {
+  const programSignal = programName ? `${programName} selected` : "selected program context";
+
+  return {
+    artifactType: definition.type,
+    businessValue: `Gives ${definition.role} a reusable work product they can refine, export, and use to move execution forward.`,
+    definition,
+    expectedOutput: definition.outputLabel,
+    generationBrief: `Generate ${definition.title} for ${definition.role}. Use the selected program context, guided plan, team updates, leadership signal, risks, decisions, timeline, and role composition.`,
+    id: `starter-${definition.type}`,
+    recommendedFormat: definition.primaryColumns.join(" / "),
+    role: definition.role,
+    sourceSignals: [programSignal, "guided plan context", "team updates", "leadership signal"].slice(0, 4),
+    title: definition.title,
+    whyItMatters: definition.description
+  };
+}
+
 function EmptyArtifactState({ hasPrograms }: { hasPrograms: boolean }) {
   return (
     <Card className="bg-zinc-950/75">
@@ -71,39 +95,40 @@ function ArtifactSuggestionCard({
   suggestion: RoleArtifactSuggestion;
 }) {
   return (
-    <article className="flex min-h-full flex-col rounded-lg border border-white/10 bg-zinc-950/70 p-5 transition-colors hover:border-emerald-300/35 hover:bg-emerald-300/[0.045]">
+    <article className="group flex min-h-full flex-col rounded-lg border border-white/10 bg-zinc-950/70 p-4 transition-colors hover:border-emerald-300/35 hover:bg-emerald-300/[0.045] sm:p-5">
       <span className="flex flex-wrap items-center gap-2">
         <span className="rounded-full border border-emerald-300/20 bg-emerald-300/[0.07] px-2.5 py-1 text-[11px] font-medium uppercase tracking-[0.13em] text-emerald-100">
           {suggestion.role}
         </span>
-        <span className="rounded-full border border-white/10 bg-white/[0.035] px-2.5 py-1 text-[11px] uppercase tracking-[0.13em] text-zinc-400">
-          {suggestion.recommendedFormat}
-        </span>
       </span>
 
       <span className="mt-4 block text-lg font-semibold leading-6 text-zinc-50">{suggestion.title}</span>
-      <span className="mt-2 block text-sm leading-6 text-zinc-300">{suggestion.whyItMatters}</span>
+      <span className="mt-2 block text-sm leading-6 text-zinc-300 line-clamp-3">{suggestion.whyItMatters}</span>
 
-      <span className="mt-4 grid gap-3 border-t border-white/10 pt-4 sm:grid-cols-2">
-        <span className="grid gap-1">
-          <span className="text-[11px] font-medium uppercase tracking-[0.14em] text-zinc-500">Output</span>
-          <span className="text-xs leading-5 text-zinc-300">{suggestion.expectedOutput}</span>
-        </span>
-        <span className="grid gap-1">
-          <span className="text-[11px] font-medium uppercase tracking-[0.14em] text-zinc-500">Value</span>
-          <span className="text-xs leading-5 text-zinc-300">{suggestion.businessValue}</span>
-        </span>
-      </span>
-
-      <span className="mt-3 rounded-md border border-cyan-300/15 bg-cyan-300/[0.035] px-3 py-2">
-        <span className="text-[11px] font-medium uppercase tracking-[0.14em] text-cyan-100">Grounded by</span>
-        <span className="mt-1 block text-xs leading-5 text-zinc-400">{suggestionSourceText(suggestion)}</span>
-      </span>
+      <details className="mt-4 rounded-md border border-cyan-300/15 bg-cyan-300/[0.035] px-3 py-2">
+        <summary className="cursor-pointer list-none text-[11px] font-medium uppercase tracking-[0.14em] text-cyan-100">
+          Brief details
+        </summary>
+        <div className="mt-2 grid gap-3 border-t border-white/10 pt-3">
+          <div>
+            <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-zinc-500">Business value</p>
+            <p className="mt-1 text-xs leading-5 text-zinc-300">{suggestion.businessValue}</p>
+          </div>
+          <div>
+            <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-zinc-500">Grounded by</p>
+            <p className="mt-1 text-xs leading-5 text-zinc-400">{suggestionSourceText(suggestion)}</p>
+          </div>
+          <div>
+            <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-zinc-500">Format</p>
+            <p className="mt-1 text-xs leading-5 text-zinc-500">{suggestion.recommendedFormat}</p>
+          </div>
+        </div>
+      </details>
 
       <Button
         type="button"
         variant="ghost"
-        className="mt-auto h-auto min-h-10 self-start whitespace-normal px-0 text-left text-emerald-100 hover:bg-transparent hover:text-emerald-50"
+        className="mt-auto h-auto min-h-10 self-start whitespace-normal px-0 pt-4 text-left text-emerald-100 hover:bg-transparent hover:text-emerald-50"
         onClick={() => onUseSuggestion(suggestion)}
       >
         Load {suggestion.title}
@@ -231,6 +256,13 @@ export function ArtifactStudioConsole() {
   const programOptions = useMemo(() => programsToSlicerOptions(programs, "signal"), [programs]);
   const teamRoles = useMemo(() => normalizeTeamRoles(selectedProgram?.intake.teamRoles), [selectedProgram?.intake.teamRoles]);
   const roleOptions = useMemo(() => (teamRoles.length ? teamRoles : [defaultStudioRole]), [teamRoles]);
+  const starterSuggestions = useMemo(() => {
+    if (!selectedProgramId) return [];
+
+    return roleArtifactDefinitions
+      .filter((definition) => definitionMatchesRole(definition, selectedRoleFocus))
+      .map((definition) => buildStarterSuggestion(definition, selectedProgram?.intake.programName));
+  }, [selectedProgram?.intake.programName, selectedProgramId, selectedRoleFocus]);
 
   useEffect(() => {
     const fallbackRole = teamRoles[0] ?? defaultStudioRole;
@@ -254,11 +286,21 @@ export function ArtifactStudioConsole() {
     setSuggestions([]);
   }, [selectedProgramId]);
 
+  useEffect(() => {
+    if (!selectedProgramId) {
+      setSuggestions([]);
+      return;
+    }
+
+    setSuggestions(starterSuggestions);
+    setStatus(`${formatRoleLabel(selectedRoleFocus)} starter briefs are ready. Refresh intelligence briefs when you want North Star to re-analyze the latest program signal.`);
+  }, [selectedProgramId, selectedRoleFocus, starterSuggestions]);
+
   const loadSuggestions = useCallback(async () => {
     if (!selectedProgramId) return;
 
     setIsLoadingSuggestions(true);
-    setStatus("Analyzing program context for high-value artifacts...");
+    setStatus("Refreshing intelligence briefs from the latest program signal...");
 
     try {
       const params = new URLSearchParams({ role: selectedRoleFocus });
@@ -289,10 +331,6 @@ export function ArtifactStudioConsole() {
     () => suggestions.filter((suggestion) => suggestionMatchesRole(suggestion, selectedRoleFocus)),
     [selectedRoleFocus, suggestions]
   );
-
-  useEffect(() => {
-    void loadSuggestions();
-  }, [loadSuggestions]);
 
   function useSuggestion(suggestion: RoleArtifactSuggestion) {
     setLaunchRequest({
@@ -409,13 +447,12 @@ export function ArtifactStudioConsole() {
                     <p className="text-xs font-medium uppercase tracking-[0.18em] text-emerald-300">Recommended briefs</p>
                     <CardTitle className="mt-2 text-zinc-50">Choose the next work product.</CardTitle>
                     <p className="mt-2 text-sm leading-6 text-zinc-400">
-                      Recommendations are focused on {formatRoleLabel(selectedRoleFocus)} and spread across the page so role,
-                      format, value, and grounding are easy to scan.
+                      Start from the role catalog, then refresh intelligence briefs when the latest program signal should reshape the recommendations.
                     </p>
                   </div>
                   <Button type="button" variant="outline" size="sm" onClick={() => void loadSuggestions()} disabled={isLoadingSuggestions}>
                     {isLoadingSuggestions ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
-                    Refresh
+                    Refresh intelligence
                   </Button>
                 </div>
               </CardHeader>
@@ -446,6 +483,15 @@ export function ArtifactStudioConsole() {
               </CardContent>
             </Card>
 
+            <section ref={workbenchRef} className="scroll-mt-24">
+              <RoleArtifactStudioCard
+                key={selectedProgramId}
+                programId={selectedProgramId}
+                roleFocus={selectedRoleFocus}
+                launchRequest={launchRequest}
+              />
+            </section>
+
             <CustomArtifactPanel
               customBrief={customBrief}
               customRole={customRole}
@@ -457,15 +503,6 @@ export function ArtifactStudioConsole() {
               onTitleChange={setCustomTitle}
               roleOptions={roleOptions}
             />
-
-            <section ref={workbenchRef} className="scroll-mt-24">
-              <RoleArtifactStudioCard
-                key={selectedProgramId}
-                programId={selectedProgramId}
-                roleFocus={selectedRoleFocus}
-                launchRequest={launchRequest}
-              />
-            </section>
           </section>
         )}
       </div>
