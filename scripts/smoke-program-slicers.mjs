@@ -109,8 +109,7 @@ async function smokeSurface(session, surface) {
     throw new Error(`${surface.name} redirected to the site login.`);
   }
 
-  const buttonId = await session.findByCss('[data-program-slicer] button[aria-haspopup="listbox"]');
-  await session.click(buttonId);
+  await session.execute('document.querySelector("[data-program-slicer] button[aria-haspopup=\\"listbox\\"]")?.click();');
   await session.waitFor(`${surface.name} open listbox`, async () => {
     const expanded = await session.execute(`
       const button = document.querySelector('[data-program-slicer] button[aria-haspopup="listbox"]');
@@ -124,9 +123,12 @@ async function smokeSurface(session, surface) {
     throw new Error(`${surface.name} has no selectable program options.`);
   }
 
-  const optionId = await session.findByCss('[role="option"]');
-  const optionText = (await session.text(optionId)).split("\n")[0]?.trim();
-  await session.click(optionId);
+  const optionText = await session.execute(`
+    const option = document.querySelector('[role="option"]');
+    const label = option?.textContent?.split("\\n")[0]?.trim() ?? "";
+    option?.click();
+    return label;
+  `);
 
   await session.waitFor(`${surface.name} selected program`, async () => {
     const selected = await session.execute(`
