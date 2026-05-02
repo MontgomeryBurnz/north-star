@@ -104,7 +104,7 @@ export function SiteAccessLoginForm({
 
             {userAuthEnabled ? (
               <div className="rounded-md border border-emerald-300/20 bg-emerald-300/[0.055] p-3 text-sm leading-6 text-zinc-300">
-                So, you think you have the creds to get in? Give it a try.
+                Got creds? Give it a try.
               </div>
             ) : null}
 
