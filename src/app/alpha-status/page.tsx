@@ -50,14 +50,14 @@ export default async function AlphaStatusPage() {
     {
       label: "Guide provider",
       ok: assistantProvider === "openai",
-      detail: assistantProvider === "openai" ? "Server-side OpenAI is enabled." : "Guide is still using the local fallback."
+      detail: assistantProvider === "openai" ? "Server-side intelligence is enabled." : "Guide is still using the local fallback."
     },
     {
       label: "Guided plan provider",
       ok: guidedPlanProvider === "openai",
       detail:
         guidedPlanProvider === "openai"
-          ? "Guided plans are generated through the OpenAI provider with local fallback."
+          ? "Guided plans are generated through the configured intelligence provider with local fallback."
           : "Guided plans are still using the local deterministic generator."
     },
     {
@@ -75,9 +75,9 @@ export default async function AlphaStatusPage() {
   return (
     <main className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
       <SectionHeader
-        eyebrow="Alpha status"
+        eyebrow="Readiness status"
         title="Deployment posture and readiness."
-        description="Use this page to verify the app is configured for internal alpha testing before you hand it to users."
+        description="Use this page to verify the app is configured before you hand it to users."
       />
 
       <section className="mt-10 grid gap-6 lg:grid-cols-[0.9fr_1.1fr]">
@@ -125,14 +125,14 @@ export default async function AlphaStatusPage() {
         <div className="grid gap-4">
           <Card className="bg-zinc-950/80">
             <CardHeader className="border-b border-white/10">
-              <CardTitle className="text-zinc-50">Alpha test sequence</CardTitle>
+              <CardTitle className="text-zinc-50">Pilot test sequence</CardTitle>
             </CardHeader>
             <CardContent className="grid gap-3 p-5">
               {[
                 "Create a new program and save it.",
                 "Upload a real artifact and confirm extraction.",
                 "Generate the guided plan.",
-                "Update the program in Programs.",
+                "Update the program in Program Hub.",
                 "Enter leadership feedback.",
                 "Regenerate the plan and confirm leadership signal appears.",
                 "Ask Guide a grounded program question."
@@ -150,7 +150,7 @@ export default async function AlphaStatusPage() {
             </CardHeader>
             <CardContent className="grid gap-3 p-5">
               {[
-                "Run the alpha test sequence against the deployed app.",
+                "Run the pilot test sequence against the deployed app.",
                 "Decide whether to keep prototype leadership credentials or replace them before sharing wider.",
                 "Rotate any secrets that were pasted into chat before broader internal use.",
                 "Move leadership auth to SSO when the prototype is approved."

@@ -11,7 +11,6 @@ import {
   Flag,
   Info,
   Layers3,
-  ListChecks,
   MessageSquareText,
   RefreshCcw,
   UsersRound
@@ -25,44 +24,44 @@ const workflowSteps = [
   {
     href: "/active-program?mode=setup",
     icon: FilePlus2,
-    label: "Programs / Setup",
-    title: "Capture SME context and source data",
+    label: "Program Hub",
+    title: "What changed, who owns it, and what needs action?",
     detail:
-      "Create the program record around outcomes, delivery assumptions, stakeholders, constraints, team roles, and the artifacts that explain the work.",
-    outcome: "One grounded source record for every downstream guidance view."
-  },
-  {
-    href: "/active-program?mode=manage",
-    icon: ListChecks,
-    label: "Programs / Manage",
-    title: "Keep the work signal current",
-    detail:
-      "Collect role-level updates, risks, blockers, decisions, support needs, artifacts, and meeting intelligence as the program changes through the week.",
-    outcome: "Fresh program signal that automatically reshapes guidance."
+      "Create the program record, assign roles, upload source artifacts, and keep weekly delivery signal current.",
+    outcome: "One current operating record for the program."
   },
   {
     href: "/systems",
     icon: Layers3,
     label: "Guided Plans",
-    title: "Turn intelligence into the work path",
+    title: "What should we do next?",
     detail:
-      "Review program health, Gantt posture, Team Action Plans, risks, decisions, and change rationale before choosing the next move.",
-    outcome: "A current execution path that stays tied to the latest evidence."
+      "Review program health, progress, timeline posture, Team Action Plans, risks, decisions, and evidence behind the current plan.",
+    outcome: "A clear execution path tied to the latest inputs."
   },
   {
     href: "/artifacts",
     icon: FileText,
     label: "Studio",
-    title: "Create role-ready work products",
+    title: "What should we create to move the work forward?",
     detail:
-      "Use recommended artifact briefs or request a custom artifact, then generate, refine, version, and copy role-specific outputs.",
-    outcome: "Reusable work products that help each role move from guidance to execution."
+      "Generate, refine, version, copy, and export role-specific work products from the selected program context.",
+    outcome: "Reusable artifacts teams can iterate against."
+  },
+  {
+    href: "/client",
+    icon: BadgeCheck,
+    label: "Client Portal",
+    title: "What should clients see?",
+    detail:
+      "Give clients an executive portfolio view of health, progress, decisions, risks, and the predictable journey ahead.",
+    outcome: "A polished external view without exposing internal workflow noise."
   },
   {
     href: "/assistant",
     icon: MessageSquareText,
     label: "Guide",
-    title: "Pressure-test with program-aware intelligence",
+    title: "What should we ask or pressure-test?",
     detail:
       "Select the active program, ask targeted questions, and keep the conversation anchored to the same context that informs plans and artifacts.",
     outcome: "Program-grounded dialogue that sharpens the next move."
@@ -71,28 +70,37 @@ const workflowSteps = [
     href: "/leadership",
     icon: UsersRound,
     label: "Leadership",
-    title: "Translate leadership signal",
+    title: "What input do leaders need to give?",
     detail:
       "Leaders review posture, progress, and delivery risk, then submit sponsor guidance that is interpreted and folded back into the plan.",
     outcome: "Executive signal translated into team action."
+  },
+  {
+    href: "/admin",
+    icon: Flag,
+    label: "Admin",
+    title: "Who can access what, and can we trust the system?",
+    detail:
+      "Manage users, program roles, guidance quality, disputed flags, cost, reliability, and audit coverage.",
+    outcome: "A governed operating layer for enterprise use."
   }
 ];
 
 const intelligenceLayers = [
   {
     icon: UsersRound,
-    title: "SME insight",
-    detail: "What delivery leads, analysts, product owners, technologists, UX, change teams, and sponsors know about the work."
-  },
-  {
-    icon: DatabaseZap,
-    title: "Program data",
-    detail: "Artifacts, updates, meetings, risks, decisions, timelines, roles, and evidence captured against the selected program."
+    title: "Signal",
+    detail: "Uploads, updates, leadership feedback, Guide dialogue, meetings, risks, decisions, and role changes."
   },
   {
     icon: BrainCircuit,
-    title: "Intelligence platform",
-    detail: "Program-grounded synthesis that turns context into guidance, artifacts, prompts, summaries, and recommended next moves."
+    title: "Intelligence",
+    detail: "North Star interprets and prioritizes the selected program context so teams can separate signal from noise."
+  },
+  {
+    icon: DatabaseZap,
+    title: "Action + evidence",
+    detail: "Plans, role guidance, artifacts, decisions, and source rationale stay connected for review and governance."
   }
 ];
 
@@ -161,10 +169,10 @@ export function CommandCenterGrid({ metrics }: { metrics: DashboardMetrics }) {
       <div className="mb-10 grid gap-6 lg:grid-cols-[minmax(0,0.9fr)_minmax(22rem,0.55fr)] lg:items-end">
         <div className="max-w-3xl">
           <p className="mb-3 text-xs font-medium uppercase tracking-[0.22em] text-emerald-300">How North Star creates value</p>
-          <h2 className="text-3xl font-semibold text-zinc-50 md:text-4xl">How to use North Star in the right order.</h2>
+          <h2 className="text-3xl font-semibold text-zinc-50 md:text-4xl">One job for every surface.</h2>
           <p className="mt-4 text-sm leading-7 text-zinc-400">
-            North Star connects expert judgment, program evidence, and the intelligence platform so teams can see what changed,
-            understand what matters, and act on the right next move.
+            North Star converts program signal into guidance, work products, executive visibility, and governed decisions.
+            Each module answers one question so users know where to start and what to do next.
           </p>
         </div>
         <div className="rounded-md border border-emerald-300/20 bg-emerald-300/[0.055] p-4">

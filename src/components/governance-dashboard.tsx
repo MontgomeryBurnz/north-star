@@ -810,7 +810,7 @@ export function GovernanceDashboard({
                 <CardContent className="grid gap-4 p-5">
               {!billingForecast ? (
                 <p className="rounded-md border border-white/10 bg-white/[0.035] p-3 text-sm leading-6 text-zinc-400">
-                  Sync OpenAI billing to forecast alpha spend from actual usage.
+                  Sync OpenAI billing to forecast operating spend from actual usage.
                 </p>
               ) : (
                 <>
@@ -829,7 +829,7 @@ export function GovernanceDashboard({
                       <p className="mt-2 text-2xl font-semibold text-zinc-50">
                         {formatCurrency(billingForecast.projectedNinetyDaySpendUsd)}
                       </p>
-                      <p className="mt-1 text-xs leading-5 text-zinc-500">Quarterly alpha budget view</p>
+                      <p className="mt-1 text-xs leading-5 text-zinc-500">Quarterly budget view</p>
                     </div>
                   </div>
 
@@ -853,7 +853,7 @@ export function GovernanceDashboard({
 
                   <p className="text-xs leading-5 text-zinc-500">
                     Forecast basis: {billingForecast.basisLabel}. OpenAI billing remains the invoice source of truth; North Star uses this
-                    view to plan alpha budget and model-routing decisions.
+                    view to plan budget and model-routing decisions.
                   </p>
                 </>
               )}
@@ -931,7 +931,7 @@ export function GovernanceDashboard({
                     <div className="rounded-md border border-cyan-300/20 bg-cyan-300/[0.055] p-3">
                       <p className="text-xs font-medium uppercase tracking-[0.16em] text-cyan-200">Projected 30-day</p>
                       <p className="mt-2 text-2xl font-semibold text-zinc-50">{formatCurrency(usageSummary.projectedThirtyDayCostUsd)}</p>
-                      <p className="mt-1 text-xs text-zinc-500">Based on current observed alpha pace</p>
+                      <p className="mt-1 text-xs text-zinc-500">Based on current observed usage pace</p>
                     </div>
                   </div>
 

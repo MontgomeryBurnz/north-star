@@ -370,9 +370,9 @@ export function GuidanceReviewPanel({
       <CardHeader className="border-b border-white/10">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <CardTitle className="text-zinc-50">Guidance Review</CardTitle>
+            <CardTitle className="text-zinc-50">Evidence and Review</CardTitle>
             <p className="mt-2 max-w-3xl text-sm leading-6 text-zinc-400">
-              Inspect evidence, refresh drivers, and detailed guidance only when a plan needs review or a flag needs context.
+              Inspect inputs, refresh drivers, and detailed guidance only when a plan needs review or a flag needs context.
             </p>
           </div>
           <span className="rounded-md border border-white/10 bg-white/[0.035] px-3 py-1 text-xs text-zinc-400">
@@ -403,9 +403,9 @@ export function GuidanceReviewPanel({
 
           <div className="grid gap-3 rounded-md border border-white/10 bg-black/20 p-4">
             <div className="grid gap-1">
-              <p className="text-xs font-medium uppercase tracking-[0.16em] text-zinc-400">Evidence loaded</p>
+              <p className="text-xs font-medium uppercase tracking-[0.16em] text-zinc-400">Inputs loaded</p>
               <p className="text-3xl font-semibold text-zinc-50">{justification?.citations.length ?? 0}</p>
-              <p className="text-xs leading-5 text-zinc-500">Source signals supporting the latest plan.</p>
+              <p className="text-xs leading-5 text-zinc-500">Inputs supporting the latest plan.</p>
             </div>
             <div className="mt-auto flex justify-end border-t border-white/10 pt-3">
               <Button type="button" variant="outline" onClick={onOpenWholeFlag} disabled={!justification}>
@@ -476,9 +476,9 @@ export function GuidanceReviewPanel({
           <details className="rounded-md border border-white/10 bg-black/20 p-4">
             <summary className="flex cursor-pointer list-none flex-wrap items-center justify-between gap-3">
               <span>
-                <span className="block text-sm font-semibold text-zinc-100">Source Evidence</span>
+                <span className="block text-sm font-semibold text-zinc-100">Inputs Used</span>
                 <span className="mt-1 block text-xs leading-5 text-zinc-500">
-                  Review the source rationale behind this refresh and flag specific citations when needed.
+                  Review the rationale behind this refresh and flag specific inputs when needed.
                 </span>
               </span>
               <span className="rounded-full border border-white/10 px-2 py-0.5 text-[11px] uppercase tracking-[0.12em] text-zinc-500">

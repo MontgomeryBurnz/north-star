@@ -57,7 +57,7 @@ export default async function ClientPortalPage() {
   const portfolio = buildClientPortalPortfolio({ programs: programInputs });
   const viewerLabel = currentUser
     ? `${currentUser.name} · ${currentUser.userType === "client" ? "Client access" : "Internal preview"}`
-    : "Alpha preview";
+    : "Portfolio preview";
 
   return (
     <ClientPortalConsole

@@ -94,10 +94,10 @@ export function GuidedPlanJustificationCard({
             </div>
           </div>
           <div className="rounded-md border border-white/10 bg-white/[0.035] p-4">
-            <p className="text-xs font-medium uppercase tracking-[0.16em] text-zinc-400">Evidence loaded</p>
+            <p className="text-xs font-medium uppercase tracking-[0.16em] text-zinc-400">Inputs loaded</p>
             <p className="mt-3 text-3xl font-semibold text-zinc-50">{justification.citations.length}</p>
             <p className="mt-1 text-xs leading-5 text-zinc-500">
-              Source signals used to support the latest plan refresh.
+              Inputs used to support the latest plan refresh.
             </p>
           </div>
           <div className="grid gap-3 rounded-md border border-white/10 bg-black/20 p-4">
@@ -177,7 +177,7 @@ export function GuidedPlanJustificationCard({
         <details className="rounded-md border border-white/10 bg-black/20 p-4">
           <summary className="flex cursor-pointer list-none items-center justify-between gap-3">
             <span>
-              <span className="block text-sm font-semibold text-zinc-100">Source evidence detail</span>
+              <span className="block text-sm font-semibold text-zinc-100">Inputs used detail</span>
               <span className="mt-1 block text-xs leading-5 text-zinc-500">
                 Expand when you need the full citation rationale behind the refresh.
               </span>

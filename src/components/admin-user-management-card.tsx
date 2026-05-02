@@ -932,7 +932,7 @@ export function AdminUserManagementCard({
               Access model
             </p>
             <p className="text-sm leading-6 text-zinc-300">
-              Admin is now the protected surface for model governance and role-based user setup. Admin users have all-program visibility, while scoped user types use program assignments to shape role-aware views.
+              Admin controls user access and role-aware views. Admin users see every program; scoped users only see the programs and roles assigned to them.
             </p>
             <div className="grid gap-2">
               {appUserTypes.map((type) => (
@@ -975,12 +975,12 @@ export function AdminUserManagementCard({
                   ? "Resend is configured with a test sender. It can only send to the Resend account owner until a sending domain is verified and NORTHSTAR_EMAIL_FROM uses that domain."
                   : brandedEmailReady
                     ? smtpEmailReady
-                      ? "Alpha invites and recovery emails are configured through an existing mailbox. This works before a final product domain is chosen."
-                      : "Branded North Star invites and recovery emails are configured through Resend. Keep the sending domain verified before inviting external alpha users."
+                      ? "Invites and recovery emails are configured through an existing mailbox."
+                      : "Branded North Star invites and recovery emails are configured through Resend. Keep the sending domain verified before inviting external users."
                     : brandedEmailAvailableButDisabled
                       ? "External client invites are paused. Set NORTHSTAR_BRANDED_EMAILS_ENABLED to true after the sender is ready."
                   : invitationProvider?.configured
-                    ? "External client invites require either an existing mailbox SMTP sender or a verified branded sender. Supabase default emails are not reliable for alpha client onboarding."
+                    ? "External client invites require either an existing mailbox SMTP sender or a verified branded sender. Supabase default emails are not reliable for client onboarding."
                     : "Supabase invitations are not configured yet, so Admin can map users but cannot send account setup emails."}
               </p>
             </div>

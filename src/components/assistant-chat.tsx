@@ -267,7 +267,7 @@ export function AssistantChat() {
             <div className="mb-3 flex items-center justify-between gap-3">
               <p className="text-xs font-medium uppercase tracking-[0.18em] text-zinc-500">Prompt chips</p>
               <p className="text-xs text-zinc-600">
-                {selectedProgram ? "OpenAI-generated leading questions" : "select a program first"}
+                {selectedProgram ? "Role-aware leading questions" : "select a program first"}
               </p>
             </div>
             <div className="flex flex-wrap gap-2">
@@ -385,7 +385,7 @@ export function AssistantChat() {
               <span className="text-zinc-100">{assignedRole ?? "No role assignment"}</span>
             </div>
             <div className="rounded-md border border-cyan-300/20 bg-cyan-300/10 p-3 text-xs leading-5 text-cyan-100">
-              OpenAI is grounded to the selected program and should use uploads, updates, leadership feedback, and dialogue as the operating context.
+              Guide stays grounded to the selected program and uses uploads, updates, leadership feedback, and dialogue as operating context.
             </div>
           </CardContent>
         </Card>

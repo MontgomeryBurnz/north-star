@@ -38,7 +38,7 @@ Outcome: reduce onboarding cycle time, create a visible delivery path, and align
 Stakeholders: executive sponsor, delivery lead, CX operations, implementation team, customer success, compliance partner.
 Requirements: define intake fields, map workflow ownership, create decision log, identify readiness criteria, and produce an executive checkpoint view.
 Risks: decision ownership is unclear, implementation teams are carrying too many open questions, and requirements are spread across multiple artifacts.
-Constraints: first release must use local data capture, support artifact upload, and generate a useful guided plan before OpenAI is connected.
+Constraints: first release must use local data capture, support artifact upload, and generate useful guidance before the intelligence layer is connected.
 Decision needed: confirm the minimum viable planning output and the owner for sponsor alignment.
 Key outputs: recommended work path, planning approach, critical requirements, risk view, stakeholder checkpoint plan, and next-step owner map.`;
 
@@ -50,7 +50,7 @@ const sampleIntake: ProgramIntake = {
   outcomes: "Reduce onboarding cycle time\nCreate a visible delivery path\nImprove sponsor decision clarity\nDefine readiness criteria before expansion",
   stakeholders: "Executive sponsor\nDelivery lead\nCX operations\nImplementation team\nCustomer success\nCompliance partner",
   risks: "Decision ownership is unclear\nImplementation teams are carrying too many open questions\nRequirements are spread across multiple artifacts",
-  constraints: "First release must use local data capture\nArtifact upload must support testable evidence\nGuided plans must work before OpenAI is connected",
+  constraints: "First release must use local data capture\nArtifact upload must support testable evidence\nGuided plans must work before the intelligence layer is connected",
   currentStatus: "New program context is being assembled for first guided-plan generation.",
   decisionsNeeded: "Confirm the minimum viable planning output\nName the owner for sponsor alignment",
   blockers: "Source context exists, but it needs to be translated into a clear work path.",
@@ -1044,7 +1044,7 @@ export function ProgramIntakeSection() {
                       ))}
                     </div>
                     <p className="mt-3 text-xs leading-5 text-zinc-400">
-                      Reviewed context is saved with the program and will be included in the future OpenAI grounding payload.
+                      Reviewed context is saved with the program and will be included in future intelligence refreshes.
                     </p>
                   </div>
                 ) : null}
@@ -1170,11 +1170,11 @@ export function ProgramIntakeSection() {
               ))}
               <div className="rounded-md border border-emerald-300/20 bg-emerald-300/[0.055] p-3">
                 <p className="flex items-center gap-2 text-sm font-medium text-emerald-100">
-                  Future model payload
+                  Intelligence payload
                   <ArrowRight className="h-4 w-4" />
                 </p>
                 <p className="mt-2 text-xs leading-5 text-zinc-400">
-                  Structured intake plus artifact text will become the grounded context for OpenAI.
+                  Structured intake plus artifact text becomes the context used to refresh plans and artifacts.
                 </p>
               </div>
             </CardContent>

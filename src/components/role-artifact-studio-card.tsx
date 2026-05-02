@@ -128,7 +128,7 @@ async function buildDocxBlob(artifact: RoleArtifactDraft) {
   const tables = artifact.tables
     .map((table) => `${docParagraph(table.title, "heading")}${docTable(table)}`)
     .join("");
-  const documentXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body>${docParagraph(artifact.title, "title")}${docParagraph(artifact.summary)}${docParagraph(`Role: ${artifact.role}`)}${docParagraph(`Generated: ${formatDate(artifact.generatedAt)}`)}${tables}${docParagraph("Supporting guidance", "heading")}${sections}${docParagraph("Source grounding", "heading")}${docParagraph(artifact.sourceSummary)}<w:sectPr><w:pgSz w:w="12240" w:h="15840"/><w:pgMar w:top="720" w:right="720" w:bottom="720" w:left="720" w:header="360" w:footer="360" w:gutter="0"/></w:sectPr></w:body></w:document>`;
+  const documentXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body>${docParagraph(artifact.title, "title")}${docParagraph(artifact.summary)}${docParagraph(`Role: ${artifact.role}`)}${docParagraph(`Generated: ${formatDate(artifact.generatedAt)}`)}${tables}${docParagraph("Supporting guidance", "heading")}${sections}${docParagraph("Inputs used", "heading")}${docParagraph(artifact.sourceSummary)}<w:sectPr><w:pgSz w:w="12240" w:h="15840"/><w:pgMar w:top="720" w:right="720" w:bottom="720" w:left="720" w:header="360" w:footer="360" w:gutter="0"/></w:sectPr></w:body></w:document>`;
 
   zip.file("[Content_Types].xml", contentTypes);
   zip.folder("_rels")?.file(".rels", relationships);

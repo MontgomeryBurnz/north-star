@@ -846,8 +846,8 @@ export function LeadershipReviewConsole() {
     <main className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
       <SectionHeader
         eyebrow="Leadership review"
-        title="Leader Console"
-        description="Review program posture, progress, and delivery risk in one place. Leadership input entered here is translated into concise delivery signal and fed back into the next guidance cycle."
+        title="What input do leaders need to give?"
+        description="Review posture, progress, and delivery risk in one place, then add sponsor guidance that turns into concise delivery signal."
       />
 
       <section className="mt-10 grid gap-6 lg:grid-cols-[360px_minmax(0,1fr)]">

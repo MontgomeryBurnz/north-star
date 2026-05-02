@@ -73,10 +73,10 @@ function EmptyArtifactState({ hasPrograms }: { hasPrograms: boolean }) {
         <div>
           <Sparkles className="mx-auto h-7 w-7 text-emerald-200" />
           <p className="mt-4 text-lg font-semibold text-zinc-50">
-            {hasPrograms ? "Select a program to open Artifact Studio." : "Create a program before generating artifacts."}
+            {hasPrograms ? "Select a program to open Studio." : "Create a program before generating artifacts."}
           </p>
           <p className="mx-auto mt-2 max-w-lg text-sm leading-6 text-zinc-500">
-            Artifact Studio uses the selected program&apos;s uploads, guided plan, team updates, leadership feedback, Guide dialogue,
+            Studio uses the selected program&apos;s uploads, guided plan, team updates, leadership feedback, Guide dialogue,
             risks, decisions, timeline, and roles to recommend useful work products.
           </p>
         </div>
@@ -378,7 +378,7 @@ export function ArtifactStudioConsole() {
       definition,
       generationBrief:
         customBrief.trim() ||
-        `Generate ${definition.title} for ${formatRoleLabel(definition.role)} using the latest grounded context for the selected program.`,
+        `Generate ${definition.title} for ${formatRoleLabel(definition.role)} using the latest selected program context.`,
       sourceLabel: "Custom artifact request"
     });
     setStatus(`${definition.title} custom request loaded. Generate it when the brief is ready.`);
@@ -392,8 +392,8 @@ export function ArtifactStudioConsole() {
       <div className="grid gap-8">
         <SectionHeader
           eyebrow="Studio"
-          title="Artifact Studio"
-          description="Create reusable work products from program intelligence, then refine and version them as the work evolves."
+          title="What should we create next?"
+          description="Generate, refine, version, copy, and export role-specific work products from the selected program context."
         />
 
         <Card className="bg-zinc-950/80">
@@ -450,7 +450,7 @@ export function ArtifactStudioConsole() {
                 Studio context
               </p>
               <p className="mt-2 text-sm leading-6 text-zinc-300">
-                North Star uses uploads, guided plans, team updates, leadership feedback, Guide dialogue, meeting inputs,
+                Inputs used: uploads, guided plans, team updates, leadership feedback, Guide dialogue, meeting inputs,
                 risks, decisions, timeline, and role composition to shape each artifact.
               </p>
             </div>

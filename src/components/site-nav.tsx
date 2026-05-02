@@ -18,7 +18,7 @@ type NavItem = {
 
 const navItems: NavItem[] = [
   { label: "Quick Start", href: "/" },
-  { label: "Programs", href: "/active-program", activePaths: ["/active-program", "/new-program"] },
+  { label: "Program Hub", href: "/active-program", activePaths: ["/active-program", "/new-program"] },
   { label: "Guided Plans", href: "/systems" },
   { label: "Studio", href: "/artifacts" },
   { label: "Client Portal", href: "/client" },

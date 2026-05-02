@@ -13,7 +13,7 @@ export default async function Home() {
       label: "Programs",
       value: metrics.activePrograms,
       href: "/active-program",
-      detail: "saved in this alpha workspace"
+      detail: "saved in this workspace"
     },
     {
       id: "guided-plans",

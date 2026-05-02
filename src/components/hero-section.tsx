@@ -10,7 +10,7 @@ const quickStartActions = [
   {
     href: "/active-program?mode=setup",
     icon: FilePlus2,
-    label: "Capture context",
+    label: "Open Program Hub",
     detail: "Start with the program outcomes, SME assumptions, roles, stakeholders, and source artifacts."
   },
   {
@@ -76,10 +76,10 @@ export function HeroSection({ metrics }: { metrics: DashboardMetrics }) {
             Quick Start
           </div>
           <h1 className="max-w-4xl text-4xl font-semibold tracking-normal text-zinc-50 sm:text-6xl lg:text-7xl">
-            Start with the right signal.
+            Turn program noise into focused action.
           </h1>
           <p className="mt-5 max-w-2xl text-base leading-7 text-zinc-300 md:mt-6 md:text-lg md:leading-8">
-            Use North Star to turn SME insight, program data, and the intelligence platform into clear plans, role-ready artifacts, decisions, and leadership action.
+            North Star connects people, intelligence, and data so teams know what changed, what matters, and what to create next.
           </p>
           <div className="mt-8 flex flex-col gap-3 sm:flex-row">
             <Button asChild size="lg">
@@ -157,8 +157,8 @@ export function HeroSection({ metrics }: { metrics: DashboardMetrics }) {
                   How North Star works
                 </div>
                 <p className="mt-3 text-sm leading-6 text-zinc-300">
-                  Capture what experts know, ground it in program evidence, keep the signal current, and translate the
-                  latest context into plans, artifacts, decisions, and leadership-ready guidance.
+                  Capture signal, interpret what matters, turn it into action, preserve the evidence, and govern access,
+                  quality, and cost as the program evolves.
                 </p>
               </div>
             </CardContent>

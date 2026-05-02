@@ -93,7 +93,38 @@ test("Navigation presents Quick Start and keeps Admin as settings access", () =>
   const loginSource = readFileSync(new URL("../src/components/site-access-login-form.tsx", import.meta.url), "utf8");
 
   assert.match(navSource, /Quick Start/);
+  assert.match(navSource, /Program Hub/);
   assert.match(navSource, /Settings/);
   assert.doesNotMatch(navSource, /label: "Admin"/);
   assert.match(loginSource, /Welcome to North Star/);
+});
+
+test("Buyer-ready surfaces map each module to a clear user job", () => {
+  const heroSource = readFileSync(new URL("../src/components/hero-section.tsx", import.meta.url), "utf8");
+  const quickStartSource = readFileSync(new URL("../src/components/command-center-grid.tsx", import.meta.url), "utf8");
+  const programSource = readFileSync(new URL("../src/components/program-workspace.tsx", import.meta.url), "utf8");
+  const guidedSource = readFileSync(new URL("../src/components/guided-plans-console.tsx", import.meta.url), "utf8");
+  const studioSource = readFileSync(new URL("../src/components/artifact-studio-console.tsx", import.meta.url), "utf8");
+  const leadershipSource = readFileSync(new URL("../src/components/leadership-review-console.tsx", import.meta.url), "utf8");
+
+  assert.match(heroSource, /Turn program noise into focused action/);
+  assert.match(quickStartSource, /One job for every surface/);
+  assert.match(quickStartSource, /What should clients see/);
+  assert.match(programSource, /What changed, who owns it, and what needs action/);
+  assert.match(guidedSource, /What should we do next/);
+  assert.match(studioSource, /What should we create next/);
+  assert.match(leadershipSource, /What input do leaders need to give/);
+});
+
+test("Admin includes Trust and Operations controls", () => {
+  const adminSource = readFileSync(new URL("../src/app/admin/page.tsx", import.meta.url), "utf8");
+  const trustSource = readFileSync(new URL("../src/components/admin-trust-operations-card.tsx", import.meta.url), "utf8");
+
+  assert.match(adminSource, /AdminTrustOperationsCard/);
+  assert.match(trustSource, /Trust & Operations/);
+  assert.match(trustSource, /Permission model/);
+  assert.match(trustSource, /Reliability indicators/);
+  assert.match(trustSource, /Audit coverage/);
+  assert.match(trustSource, /Recent audit activity/);
+  assert.match(trustSource, new RegExp("DOCX / CSV"));
 });

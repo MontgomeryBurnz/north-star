@@ -508,8 +508,8 @@ export function GuidedPlansConsole() {
     <main className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
       <SectionHeader
         eyebrow="Guided plans"
-        title="Find True North"
-        description="Review program health, progress, leadership signal, and team action plans generated from the latest grounded program context."
+        title="What should we do next?"
+        description="Review program health, progress, leadership signal, timeline posture, and role-specific action plans from the latest program context."
       />
 
       <section className="mt-10 grid gap-6 lg:grid-cols-[380px_minmax(0,1fr)]">
@@ -586,9 +586,9 @@ export function GuidedPlansConsole() {
               <details className="group rounded-md border border-white/10 bg-zinc-950/60">
                 <summary className="flex cursor-pointer list-none flex-wrap items-center justify-between gap-3 p-4 sm:p-5">
                   <span>
-                    <span className="block text-base font-semibold text-zinc-50">Guidance Review</span>
+                    <span className="block text-base font-semibold text-zinc-50">Evidence and Review</span>
                     <span className="mt-1 block text-sm leading-6 text-zinc-400">
-                      Open this when guidance seems wrong, source evidence needs review, or a flag needs context.
+                      Open this when guidance seems wrong, inputs need review, or a governance flag needs context.
                     </span>
                   </span>
                   <span className="rounded-full border border-white/10 px-3 py-1 text-[11px] uppercase tracking-[0.14em] text-zinc-500">
@@ -624,7 +624,7 @@ export function GuidedPlansConsole() {
                       setFlagTarget({
                         justificationId: latestJustification.id,
                         targetType: "whole-rationale",
-                        targetLabel: "Guidance Review rationale",
+                        targetLabel: "Evidence and Review rationale",
                         scope: "whole"
                       });
                       setFlagReason("");

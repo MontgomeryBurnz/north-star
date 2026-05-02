@@ -12,13 +12,13 @@ const programWorkspaceModes = [
   {
     id: "manage" as const,
     icon: ClipboardList,
-    label: "Manage program",
+    label: "Manage",
     description: "Review posture, capture team updates, meeting inputs, risks, and decisions."
   },
   {
     id: "setup" as const,
     icon: FilePlus2,
-    label: "Setup program",
+    label: "Setup",
     description: "Create a new program, define outcomes, assign roles, and upload source artifacts."
   }
 ];
@@ -32,13 +32,13 @@ export function ProgramWorkspace({ initialMode = "manage" }: { initialMode?: Pro
         <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
           <div className="grid gap-6 lg:grid-cols-[minmax(0,0.9fr)_minmax(24rem,0.7fr)] lg:items-end">
             <div>
-              <p className="mb-3 text-xs font-medium uppercase tracking-[0.22em] text-emerald-300">Programs</p>
+              <p className="mb-3 text-xs font-medium uppercase tracking-[0.22em] text-emerald-300">Program Hub</p>
               <h1 className="max-w-4xl text-4xl font-semibold tracking-normal text-zinc-50 md:text-5xl">
-                Setup and manage programs in one workspace.
+                What changed, who owns it, and what needs action?
               </h1>
               <p className="mt-4 max-w-3xl text-sm leading-7 text-zinc-400">
-                Start a new program from source context, then keep delivery reality current through team updates,
-                artifacts, meeting inputs, risks, and decisions.
+                Create the program record once, then keep delivery reality current through team updates, artifacts,
+                meeting inputs, risks, and decisions.
               </p>
             </div>
             <div className="grid gap-2 rounded-md border border-white/10 bg-zinc-950/70 p-2 sm:grid-cols-2">
