@@ -1,3 +1,4 @@
+import { getGuidanceModelSettings } from "@/lib/guidance-model-settings";
 import { localAssistantProvider } from "@/lib/assistant-local-provider";
 import { openaiAssistantProvider } from "@/lib/assistant-openai-provider";
 import type { AssistantProvider, AssistantProviderId, AssistantRequest, AssistantServiceResponse } from "@/lib/assistant-types";
@@ -12,11 +13,13 @@ function configuredProvider(): AssistantProviderId {
   return value === "openai" ? "openai" : "local";
 }
 
-function selectProvider(requestedProvider?: AssistantProviderId) {
-  return providers[requestedProvider ?? configuredProvider()];
+async function selectProvider(requestedProvider?: AssistantProviderId) {
+  if (requestedProvider) return providers[requestedProvider];
+  const settings = await getGuidanceModelSettings();
+  return providers[settings.provider ?? configuredProvider()];
 }
 
 export async function getAssistantServiceResponse(request: AssistantRequest): Promise<AssistantServiceResponse> {
-  const provider = selectProvider(request.provider);
+  const provider = await selectProvider(request.provider);
   return provider.getResponse(request);
 }

@@ -896,6 +896,12 @@ async function ensurePostgresSchema() {
             created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
           );
 
+          CREATE TABLE IF NOT EXISTS app_settings (
+            key TEXT PRIMARY KEY,
+            record JSONB NOT NULL,
+            updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+          );
+
           CREATE INDEX IF NOT EXISTS idx_program_updates_program_id_created_at
             ON program_updates(program_id, created_at DESC);
           CREATE INDEX IF NOT EXISTS idx_guided_plans_program_id_created_at
@@ -932,6 +938,8 @@ async function ensurePostgresSchema() {
             ON audit_events(program_id, created_at DESC);
           CREATE INDEX IF NOT EXISTS idx_audit_events_event_type_created_at
             ON audit_events(event_type, created_at DESC);
+          CREATE INDEX IF NOT EXISTS idx_app_settings_updated_at
+            ON app_settings(updated_at DESC);
 
           DO $$
           DECLARE
@@ -951,7 +959,8 @@ async function ensurePostgresSchema() {
               'guidance_feedback_flags',
               'openai_usage_records',
               'managed_users',
-              'audit_events'
+              'audit_events',
+              'app_settings'
             ];
             exposed_role_names TEXT[] := ARRAY['anon', 'authenticated'];
           BEGIN

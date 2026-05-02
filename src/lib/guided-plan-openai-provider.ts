@@ -1,4 +1,5 @@
 import { randomUUID } from "crypto";
+import { getGuidanceModelSettings } from "@/lib/guidance-model-settings";
 import { generateLocalGuidedPlan } from "@/lib/guided-plan-generator";
 import type { GuidedPlan, GuidedPlanRolePlan, GuidedPlanSection } from "@/lib/guided-plan-types";
 import type { GuidedPlanGenerationContext, GuidedPlanProvider } from "@/lib/guided-plan-service";
@@ -26,26 +27,6 @@ type OpenAIGuidedPlanPayload = {
   };
   followUpQuestions: string[];
 };
-
-function getConfiguredModel() {
-  return process.env.OPENAI_MODEL?.trim();
-}
-
-function getConfiguredReasoningEffort() {
-  const value = process.env.OPENAI_REASONING_EFFORT?.trim();
-  if (value === "minimal" || value === "low" || value === "medium" || value === "high" || value === "xhigh") {
-    return value;
-  }
-  return "medium";
-}
-
-function getConfiguredVerbosity() {
-  const value = process.env.OPENAI_TEXT_VERBOSITY?.trim();
-  if (value === "low" || value === "medium" || value === "high") {
-    return value;
-  }
-  return "low";
-}
 
 function validateGuidedPlanPayload(value: unknown): OpenAIGuidedPlanPayload | null {
   const record = asRecord(value);
@@ -250,11 +231,12 @@ export const openaiGuidedPlanProvider: GuidedPlanProvider = {
       context.meetingInputs
     );
     const apiKey = process.env.OPENAI_API_KEY?.trim();
-    const model = getConfiguredModel();
-    const reasoningEffort = getConfiguredReasoningEffort();
-    const verbosity = getConfiguredVerbosity();
+    const modelSettings = await getGuidanceModelSettings();
+    const model = modelSettings.model;
+    const reasoningEffort = modelSettings.reasoningEffort;
+    const verbosity = modelSettings.textVerbosity;
 
-    if (!apiKey || !model) {
+    if (!apiKey || !model || model === "unconfigured") {
       return baselinePlan;
     }
     const promptCacheKey = getNorthStarPromptCacheKey("guided-plan", context.program.id);

@@ -1,10 +1,11 @@
-import { Activity, BrainCircuit, FileText, KeyRound, MailCheck, ShieldCheck, type LucideIcon } from "lucide-react";
+import { Activity, BrainCircuit, KeyRound, MailCheck, ShieldCheck, type LucideIcon } from "lucide-react";
 import type { InvitationProviderStatus } from "@/lib/admin-user-invitations";
 import type { AuditEventRecord } from "@/lib/audit-event-types";
 import type { ManagedAppUser } from "@/lib/admin-user-types";
 import type { GuidanceModelProfile } from "@/lib/guidance-model-profile";
 import type { GuidanceFeedbackFlag } from "@/lib/program-intelligence-types";
 import { isSupabaseAdminConfigured, isSupabaseConfigured } from "@/lib/supabase/server";
+import { AdminAuditHistoryPanel } from "@/components/admin-audit-history-panel";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 type AdminTrustOperationsCardProps = {
@@ -41,27 +42,6 @@ const permissionRows = [
     detail: "Read-focused visibility for assigned programs when collaboration rights are not needed."
   }
 ];
-
-function formatTimestamp(value: string | undefined) {
-  if (!value) return "Not recorded";
-
-  return new Intl.DateTimeFormat(undefined, {
-    month: "short",
-    day: "numeric",
-    hour: "numeric",
-    minute: "2-digit"
-  }).format(new Date(value));
-}
-
-function formatAuditType(value: AuditEventRecord["eventType"]) {
-  if (value.startsWith("artifact.")) return "Studio";
-  if (value.startsWith("flag.")) return "Flag";
-  if (value.startsWith("guidance.")) return "Guidance";
-  if (value.startsWith("leadership.")) return "Leadership";
-  if (value.startsWith("program.")) return "Program";
-  if (value.startsWith("user.")) return "User access";
-  return "Audit";
-}
 
 function readinessLabel(ready: boolean) {
   return ready ? "Ready" : "Needs review";
@@ -134,12 +114,13 @@ export function AdminTrustOperationsCard({
     process.env.NORTHSTAR_VERCEL_API_TOKEN && (process.env.NORTHSTAR_VERCEL_PROJECT_ID || process.env.NORTHSTAR_VERCEL_PROJECT_NAME)
   );
   const emailReady = Boolean(invitationProvider.brandedEmail.configured);
-  const recentEvents = auditEvents.slice(0, 8);
   const pendingFlags = guidanceFlags.filter((flag) => flag.status === "pending").length;
   const reviewedFlags = guidanceFlags.length - pendingFlags;
   const userAccessEvents = auditEvents.filter((event) => event.eventType.startsWith("user.")).length;
   const guidanceRefreshEvents = auditEvents.filter((event) => event.eventType === "guidance.refresh").length;
   const exportEvents = auditEvents.filter((event) => event.eventType === "artifact.export" || event.eventType === "artifact.copy").length;
+  const guideEvents = auditEvents.filter((event) => event.eventType === "guide.dialogue").length;
+  const clientDecisionEvents = auditEvents.filter((event) => event.eventType === "client.decision.create").length;
 
   return (
     <Card className="bg-zinc-950/80">
@@ -216,45 +197,17 @@ export function AdminTrustOperationsCard({
 
         <section className="grid gap-3">
           <p className="text-sm font-semibold text-zinc-100">Audit coverage</p>
-          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-6">
             <AuditCoverageTile label="User access" value={String(userAccessEvents).padStart(2, "0")} detail="Invites, setup links, role assignments, and removals." />
             <AuditCoverageTile label="Guidance refreshes" value={String(guidanceRefreshEvents).padStart(2, "0")} detail="Plan refreshes triggered by program signal." />
             <AuditCoverageTile label="Guidance flags" value={`${pendingFlags}/${reviewedFlags}`} detail="Pending flags / reviewed flags." />
             <AuditCoverageTile label="Exports" value={String(exportEvents).padStart(2, "0")} detail="Studio copy, DOCX export, and CSV export activity." />
+            <AuditCoverageTile label="Guide dialogue" value={String(guideEvents).padStart(2, "0")} detail="Saved Guide prompts and grounded answers." />
+            <AuditCoverageTile label="Client decisions" value={String(clientDecisionEvents).padStart(2, "0")} detail="Client Portal decision requests." />
           </div>
         </section>
 
-        <section className="grid gap-3">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <p className="flex items-center gap-2 text-sm font-semibold text-zinc-100">
-              <FileText className="h-4 w-4 text-cyan-200" />
-              Recent audit activity
-            </p>
-            <span className="rounded-full border border-white/10 px-2 py-0.5 text-[11px] uppercase tracking-[0.12em] text-zinc-500">
-              Latest {recentEvents.length}
-            </span>
-          </div>
-          {recentEvents.length ? (
-            <div className="grid gap-2">
-              {recentEvents.map((event) => (
-                <div key={event.id} className="grid gap-2 rounded-md border border-white/10 bg-black/20 p-3 md:grid-cols-[9rem_minmax(0,1fr)_10rem] md:items-center">
-                  <span className="text-[11px] font-medium uppercase tracking-[0.14em] text-emerald-200">{formatAuditType(event.eventType)}</span>
-                  <span>
-                    <span className="block text-sm font-medium text-zinc-100">{event.summary}</span>
-                    <span className="mt-1 block text-xs leading-5 text-zinc-500">
-                      {[event.surface, event.programName, event.entityLabel].filter(Boolean).join(" · ")}
-                    </span>
-                  </span>
-                  <span className="text-xs text-zinc-500 md:text-right">{formatTimestamp(event.createdAt)}</span>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="rounded-md border border-white/10 bg-white/[0.035] p-4 text-sm leading-6 text-zinc-400">
-              No audit activity has been recorded yet. User, program, guidance, flag, and usage events will appear as the workspace is used.
-            </div>
-          )}
-        </section>
+        <AdminAuditHistoryPanel auditEvents={auditEvents} />
       </CardContent>
     </Card>
   );

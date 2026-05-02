@@ -1,6 +1,7 @@
 import "server-only";
 import type { StoredProgramUpdate } from "@/lib/active-program-types";
 import type { AssistantConversationTurn } from "@/lib/assistant-conversation-types";
+import { getGuidanceModelSettings } from "@/lib/guidance-model-settings";
 import type { GuidedPlan } from "@/lib/guided-plan-types";
 import type { LeadershipReviewRecord } from "@/lib/leadership-feedback-types";
 import { getNorthStarPromptCacheKey } from "@/lib/openai-prompt-cache";
@@ -98,34 +99,6 @@ function mergeRoleSuggestions(primary: RoleArtifactSuggestion[], fallback: RoleA
     seen.add(key);
     return true;
   });
-}
-
-function getConfiguredModel() {
-  return process.env.OPENAI_MODEL?.trim();
-}
-
-function getConfiguredReasoningEffort() {
-  const value = process.env.OPENAI_REASONING_EFFORT?.trim();
-  if (value === "minimal" || value === "low" || value === "medium" || value === "high" || value === "xhigh") {
-    return value;
-  }
-  return "medium";
-}
-
-function getConfiguredVerbosity() {
-  const value = process.env.OPENAI_TEXT_VERBOSITY?.trim();
-  if (value === "low" || value === "medium" || value === "high") {
-    return value;
-  }
-  return "low";
-}
-
-function getConfiguredRoleArtifactProvider() {
-  return (
-    process.env.ROLE_ARTIFACT_PROVIDER?.trim() ||
-    process.env.GUIDED_PLAN_PROVIDER?.trim() ||
-    process.env.ASSISTANT_PROVIDER?.trim()
-  );
 }
 
 function buildSourceSignals(context: RoleArtifactSuggestionContext) {
@@ -319,11 +292,12 @@ function buildPromptContext(context: RoleArtifactSuggestionContext) {
 export async function suggestRoleArtifacts(context: RoleArtifactSuggestionContext): Promise<RoleArtifactSuggestionResult> {
   const fallbackSuggestions = getFallbackSuggestions(context);
   const apiKey = process.env.OPENAI_API_KEY?.trim();
-  const model = getConfiguredModel();
-  const reasoningEffort = getConfiguredReasoningEffort();
-  const verbosity = getConfiguredVerbosity();
+  const modelSettings = await getGuidanceModelSettings();
+  const model = modelSettings.model;
+  const reasoningEffort = modelSettings.reasoningEffort;
+  const verbosity = modelSettings.textVerbosity;
 
-  if (!apiKey || !model || getConfiguredRoleArtifactProvider() !== "openai") {
+  if (!apiKey || !model || model === "unconfigured" || modelSettings.provider !== "openai") {
     return { provider: "local", suggestions: fallbackSuggestions };
   }
 

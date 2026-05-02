@@ -1,6 +1,18 @@
 import "server-only";
 import type { AuditActor } from "@/lib/audit-event-types";
+import type { ManagedAppUser } from "@/lib/admin-user-types";
 import type { LeadershipAccessContext } from "@/lib/leadership-auth";
+
+export function auditActorFromManagedUser(user: ManagedAppUser | null | undefined): AuditActor | undefined {
+  if (!user) return undefined;
+
+  return {
+    email: user.email,
+    name: user.name,
+    userId: user.id,
+    userType: user.userType
+  };
+}
 
 export function auditActorFromAccess(access: LeadershipAccessContext): AuditActor | undefined {
   if (!access.authorized) return undefined;

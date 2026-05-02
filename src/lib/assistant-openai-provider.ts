@@ -1,5 +1,6 @@
 import { composeGroundedAnswer, getRelevantContent } from "@/lib/assistant";
 import type { AssistantProvider, AssistantRequest, AssistantServiceResponse } from "@/lib/assistant-types";
+import { getGuidanceModelSettings } from "@/lib/guidance-model-settings";
 import { getNorthStarPromptCacheKey } from "@/lib/openai-prompt-cache";
 import { buildOpenAIRequestMetadata } from "@/lib/openai-request-metadata";
 import { asRecord, asStringArray, asTrimmedString, extractOutputText, parseStructuredModelOutput } from "@/lib/openai-structured-output";
@@ -11,26 +12,6 @@ type OpenAIComposedPayload = {
   bullets: string[];
   sections: Array<{ title: string; items: string[] }>;
 };
-
-function getConfiguredModel() {
-  return process.env.OPENAI_MODEL?.trim();
-}
-
-function getConfiguredReasoningEffort() {
-  const value = process.env.OPENAI_REASONING_EFFORT?.trim();
-  if (value === "minimal" || value === "low" || value === "medium" || value === "high" || value === "xhigh") {
-    return value;
-  }
-  return "medium";
-}
-
-function getConfiguredVerbosity() {
-  const value = process.env.OPENAI_TEXT_VERBOSITY?.trim();
-  if (value === "low" || value === "medium" || value === "high") {
-    return value;
-  }
-  return "low";
-}
 
 function validateComposedPayload(value: unknown): OpenAIComposedPayload | null {
   const record = asRecord(value);
@@ -86,11 +67,12 @@ export const openaiAssistantProvider: AssistantProvider = {
     const matches = await getRelevantContent(request.prompt, retrievalOptions);
     const localGroundedResponse = await composeGroundedAnswer(request.prompt, matches, retrievalOptions);
     const apiKey = process.env.OPENAI_API_KEY?.trim();
-    const model = getConfiguredModel();
-    const reasoningEffort = getConfiguredReasoningEffort();
-    const verbosity = getConfiguredVerbosity();
+    const modelSettings = await getGuidanceModelSettings();
+    const model = modelSettings.model;
+    const reasoningEffort = modelSettings.reasoningEffort;
+    const verbosity = modelSettings.textVerbosity;
 
-    if (!apiKey || !model) {
+    if (!apiKey || !model || model === "unconfigured") {
       return withModelProfile({
         ...localGroundedResponse,
         sections: [

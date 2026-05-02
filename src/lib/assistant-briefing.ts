@@ -1,6 +1,7 @@
 import "server-only";
 
 import { getLatestGuidedPlan, getProgram, listAssistantConversations, listLeadershipFeedback, listProgramUpdates } from "@/lib/program-store";
+import { getGuidanceModelSettings } from "@/lib/guidance-model-settings";
 import { getNorthStarPromptCacheKey } from "@/lib/openai-prompt-cache";
 import { buildOpenAIRequestMetadata } from "@/lib/openai-request-metadata";
 import { extractOpenAIUsageMetadata } from "@/lib/openai-usage";
@@ -23,26 +24,6 @@ type OpenAIBriefingPayload = {
   understandingScore: number;
   understandingSummary: string;
 };
-
-function getConfiguredModel() {
-  return process.env.OPENAI_MODEL?.trim();
-}
-
-function getConfiguredReasoningEffort() {
-  const value = process.env.OPENAI_REASONING_EFFORT?.trim();
-  if (value === "minimal" || value === "low" || value === "medium" || value === "high" || value === "xhigh") {
-    return value;
-  }
-  return "medium";
-}
-
-function getConfiguredVerbosity() {
-  const value = process.env.OPENAI_TEXT_VERBOSITY?.trim();
-  if (value === "low" || value === "medium" || value === "high") {
-    return value;
-  }
-  return "low";
-}
 
 function validateBriefingPayload(value: unknown): OpenAIBriefingPayload | null {
   const record = asRecord(value);
@@ -204,13 +185,14 @@ export async function getAssistantBriefing(programId: string): Promise<Assistant
   ].filter((value): value is string => Boolean(value));
 
   const apiKey = process.env.OPENAI_API_KEY?.trim();
-  const model = getConfiguredModel();
-  if (!apiKey || !model) {
+  const modelSettings = await getGuidanceModelSettings();
+  const model = modelSettings.model;
+  if (!apiKey || !model || model === "unconfigured" || modelSettings.provider !== "openai") {
     return { ...localBriefing, missingInputs, model: model || "unconfigured" };
   }
 
-  const reasoningEffort = getConfiguredReasoningEffort();
-  const verbosity = getConfiguredVerbosity();
+  const reasoningEffort = modelSettings.reasoningEffort;
+  const verbosity = modelSettings.textVerbosity;
   const promptCacheKey = getNorthStarPromptCacheKey("assistant-briefing", program.id);
 
   const response = await fetch("https://api.openai.com/v1/responses", {

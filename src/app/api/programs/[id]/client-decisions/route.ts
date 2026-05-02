@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import type { ManagedAppUser } from "@/lib/admin-user-types";
+import { auditActorFromManagedUser } from "@/lib/audit-event-service";
 import { getCurrentManagedUser } from "@/lib/current-managed-user";
-import { createClientDecisionRequest, listClientDecisionRequests } from "@/lib/program-store";
+import { createAuditEvent, createClientDecisionRequest, listClientDecisionRequests } from "@/lib/program-store";
 import { createSiteAccessDeniedResponse, isSiteAccessRequestAuthorized } from "@/lib/site-access";
 
 function canAccessProgram(user: ManagedAppUser | null, programId: string, hasSiteAccess: boolean) {
@@ -47,6 +48,22 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   const decision = await createClientDecisionRequest(id, {
     decisionText,
     requestedBy: currentUser?.name ?? currentUser?.email ?? "Client portal"
+  });
+
+  await createAuditEvent({
+    actor: auditActorFromManagedUser(currentUser),
+    entityId: decision.id,
+    entityLabel: decision.decisionText.slice(0, 120),
+    entityType: "client-decision",
+    eventType: "client.decision.create",
+    metadata: {
+      requestedBy: decision.requestedBy,
+      status: decision.status
+    },
+    programId: decision.programId,
+    programName: decision.programName,
+    summary: `Client decision was requested for ${decision.programName}.`,
+    surface: "Client Portal"
   });
 
   return NextResponse.json({ decision });

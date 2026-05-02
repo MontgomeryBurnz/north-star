@@ -1,5 +1,6 @@
 import type { StoredProgramUpdate } from "@/lib/active-program-types";
 import type { AssistantConversationTurn } from "@/lib/assistant-conversation-types";
+import { getGuidanceModelSettings } from "@/lib/guidance-model-settings";
 import { localGuidedPlanProvider } from "@/lib/guided-plan-local-provider";
 import { openaiGuidedPlanProvider } from "@/lib/guided-plan-openai-provider";
 import type { GuidedPlan } from "@/lib/guided-plan-types";
@@ -36,10 +37,7 @@ export function getConfiguredGuidedPlanProvider(): GuidedPlanProviderId {
   return process.env.ASSISTANT_PROVIDER === "openai" ? "openai" : "local";
 }
 
-function selectProvider() {
-  return providers[getConfiguredGuidedPlanProvider()];
-}
-
 export async function generateGuidedPlan(context: GuidedPlanGenerationContext): Promise<GuidedPlan> {
-  return selectProvider().generatePlan(context);
+  const settings = await getGuidanceModelSettings();
+  return providers[settings.provider].generatePlan(context);
 }

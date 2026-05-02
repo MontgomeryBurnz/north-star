@@ -5,7 +5,7 @@ import { AdminUserManagementCard } from "@/components/admin-user-management-card
 import { GovernanceDashboard } from "@/components/governance-dashboard";
 import { ProductPageHeader } from "@/components/product-page-header";
 import { getInvitationProviderStatus } from "@/lib/admin-user-invitations";
-import { getGuidanceModelProfile } from "@/lib/guidance-model-profile";
+import { getConfiguredGuidanceModelProfile } from "@/lib/guidance-model-profile";
 import { getAdminAccessContext } from "@/lib/leadership-auth";
 import { requireSiteAccessPage } from "@/lib/app-page-access";
 import {
@@ -23,12 +23,12 @@ export default async function AdminPage() {
   if (!access.authorized) {
     redirect("/login?redirect=/admin");
   }
-  const guidanceModelProfile = getGuidanceModelProfile();
+  const guidanceModelProfile = await getConfiguredGuidanceModelProfile();
   const invitationProvider = getInvitationProviderStatus();
   const [initialUsers, initialPrograms, auditEvents] = await Promise.all([
     listManagedUsers(),
     listPrograms(),
-    listAuditEvents(40)
+    listAuditEvents(250)
   ]);
   const guidanceFlagsByProgram = await Promise.all(
     initialPrograms.map((program) => listGuidanceFeedbackFlags(program.id))

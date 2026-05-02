@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server";
 import { getAssistantServiceResponse } from "@/lib/assistant-service";
 import type { AssistantRequest } from "@/lib/assistant-types";
-import { createAssistantConversation } from "@/lib/program-store";
+import { auditActorFromManagedUser } from "@/lib/audit-event-service";
+import { getCurrentManagedUser } from "@/lib/current-managed-user";
+import { createAssistantConversation, createAuditEvent } from "@/lib/program-store";
 import { createSiteAccessDeniedResponse, isSiteAccessRequestAuthorized } from "@/lib/site-access";
 
 export async function POST(request: Request) {
@@ -27,7 +29,26 @@ export async function POST(request: Request) {
   });
 
   if (selectedProgramId) {
-    await createAssistantConversation(selectedProgramId, prompt, response);
+    const currentUser = await getCurrentManagedUser();
+    const conversation = await createAssistantConversation(selectedProgramId, prompt, response);
+    await createAuditEvent({
+      actor: auditActorFromManagedUser(currentUser),
+      entityId: conversation.id,
+      entityLabel: prompt.slice(0, 120),
+      entityType: "guide-dialogue",
+      eventType: "guide.dialogue",
+      metadata: {
+        answerLength: response.answer.length,
+        provider: response.provider,
+        promptLength: prompt.length,
+        relatedContentCount: response.relatedContent.length,
+        selectedProgramId
+      },
+      programId: conversation.programId,
+      programName: conversation.programName,
+      summary: `Guide dialogue was saved for ${conversation.programName}.`,
+      surface: "Guide"
+    });
   }
 
   return NextResponse.json(response);

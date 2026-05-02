@@ -8,7 +8,7 @@ import type { OpenAIBillingReconciliation, OpenAIBillingWindowKey } from "@/lib/
 import type { VercelOperationsSnapshot, VercelOperationsWindowKey, VercelSetupItem } from "@/lib/vercel-operations-types";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { GuidanceModelProfileCard } from "@/components/guidance-model-profile-card";
+import { AdminGuidanceModelSettingsCard } from "@/components/admin-guidance-model-settings-card";
 import { SectionHeader } from "@/components/section-header";
 
 const billingWindowOptions: Array<{ label: string; value: OpenAIBillingWindowKey }> = [
@@ -518,8 +518,8 @@ export function AdminOperatingCostCenter({ guidanceModelProfile }: { guidanceMod
           </Card>
         </div>
 
-        <GuidanceModelProfileCard
-          guidanceModelProfile={guidanceModelProfile}
+        <AdminGuidanceModelSettingsCard
+          initialProfile={guidanceModelProfile}
           usageDescription="Used by Admin to monitor model choice, reasoning level, cost basis, and cache posture for North Star guidance workflows."
         />
       </div>

@@ -191,3 +191,12 @@ model AuditEvent {
   @@index([eventType, createdAt(sort: Desc)])
   @@map("audit_events")
 }
+
+model AppSetting {
+  key       String   @id
+  record    Json
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at")
+
+  @@index([updatedAt(sort: Desc)])
+  @@map("app_settings")
+}

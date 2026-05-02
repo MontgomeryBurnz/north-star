@@ -1,12 +1,15 @@
-import { getConfiguredGuidedPlanProvider, type GuidedPlanProviderId } from "@/lib/guided-plan-service";
+import { getEnvGuidanceModelSettings, getGuidanceModelSettings } from "@/lib/guidance-model-settings";
+import type { GuidanceModelSettings, GuidanceProviderId } from "@/lib/guidance-model-settings-types";
 import { getOpenAIModelPricing, type OpenAIModelPricing } from "@/lib/openai-pricing";
 
 export type GuidanceModelPricing = OpenAIModelPricing;
 
 export type GuidanceModelProfile = {
-  provider: GuidedPlanProviderId;
+  provider: GuidanceProviderId;
   model: string;
   reasoningEffort: string;
+  settingsUpdatedAt?: string;
+  settingsUpdatedBy?: string;
   textVerbosity: string;
   cacheStrategy: {
     summary: string;
@@ -17,14 +20,14 @@ export type GuidanceModelProfile = {
   pricing: GuidanceModelPricing | null;
 };
 
-export function getGuidanceModelProfile(): GuidanceModelProfile {
-  const model = process.env.OPENAI_MODEL?.trim() || "unconfigured";
-
+export function buildGuidanceModelProfile(settings: GuidanceModelSettings): GuidanceModelProfile {
   return {
-    provider: getConfiguredGuidedPlanProvider(),
-    model,
-    reasoningEffort: process.env.OPENAI_REASONING_EFFORT?.trim() || "medium",
-    textVerbosity: process.env.OPENAI_TEXT_VERBOSITY?.trim() || "low",
+    provider: settings.provider,
+    model: settings.model,
+    reasoningEffort: settings.reasoningEffort,
+    settingsUpdatedAt: settings.updatedAt,
+    settingsUpdatedBy: settings.updatedBy,
+    textVerbosity: settings.textVerbosity,
     cacheStrategy: {
       summary: "Program and workflow-scoped prompt cache keys are sent with OpenAI guidance calls.",
       detail:
@@ -32,6 +35,14 @@ export function getGuidanceModelProfile(): GuidanceModelProfile {
       sourceUrl: "https://platform.openai.com/docs/guides/prompt-caching",
       sourceLabel: "OpenAI prompt caching"
     },
-    pricing: getOpenAIModelPricing(model)
+    pricing: getOpenAIModelPricing(settings.model)
   };
+}
+
+export function getGuidanceModelProfile(): GuidanceModelProfile {
+  return buildGuidanceModelProfile(getEnvGuidanceModelSettings());
+}
+
+export async function getConfiguredGuidanceModelProfile(): Promise<GuidanceModelProfile> {
+  return buildGuidanceModelProfile(await getGuidanceModelSettings());
 }

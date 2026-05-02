@@ -17,7 +17,8 @@ const appTables = [
   "guidance_feedback_flags",
   "openai_usage_records",
   "managed_users",
-  "audit_events"
+  "audit_events",
+  "app_settings"
 ];
 
 const exposedRoles = ["anon", "authenticated"];

@@ -3,6 +3,7 @@ import type {
   LeadershipReviewInput,
   LeadershipRoleImpact
 } from "@/lib/leadership-feedback-types";
+import { getGuidanceModelSettings } from "@/lib/guidance-model-settings";
 import { getNorthStarPromptCacheKey } from "@/lib/openai-prompt-cache";
 import { buildOpenAIRequestMetadata } from "@/lib/openai-request-metadata";
 import { asRecord, asStringArray, asTrimmedString, extractOutputText, parseStructuredModelOutput } from "@/lib/openai-structured-output";
@@ -26,26 +27,6 @@ const deliveryRoles: LeadershipRoleImpact["role"][] = [
   "Data Engineering",
   "Change Management"
 ];
-
-function getConfiguredModel() {
-  return process.env.OPENAI_MODEL?.trim();
-}
-
-function getConfiguredReasoningEffort() {
-  const value = process.env.OPENAI_REASONING_EFFORT?.trim();
-  if (value === "minimal" || value === "low" || value === "medium" || value === "high" || value === "xhigh") {
-    return value;
-  }
-  return "medium";
-}
-
-function getConfiguredVerbosity() {
-  const value = process.env.OPENAI_TEXT_VERBOSITY?.trim();
-  if (value === "low" || value === "medium" || value === "high") {
-    return value;
-  }
-  return "low";
-}
 
 function clean(value: string) {
   return normalizeWhitespace(value);
@@ -204,12 +185,14 @@ export async function enhanceLeadershipFeedback(
 ): Promise<LeadershipFeedbackInterpretation> {
   const fallback = buildLocalInterpretation(feedback);
   const apiKey = process.env.OPENAI_API_KEY?.trim();
-  const model = getConfiguredModel();
+  const modelSettings = await getGuidanceModelSettings();
+  const model = modelSettings.model;
 
-  if (!apiKey || !model) {
+  if (!apiKey || !model || model === "unconfigured" || modelSettings.provider !== "openai") {
     return fallback;
   }
-  const reasoningEffort = getConfiguredReasoningEffort();
+  const reasoningEffort = modelSettings.reasoningEffort;
+  const verbosity = modelSettings.textVerbosity;
   const promptCacheKey = getNorthStarPromptCacheKey("leadership-feedback", options.programId ?? feedback.programName);
 
   const response = await fetch("https://api.openai.com/v1/responses", {
@@ -231,7 +214,7 @@ export async function enhanceLeadershipFeedback(
         effort: reasoningEffort
       },
       text: {
-        verbosity: getConfiguredVerbosity(),
+        verbosity,
         format: {
           type: "json_schema",
           name: "leadership_feedback_interpretation",

@@ -143,7 +143,7 @@ test("Admin includes Trust and Operations controls", () => {
   assert.match(trustSource, /Permission model/);
   assert.match(trustSource, /Reliability indicators/);
   assert.match(trustSource, /Audit coverage/);
-  assert.match(trustSource, /Recent audit activity/);
+  assert.match(trustSource, /AdminAuditHistoryPanel/);
   assert.match(trustSource, /DOCX export/);
 });
 
@@ -152,6 +152,7 @@ test("Admin audit history uses persisted audit events instead of inferred activi
   const storeSource = readFileSync(new URL("../src/lib/program-store.ts", import.meta.url), "utf8");
   const adminSource = readFileSync(new URL("../src/app/admin/page.tsx", import.meta.url), "utf8");
   const trustSource = readFileSync(new URL("../src/components/admin-trust-operations-card.tsx", import.meta.url), "utf8");
+  const auditPanelSource = readFileSync(new URL("../src/components/admin-audit-history-panel.tsx", import.meta.url), "utf8");
   const auditApiSource = readFileSync(new URL("../src/app/api/audit-events/route.ts", import.meta.url), "utf8");
 
   assert.match(repositorySource, /CREATE TABLE IF NOT EXISTS audit_events/);
@@ -159,9 +160,47 @@ test("Admin audit history uses persisted audit events instead of inferred activi
   assert.match(repositorySource, /createAuditEvent/);
   assert.match(storeSource, /export async function listAuditEvents/);
   assert.match(storeSource, /export async function createAuditEvent/);
-  assert.match(adminSource, /listAuditEvents\(40\)/);
-  assert.match(trustSource, /auditEvents\.slice\(0, 8\)/);
+  assert.match(adminSource, /listAuditEvents\(250\)/);
+  assert.match(trustSource, /AdminAuditHistoryPanel auditEvents=\{auditEvents\}/);
+  assert.match(auditPanelSource, /programFilter/);
+  assert.match(auditPanelSource, /actorFilter/);
+  assert.match(auditPanelSource, /eventTypeFilter/);
+  assert.match(auditPanelSource, /dateFilter/);
+  assert.match(auditPanelSource, /searchQuery/);
   assert.match(auditApiSource, /artifact\.copy/);
   assert.match(auditApiSource, /artifact\.export/);
   assert.doesNotMatch(trustSource, /buildAuditEvents/);
+});
+
+test("Guide dialogue and client decisions write audit events", () => {
+  const assistantRouteSource = readFileSync(new URL("../src/app/api/assistant/route.ts", import.meta.url), "utf8");
+  const clientDecisionSource = readFileSync(new URL("../src/app/api/programs/[id]/client-decisions/route.ts", import.meta.url), "utf8");
+  const auditTypesSource = readFileSync(new URL("../src/lib/audit-event-types.ts", import.meta.url), "utf8");
+
+  assert.match(auditTypesSource, /guide\.dialogue/);
+  assert.match(auditTypesSource, /client\.decision\.create/);
+  assert.match(assistantRouteSource, /eventType: "guide\.dialogue"/);
+  assert.match(clientDecisionSource, /eventType: "client\.decision\.create"/);
+});
+
+test("Admin can manage OpenAI guidance model settings", () => {
+  const adminSource = readFileSync(new URL("../src/app/admin/page.tsx", import.meta.url), "utf8");
+  const costCenterSource = readFileSync(new URL("../src/components/admin-operating-cost-center.tsx", import.meta.url), "utf8");
+  const modelCardSource = readFileSync(new URL("../src/components/admin-guidance-model-settings-card.tsx", import.meta.url), "utf8");
+  const routeSource = readFileSync(new URL("../src/app/api/admin/model-settings/route.ts", import.meta.url), "utf8");
+  const settingsSource = readFileSync(new URL("../src/lib/guidance-model-settings.ts", import.meta.url), "utf8");
+  const guidedProviderSource = readFileSync(new URL("../src/lib/guided-plan-openai-provider.ts", import.meta.url), "utf8");
+  const guideProviderSource = readFileSync(new URL("../src/lib/assistant-openai-provider.ts", import.meta.url), "utf8");
+  const artifactProviderSource = readFileSync(new URL("../src/lib/role-artifact-service.ts", import.meta.url), "utf8");
+
+  assert.match(adminSource, /getConfiguredGuidanceModelProfile/);
+  assert.match(costCenterSource, /AdminGuidanceModelSettingsCard/);
+  assert.match(modelCardSource, /Save model settings/);
+  assert.match(modelCardSource, /\/api\/admin\/model-settings/);
+  assert.match(routeSource, /saveGuidanceModelSettings/);
+  assert.match(routeSource, /model\.settings\.update/);
+  assert.match(settingsSource, /CREATE TABLE IF NOT EXISTS app_settings/);
+  assert.match(guidedProviderSource, /getGuidanceModelSettings/);
+  assert.match(guideProviderSource, /getGuidanceModelSettings/);
+  assert.match(artifactProviderSource, /getGuidanceModelSettings/);
 });

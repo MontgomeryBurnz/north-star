@@ -1,4 +1,5 @@
 import "server-only";
+import { getGuidanceModelSettings } from "@/lib/guidance-model-settings";
 import { getNorthStarPromptCacheKey } from "@/lib/openai-prompt-cache";
 import { buildOpenAIRequestMetadata } from "@/lib/openai-request-metadata";
 import { asRecord, asStringArray, asTrimmedString, extractOutputText, parseStructuredModelOutput } from "@/lib/openai-structured-output";
@@ -19,34 +20,6 @@ type OpenAIRoleArtifactPayload = {
   tables: RoleArtifactTable[];
   iterationPrompts: string[];
 };
-
-function getConfiguredModel() {
-  return process.env.OPENAI_MODEL?.trim();
-}
-
-function getConfiguredReasoningEffort() {
-  const value = process.env.OPENAI_REASONING_EFFORT?.trim();
-  if (value === "minimal" || value === "low" || value === "medium" || value === "high" || value === "xhigh") {
-    return value;
-  }
-  return "medium";
-}
-
-function getConfiguredVerbosity() {
-  const value = process.env.OPENAI_TEXT_VERBOSITY?.trim();
-  if (value === "low" || value === "medium" || value === "high") {
-    return value;
-  }
-  return "low";
-}
-
-function getConfiguredRoleArtifactProvider() {
-  return (
-    process.env.ROLE_ARTIFACT_PROVIDER?.trim() ||
-    process.env.GUIDED_PLAN_PROVIDER?.trim() ||
-    process.env.ASSISTANT_PROVIDER?.trim()
-  );
-}
 
 function compact(value: string | undefined | null) {
   return (value ?? "").replace(/\s+/g, " ").trim();
@@ -179,11 +152,12 @@ function buildPromptContext(context: RoleArtifactGenerationContext, baseline: Ro
 export async function generateRoleArtifactDraft(context: RoleArtifactGenerationContext): Promise<RoleArtifactDraft> {
   const baseline = generateLocalRoleArtifactDraft(context);
   const apiKey = process.env.OPENAI_API_KEY?.trim();
-  const model = getConfiguredModel();
-  const reasoningEffort = getConfiguredReasoningEffort();
-  const verbosity = getConfiguredVerbosity();
+  const modelSettings = await getGuidanceModelSettings();
+  const model = modelSettings.model;
+  const reasoningEffort = modelSettings.reasoningEffort;
+  const verbosity = modelSettings.textVerbosity;
 
-  if (!apiKey || !model || getConfiguredRoleArtifactProvider() !== "openai") {
+  if (!apiKey || !model || model === "unconfigured" || modelSettings.provider !== "openai") {
     return baseline;
   }
 
