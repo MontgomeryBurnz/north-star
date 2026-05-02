@@ -197,6 +197,54 @@ function sliceTableTitle(artifact: RoleArtifactDraft, table: RoleArtifactDraft["
   return /\bslice\b/i.test(title) ? title : `${title} Slice`;
 }
 
+function ArtifactSliceRow({
+  columns,
+  row,
+  rowIndex,
+  tableTitle
+}: {
+  columns: string[];
+  row: string[];
+  rowIndex: number;
+  tableTitle: string;
+}) {
+  const primaryLabel = columns[0] ?? "Item";
+  const primaryValue = row[0]?.trim() || `${primaryLabel} ${rowIndex + 1}`;
+  const supportingCells = columns.slice(1).map((column, columnIndex) => ({
+    column,
+    value: row[columnIndex + 1]?.trim()
+  }));
+
+  return (
+    <article
+      className="rounded-md border border-white/10 bg-zinc-950/70 p-3 transition-colors hover:border-emerald-300/25 hover:bg-emerald-300/[0.035]"
+      data-studio-artifact-row
+    >
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-zinc-600">
+            {primaryLabel} {rowIndex + 1}
+          </p>
+          <h4 className="mt-1 break-words text-sm font-semibold leading-6 text-zinc-100">{primaryValue}</h4>
+        </div>
+        <span className="shrink-0 rounded-full border border-white/10 px-2 py-0.5 text-[10px] uppercase tracking-[0.12em] text-zinc-500">
+          {tableTitle}
+        </span>
+      </div>
+      {supportingCells.length ? (
+        <dl className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+          {supportingCells.map(({ column, value }) => (
+            <div key={`${tableTitle}-${rowIndex}-${column}`} className="rounded border border-white/10 bg-black/20 p-2.5">
+              <dt className="text-[10px] font-medium uppercase tracking-[0.13em] text-zinc-600">{column}</dt>
+              <dd className="mt-1 break-words text-xs leading-5 text-zinc-300">{value || "Not specified"}</dd>
+            </div>
+          ))}
+        </dl>
+      ) : null}
+    </article>
+  );
+}
+
 function ArtifactDetailTable({ table, title }: { table: RoleArtifactDraft["tables"][number]; title: string }) {
   return (
     <details className="rounded-md border border-white/10 bg-black/20">
@@ -208,29 +256,10 @@ function ArtifactDetailTable({ table, title }: { table: RoleArtifactDraft["table
           {table.rows.length} rows
         </span>
       </summary>
-      <div className="overflow-x-auto border-t border-white/10">
-        <table className="min-w-full divide-y divide-white/10 text-left text-sm">
-          <thead className="bg-black/25">
-            <tr>
-              {table.columns.map((column) => (
-                <th key={column} className="whitespace-nowrap px-3 py-2 text-xs font-medium uppercase tracking-[0.12em] text-zinc-500">
-                  {column}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-white/10">
-            {table.rows.map((row, rowIndex) => (
-              <tr key={`${table.title}-${rowIndex}`}>
-                {table.columns.map((column, columnIndex) => (
-                  <td key={`${column}-${columnIndex}`} className="min-w-48 px-3 py-3 align-top text-zinc-300">
-                    {row[columnIndex] ?? ""}
-                  </td>
-                ))}
-              </tr>
-            ))}
-          </tbody>
-        </table>
+      <div className="grid gap-2 border-t border-white/10 p-3">
+        {table.rows.map((row, rowIndex) => (
+          <ArtifactSliceRow key={`${table.title}-${rowIndex}`} columns={table.columns} row={row} rowIndex={rowIndex} tableTitle={title} />
+        ))}
       </div>
     </details>
   );

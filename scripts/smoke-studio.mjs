@@ -190,6 +190,18 @@ async function generateArtifact(session) {
     `),
     75_000
   );
+
+  await session.execute('document.querySelector("[data-studio-artifact-output] details summary")?.click();');
+  await session.waitFor("Studio expanded artifact slice rows", () =>
+    session.execute(`
+      const output = document.querySelector("[data-studio-artifact-output]");
+      return Boolean(
+        output?.querySelector("details[open]")
+        && output?.querySelector("[data-studio-artifact-row]")
+        && !output?.querySelector("table")
+      );
+    `)
+  );
 }
 
 async function patchDownloadCapture(session) {
