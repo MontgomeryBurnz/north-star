@@ -169,6 +169,9 @@ test("Admin audit history uses persisted audit events instead of inferred activi
   assert.match(auditPanelSource, /searchQuery/);
   assert.match(auditPanelSource, /exportAuditEvents\(filteredEvents\)/);
   assert.match(auditPanelSource, /data-admin-audit-export/);
+  assert.match(auditPanelSource, /data-admin-audit-filter/);
+  assert.match(auditPanelSource, /data-admin-audit-event-row/);
+  assert.match(auditPanelSource, /data-admin-audit-count/);
   assert.match(auditApiSource, /artifact\.copy/);
   assert.match(auditApiSource, /artifact\.export/);
   assert.doesNotMatch(trustSource, /buildAuditEvents/);
@@ -192,6 +195,8 @@ test("Admin can manage OpenAI guidance model settings", () => {
   const routeSource = readFileSync(new URL("../src/app/api/admin/model-settings/route.ts", import.meta.url), "utf8");
   const packageSource = readFileSync(new URL("../package.json", import.meta.url), "utf8");
   const smokeSource = readFileSync(new URL("../scripts/smoke-admin-model-settings.mjs", import.meta.url), "utf8");
+  const auditSmokeSource = readFileSync(new URL("../scripts/smoke-admin-audit-export.mjs", import.meta.url), "utf8");
+  const studioSmokeSource = readFileSync(new URL("../scripts/smoke-studio.mjs", import.meta.url), "utf8");
   const settingsSource = readFileSync(new URL("../src/lib/guidance-model-settings.ts", import.meta.url), "utf8");
   const guidedProviderSource = readFileSync(new URL("../src/lib/guided-plan-openai-provider.ts", import.meta.url), "utf8");
   const guideProviderSource = readFileSync(new URL("../src/lib/assistant-openai-provider.ts", import.meta.url), "utf8");
@@ -206,9 +211,16 @@ test("Admin can manage OpenAI guidance model settings", () => {
   assert.match(routeSource, /saveGuidanceModelSettings/);
   assert.match(routeSource, /model\.settings\.update/);
   assert.match(packageSource, /smoke:admin-model/);
+  assert.match(packageSource, /smoke:admin-audit/);
   assert.match(smokeSource, /reversibleSettings/);
   assert.match(smokeSource, /putSettings\(cookieHeader, testSettings\)/);
   assert.match(smokeSource, /reverted\.settings/);
+  assert.match(auditSmokeSource, /verifyFilteredCsv/);
+  assert.match(auditSmokeSource, /data-admin-audit-export/);
+  assert.match(auditSmokeSource, /data-admin-audit-filter/);
+  assert.match(studioSmokeSource, /NORTHSTAR_SMOKE_EXPORT_FORMAT \?\? "both"/);
+  assert.match(studioSmokeSource, /data-studio-export-docx/);
+  assert.match(studioSmokeSource, /data-studio-export-csv/);
   assert.match(settingsSource, /CREATE TABLE IF NOT EXISTS app_settings/);
   assert.match(guidedProviderSource, /getGuidanceModelSettings/);
   assert.match(guideProviderSource, /getGuidanceModelSettings/);

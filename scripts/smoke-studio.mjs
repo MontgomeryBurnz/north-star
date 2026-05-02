@@ -8,7 +8,11 @@ const testUserPassword = process.env.NORTHSTAR_TEST_USER_PASSWORD ?? process.env
 const targetProgram = (process.env.NORTHSTAR_SMOKE_PROGRAM_NAME ?? "").trim().toLowerCase();
 const targetRole = (process.env.NORTHSTAR_SMOKE_STUDIO_ROLE ?? "Product Management").trim();
 const targetBrief = (process.env.NORTHSTAR_SMOKE_STUDIO_BRIEF ?? "").trim().toLowerCase();
-const exportFormat = (process.env.NORTHSTAR_SMOKE_EXPORT_FORMAT ?? "csv").trim().toLowerCase();
+const exportFormat = (process.env.NORTHSTAR_SMOKE_EXPORT_FORMAT ?? "both").trim().toLowerCase();
+
+if (!["both", "csv", "docx"].includes(exportFormat)) {
+  throw new Error("NORTHSTAR_SMOKE_EXPORT_FORMAT must be one of: both, csv, docx.");
+}
 
 function requireCredential(value, label) {
   if (value) return value;

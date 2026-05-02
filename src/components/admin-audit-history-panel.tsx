@@ -125,6 +125,7 @@ function SelectFilter({
         <select
           value={value}
           onChange={(event) => onChange(event.target.value)}
+          data-admin-audit-filter={label.toLowerCase()}
           className="h-10 w-full appearance-none rounded-md border border-white/10 bg-zinc-950 px-3 pr-9 text-sm text-zinc-100 outline-none transition-colors focus:border-emerald-300/50 focus:ring-2 focus:ring-emerald-300/15"
         >
           {options.map((option) => (
@@ -183,7 +184,7 @@ export function AdminAuditHistoryPanel({ auditEvents }: AdminAuditHistoryPanelPr
   }, [actorFilter, auditEvents, dateFilter, eventTypeFilter, programFilter, searchQuery]);
 
   return (
-    <section className="grid gap-4">
+    <section className="grid gap-4" data-admin-audit-history>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <p className="flex items-center gap-2 text-sm font-semibold text-zinc-100">
@@ -195,7 +196,10 @@ export function AdminAuditHistoryPanel({ auditEvents }: AdminAuditHistoryPanelPr
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <span className="rounded-full border border-white/10 px-2 py-0.5 text-[11px] uppercase tracking-[0.12em] text-zinc-500">
+          <span
+            className="rounded-full border border-white/10 px-2 py-0.5 text-[11px] uppercase tracking-[0.12em] text-zinc-500"
+            data-admin-audit-count
+          >
             Showing {filteredEvents.length} of {auditEvents.length}
           </span>
           <Button
@@ -222,6 +226,7 @@ export function AdminAuditHistoryPanel({ auditEvents }: AdminAuditHistoryPanelPr
               value={searchQuery}
               onChange={(event) => setSearchQuery(event.target.value)}
               placeholder="Search summary, actor, surface..."
+              data-admin-audit-search
               className="h-10 w-full rounded-md border border-white/10 bg-zinc-950 py-2 pl-9 pr-3 text-sm text-zinc-100 outline-none placeholder:text-zinc-600 focus:border-emerald-300/50 focus:ring-2 focus:ring-emerald-300/15"
             />
           </span>
@@ -263,6 +268,12 @@ export function AdminAuditHistoryPanel({ auditEvents }: AdminAuditHistoryPanelPr
           {filteredEvents.slice(0, 40).map((event) => (
             <div
               key={event.id}
+              data-admin-audit-event-row
+              data-admin-audit-actor={actorLabel(event)}
+              data-admin-audit-created-at={event.createdAt}
+              data-admin-audit-event-type={event.eventType}
+              data-admin-audit-program={event.programName ?? event.programId ?? ""}
+              data-admin-audit-summary={event.summary}
               className="grid gap-2 rounded-md border border-white/10 bg-black/20 p-3 md:grid-cols-[9rem_minmax(0,1fr)_10rem] md:items-center"
             >
               <span className="text-[11px] font-medium uppercase tracking-[0.14em] text-emerald-200">
