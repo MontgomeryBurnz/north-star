@@ -1,8 +1,9 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { ChevronDown, FileText, Search } from "lucide-react";
+import { ChevronDown, Download, FileText, Search } from "lucide-react";
 import type { AuditEventRecord } from "@/lib/audit-event-types";
+import { Button } from "@/components/ui/button";
 
 type AdminAuditHistoryPanelProps = {
   auditEvents: AuditEventRecord[];
@@ -63,6 +64,47 @@ function matchesDateFilter(event: AuditEventRecord, dateFilter: DateFilter) {
 
   const dayWindow = dateFilter === "last-7-days" ? 7 : 30;
   return eventTime >= now.getTime() - dayWindow * 24 * 60 * 60 * 1000;
+}
+
+function csvValue(value: unknown) {
+  const text = String(value ?? "");
+  return `"${text.replaceAll('"', '""')}"`;
+}
+
+function exportAuditEvents(events: AuditEventRecord[]) {
+  const headers = [
+    "createdAt",
+    "eventType",
+    "surface",
+    "programName",
+    "actor",
+    "actorEmail",
+    "entityType",
+    "entityLabel",
+    "summary"
+  ];
+  const rows = events.map((event) => [
+    event.createdAt,
+    event.eventType,
+    event.surface,
+    event.programName ?? "",
+    actorLabel(event),
+    event.actor?.email ?? "",
+    event.entityType,
+    event.entityLabel ?? "",
+    event.summary
+  ]);
+  const csv = [headers, ...rows].map((row) => row.map(csvValue).join(",")).join("\n");
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  const timestamp = new Date().toISOString().slice(0, 19).replaceAll(":", "-");
+  anchor.href = url;
+  anchor.download = `north-star-audit-events-${timestamp}.csv`;
+  document.body.append(anchor);
+  anchor.click();
+  anchor.remove();
+  URL.revokeObjectURL(url);
 }
 
 function SelectFilter({
@@ -152,9 +194,22 @@ export function AdminAuditHistoryPanel({ auditEvents }: AdminAuditHistoryPanelPr
             Review activity by program, actor, event type, and date.
           </p>
         </div>
-        <span className="rounded-full border border-white/10 px-2 py-0.5 text-[11px] uppercase tracking-[0.12em] text-zinc-500">
-          Showing {filteredEvents.length} of {auditEvents.length}
-        </span>
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="rounded-full border border-white/10 px-2 py-0.5 text-[11px] uppercase tracking-[0.12em] text-zinc-500">
+            Showing {filteredEvents.length} of {auditEvents.length}
+          </span>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => exportAuditEvents(filteredEvents)}
+            disabled={!filteredEvents.length}
+            data-admin-audit-export
+          >
+            <Download className="h-4 w-4" />
+            Export CSV
+          </Button>
+        </div>
       </div>
 
       <div className="grid gap-3 rounded-md border border-white/10 bg-white/[0.025] p-3 md:grid-cols-2 xl:grid-cols-[minmax(0,1.3fr)_repeat(4,minmax(0,1fr))]">

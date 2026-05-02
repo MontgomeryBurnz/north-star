@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { BrainCircuit, CheckCircle2, ChevronDown, CircleDollarSign, Database, Gauge, Save } from "lucide-react";
+import { AlertCircle, BrainCircuit, CheckCircle2, ChevronDown, CircleDollarSign, Database, Gauge, Save } from "lucide-react";
 import type { GuidanceModelProfile } from "@/lib/guidance-model-profile";
 import {
   guidanceModelOptions,
@@ -22,6 +22,11 @@ type ModelSettingsPayload = {
   provider: GuidanceModelProfile["provider"];
   reasoningEffort: string;
   textVerbosity: string;
+};
+
+type SaveStatus = {
+  message: string;
+  tone: "info" | "success" | "error";
 };
 
 function formatDate(value: string | undefined) {
@@ -83,7 +88,7 @@ export function AdminGuidanceModelSettingsCard({
     textVerbosity: initialProfile.textVerbosity
   });
   const [isSaving, setIsSaving] = useState(false);
-  const [status, setStatus] = useState<string | null>(null);
+  const [status, setStatus] = useState<SaveStatus | null>(null);
 
   const hasChanges = useMemo(
     () =>
@@ -96,7 +101,7 @@ export function AdminGuidanceModelSettingsCard({
 
   async function saveSettings() {
     setIsSaving(true);
-    setStatus("Saving model settings...");
+    setStatus({ message: "Saving model settings...", tone: "info" });
     try {
       const response = await fetch("/api/admin/model-settings", {
         method: "PUT",
@@ -113,13 +118,26 @@ export function AdminGuidanceModelSettingsCard({
         reasoningEffort: payload.profile.reasoningEffort,
         textVerbosity: payload.profile.textVerbosity
       });
-      setStatus("Model settings saved. New guidance requests will use this configuration.");
+      setStatus({
+        message: `Model settings changed to ${payload.profile.model}. New guidance requests will use this configuration.`,
+        tone: "success"
+      });
     } catch (error) {
-      setStatus(error instanceof Error ? error.message : "Model settings could not be saved.");
+      setStatus({
+        message: error instanceof Error ? error.message : "Model settings could not be saved.",
+        tone: "error"
+      });
     } finally {
       setIsSaving(false);
     }
   }
+
+  const statusClassName =
+    status?.tone === "success"
+      ? "border-emerald-300/25 bg-emerald-300/[0.08] text-emerald-50"
+      : status?.tone === "error"
+        ? "border-amber-300/25 bg-amber-300/[0.08] text-amber-50"
+        : "border-cyan-300/20 bg-cyan-300/[0.055] text-cyan-50";
 
   return (
     <Card className="bg-zinc-950/80">
@@ -175,7 +193,20 @@ export function AdminGuidanceModelSettingsCard({
             {isSaving ? <CheckCircle2 className="h-4 w-4" /> : <Save className="h-4 w-4" />}
             {isSaving ? "Saving" : "Save model settings"}
           </Button>
-          {status ? <p className="text-xs leading-5 text-zinc-400">{status}</p> : null}
+          {status ? (
+            <div
+              className={`flex items-start gap-3 rounded-md border p-3 text-sm leading-6 ${statusClassName}`}
+              role={status.tone === "error" ? "alert" : "status"}
+              data-admin-model-settings-confirmation
+            >
+              {status.tone === "error" ? (
+                <AlertCircle className="mt-1 h-4 w-4 shrink-0" />
+              ) : (
+                <CheckCircle2 className="mt-1 h-4 w-4 shrink-0" />
+              )}
+              <span>{status.message}</span>
+            </div>
+          ) : null}
         </div>
 
         <div className="grid gap-3 sm:grid-cols-2">
