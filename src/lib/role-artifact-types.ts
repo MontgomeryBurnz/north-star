@@ -236,6 +236,186 @@ export const roleArtifactDefinitions: RoleArtifactDefinition[] = [
     description: "Summarizes likely user groups, workflows, pain points, and assumptions that require validation.",
     outputLabel: "UX summary",
     primaryColumns: ["User / Persona", "Workflow Need", "Pain Point", "Validation Need"]
+  },
+  {
+    type: "app-dev-technical-delivery-plan",
+    role: "Application Development",
+    title: "Technical Delivery Plan",
+    shortTitle: "Tech Delivery",
+    description: "Frames build slices, engineering dependencies, integration needs, and readiness gates for the development team.",
+    outputLabel: "Engineering output",
+    primaryColumns: ["Build Slice", "Technical Scope", "Dependency", "Readiness Gate"]
+  },
+  {
+    type: "app-dev-api-dependency-plan",
+    role: "Application Development",
+    title: "API Dependency Plan",
+    shortTitle: "API Dependencies",
+    description: "Turns integration risks into owners, fallback paths, test needs, and delivery checkpoints.",
+    outputLabel: "Dependency output",
+    primaryColumns: ["Dependency", "Impact", "Owner / Team", "Mitigation"]
+  },
+  {
+    type: "app-dev-release-readiness-checklist",
+    role: "Application Development",
+    title: "Engineering Release Readiness Checklist",
+    shortTitle: "Release Checklist",
+    description: "Creates a release readiness view across code, environments, testing, integrations, and operational handoff.",
+    outputLabel: "Release output",
+    primaryColumns: ["Readiness Area", "Current Signal", "Evidence Needed", "Next Action"]
+  },
+  {
+    type: "app-dev-architecture-decision-log",
+    role: "Application Development",
+    title: "Architecture Decision Log",
+    shortTitle: "Architecture Log",
+    description: "Captures technical decisions, tradeoffs, affected components, and follow-up validation needs.",
+    outputLabel: "Architecture output",
+    primaryColumns: ["Decision", "Tradeoff", "Affected Component", "Validation Need"]
+  },
+  {
+    type: "data-source-target-mapping",
+    role: "Data Engineering",
+    title: "Source-to-Target Mapping",
+    shortTitle: "Source Mapping",
+    description: "Connects source fields, target structures, transformation logic, and unresolved data decisions.",
+    outputLabel: "Data output",
+    primaryColumns: ["Source Field", "Target Field", "Transform / Rule", "Decision / Owner"]
+  },
+  {
+    type: "data-quality-rules-matrix",
+    role: "Data Engineering",
+    title: "Data Quality Rules Matrix",
+    shortTitle: "Quality Rules",
+    description: "Defines validation rules, exception handling, evidence needs, and ownership for data quality.",
+    outputLabel: "Quality output",
+    primaryColumns: ["Data Rule", "Failure Condition", "Evidence", "Owner / Action"]
+  },
+  {
+    type: "data-lineage-traceability-map",
+    role: "Data Engineering",
+    title: "Data Lineage Traceability Map",
+    shortTitle: "Lineage Map",
+    description: "Shows how critical data moves through sources, transformations, outputs, and controls.",
+    outputLabel: "Lineage output",
+    primaryColumns: ["Data Element", "Source", "Transformation", "Output / Control"]
+  },
+  {
+    type: "data-cutover-validation-plan",
+    role: "Data Engineering",
+    title: "Cutover Validation Plan",
+    shortTitle: "Cutover Plan",
+    description: "Organizes migration, reconciliation, validation, and fallback checks for data readiness.",
+    outputLabel: "Cutover output",
+    primaryColumns: ["Cutover Check", "Validation Method", "Owner", "Exit Criteria"]
+  },
+  {
+    type: "change-stakeholder-impact-plan",
+    role: "Change Management",
+    title: "Stakeholder Impact Plan",
+    shortTitle: "Impact Plan",
+    description: "Maps who is affected, how their work changes, expected friction, and support actions.",
+    outputLabel: "Change output",
+    primaryColumns: ["Audience", "Impact", "Risk / Concern", "Support Action"]
+  },
+  {
+    type: "change-communications-plan",
+    role: "Change Management",
+    title: "Communications Plan",
+    shortTitle: "Comms Plan",
+    description: "Creates a message plan by audience, timing, channel, and decision or behavior needed.",
+    outputLabel: "Comms output",
+    primaryColumns: ["Audience", "Message", "Channel / Timing", "Desired Response"]
+  },
+  {
+    type: "change-training-readiness-checklist",
+    role: "Change Management",
+    title: "Training Readiness Checklist",
+    shortTitle: "Training Readiness",
+    description: "Tracks training needs, materials, impacted users, enablement gaps, and readiness evidence.",
+    outputLabel: "Training output",
+    primaryColumns: ["Training Need", "Audience", "Material / Support", "Readiness Evidence"]
+  },
+  {
+    type: "change-adoption-risk-log",
+    role: "Change Management",
+    title: "Adoption Risk Log",
+    shortTitle: "Adoption Risks",
+    description: "Captures adoption risks, stakeholder resistance, mitigation actions, and measurement signals.",
+    outputLabel: "Adoption output",
+    primaryColumns: ["Adoption Risk", "Affected Group", "Mitigation", "Success Signal"]
+  },
+  {
+    type: "scrum-sprint-execution-plan",
+    role: "Scrum Master",
+    title: "Sprint Execution Plan",
+    shortTitle: "Sprint Plan",
+    description: "Turns program priorities into sprint goals, delivery checks, impediments, and facilitation actions.",
+    outputLabel: "Sprint output",
+    primaryColumns: ["Sprint Focus", "Goal", "Impediment", "Facilitation Action"]
+  },
+  {
+    type: "scrum-impediment-register",
+    role: "Scrum Master",
+    title: "Impediment Register",
+    shortTitle: "Impediments",
+    description: "Organizes blockers, aging, owners, escalation paths, and next unblock actions.",
+    outputLabel: "Impediment output",
+    primaryColumns: ["Impediment", "Impact", "Owner", "Next Unblock Action"]
+  },
+  {
+    type: "scrum-ceremony-plan",
+    role: "Scrum Master",
+    title: "Ceremony Facilitation Plan",
+    shortTitle: "Ceremony Plan",
+    description: "Frames standups, planning, reviews, and retros around the current program signal and decisions needed.",
+    outputLabel: "Facilitation output",
+    primaryColumns: ["Ceremony", "Focus", "Input Needed", "Expected Output"]
+  },
+  {
+    type: "scrum-dependency-board",
+    role: "Scrum Master",
+    title: "Dependency Board",
+    shortTitle: "Dependency Board",
+    description: "Tracks cross-role dependencies, timing, risk, owner, and coordination actions.",
+    outputLabel: "Dependency output",
+    primaryColumns: ["Dependency", "Team / Role", "Timing Risk", "Coordination Action"]
+  },
+  {
+    type: "delivery-integrated-plan",
+    role: "Delivery Lead",
+    title: "Integrated Delivery Plan",
+    shortTitle: "Delivery Plan",
+    description: "Combines milestones, role actions, dependencies, risks, and decisions into one delivery management view.",
+    outputLabel: "Delivery output",
+    primaryColumns: ["Workstream", "Milestone", "Risk / Dependency", "Next Action"]
+  },
+  {
+    type: "delivery-raid-log",
+    role: "Delivery Lead",
+    title: "RAID Log",
+    shortTitle: "RAID Log",
+    description: "Structures risks, assumptions, issues, and decisions with owners and escalation timing.",
+    outputLabel: "RAID output",
+    primaryColumns: ["Type", "Item", "Owner", "Action / Decision"]
+  },
+  {
+    type: "delivery-executive-status-brief",
+    role: "Delivery Lead",
+    title: "Executive Status Brief",
+    shortTitle: "Status Brief",
+    description: "Creates a concise leadership-ready brief covering progress, risk, decisions, and recommended path.",
+    outputLabel: "Exec output",
+    primaryColumns: ["Signal", "Current Position", "Leadership Need", "Recommended Message"]
+  },
+  {
+    type: "delivery-cross-workstream-dependency-map",
+    role: "Delivery Lead",
+    title: "Cross-Workstream Dependency Map",
+    shortTitle: "Dependency Map",
+    description: "Maps dependencies across roles, teams, dates, and decisions so the delivery lead can manage sequencing.",
+    outputLabel: "Dependency output",
+    primaryColumns: ["Dependency", "From / To", "Timing", "Management Action"]
   }
 ];
 
@@ -261,7 +441,7 @@ export function buildCustomRoleArtifactDefinition(input: {
 
   return {
     type,
-    role: input.role?.trim() || "All roles",
+    role: input.role?.trim() || "Role-specific",
     title,
     shortTitle: title.length > 26 ? `${title.slice(0, 23).trim()}...` : title,
     description:

@@ -178,7 +178,17 @@ function getFallbackSuggestions(context: RoleArtifactSuggestionContext) {
     "ba-traceability-matrix",
     "ux-user-journey",
     "ux-app-flow",
-    "ux-service-blueprint"
+    "ux-service-blueprint",
+    "app-dev-technical-delivery-plan",
+    "app-dev-api-dependency-plan",
+    "data-source-target-mapping",
+    "data-quality-rules-matrix",
+    "change-stakeholder-impact-plan",
+    "change-communications-plan",
+    "scrum-sprint-execution-plan",
+    "scrum-impediment-register",
+    "delivery-integrated-plan",
+    "delivery-raid-log"
   ]);
 
   return [...rankedDefinitions]

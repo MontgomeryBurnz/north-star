@@ -35,7 +35,7 @@ const quickStartActions = [
     href: "/assistant",
     icon: MessageSquareText,
     label: "Open Guide",
-    detail: "Ask program-specific questions and let the dialogue sharpen the intelligence layer."
+    detail: "Ask program-specific questions and keep the dialogue tied to the same program context."
   }
 ];
 
@@ -73,13 +73,13 @@ export function HeroSection({ metrics }: { metrics: DashboardMetrics }) {
         >
           <div className="mb-5 inline-flex items-center gap-2 rounded-md border border-white/10 bg-white/[0.04] px-3 py-1 text-xs text-zinc-300">
             <Sparkles className="h-3.5 w-3.5 text-emerald-200" />
-            Console onboarding
+            Quick Start
           </div>
           <h1 className="max-w-4xl text-4xl font-semibold tracking-normal text-zinc-50 sm:text-6xl lg:text-7xl">
-            Let&apos;s Get Started
+            Start with the right signal.
           </h1>
           <p className="mt-5 max-w-2xl text-base leading-7 text-zinc-300 md:mt-6 md:text-lg md:leading-8">
-            NorthStar combines SME insight, program data, and AI intelligence into one operating hub for getting work done.
+            Use North Star to turn SME insight, program data, and the intelligence platform into clear plans, role-ready artifacts, decisions, and leadership action.
           </p>
           <div className="mt-8 flex flex-col gap-3 sm:flex-row">
             <Button asChild size="lg">
@@ -106,7 +106,7 @@ export function HeroSection({ metrics }: { metrics: DashboardMetrics }) {
             <CardHeader className="p-5 sm:p-6">
               <CardTitle className="flex items-center gap-2 text-zinc-50">
                 <BookOpenCheck className="h-4 w-4 text-emerald-200" />
-                Intelligence hub path
+                Quick start path
               </CardTitle>
             </CardHeader>
             <CardContent className="grid gap-4 p-5 pt-0 sm:p-6 sm:pt-0">
@@ -154,11 +154,11 @@ export function HeroSection({ metrics }: { metrics: DashboardMetrics }) {
               <div className="rounded-md border border-cyan-300/20 bg-cyan-300/[0.055] p-4">
                 <div className="flex items-center gap-2 text-sm font-medium text-cyan-100">
                   <Gauge className="h-4 w-4" />
-                  How NorthStar works
+                  How North Star works
                 </div>
                 <p className="mt-3 text-sm leading-6 text-zinc-300">
-                  Capture what experts know, ground it in program evidence, keep the signal current, and let AI translate
-                  the latest context into plans, artifacts, decisions, and leadership-ready guidance.
+                  Capture what experts know, ground it in program evidence, keep the signal current, and translate the
+                  latest context into plans, artifacts, decisions, and leadership-ready guidance.
                 </p>
               </div>
             </CardContent>

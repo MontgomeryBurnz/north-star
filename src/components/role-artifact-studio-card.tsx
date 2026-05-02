@@ -54,6 +54,102 @@ function serializeArtifact(artifact: RoleArtifactDraft) {
   return `${artifact.title}\n${artifact.summary}\n\n${tableText}\n\n${sectionText}`.trim();
 }
 
+function artifactFilenameBase(artifact: RoleArtifactDraft) {
+  return `${artifact.title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || "north-star-artifact"}-v${
+    artifact.version ?? "draft"
+  }`;
+}
+
+function csvCell(value: string | undefined) {
+  const normalized = (value ?? "").replace(/\r?\n/g, " ").trim();
+  return /[",\n]/.test(normalized) ? `"${normalized.replace(/"/g, "\"\"")}"` : normalized;
+}
+
+function serializeArtifactCsv(artifact: RoleArtifactDraft) {
+  const metadata = [
+    ["Artifact", artifact.title],
+    ["Role", artifact.role],
+    ["Version", artifact.version ? `v${artifact.version}` : "Draft"],
+    ["Generated", formatDate(artifact.generatedAt)]
+  ];
+  const tableText = artifact.tables
+    .map((table) => [
+      [table.title],
+      table.columns,
+      ...table.rows.map((row) => table.columns.map((_, index) => row[index] ?? ""))
+    ]
+      .map((row) => row.map(csvCell).join(","))
+      .join("\n"))
+    .join("\n\n");
+
+  return [metadata.map((row) => row.map(csvCell).join(",")).join("\n"), "", tableText].join("\n");
+}
+
+function escapeXml(value: string | undefined) {
+  return (value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&apos;");
+}
+
+function docParagraph(value: string, variant: "title" | "heading" | "body" = "body") {
+  const properties =
+    variant === "title"
+      ? "<w:rPr><w:b/><w:sz w:val=\"36\"/></w:rPr>"
+      : variant === "heading"
+        ? "<w:rPr><w:b/><w:sz w:val=\"26\"/></w:rPr>"
+        : "";
+
+  return `<w:p><w:r>${properties}<w:t xml:space="preserve">${escapeXml(value)}</w:t></w:r></w:p>`;
+}
+
+function docTable(table: RoleArtifactDraft["tables"][number]) {
+  const rows = [table.columns, ...table.rows]
+    .map((row) => `<w:tr>${table.columns
+      .map((_, index) => `<w:tc><w:tcPr><w:tcW w:w="2400" w:type="dxa"/></w:tcPr>${docParagraph(row[index] ?? "")}</w:tc>`)
+      .join("")}</w:tr>`)
+    .join("");
+
+  return `<w:tbl><w:tblPr><w:tblBorders><w:top w:val="single" w:sz="4" w:color="4ade80"/><w:left w:val="single" w:sz="4" w:color="4ade80"/><w:bottom w:val="single" w:sz="4" w:color="4ade80"/><w:right w:val="single" w:sz="4" w:color="4ade80"/><w:insideH w:val="single" w:sz="4" w:color="4ade80"/><w:insideV w:val="single" w:sz="4" w:color="4ade80"/></w:tblBorders></w:tblPr>${rows}</w:tbl>`;
+}
+
+async function buildDocxBlob(artifact: RoleArtifactDraft) {
+  const JSZip = (await import("jszip")).default;
+  const zip = new JSZip();
+  const contentTypes = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/></Types>`;
+  const relationships = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/></Relationships>`;
+  const sections = artifact.sections
+    .map((section) => [
+      docParagraph(section.title, "heading"),
+      ...section.items.map((item) => docParagraph(`- ${item}`))
+    ].join(""))
+    .join("");
+  const tables = artifact.tables
+    .map((table) => `${docParagraph(table.title, "heading")}${docTable(table)}`)
+    .join("");
+  const documentXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body>${docParagraph(artifact.title, "title")}${docParagraph(artifact.summary)}${docParagraph(`Role: ${artifact.role}`)}${docParagraph(`Generated: ${formatDate(artifact.generatedAt)}`)}${tables}${docParagraph("Supporting guidance", "heading")}${sections}${docParagraph("Source grounding", "heading")}${docParagraph(artifact.sourceSummary)}<w:sectPr><w:pgSz w:w="12240" w:h="15840"/><w:pgMar w:top="720" w:right="720" w:bottom="720" w:left="720" w:header="360" w:footer="360" w:gutter="0"/></w:sectPr></w:body></w:document>`;
+
+  zip.file("[Content_Types].xml", contentTypes);
+  zip.folder("_rels")?.file(".rels", relationships);
+  zip.folder("word")?.file("document.xml", documentXml);
+
+  return zip.generateAsync({
+    type: "blob",
+    mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+  });
+}
+
+function downloadBlob(blob: Blob, filename: string) {
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  link.click();
+  URL.revokeObjectURL(url);
+}
+
 function ArtifactDefinitionButton({
   definition,
   isSelected,
@@ -95,52 +191,8 @@ function summarizeCell(value: string | undefined, maxLength = 150) {
   return `${normalized.slice(0, wordBreak > 80 ? wordBreak : maxLength).trim()}...`;
 }
 
-function columnSafeKey(value: string) {
-  return value.toLowerCase().replace(/[^a-z0-9]+/g, "-");
-}
-
 function artifactVersionLabel(artifact: RoleArtifactDraft) {
   return `Version ${artifact.version ?? "draft"} / ${formatDate(artifact.generatedAt)}`;
-}
-
-function ArtifactTableDigest({ table }: { table: RoleArtifactDraft["tables"][number] }) {
-  const visibleRows = table.rows.slice(0, 6);
-
-  return (
-    <div className="grid gap-3 md:grid-cols-2 2xl:grid-cols-3">
-      {visibleRows.map((row, rowIndex) => {
-        const eyebrow = row[0] || `Item ${rowIndex + 1}`;
-        const headline = row[1] || table.title;
-        const details = table.columns.slice(2, 5).map((column, columnIndex) => ({
-          label: column,
-          value: row[columnIndex + 2] ?? ""
-        }));
-
-        return (
-          <div key={`${table.title}-digest-${rowIndex}`} className="flex min-h-full flex-col rounded-md border border-white/10 bg-white/[0.035] p-3">
-            <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-emerald-200">{summarizeCell(eyebrow, 48)}</p>
-            <p className="mt-2 text-sm font-semibold leading-5 text-zinc-100">{summarizeCell(headline, 105)}</p>
-            <div className="mt-3 grid gap-2 border-t border-white/10 pt-3">
-              {details.map((detail, detailIndex) => (
-                <div key={`${columnSafeKey(detail.label)}-${detailIndex}`} className="grid gap-1">
-                  <p className="text-[11px] font-medium uppercase tracking-[0.13em] text-zinc-500">{detail.label}</p>
-                  <p className="text-xs leading-5 text-zinc-300">{summarizeCell(detail.value, 130)}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-        );
-      })}
-      {table.rows.length > visibleRows.length ? (
-        <div className="grid min-h-36 place-items-center rounded-md border border-dashed border-white/10 bg-white/[0.025] p-4 text-center">
-          <div>
-            <p className="text-sm font-semibold text-zinc-100">+{table.rows.length - visibleRows.length} more rows</p>
-            <p className="mt-1 text-xs leading-5 text-zinc-500">Open the detailed table below for the complete artifact.</p>
-          </div>
-        </div>
-      ) : null}
-    </div>
-  );
 }
 
 function ArtifactDetailTable({ table }: { table: RoleArtifactDraft["tables"][number] }) {
@@ -184,7 +236,6 @@ function ArtifactDetailTable({ table }: { table: RoleArtifactDraft["tables"][num
 }
 
 function ArtifactOutput({ artifact }: { artifact: RoleArtifactDraft }) {
-  const primaryTable = artifact.tables[0];
   const totalRows = artifact.tables.reduce((total, table) => total + table.rows.length, 0);
   const supportingItemCount = artifact.sections.reduce((total, section) => total + section.items.length, 0);
 
@@ -201,7 +252,7 @@ function ArtifactOutput({ artifact }: { artifact: RoleArtifactDraft }) {
             {[
               artifact.version ? `v${artifact.version}` : "Draft",
               `${totalRows} items`,
-              artifact.provider === "openai" ? "OpenAI" : "Local"
+              artifact.provider === "openai" ? "Generated" : "Starter"
             ].map((label) => (
               <span key={label} className="rounded-full border border-white/10 bg-black/20 px-3 py-1 text-[11px] uppercase tracking-[0.12em] text-zinc-300">
                 {label}
@@ -210,21 +261,6 @@ function ArtifactOutput({ artifact }: { artifact: RoleArtifactDraft }) {
           </div>
         </div>
       </div>
-
-      {primaryTable ? (
-        <section className="grid gap-3">
-          <div className="flex flex-wrap items-end justify-between gap-3">
-            <div>
-              <p className="text-xs font-medium uppercase tracking-[0.16em] text-zinc-500">Artifact preview</p>
-              <p className="mt-1 text-sm text-zinc-300">{primaryTable.title}</p>
-            </div>
-            <span className="rounded-full border border-white/10 px-2 py-0.5 text-[11px] uppercase tracking-[0.12em] text-zinc-500">
-              {primaryTable.rows.length} working items
-            </span>
-          </div>
-          <ArtifactTableDigest table={primaryTable} />
-        </section>
-      ) : null}
 
       {artifact.sections.length ? (
         <details className="rounded-md border border-white/10 bg-white/[0.03] p-3">
@@ -444,20 +480,24 @@ export function RoleArtifactStudioCard({
     }
   }
 
-  function downloadArtifact() {
+  async function downloadDocxArtifact() {
     if (!artifact) return;
 
-    const filename = `${artifact.title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || "north-star-artifact"}-v${
-      artifact.version ?? "draft"
-    }.txt`;
-    const blob = new Blob([serializeArtifact(artifact)], { type: "text/plain;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = filename;
-    link.click();
-    URL.revokeObjectURL(url);
-    setStatus("Artifact export downloaded.");
+    try {
+      const blob = await buildDocxBlob(artifact);
+      downloadBlob(blob, `${artifactFilenameBase(artifact)}.docx`);
+      setStatus("DOCX export downloaded.");
+    } catch {
+      setStatus("Could not create the DOCX export in this browser.");
+    }
+  }
+
+  function downloadCsvArtifact() {
+    if (!artifact) return;
+
+    const blob = new Blob([serializeArtifactCsv(artifact)], { type: "text/csv;charset=utf-8" });
+    downloadBlob(blob, `${artifactFilenameBase(artifact)}.csv`);
+    setStatus("CSV export downloaded.");
   }
 
   return (
@@ -518,9 +558,13 @@ export function RoleArtifactStudioCard({
                   <Copy className="h-4 w-4" />
                   Copy output
                 </Button>
-                <Button type="button" variant="outline" onClick={downloadArtifact} disabled={!artifact}>
+                <Button type="button" variant="outline" onClick={() => void downloadDocxArtifact()} disabled={!artifact}>
                   <Download className="h-4 w-4" />
-                  Export
+                  Export DOCX
+                </Button>
+                <Button type="button" variant="outline" onClick={downloadCsvArtifact} disabled={!artifact}>
+                  <Download className="h-4 w-4" />
+                  Export CSV
                 </Button>
               </div>
               {artifact?.iterationPrompts.length ? (
@@ -571,7 +615,7 @@ export function RoleArtifactStudioCard({
                       <span className="flex items-center justify-between gap-3">
                         <span className="text-sm font-medium text-zinc-100">Version {savedArtifact.version ?? "draft"}</span>
                         <span className="text-[11px] uppercase tracking-[0.12em] text-zinc-500">
-                          {savedArtifact.provider === "openai" ? "OpenAI" : "Local"}
+                          {savedArtifact.provider === "openai" ? "Generated" : "Starter"}
                         </span>
                       </span>
                       <span className="mt-1 block text-xs text-zinc-500">{formatDate(savedArtifact.generatedAt)}</span>

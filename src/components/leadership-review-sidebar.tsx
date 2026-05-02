@@ -170,7 +170,7 @@ export function LeadershipReviewSidebar({
           <CardContent className="grid gap-3 p-5">
             {queueMode ? (
               <div className="rounded-md border border-fuchsia-300/20 bg-fuchsia-300/[0.07] p-3 text-sm leading-6 text-zinc-300">
-                The Console sent you here because one or more leadership reviews are due now.
+                Quick Start sent you here because one or more leadership reviews are due now.
               </div>
             ) : null}
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ArrowRight, BrainCircuit, ChevronDown, Loader2, PencilLine, Sparkles } from "lucide-react";
 import { useCurrentUserAssignments } from "@/hooks/use-current-user-assignments";
 import { useProgramCatalog } from "@/hooks/use-program-catalog";
@@ -16,20 +16,14 @@ import { ProgramSlicer } from "@/components/program-slicer";
 import { RoleArtifactStudioCard, type RoleArtifactStudioRequest } from "@/components/role-artifact-studio-card";
 import { SectionHeader } from "@/components/section-header";
 
-const allRolesOption = "__all_roles__";
+const defaultStudioRole = "Product Management";
 
 function formatRoleLabel(value: string) {
-  return value === allRolesOption ? "All roles" : value;
+  return value;
 }
 
 function suggestionSourceText(suggestion: RoleArtifactSuggestion) {
   return suggestion.sourceSignals.slice(0, 3).join(" / ");
-}
-
-function getProviderLabel(provider: "local" | "openai" | null) {
-  if (provider === "openai") return "OpenAI recommendations";
-  if (provider === "local") return "Starter catalog";
-  return "Awaiting analysis";
 }
 
 function normalizeRole(value: string | undefined) {
@@ -38,7 +32,7 @@ function normalizeRole(value: string | undefined) {
 
 function roleTextMatches(value: string | undefined, roleFocus: string) {
   const role = normalizeRole(roleFocus);
-  if (!role || role === allRolesOption) return true;
+  if (!role) return true;
 
   const candidate = normalizeRole(value);
   if (!candidate || candidate === "all roles") return false;
@@ -77,11 +71,7 @@ function ArtifactSuggestionCard({
   suggestion: RoleArtifactSuggestion;
 }) {
   return (
-    <button
-      type="button"
-      onClick={() => onUseSuggestion(suggestion)}
-      className="group flex min-h-full flex-col rounded-lg border border-white/10 bg-zinc-950/70 p-5 text-left transition-colors hover:border-emerald-300/35 hover:bg-emerald-300/[0.045] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300/35"
-    >
+    <article className="flex min-h-full flex-col rounded-lg border border-white/10 bg-zinc-950/70 p-5 transition-colors hover:border-emerald-300/35 hover:bg-emerald-300/[0.045]">
       <span className="flex flex-wrap items-center gap-2">
         <span className="rounded-full border border-emerald-300/20 bg-emerald-300/[0.07] px-2.5 py-1 text-[11px] font-medium uppercase tracking-[0.13em] text-emerald-100">
           {suggestion.role}
@@ -110,11 +100,16 @@ function ArtifactSuggestionCard({
         <span className="mt-1 block text-xs leading-5 text-zinc-400">{suggestionSourceText(suggestion)}</span>
       </span>
 
-      <span className="mt-auto flex items-center gap-2 pt-4 text-sm font-medium text-emerald-100">
-        Load brief
-        <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
-      </span>
-    </button>
+      <Button
+        type="button"
+        variant="ghost"
+        className="mt-auto h-auto min-h-10 self-start whitespace-normal px-0 text-left text-emerald-100 hover:bg-transparent hover:text-emerald-50"
+        onClick={() => onUseSuggestion(suggestion)}
+      >
+        Load {suggestion.title}
+        <ArrowRight className="h-4 w-4 shrink-0" />
+      </Button>
+    </article>
   );
 }
 
@@ -218,15 +213,15 @@ function CustomArtifactPanel({
 }
 
 export function ArtifactStudioConsole() {
+  const workbenchRef = useRef<HTMLElement | null>(null);
   const [status, setStatus] = useState<string | null>(null);
-  const [selectedRoleFocus, setSelectedRoleFocus] = useState(allRolesOption);
+  const [selectedRoleFocus, setSelectedRoleFocus] = useState(defaultStudioRole);
   const [suggestions, setSuggestions] = useState<RoleArtifactSuggestion[]>([]);
-  const [suggestionProvider, setSuggestionProvider] = useState<"local" | "openai" | null>(null);
   const [isLoadingSuggestions, setIsLoadingSuggestions] = useState(false);
   const [launchRequest, setLaunchRequest] = useState<RoleArtifactStudioRequest | null>(null);
   const [customTitle, setCustomTitle] = useState("");
   const [customBrief, setCustomBrief] = useState("");
-  const [customRole, setCustomRole] = useState(allRolesOption);
+  const [customRole, setCustomRole] = useState(defaultStudioRole);
   const handleProgramLoadError = useCallback(() => setStatus("Could not refresh saved programs."), []);
   const { programs, selectedProgram, selectedProgramId, setSelectedProgramId } = useProgramCatalog({
     autoSelectFirstProgram: false,
@@ -235,18 +230,20 @@ export function ArtifactStudioConsole() {
   const { getAssignmentForProgram, loaded: assignmentsLoaded } = useCurrentUserAssignments();
   const programOptions = useMemo(() => programsToSlicerOptions(programs, "signal"), [programs]);
   const teamRoles = useMemo(() => normalizeTeamRoles(selectedProgram?.intake.teamRoles), [selectedProgram?.intake.teamRoles]);
-  const roleOptions = useMemo(() => [allRolesOption, ...teamRoles], [teamRoles]);
+  const roleOptions = useMemo(() => (teamRoles.length ? teamRoles : [defaultStudioRole]), [teamRoles]);
 
   useEffect(() => {
+    const fallbackRole = teamRoles[0] ?? defaultStudioRole;
+
     if (!assignmentsLoaded || !selectedProgramId) {
-      setSelectedRoleFocus(allRolesOption);
-      setCustomRole(allRolesOption);
+      setSelectedRoleFocus((current) => (teamRoles.includes(current) ? current : fallbackRole));
+      setCustomRole((current) => (teamRoles.includes(current) ? current : fallbackRole));
       setLaunchRequest(null);
       return;
     }
 
     const assignedRole = getAssignmentForProgram(selectedProgramId)?.role;
-    const nextRole = assignedRole && teamRoles.some((role) => role.toLowerCase() === assignedRole.toLowerCase()) ? assignedRole : allRolesOption;
+    const nextRole = assignedRole && teamRoles.some((role) => role.toLowerCase() === assignedRole.toLowerCase()) ? assignedRole : fallbackRole;
     setSelectedRoleFocus(nextRole);
     setCustomRole(nextRole);
     setLaunchRequest(null);
@@ -255,7 +252,6 @@ export function ArtifactStudioConsole() {
   useEffect(() => {
     setLaunchRequest(null);
     setSuggestions([]);
-    setSuggestionProvider(null);
   }, [selectedProgramId]);
 
   const loadSuggestions = useCallback(async () => {
@@ -276,15 +272,13 @@ export function ArtifactStudioConsole() {
         suggestions: RoleArtifactSuggestion[];
       };
       setSuggestions(payload.suggestions);
-      setSuggestionProvider(payload.provider);
       setStatus(
         payload.provider === "openai"
-          ? "OpenAI recommended artifacts from the latest grounded program context."
-          : "Starter artifact recommendations are ready. OpenAI suggestions will appear when the provider is available."
+          ? "Role-specific artifact briefs are ready from the latest grounded program context."
+          : "Starter artifact recommendations are ready. Richer recommendations will appear when the intelligence platform is available."
       );
     } catch {
       setSuggestions([]);
-      setSuggestionProvider(null);
       setStatus("Could not load artifact recommendations.");
     } finally {
       setIsLoadingSuggestions(false);
@@ -308,6 +302,9 @@ export function ArtifactStudioConsole() {
       sourceLabel: `${suggestion.title} recommendation`
     });
     setStatus(`${suggestion.title} brief loaded. Review or edit the direction, then generate the artifact.`);
+    window.requestAnimationFrame(() => {
+      workbenchRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
   }
 
   function requestCustomArtifact() {
@@ -318,7 +315,7 @@ export function ArtifactStudioConsole() {
 
     const definition = buildCustomRoleArtifactDefinition({
       description: customBrief,
-      role: customRole === allRolesOption ? (selectedRoleFocus === allRolesOption ? "All roles" : selectedRoleFocus) : customRole,
+      role: customRole || selectedRoleFocus,
       title: customTitle
     });
 
@@ -331,6 +328,9 @@ export function ArtifactStudioConsole() {
       sourceLabel: "Custom artifact request"
     });
     setStatus(`${definition.title} custom request loaded. Generate it when the brief is ready.`);
+    window.requestAnimationFrame(() => {
+      workbenchRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
   }
 
   return (
@@ -379,10 +379,9 @@ export function ArtifactStudioConsole() {
               </label>
             </div>
 
-            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            <div className="grid gap-3 sm:grid-cols-3">
               <StudioMetric label="Current program" value={selectedProgram?.intake.programName ?? "Not selected"} />
               <StudioMetric label="Role lens" value={formatRoleLabel(selectedRoleFocus)} />
-              <StudioMetric label="Recommendation source" value={getProviderLabel(suggestionProvider)} />
               <StudioMetric label="Briefs ready" value={selectedProgramId ? String(visibleSuggestions.length) : "0"} />
             </div>
 
@@ -459,12 +458,14 @@ export function ArtifactStudioConsole() {
               roleOptions={roleOptions}
             />
 
-            <RoleArtifactStudioCard
-              key={selectedProgramId}
-              programId={selectedProgramId}
-              roleFocus={selectedRoleFocus}
-              launchRequest={launchRequest}
-            />
+            <section ref={workbenchRef} className="scroll-mt-24">
+              <RoleArtifactStudioCard
+                key={selectedProgramId}
+                programId={selectedProgramId}
+                roleFocus={selectedRoleFocus}
+                launchRequest={launchRequest}
+              />
+            </section>
           </section>
         )}
       </div>

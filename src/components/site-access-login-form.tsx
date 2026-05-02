@@ -79,7 +79,7 @@ export function SiteAccessLoginForm({
     <main className="mx-auto flex min-h-[calc(100vh-12rem)] max-w-7xl items-center px-4 py-16 sm:px-6 lg:px-8">
       <div className="grid w-full gap-10 lg:grid-cols-[minmax(0,1.15fr)_minmax(24rem,30rem)] lg:items-center">
         <LoginBrandMark
-          title="Find True North"
+          title="Welcome to North Star"
           subtitle="Where people, intelligence, and data move as one."
         />
         <Card className="w-full bg-zinc-950/85">

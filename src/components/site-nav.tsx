@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Bot, ChevronDown, LogOut, Menu, UserRound, X } from "lucide-react";
+import { Bot, ChevronDown, LogOut, Menu, Settings, UserRound, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { AnimatedNorthStarMark } from "@/components/login-brand-mark";
 import { useCurrentUserAssignments } from "@/hooks/use-current-user-assignments";
@@ -17,12 +17,11 @@ type NavItem = {
 };
 
 const navItems: NavItem[] = [
-  { label: "Console", href: "/" },
+  { label: "Quick Start", href: "/" },
   { label: "Programs", href: "/active-program", activePaths: ["/active-program", "/new-program"] },
   { label: "Guided Plans", href: "/systems" },
   { label: "Studio", href: "/artifacts" },
   { label: "Client Portal", href: "/client" },
-  { label: "Admin", href: "/admin" },
   { label: "Leadership", href: "/leadership" }
 ];
 
@@ -110,6 +109,7 @@ function CurrentUserMenu({ className, mobile = false }: { className?: string; mo
 export function SiteNav() {
   const pathname = usePathname();
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const adminIsActive = pathname === "/admin" || pathname === "/governance";
 
   useEffect(() => {
     setMobileNavOpen(false);
@@ -146,6 +146,21 @@ export function SiteNav() {
               </Button>
               );
             })}
+            <Button
+              asChild
+              variant="ghost"
+              size="sm"
+              aria-label="Admin console"
+              title="Admin console"
+              className={cn(
+                "ml-1 h-9 w-9 px-0 text-emerald-200/75 hover:text-emerald-100",
+                adminIsActive && "bg-emerald-300/[0.08] text-emerald-100"
+              )}
+            >
+              <Link href="/admin">
+                <Settings className="h-4 w-4" />
+              </Link>
+            </Button>
           </div>
           <div className="flex items-center gap-2">
             <Button asChild size="sm" className="hidden sm:inline-flex">
@@ -190,6 +205,19 @@ export function SiteNav() {
               </Button>
               );
             })}
+            <Button
+              asChild
+              variant="ghost"
+              className={cn(
+                "justify-start text-emerald-200/80 hover:text-emerald-100",
+                adminIsActive && "bg-emerald-300/[0.08] text-emerald-100"
+              )}
+            >
+              <Link href="/admin">
+                <Settings className="h-4 w-4" />
+                Settings
+              </Link>
+            </Button>
             <Button asChild className="mt-2">
               <Link href="/assistant">
                 <Bot className="h-4 w-4" />

@@ -14,7 +14,6 @@ import {
   ListChecks,
   MessageSquareText,
   RefreshCcw,
-  ShieldCheck,
   UsersRound
 } from "lucide-react";
 
@@ -56,17 +55,17 @@ const workflowSteps = [
     label: "Studio",
     title: "Create role-ready work products",
     detail:
-      "Use AI-recommended artifact briefs or request a custom artifact, then generate, refine, version, and copy role-specific outputs.",
+      "Use recommended artifact briefs or request a custom artifact, then generate, refine, version, and copy role-specific outputs.",
     outcome: "Reusable work products that help each role move from guidance to execution."
   },
   {
     href: "/assistant",
     icon: MessageSquareText,
     label: "Guide",
-    title: "Pressure-test with program-aware AI",
+    title: "Pressure-test with program-aware intelligence",
     detail:
       "Select the active program, ask targeted questions, and keep the conversation anchored to the same context that informs plans and artifacts.",
-    outcome: "AI dialogue that learns from the program rather than answering generically."
+    outcome: "Program-grounded dialogue that sharpens the next move."
   },
   {
     href: "/leadership",
@@ -76,15 +75,6 @@ const workflowSteps = [
     detail:
       "Leaders review posture, progress, and delivery risk, then submit sponsor guidance that is interpreted and folded back into the plan.",
     outcome: "Executive signal translated into team action."
-  },
-  {
-    href: "/admin",
-    icon: ShieldCheck,
-    label: "Admin",
-    title: "Govern the intelligence loop",
-    detail:
-      "Manage users, review flagged justifications by program, approve or deny corrections, and keep one program's context from influencing another.",
-    outcome: "Role-aware access and cleaner guidance quality by program."
   }
 ];
 
@@ -101,8 +91,8 @@ const intelligenceLayers = [
   },
   {
     icon: BrainCircuit,
-    title: "AI intelligence",
-    detail: "OpenAI synthesis that turns grounded context into guidance, artifacts, prompts, summaries, and recommended next moves."
+    title: "Intelligence platform",
+    detail: "Program-grounded synthesis that turns context into guidance, artifacts, prompts, summaries, and recommended next moves."
   }
 ];
 
@@ -121,7 +111,7 @@ const refreshSources = [
   "Risks, blockers, decisions, and support requests",
   "Meeting recordings, notes, and recurring meeting context",
   "Guide conversations tied to the selected program",
-  "Leadership feedback and Admin rulings",
+  "Leadership feedback and approved guidance corrections",
   "Team role changes that reshape action plans and artifacts"
 ];
 
@@ -170,10 +160,10 @@ export function CommandCenterGrid({ metrics }: { metrics: DashboardMetrics }) {
     <section id="how-to-use" className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
       <div className="mb-10 grid gap-6 lg:grid-cols-[minmax(0,0.9fr)_minmax(22rem,0.55fr)] lg:items-end">
         <div className="max-w-3xl">
-          <p className="mb-3 text-xs font-medium uppercase tracking-[0.22em] text-emerald-300">How NorthStar creates value</p>
-          <h2 className="text-3xl font-semibold text-zinc-50 md:text-4xl">An intelligence hub for moving work forward.</h2>
+          <p className="mb-3 text-xs font-medium uppercase tracking-[0.22em] text-emerald-300">How North Star creates value</p>
+          <h2 className="text-3xl font-semibold text-zinc-50 md:text-4xl">How to use North Star in the right order.</h2>
           <p className="mt-4 text-sm leading-7 text-zinc-400">
-            NorthStar connects expert judgment, program evidence, and AI reasoning so teams can see what changed,
+            North Star connects expert judgment, program evidence, and the intelligence platform so teams can see what changed,
             understand what matters, and act on the right next move.
           </p>
         </div>
