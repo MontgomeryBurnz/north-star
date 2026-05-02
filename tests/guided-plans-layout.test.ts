@@ -29,8 +29,8 @@ test("Artifact Studio output keeps generated detail compact and export-first", (
 
   assert.match(source, /Export DOCX/);
   assert.match(source, /Export CSV/);
-  assert.match(source, /Full export table/);
-  assert.match(source, /Supporting guidance/);
+  assert.match(source, /Generated artifact detail/);
+  assert.match(source, /Inputs behind this artifact/);
   assert.doesNotMatch(source, /Artifact preview/);
   assert.doesNotMatch(source, /Executive snapshot/);
   assert.match(source, /xl:grid-cols-\[minmax\(0,1fr\)_300px\]/);
@@ -43,6 +43,8 @@ test("Studio recommendations use a full-width brief browser", () => {
   assert.match(source, /Recommended briefs/);
   assert.match(source, /buildStarterSuggestion/);
   assert.match(source, /Refresh intelligence/);
+  assert.match(source, /Select a role to continue/);
+  assert.match(source, /Select a program first/);
   assert.match(source, /data-studio-suggestions/);
   assert.match(source, /lg:grid-cols-2 2xl:grid-cols-3/);
   assert.match(source, /Load \{suggestion\.title\}/);
@@ -50,6 +52,7 @@ test("Studio recommendations use a full-width brief browser", () => {
   assert.doesNotMatch(source, /void loadSuggestions\(\);\s*\n\s*}, \[loadSuggestions\]/);
   assert.doesNotMatch(source, /Recommendation source/);
   assert.doesNotMatch(source, /All roles/);
+  assert.doesNotMatch(source, /defaultStudioRole/);
   assert.doesNotMatch(source, /xl:grid-cols-\[430px_minmax\(0,1fr\)\]/);
   assert.doesNotMatch(source, /xl:sticky xl:top-24/);
 });
@@ -68,6 +71,7 @@ test("Studio role filtering is enforced after OpenAI recommendations return", ()
   assert.match(generationSource, /Avoid repeating the same context/);
   assert.match(workbenchSource, /Artifact type/);
   assert.match(workbenchSource, /ArtifactCatalogSelect/);
+  assert.doesNotMatch(workbenchSource, /roleFocus = "Product Management"/);
   assert.doesNotMatch(workbenchSource, /ArtifactDefinitionButton/);
 });
 

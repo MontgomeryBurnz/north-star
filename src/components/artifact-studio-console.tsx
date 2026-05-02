@@ -18,8 +18,6 @@ import { ProgramSlicer } from "@/components/program-slicer";
 import { RoleArtifactStudioCard, type RoleArtifactStudioRequest } from "@/components/role-artifact-studio-card";
 import { SectionHeader } from "@/components/section-header";
 
-const defaultStudioRole = "Product Management";
-
 function formatRoleLabel(value: string) {
   return value;
 }
@@ -240,13 +238,13 @@ function CustomArtifactPanel({
 export function ArtifactStudioConsole() {
   const workbenchRef = useRef<HTMLElement | null>(null);
   const [status, setStatus] = useState<string | null>(null);
-  const [selectedRoleFocus, setSelectedRoleFocus] = useState(defaultStudioRole);
+  const [selectedRoleFocus, setSelectedRoleFocus] = useState("");
   const [suggestions, setSuggestions] = useState<RoleArtifactSuggestion[]>([]);
   const [isLoadingSuggestions, setIsLoadingSuggestions] = useState(false);
   const [launchRequest, setLaunchRequest] = useState<RoleArtifactStudioRequest | null>(null);
   const [customTitle, setCustomTitle] = useState("");
   const [customBrief, setCustomBrief] = useState("");
-  const [customRole, setCustomRole] = useState(defaultStudioRole);
+  const [customRole, setCustomRole] = useState("");
   const handleProgramLoadError = useCallback(() => setStatus("Could not refresh saved programs."), []);
   const { programs, selectedProgram, selectedProgramId, setSelectedProgramId } = useProgramCatalog({
     autoSelectFirstProgram: false,
@@ -255,9 +253,10 @@ export function ArtifactStudioConsole() {
   const { getAssignmentForProgram, loaded: assignmentsLoaded } = useCurrentUserAssignments();
   const programOptions = useMemo(() => programsToSlicerOptions(programs, "signal"), [programs]);
   const teamRoles = useMemo(() => normalizeTeamRoles(selectedProgram?.intake.teamRoles), [selectedProgram?.intake.teamRoles]);
-  const roleOptions = useMemo(() => (teamRoles.length ? teamRoles : [defaultStudioRole]), [teamRoles]);
+  const roleOptions = useMemo(() => (selectedProgramId ? teamRoles : []), [selectedProgramId, teamRoles]);
+  const isRoleSelectionDisabled = !selectedProgramId || roleOptions.length === 0;
   const starterSuggestions = useMemo(() => {
-    if (!selectedProgramId) return [];
+    if (!selectedProgramId || !selectedRoleFocus) return [];
 
     return roleArtifactDefinitions
       .filter((definition) => definitionMatchesRole(definition, selectedRoleFocus))
@@ -265,19 +264,20 @@ export function ArtifactStudioConsole() {
   }, [selectedProgram?.intake.programName, selectedProgramId, selectedRoleFocus]);
 
   useEffect(() => {
-    const fallbackRole = teamRoles[0] ?? defaultStudioRole;
-
-    if (!assignmentsLoaded || !selectedProgramId) {
-      setSelectedRoleFocus((current) => (teamRoles.includes(current) ? current : fallbackRole));
-      setCustomRole((current) => (teamRoles.includes(current) ? current : fallbackRole));
+    if (!selectedProgramId) {
+      setSelectedRoleFocus("");
+      setCustomRole("");
       setLaunchRequest(null);
       return;
     }
 
     const assignedRole = getAssignmentForProgram(selectedProgramId)?.role;
-    const nextRole = assignedRole && teamRoles.some((role) => role.toLowerCase() === assignedRole.toLowerCase()) ? assignedRole : fallbackRole;
-    setSelectedRoleFocus(nextRole);
-    setCustomRole(nextRole);
+    const assignedRoleMatch = assignedRole
+      ? teamRoles.find((role) => role.toLowerCase() === assignedRole.toLowerCase())
+      : undefined;
+
+    setSelectedRoleFocus((current) => (teamRoles.includes(current) ? current : assignedRoleMatch ?? ""));
+    setCustomRole((current) => (teamRoles.includes(current) ? current : assignedRoleMatch ?? ""));
     setLaunchRequest(null);
   }, [assignmentsLoaded, getAssignmentForProgram, selectedProgramId, teamRoles]);
 
@@ -292,12 +292,22 @@ export function ArtifactStudioConsole() {
       return;
     }
 
+    if (!selectedRoleFocus) {
+      setSuggestions([]);
+      setStatus("Select a role to open tailored artifact briefs for the selected program.");
+      return;
+    }
+
     setSuggestions(starterSuggestions);
     setStatus(`${formatRoleLabel(selectedRoleFocus)} starter briefs are ready. Refresh intelligence briefs when you want North Star to re-analyze the latest program signal.`);
   }, [selectedProgramId, selectedRoleFocus, starterSuggestions]);
 
   const loadSuggestions = useCallback(async () => {
     if (!selectedProgramId) return;
+    if (!selectedRoleFocus) {
+      setStatus("Select a role before refreshing intelligence briefs.");
+      return;
+    }
 
     setIsLoadingSuggestions(true);
     setStatus("Refreshing intelligence briefs from the latest program signal...");
@@ -346,6 +356,11 @@ export function ArtifactStudioConsole() {
   }
 
   function requestCustomArtifact() {
+    if (!selectedRoleFocus && !customRole) {
+      setStatus("Select a role before loading a custom artifact request.");
+      return;
+    }
+
     if (!customTitle.trim()) {
       setStatus("Name the custom artifact before loading it into the studio.");
       return;
@@ -398,14 +413,18 @@ export function ArtifactStudioConsole() {
                 <span className="relative block">
                   <select
                     value={selectedRoleFocus}
+                    disabled={isRoleSelectionDisabled}
                     onChange={(event) => {
                       const nextRole = event.target.value;
                       setSelectedRoleFocus(nextRole);
                       setCustomRole(nextRole);
                       setLaunchRequest(null);
                     }}
-                    className="h-12 w-full appearance-none rounded-md border border-white/10 bg-zinc-950 px-3 pr-10 text-sm text-zinc-100 outline-none transition-colors focus:border-emerald-300/50 focus:ring-2 focus:ring-emerald-300/15"
+                    className="h-12 w-full appearance-none rounded-md border border-white/10 bg-zinc-950 px-3 pr-10 text-sm text-zinc-100 outline-none transition-colors disabled:cursor-not-allowed disabled:text-zinc-600 focus:border-emerald-300/50 focus:ring-2 focus:ring-emerald-300/15"
                   >
+                    <option value="" disabled>
+                      {!selectedProgramId ? "Select a program first..." : roleOptions.length ? "Select a role..." : "No roles configured"}
+                    </option>
                     {roleOptions.map((role) => (
                       <option key={role} value={role}>
                         {formatRoleLabel(role)}
@@ -419,8 +438,8 @@ export function ArtifactStudioConsole() {
 
             <div className="grid gap-3 sm:grid-cols-3">
               <StudioMetric label="Current program" value={selectedProgram?.intake.programName ?? "Not selected"} />
-              <StudioMetric label="Role lens" value={formatRoleLabel(selectedRoleFocus)} />
-              <StudioMetric label="Briefs ready" value={selectedProgramId ? String(visibleSuggestions.length) : "0"} />
+              <StudioMetric label="Role lens" value={selectedRoleFocus ? formatRoleLabel(selectedRoleFocus) : "Select role"} />
+              <StudioMetric label="Briefs ready" value={selectedProgramId && selectedRoleFocus ? String(visibleSuggestions.length) : "Select role"} />
             </div>
 
             <div className="rounded-md border border-emerald-300/20 bg-emerald-300/[0.045] p-3">
@@ -450,7 +469,7 @@ export function ArtifactStudioConsole() {
                       Start from the role catalog, then refresh intelligence briefs when the latest program signal should reshape the recommendations.
                     </p>
                   </div>
-                  <Button type="button" variant="outline" size="sm" onClick={() => void loadSuggestions()} disabled={isLoadingSuggestions}>
+                  <Button type="button" variant="outline" size="sm" onClick={() => void loadSuggestions()} disabled={isLoadingSuggestions || !selectedRoleFocus}>
                     {isLoadingSuggestions ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
                     Refresh intelligence
                   </Button>
@@ -458,7 +477,17 @@ export function ArtifactStudioConsole() {
               </CardHeader>
               <CardContent className="grid gap-4 p-4 sm:p-5">
                 {status ? <p className="text-sm leading-6 text-zinc-400">{status}</p> : null}
-                {isLoadingSuggestions ? (
+                {!selectedRoleFocus ? (
+                  <div className="grid min-h-44 place-items-center rounded-md border border-dashed border-white/10 bg-white/[0.025] p-6 text-center">
+                    <div>
+                      <Sparkles className="mx-auto h-6 w-6 text-emerald-200" />
+                      <p className="mt-3 text-sm font-semibold text-zinc-100">Select a role to continue.</p>
+                      <p className="mt-2 max-w-md text-sm leading-6 text-zinc-500">
+                        Studio recommendations are role-specific. Choose the role that should own or refine the work product.
+                      </p>
+                    </div>
+                  </div>
+                ) : isLoadingSuggestions ? (
                   <div className="grid min-h-44 place-items-center rounded-md border border-white/10 bg-white/[0.025] p-6 text-center">
                     <div>
                       <Loader2 className="mx-auto h-6 w-6 animate-spin text-emerald-200" />
@@ -483,26 +512,30 @@ export function ArtifactStudioConsole() {
               </CardContent>
             </Card>
 
-            <section ref={workbenchRef} className="scroll-mt-24">
-              <RoleArtifactStudioCard
-                key={selectedProgramId}
-                programId={selectedProgramId}
-                roleFocus={selectedRoleFocus}
-                launchRequest={launchRequest}
-              />
-            </section>
+            {selectedRoleFocus ? (
+              <>
+                <section ref={workbenchRef} className="scroll-mt-24">
+                  <RoleArtifactStudioCard
+                    key={`${selectedProgramId}-${selectedRoleFocus}`}
+                    programId={selectedProgramId}
+                    roleFocus={selectedRoleFocus}
+                    launchRequest={launchRequest}
+                  />
+                </section>
 
-            <CustomArtifactPanel
-              customBrief={customBrief}
-              customRole={customRole}
-              customTitle={customTitle}
-              disabled={!selectedProgramId}
-              onBriefChange={setCustomBrief}
-              onRequest={requestCustomArtifact}
-              onRoleChange={setCustomRole}
-              onTitleChange={setCustomTitle}
-              roleOptions={roleOptions}
-            />
+                <CustomArtifactPanel
+                  customBrief={customBrief}
+                  customRole={customRole || selectedRoleFocus}
+                  customTitle={customTitle}
+                  disabled={!selectedProgramId}
+                  onBriefChange={setCustomBrief}
+                  onRequest={requestCustomArtifact}
+                  onRoleChange={setCustomRole}
+                  onTitleChange={setCustomTitle}
+                  roleOptions={roleOptions}
+                />
+              </>
+            ) : null}
           </section>
         )}
       </div>

@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useState } from "react";
 import {
-  ArrowRight,
   ChevronDown,
   ClipboardList,
   Copy,
@@ -234,7 +233,6 @@ function ArtifactDetailTable({ table }: { table: RoleArtifactDraft["tables"][num
 
 function ArtifactOutput({ artifact }: { artifact: RoleArtifactDraft }) {
   const totalRows = artifact.tables.reduce((total, table) => total + table.rows.length, 0);
-  const supportingItemCount = artifact.sections.reduce((total, section) => total + section.items.length, 0);
 
   return (
     <div className="grid gap-4">
@@ -259,42 +257,13 @@ function ArtifactOutput({ artifact }: { artifact: RoleArtifactDraft }) {
         </div>
       </div>
 
-      {artifact.sections.length ? (
-        <details className="rounded-md border border-white/10 bg-white/[0.03] p-3">
-          <summary className="flex cursor-pointer list-none flex-wrap items-center justify-between gap-3">
-            <span>
-              <span className="block text-xs font-medium uppercase tracking-[0.16em] text-zinc-300">Supporting guidance</span>
-              <span className="mt-1 block text-xs leading-5 text-zinc-500">
-                {supportingItemCount} notes across {artifact.sections.length} sections. Open only when the team needs generation rationale or refinement prompts.
-              </span>
-            </span>
-            <span className="rounded-full border border-white/10 px-2 py-0.5 text-[11px] uppercase tracking-[0.12em] text-zinc-500">
-              View notes
-            </span>
-          </summary>
-          <div className="mt-3 grid gap-3 border-t border-white/10 pt-3 md:grid-cols-2">
-            {artifact.sections.map((section) => (
-              <div key={section.title} className="rounded-md border border-white/10 bg-black/20 p-3">
-                <p className="text-xs font-medium uppercase tracking-[0.16em] text-zinc-300">{section.title}</p>
-                <div className="mt-3 grid gap-2">
-                  {section.items.map((item) => (
-                    <p key={item} className="grid grid-cols-[auto_minmax(0,1fr)] gap-2 text-sm leading-6 text-zinc-300">
-                      <ArrowRight className="mt-1 h-4 w-4 shrink-0 text-cyan-200" />
-                      <span>{item}</span>
-                    </p>
-                  ))}
-                </div>
-              </div>
-            ))}
-          </div>
-        </details>
-      ) : null}
-
       <details className="rounded-md border border-cyan-300/15 bg-cyan-300/[0.035] p-3">
         <summary className="flex cursor-pointer list-none flex-wrap items-center justify-between gap-3">
           <span>
-            <span className="block text-xs font-medium uppercase tracking-[0.16em] text-cyan-100">Source grounding</span>
-            <span className="mt-1 block text-xs leading-5 text-zinc-500">{summarizeCell(artifact.sourceSummary, 130)}</span>
+            <span className="block text-xs font-medium uppercase tracking-[0.16em] text-cyan-100">Inputs behind this artifact</span>
+            <span className="mt-1 block text-xs leading-5 text-zinc-500">
+              Open to see which program signals grounded this output.
+            </span>
           </span>
           <span className="rounded-full border border-cyan-200/20 px-2 py-0.5 text-[11px] uppercase tracking-[0.12em] text-cyan-100">
             View
@@ -305,8 +274,8 @@ function ArtifactOutput({ artifact }: { artifact: RoleArtifactDraft }) {
 
       <section className="grid gap-3">
         <div>
-          <p className="text-xs font-medium uppercase tracking-[0.16em] text-zinc-500">Full export table</p>
-          <p className="mt-1 text-sm text-zinc-400">Collapsed by default so the studio stays readable after generation.</p>
+          <p className="text-xs font-medium uppercase tracking-[0.16em] text-zinc-500">Generated artifact detail</p>
+          <p className="mt-1 text-sm text-zinc-400">Open the structured table only when you need to review or export the full detail.</p>
         </div>
         {artifact.tables.map((table) => (
           <ArtifactDetailTable key={table.title} table={table} />
@@ -343,7 +312,7 @@ function getDefaultDefinition(roleFocus: string | undefined) {
 export function RoleArtifactStudioCard({
   launchRequest,
   programId,
-  roleFocus = "Product Management"
+  roleFocus
 }: {
   launchRequest?: RoleArtifactStudioRequest | null;
   programId: string;
