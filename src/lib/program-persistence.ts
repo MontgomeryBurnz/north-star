@@ -27,6 +27,7 @@ export function createFileProgramPersistence(): Pick<
   | "listProgramUpdates"
   | "listAllProgramUpdates"
   | "createProgramUpdate"
+  | "deleteProgramUpdatesByTag"
   | "listAssistantConversations"
   | "createAssistantConversation"
   | "listMeetingInputs"
@@ -101,6 +102,25 @@ export function createFileProgramPersistence(): Pick<
       store.programs = store.programs.map((item) => (item.id === programId ? { ...item, updatedAt: now } : item));
       await writeFileStore(store);
       return update;
+    },
+    async deleteProgramUpdatesByTag(programId, tag) {
+      const normalizedTag = tag.trim();
+      if (!normalizedTag) return 0;
+
+      const store = await readFileStore();
+      const nextUpdates = store.updates.filter((update) => {
+        if (update.programId !== programId) return true;
+        return !JSON.stringify(update.review).includes(normalizedTag);
+      });
+      const deletedCount = store.updates.length - nextUpdates.length;
+
+      if (!deletedCount) return 0;
+
+      const now = new Date().toISOString();
+      store.updates = nextUpdates;
+      store.programs = store.programs.map((item) => (item.id === programId ? { ...item, updatedAt: now } : item));
+      await writeFileStore(store);
+      return deletedCount;
     },
     async listAssistantConversations(programId) {
       const store = await readFileStore();
@@ -293,6 +313,27 @@ export function createPostgresProgramPersistence(
       );
       await getPool().query("UPDATE programs SET updated_at = $2 WHERE id = $1", [programId, now]);
       return update;
+    },
+    async deleteProgramUpdatesByTag(programId, tag) {
+      await ensurePostgresSchema();
+      const normalizedTag = tag.trim();
+      if (!normalizedTag) return 0;
+
+      const result = await getPool().query(
+        `
+          DELETE FROM program_updates
+          WHERE program_id = $1
+            AND review::text LIKE $2
+        `,
+        [programId, `%${normalizedTag}%`]
+      );
+
+      const deletedCount = result.rowCount ?? 0;
+      if (deletedCount) {
+        await getPool().query("UPDATE programs SET updated_at = $2 WHERE id = $1", [programId, new Date()]);
+      }
+
+      return deletedCount;
     },
     async listAssistantConversations(programId) {
       await ensurePostgresSchema();

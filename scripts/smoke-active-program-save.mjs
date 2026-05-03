@@ -8,6 +8,10 @@ const testUserEmail = process.env.NORTHSTAR_TEST_USER_EMAIL ?? process.env.NORTH
 const testUserPassword = process.env.NORTHSTAR_TEST_USER_PASSWORD ?? process.env.NORTHSTAR_USER_PASSWORD;
 const targetProgramName = process.env.NORTHSTAR_SMOKE_PROGRAM_NAME ?? "";
 const targetRoleName = process.env.NORTHSTAR_SMOKE_ACTIVE_ROLE ?? "";
+const cleanupMode = (process.env.NORTHSTAR_SMOKE_CLEANUP ?? "off").toLowerCase();
+const shouldCleanup = ["1", "true", "prune", "refresh"].includes(cleanupMode);
+const shouldRefreshAfterCleanup =
+  cleanupMode === "refresh" || process.env.NORTHSTAR_SMOKE_REFRESH_AFTER_CLEANUP === "true";
 
 function requireCredential(value, label) {
   if (value) return value;
@@ -212,13 +216,65 @@ async function saveRoleSignal(session, program) {
   }
 
   console.log(`✓ Active Program: saved ${selectedRole} weekly signal for ${program.label}.`);
+  return { role: selectedRole, tag: smokeText };
+}
+
+async function cleanupRoleSignal(session, program, savedSignal) {
+  if (!shouldCleanup) {
+    console.log("ℹ Active Program smoke cleanup skipped. Set NORTHSTAR_SMOKE_CLEANUP=prune or refresh to remove tagged test updates.");
+    return;
+  }
+
+  const result = await session.execute(
+    `
+      return fetch("/api/programs/" + encodeURIComponent(arguments[0]) + "/updates", {
+        method: "DELETE",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          tag: arguments[1],
+          refreshGuidance: arguments[2]
+        })
+      }).then(async (response) => ({
+        ok: response.ok,
+        status: response.status,
+        payload: await response.json().catch(() => ({}))
+      }));
+    `,
+    [program.id, savedSignal.tag, shouldRefreshAfterCleanup]
+  );
+
+  if (!result.ok) {
+    throw new Error(`Active Program smoke cleanup failed with HTTP ${result.status}: ${JSON.stringify(result.payload)}`);
+  }
+
+  const deletedCount = result.payload?.deletedCount ?? 0;
+  if (deletedCount < 1) {
+    throw new Error(`Active Program smoke cleanup did not prune the tagged update for ${savedSignal.role}.`);
+  }
+
+  const stillPresent = await session.execute(
+    `
+      return fetch("/api/programs/" + encodeURIComponent(arguments[0]) + "/updates", { cache: "no-store" })
+        .then((response) => response.ok ? response.json() : Promise.reject(new Error(String(response.status))))
+        .then((payload) => payload.updates.some((update) => JSON.stringify(update.review).includes(arguments[1])));
+    `,
+    [program.id, savedSignal.tag]
+  );
+
+  if (stillPresent) {
+    throw new Error(`Active Program smoke cleanup left the tagged update visible in history for ${savedSignal.role}.`);
+  }
+
+  const refreshMessage = shouldRefreshAfterCleanup ? " and refreshed guidance" : "";
+  console.log(`✓ Active Program: pruned ${deletedCount} tagged smoke update${deletedCount === 1 ? "" : "s"}${refreshMessage}.`);
 }
 
 async function main() {
   await withSafariBrowser(async (session) => {
     await authenticate(session);
     const program = await selectProgram(session);
-    await saveRoleSignal(session, program);
+    const savedSignal = await saveRoleSignal(session, program);
+    await cleanupRoleSignal(session, program, savedSignal);
   });
 
   console.log("Active Program save browser smoke test passed.");

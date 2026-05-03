@@ -210,6 +210,10 @@ test("Active Program review is split into state, cockpit, and team signal flows"
   const reviewSectionSource = readFileSync(new URL("../src/components/active-program-review-section.tsx", import.meta.url), "utf8");
   const reviewControllerSource = readFileSync(new URL("../src/hooks/use-active-program-review-controller.ts", import.meta.url), "utf8");
   const reviewModelSource = readFileSync(new URL("../src/components/active-program-review-model.ts", import.meta.url), "utf8");
+  const routeSource = readFileSync(new URL("../src/app/api/programs/[id]/updates/route.ts", import.meta.url), "utf8");
+  const repositoryTypesSource = readFileSync(new URL("../src/lib/program-repository-types.ts", import.meta.url), "utf8");
+  const programPersistenceSource = readFileSync(new URL("../src/lib/program-persistence.ts", import.meta.url), "utf8");
+  const storeSource = readFileSync(new URL("../src/lib/program-store.ts", import.meta.url), "utf8");
   const stateFlowSource = readFileSync(new URL("../src/components/active-program-state-flow.tsx", import.meta.url), "utf8");
   const cockpitFlowSource = readFileSync(new URL("../src/components/active-program-cockpit-flow.tsx", import.meta.url), "utf8");
   const teamSignalFlowSource = readFileSync(new URL("../src/components/active-program-team-signal-flow.tsx", import.meta.url), "utf8");
@@ -230,6 +234,12 @@ test("Active Program review is split into state, cockpit, and team signal flows"
   assert.match(reviewControllerSource, /useRequestSequence/);
   assert.match(reviewControllerSource, /useForegroundRefresh/);
   assert.match(reviewControllerSource, /useCurrentUserAssignments/);
+  assert.match(routeSource, /export async function DELETE/);
+  assert.match(routeSource, /Only tagged Active Program smoke updates can be pruned/);
+  assert.match(routeSource, /deleteProgramUpdatesByTag/);
+  assert.match(repositoryTypesSource, /deleteProgramUpdatesByTag/);
+  assert.match(programPersistenceSource, /review::text LIKE/);
+  assert.match(storeSource, /export async function deleteProgramUpdatesByTag/);
   assert.match(reviewModelSource, /export function normalizeReview/);
   assert.match(stateFlowSource, /ActiveProgramStateCard/);
   assert.match(cockpitFlowSource, /ActiveProgramCockpitCard/);
@@ -244,6 +254,9 @@ test("Active Program review is split into state, cockpit, and team signal flows"
   assert.match(activeProgramSaveSmokeSource, /data-active-role-signal-card/);
   assert.match(activeProgramSaveSmokeSource, /data-active-program-save-confirmation/);
   assert.match(activeProgramSaveSmokeSource, /encodeURIComponent\(arguments\[0\]\)/);
+  assert.match(activeProgramSaveSmokeSource, /NORTHSTAR_SMOKE_CLEANUP/);
+  assert.match(activeProgramSaveSmokeSource, /method: "DELETE"/);
+  assert.match(activeProgramSaveSmokeSource, /refreshGuidance/);
 });
 
 test("Guide dialogue and client decisions write audit events", () => {

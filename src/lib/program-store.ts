@@ -39,6 +39,10 @@ export async function createProgramUpdate(programId: string, review: ActiveProgr
   return getProgramRepository().createProgramUpdate(programId, review);
 }
 
+export async function deleteProgramUpdatesByTag(programId: string, tag: string) {
+  return getProgramRepository().deleteProgramUpdatesByTag(programId, tag);
+}
+
 export async function listAssistantConversations(programId: string) {
   return getProgramRepository().listAssistantConversations(programId);
 }

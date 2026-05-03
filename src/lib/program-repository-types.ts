@@ -25,6 +25,7 @@ export type ProgramRepository = {
   listProgramUpdates(programId: string): Promise<StoredProgramUpdate[]>;
   listAllProgramUpdates(): Promise<StoredProgramUpdate[]>;
   createProgramUpdate(programId: string, review: ActiveProgramReview): Promise<StoredProgramUpdate>;
+  deleteProgramUpdatesByTag(programId: string, tag: string): Promise<number>;
   listAssistantConversations(programId: string): Promise<AssistantConversationTurn[]>;
   createAssistantConversation(programId: string, prompt: string, response: AssistantServiceResponse): Promise<AssistantConversationTurn>;
   getLatestGuidedPlan(programId: string): Promise<GuidedPlan | null>;
