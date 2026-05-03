@@ -34,9 +34,6 @@ type ActiveProgramTeamSignalFlowProps = {
   artifacts: ProgramArtifact[];
   latestUpdate?: ActiveProgramUpdate;
   leadershipSignal: DeliveryLeadershipSignal | null;
-  programSynthesis: Array<{ label: string; value: string }>;
-  completion: number;
-  updateImpact: Array<{ label: string; value: string }>;
   selectedProgramHistory: ActiveProgramUpdate[];
   meetingInputs: ProgramMeetingInput[];
   savedAt: string | null;
@@ -70,9 +67,6 @@ export function ActiveProgramTeamSignalFlow({
   artifacts,
   latestUpdate,
   leadershipSignal,
-  programSynthesis,
-  completion,
-  updateImpact,
   selectedProgramHistory,
   meetingInputs,
   savedAt,
@@ -143,11 +137,9 @@ export function ActiveProgramTeamSignalFlow({
       </div>
 
       <ActiveProgramSidebar
+        artifacts={artifacts}
         latestUpdate={latestUpdate}
         leadershipSignal={leadershipSignal}
-        programSynthesis={programSynthesis}
-        completion={completion}
-        updateImpact={updateImpact}
         selectedProgramHistory={selectedProgramHistory}
         meetingInputs={meetingInputs}
         formatTimestamp={formatTimestamp}

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { CheckCircle2, ChevronDown, RefreshCw, Save, Users2 } from "lucide-react";
+import { AlertTriangle, CheckCircle2, ChevronDown, Clock3, GitPullRequestArrow, RefreshCw, Save, Users2 } from "lucide-react";
 import type { TeamRoleUpdate, TeamRoleUpdateStatus } from "@/lib/active-program-types";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -44,6 +44,14 @@ function firstRoleSignal(roleUpdate: TeamRoleUpdate) {
     roleUpdate.supportNeeded.trim() ||
     roleUpdate.changesObserved.trim()
   );
+}
+
+function countSignals(...values: string[]) {
+  return values
+    .join("\n")
+    .split(/\r?\n/)
+    .map((value) => value.trim())
+    .filter(Boolean).length;
 }
 
 type ActiveProgramTeamUpdatesCardProps = {
@@ -109,10 +117,9 @@ export function ActiveProgramTeamUpdatesCard({
 
     setExpandedRole((current) => {
       if (current && availableRoleKeys.has(normalizeRoleKey(current))) return current;
-      if (defaultFocusRole && availableRoleKeys.has(defaultFocusRoleKey)) return defaultFocusRole;
       return null;
     });
-  }, [defaultFocusRole, defaultFocusRoleKey, roleKeysSignature]);
+  }, [roleKeysSignature]);
   const ownershipStatus =
     ownershipSaveState === "saving"
       ? "Saving..."
@@ -216,9 +223,9 @@ export function ActiveProgramTeamUpdatesCard({
         <div className="grid gap-3">
           <div className="flex flex-wrap items-end justify-between gap-3">
             <div>
-              <p className="text-sm font-medium text-zinc-100">Weekly role signal</p>
+              <p className="text-sm font-medium text-zinc-100">Role lanes</p>
               <p className="mt-1 text-xs leading-5 text-zinc-500">
-                Open one role at a time to capture progress, risk, decisions, or support needs.
+                Each lane shows role status, open risks, decisions, ownership, and the latest signal. Expand only when updating.
               </p>
             </div>
           </div>
@@ -262,13 +269,16 @@ export function ActiveProgramTeamUpdatesCard({
             const isExpanded = expandedRole === roleUpdate.role;
             const statusLabel = roleStatusOptions.find((option) => option.value === roleUpdate.status)?.label ?? "On track";
             const summary = firstRoleSignal(roleUpdate);
+            const openRiskCount = countSignals(roleUpdate.activeRisks, roleUpdate.blockers);
+            const openDecisionCount = countSignals(roleUpdate.decisionsNeeded, roleUpdate.supportNeeded);
+            const lastUpdatedLabel = roleUpdate.lastUpdatedAt ? formatTimestamp(roleUpdate.lastUpdatedAt) : "No update this cycle";
 
             return (
               <div
                 key={roleUpdate.role}
                 data-active-role-signal-card={normalizeRoleKey(roleUpdate.role)}
-                className={`rounded-lg border bg-white/[0.03] transition-colors ${
-                  isExpanded ? "border-cyan-300/25" : "border-white/10"
+                className={`overflow-hidden rounded-lg border bg-white/[0.03] transition-colors ${
+                  isExpanded ? "border-cyan-300/25 shadow-[0_0_24px_rgba(103,232,249,0.08)]" : "border-white/10"
                 }`}
               >
                 <button
@@ -276,7 +286,7 @@ export function ActiveProgramTeamUpdatesCard({
                   data-active-role-signal-toggle={normalizeRoleKey(roleUpdate.role)}
                   aria-expanded={isExpanded}
                   onClick={() => setExpandedRole(isExpanded ? null : roleUpdate.role)}
-                  className="grid w-full gap-3 p-4 text-left sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center"
+                  className="grid w-full gap-4 p-4 text-left lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center"
                 >
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
@@ -294,12 +304,27 @@ export function ActiveProgramTeamUpdatesCard({
                         {hasSaveableSignal ? "Signal captured" : "Awaiting input"}
                       </span>
                     </div>
-                    <p className="mt-2 line-clamp-2 text-sm leading-6 text-zinc-400">
-                      {summary || ownerDisplay || roleUpdate.lastUpdatedAt
-                        ? `${summary || "No weekly signal yet."}${ownerDisplay ? ` Owner: ${ownerDisplay}.` : ""}${
-                            roleUpdate.lastUpdatedAt ? ` Updated ${formatTimestamp(roleUpdate.lastUpdatedAt)}.` : ""
-                          }`
-                        : "No owner or weekly signal captured yet."}
+                    <div className="mt-3 grid gap-3 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
+                      <p className="line-clamp-2 min-w-0 text-sm leading-6 text-zinc-400">
+                        {summary || "No weekly signal captured yet."}
+                      </p>
+                      <div className="grid gap-2 sm:grid-cols-3 lg:min-w-[360px]">
+                        <span className="inline-flex min-h-9 items-center gap-2 rounded-md border border-white/10 bg-black/20 px-3 py-2 text-xs text-zinc-400">
+                          <Clock3 className="h-3.5 w-3.5 text-zinc-500" />
+                          <span className="truncate">{lastUpdatedLabel}</span>
+                        </span>
+                        <span className="inline-flex min-h-9 items-center gap-2 rounded-md border border-amber-300/15 bg-amber-300/[0.055] px-3 py-2 text-xs text-amber-100">
+                          <AlertTriangle className="h-3.5 w-3.5" />
+                          {openRiskCount} risk{openRiskCount === 1 ? "" : "s"}
+                        </span>
+                        <span className="inline-flex min-h-9 items-center gap-2 rounded-md border border-cyan-300/15 bg-cyan-300/[0.055] px-3 py-2 text-xs text-cyan-100">
+                          <GitPullRequestArrow className="h-3.5 w-3.5" />
+                          {openDecisionCount} decision{openDecisionCount === 1 ? "" : "s"}
+                        </span>
+                      </div>
+                    </div>
+                    <p className="mt-2 line-clamp-1 text-xs leading-5 text-zinc-500">
+                      {ownerDisplay ? `Owner: ${ownerDisplay}` : "Owner not mapped"}
                     </p>
                   </div>
                   <div className="flex items-center justify-between gap-3 sm:justify-end">

@@ -9,7 +9,7 @@ import type { DeliveryLeadershipSignal } from "@/lib/leadership-feedback-types";
 import type { ProgramTeamAssignmentSummary } from "@/lib/program-team-assignments";
 import type { ProgramMeetingAttachment, ProgramMeetingInput } from "@/lib/program-intelligence-types";
 import type { ProgramArtifact, ProgramIntake } from "@/lib/program-intake-types";
-import { firstSignal, splitLines } from "@/lib/text-signals";
+import { splitLines } from "@/lib/text-signals";
 import {
   buildCycleMetadata,
   buildFallbackOwnershipSignature,
@@ -246,12 +246,6 @@ export function useActiveProgramReviewController() {
 
   const latestUpdate = selectedProgramHistory[0];
 
-  const completion = useMemo(() => {
-    const values = Object.entries(review).filter(([key]) => key !== "artifacts").map(([, value]) => String(value).trim());
-    const completed = values.filter(Boolean).length + (review.artifacts.length ? 1 : 0);
-    return Math.round((completed / (values.length + 1)) * 100);
-  }, [review]);
-
   const teamRoleUpdates = useMemo(
     () => normalizeTeamRoleUpdates(review.teamRoleUpdates, activeTeamRoles),
     [activeTeamRoles, review.teamRoleUpdates]
@@ -298,73 +292,6 @@ export function useActiveProgramReviewController() {
     if (saveState === "error" && ownershipSignature !== savedOwnershipSignature) return "error";
     return ownershipSignature === savedOwnershipSignature ? "saved" : "dirty";
   }, [fallbackOwnershipHasEntries, ownerCoverage.configured, ownershipSignature, saveState, savedOwnershipSignature]);
-
-  const programSynthesis = useMemo(() => {
-    return [
-      {
-        label: "Cycle status",
-        value: `${activeCycleMetadata.cycleLabel}. ${teamCoverage.submitted}/${teamCoverage.total} roles have submitted this cycle.`
-      },
-      {
-        label: "Delivery pressure",
-        value: review.activeRisks || "No role-level delivery pressure has been captured yet."
-      },
-      {
-        label: "Decisions and support",
-        value: review.decisionsPending || "No role-level decisions or support asks are on file yet."
-      },
-      {
-        label: "Missing role inputs",
-        value: teamCoverage.missing.length
-          ? teamCoverage.missing.map((role) => role.role).join(", ")
-          : "All assigned roles have at least one current-cycle signal on file."
-      }
-    ];
-  }, [activeCycleMetadata.cycleLabel, review.activeRisks, review.decisionsPending, teamCoverage]);
-
-  const updateImpact = useMemo(() => {
-    const missingInputs = [
-      !review.planChanges.trim() ? "what changed" : "",
-      !review.decisionsPending.trim() ? "pending decisions" : "",
-      !review.activeRisks.trim() ? "active risks" : "",
-      !review.supportNeeded.trim() ? "support needed" : ""
-    ].filter(Boolean);
-
-    return [
-      {
-        label: "Next plan shift",
-        value: review.planChanges
-          ? `The next guided plan should adjust around: ${firstSignal(review.planChanges, "the latest change")}`
-          : "Capture what changed so the next guided plan can materially shift instead of restating the current path."
-      },
-      {
-        label: "Decision focus",
-        value:
-          review.decisionsPending || review.supportNeeded
-            ? `Drive ${firstSignal(review.decisionsPending, "the next key decision")} and route support through ${firstSignal(
-                review.supportNeeded,
-                "the current support path"
-              )}.`
-            : "Add the next decision and support ask so the system can clarify ownership and execution sequence."
-      },
-      {
-        label: "What the system will pressure-test",
-        value:
-          review.activeRisks || review.deliveryHealth
-            ? `Pressure-test ${firstSignal(review.activeRisks, "the current risk posture")} against ${firstSignal(
-                review.deliveryHealth,
-                "the current delivery health signal"
-              )}.`
-            : "Add current risks and delivery health to sharpen the next guidance cycle."
-      },
-      {
-        label: "Missing context",
-        value: missingInputs.length
-          ? `Still thin: ${missingInputs.join(", ")}. Filling those in will make the next plan update more specific.`
-          : "Core update inputs are present. Saving this review should produce a sharper plan refresh."
-      }
-    ];
-  }, [review]);
 
   const updateField = useCallback(
     (field: keyof Omit<ActiveProgramReview, "artifacts">, value: string) => {
@@ -703,7 +630,6 @@ export function useActiveProgramReviewController() {
     activeCycleMetadata,
     assignedOwnersByRole,
     clearCycle,
-    completion,
     defaultFocusRole,
     formatFileSize,
     formatTimestamp,
@@ -721,7 +647,6 @@ export function useActiveProgramReviewController() {
     ownershipSavedAt,
     ownershipSaveState,
     programOptions,
-    programSynthesis,
     removeArtifact,
     removeMeetingAttachment,
     review,
@@ -736,7 +661,6 @@ export function useActiveProgramReviewController() {
     teamCoverage,
     teamRoleUpdates,
     updateField,
-    updateImpact,
     updateMeetingInputDraft,
     updateRoleField
   };

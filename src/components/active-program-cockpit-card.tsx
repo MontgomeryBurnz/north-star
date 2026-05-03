@@ -1,6 +1,16 @@
 "use client";
 
-import { Clock3, Compass, GitPullRequestArrow, HeartPulse, MessageSquareQuote, ShieldAlert, Users2 } from "lucide-react";
+import {
+  Activity,
+  Clock3,
+  Compass,
+  GitPullRequestArrow,
+  HeartPulse,
+  MessageSquareQuote,
+  Milestone,
+  ShieldAlert,
+  Users2
+} from "lucide-react";
 import type { ActiveProgramReview, ActiveProgramUpdate, TeamRoleUpdate } from "@/lib/active-program-types";
 import type { DeliveryLeadershipSignal } from "@/lib/leadership-feedback-types";
 import { firstSignal } from "@/lib/text-signals";
@@ -70,6 +80,30 @@ function deriveHealth(teamRoleUpdates: TeamRoleUpdate[], deliveryHealth: string)
   };
 }
 
+const phaseStops = [
+  { label: "Discover", keywords: ["discover", "intake", "new", "capture"], percent: 18 },
+  { label: "Build", keywords: ["build", "develop", "design", "delivery"], percent: 45 },
+  { label: "Launch", keywords: ["launch", "release", "pilot", "alpha"], percent: 72 },
+  { label: "Stabilize", keywords: ["stabil", "operate", "run", "steady"], percent: 92 }
+];
+
+function derivePhaseProgress(currentPhase: string) {
+  const normalizedPhase = currentPhase.trim().toLowerCase();
+  const matchedPhase = phaseStops.find((phase) => phase.keywords.some((keyword) => normalizedPhase.includes(keyword)));
+
+  if (matchedPhase) {
+    return {
+      label: matchedPhase.label,
+      percent: matchedPhase.percent
+    };
+  }
+
+  return {
+    label: currentPhase.trim() || "Not set",
+    percent: currentPhase.trim() ? 35 : 8
+  };
+}
+
 export function ActiveProgramCockpitCard({
   review,
   teamRoleUpdates,
@@ -107,14 +141,33 @@ export function ActiveProgramCockpitCard({
   }
 
   const health = deriveHealth(teamRoleUpdates, review.deliveryHealth);
+  const phaseProgress = derivePhaseProgress(review.currentPhase);
   const topRisk = firstSignal(review.activeRisks, "No active risk captured yet.");
   const nextDecision = firstSignal(review.decisionsPending || review.supportNeeded, "No decision or support ask captured yet.");
+  const currentMilestone = firstSignal(
+    review.planChanges || review.progressSinceLastReview || review.currentPhase,
+    "No current milestone captured yet."
+  );
   const leadershipSummary =
     leadershipSignal && leadershipSignal.status !== "none"
       ? firstSignal(leadershipSignal.summary, "Leadership feedback is available.")
       : "No fresh leadership feedback yet.";
 
   const cockpitItems = [
+    {
+      label: "Phase",
+      value: review.currentPhase || "Not set",
+      detail: `${phaseProgress.percent}% directional progress`,
+      icon: Activity,
+      className: "border-cyan-300/20 bg-cyan-300/[0.07] text-cyan-100"
+    },
+    {
+      label: "Milestone",
+      value: currentMilestone,
+      detail: "Current delivery point",
+      icon: Milestone,
+      className: "border-emerald-300/20 bg-emerald-300/[0.07] text-emerald-100"
+    },
     {
       label: "Health",
       value: health.label,
@@ -155,7 +208,7 @@ export function ActiveProgramCockpitCard({
   return (
     <Card className="overflow-hidden border-cyan-300/15 bg-zinc-950/85">
       <CardContent className="p-0">
-        <div className="grid gap-4 border-b border-white/10 bg-[radial-gradient(circle_at_top_left,rgba(16,185,129,0.16),transparent_34%),rgba(255,255,255,0.025)] p-4 sm:p-5 lg:grid-cols-[1.15fr_0.85fr]">
+        <div className="grid gap-4 border-b border-white/10 bg-[radial-gradient(circle_at_top_left,rgba(16,185,129,0.16),transparent_34%),rgba(255,255,255,0.025)] p-4 sm:p-5 lg:grid-cols-[1.05fr_0.95fr]">
           <div>
             <div className="flex flex-wrap items-center gap-2">
               <span className="inline-flex items-center gap-2 rounded-full border border-cyan-300/20 bg-cyan-300/10 px-3 py-1 text-xs font-medium text-cyan-100">
@@ -171,23 +224,48 @@ export function ActiveProgramCockpitCard({
               Review the current delivery picture, capture team signal, and keep guidance pointed at the next move.
             </p>
           </div>
-          <div className="grid content-start gap-3 rounded-lg border border-white/10 bg-black/20 p-4">
-            <div className="flex items-center justify-between gap-3">
-              <p className="text-xs font-medium uppercase tracking-[0.16em] text-zinc-500">Latest save</p>
-              <Clock3 className="h-4 w-4 text-zinc-500" />
+          <div className="grid content-start gap-4 rounded-lg border border-white/10 bg-black/20 p-4">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <p className="text-xs font-medium uppercase tracking-[0.16em] text-zinc-500">Phase progress</p>
+                <p className="mt-2 text-xl font-semibold text-zinc-50">{phaseProgress.label}</p>
+              </div>
+              <span className="rounded-full border border-cyan-300/20 bg-cyan-300/10 px-3 py-1 text-xs font-medium text-cyan-100">
+                {phaseProgress.percent}%
+              </span>
             </div>
-            <p className="text-sm font-medium text-zinc-100">
-              {latestUpdate ? formatTimestamp(latestUpdate.createdAt) : "No saved update yet"}
-            </p>
-            <p className="text-xs leading-5 text-zinc-500">
-              {meetingInputsCount
-                ? `${meetingInputsCount} meeting input${meetingInputsCount === 1 ? "" : "s"} connected`
-                : "Meeting inputs will appear here once added."}
-            </p>
+            <div className="h-2 overflow-hidden rounded-full bg-zinc-900">
+              <div className="h-full rounded-full bg-cyan-300 shadow-[0_0_24px_rgba(103,232,249,0.32)]" style={{ width: `${phaseProgress.percent}%` }} />
+            </div>
+            <div className="grid gap-2 sm:grid-cols-4">
+              {phaseStops.map((phase) => {
+                const complete = phase.percent <= phaseProgress.percent;
+                return (
+                  <div key={phase.label} className="grid gap-1">
+                    <span className={`h-1.5 rounded-full ${complete ? "bg-emerald-300" : "bg-white/10"}`} />
+                    <span className={`text-[11px] font-medium ${complete ? "text-emerald-100" : "text-zinc-500"}`}>{phase.label}</span>
+                  </div>
+                );
+              })}
+            </div>
+            <div className="border-t border-white/10 pt-3">
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-xs font-medium uppercase tracking-[0.16em] text-zinc-500">Latest save</p>
+                <Clock3 className="h-4 w-4 text-zinc-500" />
+              </div>
+              <p className="mt-2 text-sm font-medium text-zinc-100">
+                {latestUpdate ? formatTimestamp(latestUpdate.createdAt) : "No saved update yet"}
+              </p>
+              <p className="mt-1 text-xs leading-5 text-zinc-500">
+                {meetingInputsCount
+                  ? `${meetingInputsCount} meeting input${meetingInputsCount === 1 ? "" : "s"} connected`
+                  : "Meeting inputs will appear here once added."}
+              </p>
+            </div>
           </div>
         </div>
 
-        <div className="grid gap-3 p-4 sm:p-5 md:grid-cols-2 xl:grid-cols-5">
+        <div className="grid gap-3 p-4 sm:p-5 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
           {cockpitItems.map((item) => {
             const Icon = item.icon;
             return (

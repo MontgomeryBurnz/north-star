@@ -1,243 +1,198 @@
 "use client";
 
-import { FileClock, HeartPulse, History, Layers3, MessageSquareQuote, RefreshCw } from "lucide-react";
+import { CalendarCheck, FileText, History, MessageSquareQuote, Users2, Video } from "lucide-react";
 import type { ActiveProgramUpdate } from "@/lib/active-program-types";
 import type { DeliveryLeadershipSignal } from "@/lib/leadership-feedback-types";
 import type { ProgramMeetingInput } from "@/lib/program-intelligence-types";
+import type { ProgramArtifact } from "@/lib/program-intake-types";
+import { firstSignal } from "@/lib/text-signals";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
-type SummaryItem = {
-  label: string;
-  value: string;
+type TimelineEvent = {
+  detail: string;
+  id: string;
+  kind: "role" | "leadership" | "meeting" | "artifact" | "program";
+  timestamp: string;
+  title: string;
+  update?: ActiveProgramUpdate;
 };
 
 type ActiveProgramSidebarProps = {
+  artifacts: ProgramArtifact[];
   latestUpdate?: ActiveProgramUpdate;
   leadershipSignal: DeliveryLeadershipSignal | null;
-  programSynthesis: SummaryItem[];
-  completion: number;
-  updateImpact: SummaryItem[];
   selectedProgramHistory: ActiveProgramUpdate[];
   meetingInputs: ProgramMeetingInput[];
   formatTimestamp: (value: string) => string;
   onLoadUpdate: (update: ActiveProgramUpdate) => void;
 };
 
+const eventChrome: Record<TimelineEvent["kind"], { icon: typeof Users2; label: string; marker: string; panel: string }> = {
+  artifact: {
+    icon: FileText,
+    label: "Artifact",
+    marker: "border-cyan-300/40 bg-cyan-300/20 text-cyan-100",
+    panel: "border-cyan-300/15 bg-cyan-300/[0.045]"
+  },
+  leadership: {
+    icon: MessageSquareQuote,
+    label: "Leadership",
+    marker: "border-amber-300/40 bg-amber-300/20 text-amber-100",
+    panel: "border-amber-300/15 bg-amber-300/[0.045]"
+  },
+  meeting: {
+    icon: Video,
+    label: "Meeting",
+    marker: "border-emerald-300/40 bg-emerald-300/20 text-emerald-100",
+    panel: "border-emerald-300/15 bg-emerald-300/[0.045]"
+  },
+  program: {
+    icon: CalendarCheck,
+    label: "Program",
+    marker: "border-white/20 bg-white/10 text-zinc-100",
+    panel: "border-white/10 bg-white/[0.035]"
+  },
+  role: {
+    icon: Users2,
+    label: "Role",
+    marker: "border-cyan-300/40 bg-cyan-300/20 text-cyan-100",
+    panel: "border-white/10 bg-white/[0.035]"
+  }
+};
+
+function buildUpdateEvents(updates: ActiveProgramUpdate[]): TimelineEvent[] {
+  return updates.slice(0, 8).map((update) => {
+    const role = update.review.lastUpdatedRole?.trim();
+    return {
+      detail:
+        update.review.programSynthesisNote ||
+        firstSignal(
+          update.review.progressSinceLastReview || update.review.activeRisks || update.review.decisionsPending,
+          "Saved program context."
+        ),
+      id: update.id,
+      kind: role ? "role" : "program",
+      timestamp: update.createdAt,
+      title: role ? `${role} submitted a role signal` : "Cycle update saved",
+      update
+    };
+  });
+}
+
+function buildTimelineEvents({
+  artifacts,
+  leadershipSignal,
+  meetingInputs,
+  selectedProgramHistory
+}: Pick<ActiveProgramSidebarProps, "artifacts" | "leadershipSignal" | "meetingInputs" | "selectedProgramHistory">) {
+  const events: TimelineEvent[] = buildUpdateEvents(selectedProgramHistory);
+
+  if (leadershipSignal && leadershipSignal.status !== "none" && leadershipSignal.updatedAt) {
+    events.push({
+      detail: firstSignal(leadershipSignal.summary, "Leadership feedback changed the guidance posture."),
+      id: `leadership-${leadershipSignal.updatedAt}`,
+      kind: "leadership",
+      timestamp: leadershipSignal.updatedAt,
+      title: leadershipSignal.status === "new" ? "New leadership signal" : "Leadership signal incorporated"
+    });
+  }
+
+  for (const input of meetingInputs.slice(0, 5)) {
+    events.push({
+      detail: firstSignal(input.summary, "Meeting context added to the program record."),
+      id: `meeting-${input.id}`,
+      kind: "meeting",
+      timestamp: input.capturedAt,
+      title: input.title
+    });
+  }
+
+  for (const artifact of artifacts.slice(0, 5)) {
+    events.push({
+      detail: `${artifact.type || "Artifact"} input available for guidance and work products.`,
+      id: `artifact-${artifact.id}`,
+      kind: "artifact",
+      timestamp: new Date(artifact.lastModified).toISOString(),
+      title: artifact.name
+    });
+  }
+
+  return events.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()).slice(0, 10);
+}
+
 export function ActiveProgramSidebar({
+  artifacts,
   latestUpdate,
   leadershipSignal,
-  programSynthesis,
-  completion,
-  updateImpact,
   selectedProgramHistory,
   meetingInputs,
   formatTimestamp,
   onLoadUpdate
 }: ActiveProgramSidebarProps) {
+  const timelineEvents = buildTimelineEvents({ artifacts, leadershipSignal, meetingInputs, selectedProgramHistory });
+
   return (
-    <aside className="grid gap-4 self-start lg:sticky lg:top-24">
-      {latestUpdate ? (
-        <Card className="bg-zinc-950/80">
-          <CardHeader className="border-b border-white/10">
-            <CardTitle className="flex items-center gap-2 text-zinc-50">
-              <FileClock className="h-4 w-4 text-emerald-200" />
-              Latest update snapshot
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="grid gap-3 p-5">
-            <div className="rounded-md border border-emerald-300/20 bg-emerald-300/[0.055] p-3">
-              <p className="text-xs font-medium uppercase tracking-[0.16em] text-emerald-200">Last updated</p>
-              <p className="mt-2 text-sm text-zinc-100">{formatTimestamp(latestUpdate.createdAt)}</p>
-              {latestUpdate.review.lastUpdatedRole ? (
-                <p className="mt-2 text-xs leading-5 text-zinc-400">Latest role submission: {latestUpdate.review.lastUpdatedRole}</p>
-              ) : null}
-            </div>
-            {[
-              ["Cycle", latestUpdate.review.cycleLabel],
-              ["Current phase", latestUpdate.review.currentPhase],
-              ["Program synthesis", latestUpdate.review.programSynthesisNote],
-              ["Active risks", latestUpdate.review.activeRisks],
-              ["Pending decisions", latestUpdate.review.decisionsPending],
-              ["Support needed", latestUpdate.review.supportNeeded]
-            ].map(([label, value]) => (
-              <div key={label} className="rounded-md border border-white/10 bg-white/[0.035] p-3">
-                <p className="text-xs font-medium uppercase tracking-[0.16em] text-zinc-500">{label}</p>
-                <p className="mt-2 line-clamp-3 text-sm leading-6 text-zinc-300">{value || "No update captured."}</p>
-              </div>
-            ))}
-          </CardContent>
-        </Card>
-      ) : null}
-
-      {leadershipSignal && leadershipSignal.status !== "none" ? (
-        <Card className="bg-zinc-950/80">
-          <CardHeader className="border-b border-white/10">
-            <CardTitle className="flex items-center gap-2 text-zinc-50">
-              <RefreshCw className="h-4 w-4 text-amber-200" />
-              Leadership signal
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="grid gap-3 p-5">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <span
-                className={`rounded-full border px-3 py-1 text-[11px] font-medium uppercase tracking-[0.14em] ${
-                  leadershipSignal.status === "new"
-                    ? "border-amber-300/25 bg-amber-300/10 text-amber-100"
-                    : "border-emerald-300/25 bg-emerald-300/10 text-emerald-100"
-                }`}
-              >
-                {leadershipSignal.status === "new" ? "New leadership signal" : "Leadership signal incorporated"}
-              </span>
-              {leadershipSignal.updatedAt ? <span className="text-xs text-zinc-500">{formatTimestamp(leadershipSignal.updatedAt)}</span> : null}
-            </div>
-            <div className="rounded-md border border-amber-300/20 bg-amber-300/[0.055] p-3">
-              <p className="text-sm leading-6 text-zinc-200">{leadershipSignal.summary}</p>
-            </div>
-            <div className="grid gap-2">
-              {leadershipSignal.highlights.map((highlight) => (
-                <div key={highlight} className="rounded-md border border-white/10 bg-white/[0.035] p-3">
-                  <p className="text-sm leading-6 text-zinc-300">{highlight}</p>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      ) : null}
-
-      <Card className="bg-zinc-950/80">
+    <aside className="self-start lg:sticky lg:top-24">
+      <Card className="overflow-hidden bg-zinc-950/80">
         <CardHeader className="border-b border-white/10">
           <CardTitle className="flex items-center gap-2 text-zinc-50">
-            <Layers3 className="h-4 w-4 text-cyan-200" />
-            Program synthesis
+            <History className="h-4 w-4 text-cyan-200" />
+            This week timeline
           </CardTitle>
-        </CardHeader>
-        <CardContent className="grid gap-3 p-5">
-          {programSynthesis.map((item) => (
-            <div key={item.label} className="rounded-md border border-white/10 bg-white/[0.035] p-3">
-              <p className="text-xs font-medium uppercase tracking-[0.16em] text-zinc-500">{item.label}</p>
-              <p className="mt-2 text-sm leading-6 text-zinc-300">{item.value}</p>
-            </div>
-          ))}
-        </CardContent>
-      </Card>
-
-      <Card className="bg-zinc-950/80">
-        <CardHeader className="border-b border-white/10">
-          <CardTitle className="flex items-center gap-2 text-zinc-50">
-            <HeartPulse className="h-4 w-4 text-cyan-200" />
-            Review readiness
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="grid gap-4 p-5">
-          <div className="rounded-md border border-white/10 bg-white/[0.035] p-3">
-            <div className="mb-2 flex items-center justify-between text-sm">
-              <span className="text-zinc-400">Active context captured</span>
-              <span className="font-medium text-zinc-100">{completion}%</span>
-            </div>
-            <div className="h-2 overflow-hidden rounded-full bg-zinc-900">
-              <div className="h-full bg-cyan-300 transition-all" style={{ width: `${completion}%` }} />
-            </div>
-          </div>
-          <div className="rounded-md border border-cyan-300/20 bg-cyan-300/[0.055] p-3">
-            <p className="flex items-center gap-2 text-sm font-medium text-cyan-100">
-              <RefreshCw className="h-4 w-4" />
-              Iteration mode
-            </p>
-            <p className="mt-2 text-xs leading-5 text-zinc-400">
-              This flow is for programs already moving. It should generate plan adjustments, recovery moves, escalation guidance, and updated next steps.
-            </p>
-          </div>
-        </CardContent>
-      </Card>
-
-      <Card className="bg-zinc-950/80">
-        <CardHeader className="border-b border-white/10">
-          <CardTitle className="flex items-center gap-2 text-zinc-50">
-            <FileClock className="h-4 w-4 text-emerald-200" />
-            Update impact
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="grid gap-3 p-5">
-          {updateImpact.map((item) => (
-            <div key={item.label} className="rounded-md border border-white/10 bg-white/[0.035] p-3">
-              <p className="text-xs font-medium uppercase tracking-[0.16em] text-zinc-500">{item.label}</p>
-              <p className="mt-2 text-sm leading-6 text-zinc-300">{item.value}</p>
-            </div>
-          ))}
-        </CardContent>
-      </Card>
-
-      <Card className="bg-zinc-950/80">
-        <CardHeader className="border-b border-white/10">
-          <CardTitle className="flex items-center gap-2 text-zinc-50">
-            <History className="h-4 w-4 text-amber-200" />
-            Cycle timeline
-          </CardTitle>
+          <p className="mt-2 text-xs leading-5 text-zinc-500">
+            What changed across roles, leadership, meetings, and artifacts.
+          </p>
         </CardHeader>
         <CardContent className="p-5">
-          {selectedProgramHistory.length ? (
-            <div className="relative grid gap-0 before:absolute before:left-[7px] before:top-2 before:h-[calc(100%-1rem)] before:w-px before:bg-white/10">
-              {selectedProgramHistory.slice(0, 6).map((update) => (
-                <button
-                  key={update.id}
-                  type="button"
-                  onClick={() => onLoadUpdate(update)}
-                  className="relative grid gap-2 py-3 pl-7 text-left transition-colors hover:text-zinc-50"
-                >
-                  <span className="absolute left-0 top-5 h-3.5 w-3.5 rounded-full border border-amber-300/40 bg-zinc-950 shadow-[0_0_18px_rgba(251,191,36,0.18)]" />
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <span className="text-xs font-medium uppercase tracking-[0.16em] text-amber-200">{formatTimestamp(update.createdAt)}</span>
-                    <span className="rounded-md border border-white/10 bg-black/20 px-2 py-0.5 text-[11px] text-zinc-500">load</span>
-                  </div>
-                  <p className="text-sm font-medium text-zinc-100">
-                    {update.review.lastUpdatedRole ? `${update.review.lastUpdatedRole} update` : update.review.currentPhase || update.programName}
-                  </p>
-                  <p className="line-clamp-2 text-xs leading-5 text-zinc-400">
-                    {update.review.programSynthesisNote || update.review.progressSinceLastReview || update.review.deliveryHealth || "No summary captured."}
-                  </p>
-                </button>
-              ))}
-            </div>
-          ) : (
-            <div className="rounded-md border border-white/10 bg-white/[0.035] p-3">
-              <p className="text-sm leading-6 text-zinc-400">
-                No saved updates yet. Save this review to create the first timestamped program update.
-              </p>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+          <div className="mb-4 rounded-lg border border-white/10 bg-white/[0.035] p-3">
+            <p className="text-xs font-medium uppercase tracking-[0.16em] text-zinc-500">Latest program save</p>
+            <p className="mt-2 text-sm font-medium text-zinc-100">
+              {latestUpdate ? formatTimestamp(latestUpdate.createdAt) : "No saved update yet"}
+            </p>
+          </div>
 
-      <Card className="bg-zinc-950/80">
-        <CardHeader className="border-b border-white/10">
-          <CardTitle className="flex items-center gap-2 text-zinc-50">
-            <MessageSquareQuote className="h-4 w-4 text-cyan-200" />
-            Recent meeting inputs
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="grid gap-3 p-5">
-          {meetingInputs.length ? (
-            meetingInputs.slice(0, 3).map((input) => (
-              <div key={input.id} className="rounded-md border border-white/10 bg-white/[0.035] p-3">
-                <div className="mb-2 flex items-center justify-between gap-3">
-                  <p className="text-sm font-medium text-zinc-100">{input.title}</p>
-                  <span className="text-xs text-zinc-500">{formatTimestamp(input.capturedAt)}</span>
-                </div>
-                <p className="text-sm leading-6 text-zinc-300">{input.summary}</p>
-                {input.attachments.length ? (
-                  <p className="mt-2 text-xs leading-5 text-zinc-500">
-                    Attachments: {input.attachments.map((attachment) => attachment.fileName).join(", ")}
-                  </p>
-                ) : null}
-                {input.recommendedPlanAdjustments.length ? (
-                  <p className="mt-2 text-xs leading-5 text-cyan-200">Next adjustment: {input.recommendedPlanAdjustments[0]}</p>
-                ) : null}
-              </div>
-            ))
+          {timelineEvents.length ? (
+            <div className="relative grid gap-0 before:absolute before:left-[15px] before:top-3 before:h-[calc(100%-1.5rem)] before:w-px before:bg-white/10">
+              {timelineEvents.map((event) => {
+                const chrome = eventChrome[event.kind];
+                const Icon = chrome.icon;
+                const eventUpdate = event.update;
+                const content = (
+                  <>
+                    <span className={`absolute left-0 top-4 grid h-8 w-8 place-items-center rounded-full border ${chrome.marker}`}>
+                      <Icon className="h-3.5 w-3.5" />
+                    </span>
+                    <div className={`rounded-lg border p-3 ${chrome.panel}`}>
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <span className="text-[11px] font-medium uppercase tracking-[0.16em] text-cyan-200">{chrome.label}</span>
+                        <span className="text-xs text-zinc-500">{formatTimestamp(event.timestamp)}</span>
+                      </div>
+                      <p className="mt-2 line-clamp-2 text-sm font-medium leading-6 text-zinc-100">{event.title}</p>
+                      <p className="mt-1 line-clamp-3 text-xs leading-5 text-zinc-400">{event.detail}</p>
+                    </div>
+                  </>
+                );
+
+                return eventUpdate ? (
+                  <button
+                    key={event.id}
+                    type="button"
+                    onClick={() => onLoadUpdate(eventUpdate)}
+                    className="relative grid gap-2 py-3 pl-12 text-left transition-colors hover:text-zinc-50"
+                  >
+                    {content}
+                  </button>
+                ) : (
+                  <div key={event.id} className="relative grid gap-2 py-3 pl-12">
+                    {content}
+                  </div>
+                );
+              })}
+            </div>
           ) : (
             <div className="rounded-md border border-white/10 bg-white/[0.035] p-3">
               <p className="text-sm leading-6 text-zinc-400">
-                No meeting intelligence is on file yet. Add a meeting summary or transcript signal to let the next guided plan adapt to recurring delivery discussions.
+                No weekly signal yet. Save a role update, meeting input, artifact, or leadership review to start the timeline.
               </p>
             </div>
           )}

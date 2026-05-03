@@ -47,9 +47,6 @@ export function ActiveProgramReviewSection() {
           artifacts={controller.review.artifacts}
           latestUpdate={controller.latestUpdate}
           leadershipSignal={controller.leadershipSignal}
-          programSynthesis={controller.programSynthesis}
-          completion={controller.completion}
-          updateImpact={controller.updateImpact}
           selectedProgramHistory={controller.selectedProgramHistory}
           meetingInputs={controller.meetingInputs}
           savedAt={controller.savedAt}

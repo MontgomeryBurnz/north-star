@@ -132,6 +132,35 @@ function argumentsTarget(value) {
   return value.trim().toLowerCase();
 }
 
+async function verifyOperatingView(session) {
+  const state = await session.execute(`
+    const bodyText = document.body.textContent ?? "";
+    const roleCards = Array.from(document.querySelectorAll("[data-active-role-signal-card]"));
+    return {
+      hasCockpit: bodyText.includes("Program cockpit") && bodyText.includes("Phase progress"),
+      hasRoleLanes: bodyText.includes("Role lanes") && roleCards.some((card) => card.textContent.includes("risk") && card.textContent.includes("decision")),
+      hasTimeline: bodyText.includes("This week timeline") && bodyText.includes("What changed across roles, leadership, meetings, and artifacts"),
+      roleFormOpen: Boolean(document.querySelector("[data-active-role-progress]"))
+    };
+  `);
+
+  if (!state.hasCockpit) {
+    throw new Error("Active Program cockpit did not render after program selection.");
+  }
+
+  if (!state.hasRoleLanes) {
+    throw new Error("Active Program compact role lanes did not render risk and decision counts.");
+  }
+
+  if (!state.hasTimeline) {
+    throw new Error("Active Program weekly timeline did not render.");
+  }
+
+  if (state.roleFormOpen) {
+    throw new Error("Active Program role lane was expanded before the user selected a role to update.");
+  }
+}
+
 async function saveRoleSignal(session, program) {
   const smokeText = `North Star active-program save smoke ${new Date().toISOString()}`;
   const selectedRole = await session.execute(
@@ -273,6 +302,7 @@ async function main() {
   await withSafariBrowser(async (session) => {
     await authenticate(session);
     const program = await selectProgram(session);
+    await verifyOperatingView(session);
     const savedSignal = await saveRoleSignal(session, program);
     await cleanupRoleSignal(session, program, savedSignal);
   });
