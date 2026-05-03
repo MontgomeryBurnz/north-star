@@ -149,15 +149,22 @@ test("Admin includes Trust and Operations controls", () => {
 
 test("Admin audit history uses persisted audit events instead of inferred activity", () => {
   const repositorySource = readFileSync(new URL("../src/lib/program-repository.ts", import.meta.url), "utf8");
+  const repositorySharedSource = readFileSync(new URL("../src/lib/program-repository-shared.ts", import.meta.url), "utf8");
+  const auditPersistenceSource = readFileSync(new URL("../src/lib/audit-persistence.ts", import.meta.url), "utf8");
+  const repositoryTypesSource = readFileSync(new URL("../src/lib/program-repository-types.ts", import.meta.url), "utf8");
   const storeSource = readFileSync(new URL("../src/lib/program-store.ts", import.meta.url), "utf8");
   const adminSource = readFileSync(new URL("../src/app/admin/page.tsx", import.meta.url), "utf8");
   const trustSource = readFileSync(new URL("../src/components/admin-trust-operations-card.tsx", import.meta.url), "utf8");
   const auditPanelSource = readFileSync(new URL("../src/components/admin-audit-history-panel.tsx", import.meta.url), "utf8");
   const auditApiSource = readFileSync(new URL("../src/app/api/audit-events/route.ts", import.meta.url), "utf8");
 
-  assert.match(repositorySource, /CREATE TABLE IF NOT EXISTS audit_events/);
-  assert.match(repositorySource, /listAuditEvents/);
-  assert.match(repositorySource, /createAuditEvent/);
+  assert.match(repositorySource, /createFileAuditPersistence/);
+  assert.match(repositorySource, /createPostgresAuditPersistence/);
+  assert.match(repositorySharedSource, /CREATE TABLE IF NOT EXISTS audit_events/);
+  assert.match(repositoryTypesSource, /listAuditEvents/);
+  assert.match(repositoryTypesSource, /createAuditEvent/);
+  assert.match(auditPersistenceSource, /export function createFileAuditPersistence/);
+  assert.match(auditPersistenceSource, /export function createPostgresAuditPersistence/);
   assert.match(storeSource, /export async function listAuditEvents/);
   assert.match(storeSource, /export async function createAuditEvent/);
   assert.match(adminSource, /listAuditEvents\(250\)/);
@@ -175,6 +182,48 @@ test("Admin audit history uses persisted audit events instead of inferred activi
   assert.match(auditApiSource, /artifact\.copy/);
   assert.match(auditApiSource, /artifact\.export/);
   assert.doesNotMatch(trustSource, /buildAuditEvents/);
+});
+
+test("Repository persistence is split by domain modules", () => {
+  const repositorySource = readFileSync(new URL("../src/lib/program-repository.ts", import.meta.url), "utf8");
+  const programPersistenceSource = readFileSync(new URL("../src/lib/program-persistence.ts", import.meta.url), "utf8");
+  const guidancePersistenceSource = readFileSync(new URL("../src/lib/guidance-persistence.ts", import.meta.url), "utf8");
+  const artifactPersistenceSource = readFileSync(new URL("../src/lib/artifact-persistence.ts", import.meta.url), "utf8");
+  const auditPersistenceSource = readFileSync(new URL("../src/lib/audit-persistence.ts", import.meta.url), "utf8");
+  const userPersistenceSource = readFileSync(new URL("../src/lib/user-persistence.ts", import.meta.url), "utf8");
+
+  assert.match(repositorySource, /createFileProgramPersistence/);
+  assert.match(repositorySource, /createFileGuidancePersistence/);
+  assert.match(repositorySource, /createFileArtifactPersistence/);
+  assert.match(repositorySource, /createFileAuditPersistence/);
+  assert.match(repositorySource, /createFileUserPersistence/);
+  assert.doesNotMatch(repositorySource, /CREATE TABLE IF NOT EXISTS programs/);
+  assert.match(programPersistenceSource, /createProgramUpdate/);
+  assert.match(guidancePersistenceSource, /createGuidedPlan/);
+  assert.match(guidancePersistenceSource, /createLeadershipFeedback/);
+  assert.match(artifactPersistenceSource, /createRoleArtifact/);
+  assert.match(auditPersistenceSource, /createAuditEvent/);
+  assert.match(userPersistenceSource, /upsertManagedUser/);
+});
+
+test("Active Program review is split into state, cockpit, and team signal flows", () => {
+  const reviewSectionSource = readFileSync(new URL("../src/components/active-program-review-section.tsx", import.meta.url), "utf8");
+  const reviewModelSource = readFileSync(new URL("../src/components/active-program-review-model.ts", import.meta.url), "utf8");
+  const stateFlowSource = readFileSync(new URL("../src/components/active-program-state-flow.tsx", import.meta.url), "utf8");
+  const cockpitFlowSource = readFileSync(new URL("../src/components/active-program-cockpit-flow.tsx", import.meta.url), "utf8");
+  const teamSignalFlowSource = readFileSync(new URL("../src/components/active-program-team-signal-flow.tsx", import.meta.url), "utf8");
+
+  assert.match(reviewSectionSource, /ActiveProgramStateFlow/);
+  assert.match(reviewSectionSource, /ActiveProgramCockpitFlow/);
+  assert.match(reviewSectionSource, /ActiveProgramTeamSignalFlow/);
+  assert.doesNotMatch(reviewSectionSource, /ActiveProgramStateCard/);
+  assert.doesNotMatch(reviewSectionSource, /ActiveProgramTeamUpdatesCard/);
+  assert.match(reviewModelSource, /export function normalizeReview/);
+  assert.match(stateFlowSource, /ActiveProgramStateCard/);
+  assert.match(cockpitFlowSource, /ActiveProgramCockpitCard/);
+  assert.match(teamSignalFlowSource, /ActiveProgramTeamUpdatesCard/);
+  assert.match(teamSignalFlowSource, /ActiveProgramMeetingIntelligenceCard/);
+  assert.match(teamSignalFlowSource, /ActiveProgramSidebar/);
 });
 
 test("Guide dialogue and client decisions write audit events", () => {

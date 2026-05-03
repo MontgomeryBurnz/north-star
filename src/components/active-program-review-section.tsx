@@ -1,8 +1,7 @@
 "use client";
 
 import { ChangeEvent, FormEvent, useCallback, useEffect, useMemo, useState } from "react";
-import { Save } from "lucide-react";
-import type { ActiveProgramReview, ActiveProgramUpdate, TeamRoleUpdate, TeamRoleUpdateStatus } from "@/lib/active-program-types";
+import type { ActiveProgramReview, ActiveProgramUpdate, TeamRoleUpdate } from "@/lib/active-program-types";
 import { useCurrentUserAssignments } from "@/hooks/use-current-user-assignments";
 import { useForegroundRefresh } from "@/hooks/use-foreground-refresh";
 import { useRequestSequence } from "@/hooks/use-request-sequence";
@@ -10,380 +9,33 @@ import type { DeliveryLeadershipSignal } from "@/lib/leadership-feedback-types";
 import type { ProgramTeamAssignmentSummary } from "@/lib/program-team-assignments";
 import type { ProgramMeetingAttachment, ProgramMeetingInput } from "@/lib/program-intelligence-types";
 import type { ProgramArtifact, ProgramIntake } from "@/lib/program-intake-types";
-import { normalizeTeamRoles } from "@/lib/team-roles";
 import { firstSignal, splitLines } from "@/lib/text-signals";
-import { ActiveProgramCockpitCard } from "@/components/active-program-cockpit-card";
-import { ActiveProgramMeetingIntelligenceCard } from "@/components/active-program-meeting-intelligence-card";
-import { ActiveProgramSidebar } from "@/components/active-program-sidebar";
-import { ActiveProgramStateCard } from "@/components/active-program-state-card";
-import { ActiveProgramStatusArtifactsCard } from "@/components/active-program-status-artifacts-card";
-import { ActiveProgramTeamUpdatesCard } from "@/components/active-program-team-updates-card";
-import { Button } from "@/components/ui/button";
-
-const emptyReview: ActiveProgramReview = {
-  programName: "",
-  originalNorthStar: "",
-  currentPhase: "",
-  progressSinceLastReview: "",
-  planChanges: "",
-  activeRisks: "",
-  stakeholderTemperature: "",
-  decisionsPending: "",
-  deliveryHealth: "",
-  supportNeeded: "",
-  updateCadence: "weekly",
-  cycleLabel: "",
-  cycleStartedAt: "",
-  programSynthesisNote: "",
-  lastUpdatedRole: "",
-  teamRoleUpdates: [],
-  artifacts: []
-};
-
-const emptyMeetingInputDraft = {
-  title: "",
-  sourceType: "meeting-notes" as ProgramMeetingInput["sourceType"],
-  sourceProvider: "manual" as ProgramMeetingInput["sourceProvider"],
-  capturedAt: "",
-  summary: "",
-  transcriptExcerpt: "",
-  attachments: [] as ProgramMeetingAttachment[],
-  extractedSignals: "",
-  recommendedPlanAdjustments: ""
-};
-
-type ExistingProgramOption = {
-  id: string;
-  label: string;
-  source: "local";
-  intake?: ProgramIntake;
-  review: ActiveProgramReview;
-};
-
-function normalizeProgramLabel(value: string) {
-  return value.trim().toLowerCase();
-}
-
-const reviewHistoryKey = "work-path-active-program-updates";
-const reviewDraftKey = "work-path-active-program-review";
-const intakeDraftKey = "work-path-program-intake";
-
-function mapLegacyConfidenceToStatus(confidence?: string): TeamRoleUpdateStatus {
-  if (confidence === "low") return "blocked";
-  if (confidence === "medium") return "at-risk";
-  return "on-track";
-}
-
-function formatFileSize(size: number) {
-  if (size < 1024) return `${size} B`;
-  if (size < 1024 * 1024) return `${Math.round(size / 1024)} KB`;
-  return `${(size / (1024 * 1024)).toFixed(1)} MB`;
-}
-
-function optionFromSavedIntake(savedIntake: ProgramIntake): ExistingProgramOption | null {
-  if (!savedIntake.programName.trim()) return null;
-
-  const roleAwareReview = normalizeReview(
-    {
-      ...emptyReview,
-      programName: savedIntake.programName,
-      originalNorthStar: savedIntake.vision || savedIntake.outcomes,
-      currentPhase: "Newly captured",
-      progressSinceLastReview: savedIntake.currentStatus,
-      planChanges: "",
-      activeRisks: savedIntake.risks,
-      stakeholderTemperature: "",
-      decisionsPending: savedIntake.decisionsNeeded,
-      deliveryHealth: savedIntake.blockers,
-      supportNeeded: savedIntake.constraints,
-      updateCadence: savedIntake.leadershipReviewCadence === "biweekly" ? "biweekly" : "weekly",
-      artifacts: savedIntake.artifacts
-    },
-    savedIntake
-  );
-
-  return {
-    id: "local-saved-intake",
-    label: savedIntake.programName,
-    source: "local",
-    intake: savedIntake,
-    review: roleAwareReview
-  };
-}
-
-function readStoredUpdates(): ActiveProgramUpdate[] {
-  const saved = window.localStorage.getItem(reviewHistoryKey);
-  if (!saved) return [];
-
-  try {
-    return JSON.parse(saved) as ActiveProgramUpdate[];
-  } catch {
-    return [];
-  }
-}
-
-function writeStoredUpdates(updates: ActiveProgramUpdate[]) {
-  window.localStorage.setItem(reviewHistoryKey, JSON.stringify(updates));
-}
-
-function pruneStoredUpdates(validProgramIds: string[]) {
-  const validIds = new Set(validProgramIds);
-  const nextUpdates = readStoredUpdates().filter((update) => validIds.has(update.programId));
-  writeStoredUpdates(nextUpdates);
-  return nextUpdates;
-}
-
-function formatTimestamp(value: string) {
-  return new Intl.DateTimeFormat(undefined, {
-    month: "short",
-    day: "numeric",
-    hour: "numeric",
-    minute: "2-digit"
-  }).format(new Date(value));
-}
-
-function isTextLikeMeetingFile(file: File) {
-  return file.type.startsWith("text/") || /\.(txt|md|csv|rtf)$/i.test(file.name);
-}
-
-function inferMeetingTitleFromFileName(fileName: string) {
-  return fileName
-    .replace(/\.[^.]+$/, "")
-    .replace(/[_-]+/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-}
-
-function getProgramTeamRoles(intake?: ProgramIntake) {
-  return normalizeTeamRoles(intake?.teamRoles);
-}
-
-function startOfWeek(date: Date) {
-  const next = new Date(date);
-  const day = next.getDay();
-  const diff = day === 0 ? -6 : 1 - day;
-  next.setDate(next.getDate() + diff);
-  next.setHours(0, 0, 0, 0);
-  return next;
-}
-
-function buildCycleMetadata(cadence: ActiveProgramReview["updateCadence"], date = new Date()) {
-  const start = startOfWeek(date);
-  const weekStart = new Date(start);
-  if (cadence === "biweekly") {
-    const reference = new Date("2026-01-05T00:00:00.000Z");
-    const diffDays = Math.floor((start.getTime() - reference.getTime()) / 86400000);
-    const weekIndex = Math.floor(diffDays / 7);
-    if (weekIndex % 2 !== 0) {
-      weekStart.setDate(weekStart.getDate() - 7);
-    }
-  }
-
-  const end = new Date(weekStart);
-  end.setDate(end.getDate() + (cadence === "biweekly" ? 13 : 6));
-  const label = `${cadence === "biweekly" ? "Bi-weekly" : "Weekly"} cycle of ${weekStart.toLocaleDateString(undefined, {
-    month: "short",
-    day: "numeric"
-  })}`;
-
-  return {
-    cycleLabel: label,
-    cycleStartedAt: weekStart.toISOString(),
-    cycleEndsAt: end.toISOString()
-  };
-}
-
-function buildTeamRoleUpdate(role: string, existing?: Partial<TeamRoleUpdate>): TeamRoleUpdate {
-  const legacyConfidence = (existing as { confidence?: string } | undefined)?.confidence;
-  return {
-    role,
-    updatedBy: existing?.updatedBy ?? "",
-    progressUpdate: existing?.progressUpdate ?? "",
-    changesObserved: existing?.changesObserved ?? "",
-    activeRisks: existing?.activeRisks ?? "",
-    blockers: existing?.blockers ?? "",
-    decisionsNeeded: existing?.decisionsNeeded ?? "",
-    supportNeeded: existing?.supportNeeded ?? "",
-    status: existing?.status ?? mapLegacyConfidenceToStatus(legacyConfidence),
-    needsLeadershipAttention: existing?.needsLeadershipAttention ?? false,
-    lastUpdatedAt: existing?.lastUpdatedAt
-  };
-}
-
-function roleUpdatesMatch(current: TeamRoleUpdate | undefined, next: TeamRoleUpdate) {
-  return Boolean(
-    current &&
-      current.role === next.role &&
-      current.updatedBy === next.updatedBy &&
-      current.progressUpdate === next.progressUpdate &&
-      current.changesObserved === next.changesObserved &&
-      current.activeRisks === next.activeRisks &&
-      current.blockers === next.blockers &&
-      current.decisionsNeeded === next.decisionsNeeded &&
-      current.supportNeeded === next.supportNeeded &&
-      current.status === next.status &&
-      current.needsLeadershipAttention === next.needsLeadershipAttention &&
-      current.lastUpdatedAt === next.lastUpdatedAt
-  );
-}
-
-function normalizedMultilineText(value: string | undefined) {
-  return (value ?? "")
-    .split(/\r?\n|,/)
-    .map((item) => item.trim())
-    .filter(Boolean)
-    .join("\n")
-    .toLowerCase();
-}
-
-function normalizeStakeholderTemperature(value: string | undefined, intake?: ProgramIntake) {
-  const stakeholderTemperature = value?.trim() ?? "";
-  if (!stakeholderTemperature) return "";
-
-  const stakeholderList = normalizedMultilineText(intake?.stakeholders);
-  const temperatureLines = normalizedMultilineText(stakeholderTemperature);
-
-  return stakeholderList && temperatureLines === stakeholderList ? "" : stakeholderTemperature;
-}
-
-function normalizeTeamRoleUpdates(roleUpdates: TeamRoleUpdate[] | undefined, roles: string[]) {
-  const byRole = new Map((roleUpdates ?? []).map((roleUpdate) => [normalizeProgramLabel(roleUpdate.role), roleUpdate]));
-  return roles.map((role) => {
-    const existingRoleUpdate = byRole.get(normalizeProgramLabel(role));
-    const normalizedRoleUpdate = buildTeamRoleUpdate(role, existingRoleUpdate);
-    return existingRoleUpdate && roleUpdatesMatch(existingRoleUpdate, normalizedRoleUpdate)
-      ? existingRoleUpdate
-      : normalizedRoleUpdate;
-  });
-}
-
-function buildFallbackOwnershipSignature(
-  roleUpdates: TeamRoleUpdate[] | undefined,
-  roles: string[],
-  assignedOwnersByRole: Record<string, string[]>
-) {
-  return normalizeTeamRoleUpdates(roleUpdates, roles)
-    .filter((roleUpdate) => !(assignedOwnersByRole[normalizeProgramLabel(roleUpdate.role)]?.length))
-    .map((roleUpdate) => `${normalizeProgramLabel(roleUpdate.role)}:${roleUpdate.updatedBy.trim()}`)
-    .join("|");
-}
-
-function joinRoleSignals(roleUpdates: TeamRoleUpdate[], selector: (role: TeamRoleUpdate) => string, fallback: string) {
-  const items = roleUpdates
-    .map((role) => {
-      const value = selector(role).trim();
-      return value ? `${role.role}: ${value}` : "";
-    })
-    .filter(Boolean);
-  return items.length ? items.join("\n") : fallback;
-}
-
-function hasRoleSubmission(roleUpdate: TeamRoleUpdate) {
-  return Boolean(
-    roleUpdate.status !== "on-track" ||
-      roleUpdate.needsLeadershipAttention ||
-      roleUpdate.progressUpdate.trim() ||
-      roleUpdate.changesObserved.trim() ||
-      roleUpdate.activeRisks.trim() ||
-      roleUpdate.blockers.trim() ||
-      roleUpdate.decisionsNeeded.trim() ||
-      roleUpdate.supportNeeded.trim()
-  );
-}
-
-function hasCapturedRoleSignal(review: ActiveProgramReview) {
-  return review.teamRoleUpdates?.some(hasRoleSubmission) ?? false;
-}
-
-function isOwnerOnlyRoleSnapshot(review: ActiveProgramReview) {
-  return Boolean(review.lastUpdatedRole && !hasCapturedRoleSignal(review));
-}
-
-function clearCycleReview(review: ActiveProgramReview, intake?: ProgramIntake) {
-  const roles = getProgramTeamRoles(intake);
-  const preservedOwners = normalizeTeamRoleUpdates(review.teamRoleUpdates, roles).map((roleUpdate) =>
-    buildTeamRoleUpdate(roleUpdate.role, {
-      updatedBy: roleUpdate.updatedBy,
-      status: roleUpdate.status,
-      needsLeadershipAttention: roleUpdate.needsLeadershipAttention
-    })
-  );
-
-  return normalizeReview(
-    {
-      ...emptyReview,
-      programName: review.programName,
-      originalNorthStar: review.originalNorthStar,
-      currentPhase: review.currentPhase,
-      stakeholderTemperature: review.stakeholderTemperature,
-      deliveryHealth: review.deliveryHealth,
-      updateCadence: review.updateCadence ?? "weekly",
-      teamRoleUpdates: preservedOwners,
-      artifacts: review.artifacts
-    },
-    intake
-  );
-}
-
-function buildSynthesizedReview(review: ActiveProgramReview, roles: string[], lastUpdatedRole = ""): ActiveProgramReview {
-  const normalizedRoleUpdates = normalizeTeamRoleUpdates(review.teamRoleUpdates, roles);
-  const touchedRoles = normalizedRoleUpdates.filter(hasRoleSubmission);
-  const cycleMetadata = buildCycleMetadata(review.updateCadence === "biweekly" ? "biweekly" : "weekly");
-  const cadence: ActiveProgramReview["updateCadence"] = review.updateCadence === "biweekly" ? "biweekly" : "weekly";
-  const programSynthesisNote = touchedRoles.length
-    ? `${touchedRoles.length} of ${roles.length} assigned team roles submitted updates in the current ${cadence === "biweekly" ? "bi-weekly" : "weekly"} cycle.`
-    : `No team role submissions are on file for the current ${cadence === "biweekly" ? "bi-weekly" : "weekly"} cycle yet.`;
-
-  return {
-    ...review,
-    updateCadence: cadence,
-    cycleLabel: cycleMetadata.cycleLabel,
-    cycleStartedAt: cycleMetadata.cycleStartedAt,
-    programSynthesisNote,
-    lastUpdatedRole: lastUpdatedRole || review.lastUpdatedRole || "",
-    teamRoleUpdates: normalizedRoleUpdates,
-    progressSinceLastReview: joinRoleSignals(
-      normalizedRoleUpdates,
-      (role) => role.progressUpdate,
-      review.progressSinceLastReview || "No role-level progress updates captured yet."
-    ),
-    planChanges: joinRoleSignals(
-      normalizedRoleUpdates,
-      (role) => role.changesObserved,
-      review.planChanges || "No role-level changes captured yet."
-    ),
-    activeRisks: joinRoleSignals(
-      normalizedRoleUpdates,
-      (role) => [role.activeRisks, role.blockers].filter(Boolean).join(" / "),
-      review.activeRisks || "No role-level risks captured yet."
-    ),
-    decisionsPending: joinRoleSignals(
-      normalizedRoleUpdates,
-      (role) => role.decisionsNeeded,
-      review.decisionsPending || "No role-level decisions captured yet."
-    ),
-    supportNeeded: joinRoleSignals(
-      normalizedRoleUpdates,
-      (role) => role.supportNeeded,
-      review.supportNeeded || "No role-level support needs captured yet."
-    )
-  };
-}
-
-function normalizeReview(review: ActiveProgramReview, intake?: ProgramIntake) {
-  return buildSynthesizedReview(
-    {
-      ...emptyReview,
-      ...review,
-      stakeholderTemperature: normalizeStakeholderTemperature(review.stakeholderTemperature, intake),
-      updateCadence: (review.updateCadence === "biweekly" ? "biweekly" : review.updateCadence ?? "weekly") as
-        | "weekly"
-        | "biweekly"
-    },
-    getProgramTeamRoles(intake),
-    review.lastUpdatedRole ?? ""
-  );
-}
+import { ActiveProgramCockpitFlow } from "@/components/active-program-cockpit-flow";
+import {
+  buildCycleMetadata,
+  buildFallbackOwnershipSignature,
+  clearCycleReview,
+  emptyMeetingInputDraft,
+  emptyReview,
+  formatFileSize,
+  formatTimestamp,
+  getProgramTeamRoles,
+  hasRoleSubmission,
+  inferMeetingTitleFromFileName,
+  intakeDraftKey,
+  isOwnerOnlyRoleSnapshot,
+  isTextLikeMeetingFile,
+  normalizeProgramLabel,
+  normalizeReview,
+  normalizeTeamRoleUpdates,
+  optionFromSavedIntake,
+  pruneStoredUpdates,
+  reviewDraftKey,
+  writeStoredUpdates,
+  type ExistingProgramOption
+} from "@/components/active-program-review-model";
+import { ActiveProgramStateFlow } from "@/components/active-program-state-flow";
+import { ActiveProgramTeamSignalFlow } from "@/components/active-program-team-signal-flow";
 
 export function ActiveProgramReviewSection() {
   const programsRequest = useRequestSequence();
@@ -1007,16 +659,8 @@ export function ActiveProgramReviewSection() {
 
   return (
     <section id="active-program-review" className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
-      <div className="mb-8 max-w-3xl">
-        <p className="mb-3 text-xs font-medium uppercase tracking-[0.22em] text-cyan-300">Active program review</p>
-        <h2 className="text-3xl font-semibold text-zinc-50 md:text-4xl">Keep the program aligned as reality changes.</h2>
-        <p className="mt-4 text-sm leading-7 text-zinc-400">
-          Start with program setup, then use the cockpit to read the current picture, capture team updates, and keep guided plans pointed at the next move.
-        </p>
-      </div>
-
       <form onSubmit={handleSubmit} className="grid gap-5">
-        <ActiveProgramStateCard
+        <ActiveProgramStateFlow
           selectedProgramId={selectedProgramId}
           programOptions={existingPrograms.map((program) => ({ id: program.id, label: program.label }))}
           review={review}
@@ -1024,7 +668,7 @@ export function ActiveProgramReviewSection() {
           onFieldChange={updateField}
         />
 
-        <ActiveProgramCockpitCard
+        <ActiveProgramCockpitFlow
           review={review}
           teamRoleUpdates={teamRoleUpdates}
           teamCoverage={{ submitted: teamCoverage.submitted, total: teamCoverage.total }}
@@ -1037,76 +681,43 @@ export function ActiveProgramReviewSection() {
           isActive={Boolean(selectedProgramId || review.programName.trim())}
         />
 
-        <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_360px] xl:grid-cols-[minmax(0,1fr)_380px]">
-          <div className="grid gap-4">
-            <ActiveProgramTeamUpdatesCard
-              teamRoleUpdates={teamRoleUpdates}
-              assignedOwnersByRole={assignedOwnersByRole}
-              ownerCoverage={ownerCoverage}
-              saveState={saveState}
-              saveConfirmation={saveConfirmation}
-              defaultFocusRole={defaultFocusRole}
-              ownershipSaveState={ownershipSaveState}
-              ownershipSavedAt={ownershipSavedAt}
-              formatTimestamp={formatTimestamp}
-              onUpdateRoleField={updateRoleField}
-              onSaveOwnership={saveReviewSnapshot}
-              onSaveRoleSignal={saveReviewSnapshot}
-            />
-
-            <ActiveProgramMeetingIntelligenceCard
-              meetingInputDraft={meetingInputDraft}
-              meetingSaveState={meetingSaveState}
-              meetingUploadState={meetingUploadState}
-              onDraftChange={(patch) => setMeetingInputDraft((current) => ({ ...current, ...patch }))}
-              onAttachmentsChange={handleMeetingAttachments}
-              onRemoveAttachment={removeMeetingAttachment}
-              onSave={saveMeetingInput}
-              formatFileSize={formatFileSize}
-            />
-
-            <ActiveProgramStatusArtifactsCard
-              artifacts={review.artifacts}
-              onArtifactsChange={handleArtifacts}
-              onRemoveArtifact={removeArtifact}
-              formatFileSize={formatFileSize}
-            />
-
-            <div className="flex flex-col gap-3 sm:flex-row">
-              <Button type="submit" size="lg">
-                <Save className="h-4 w-4" />
-                {saveState === "saving" ? "Saving..." : "Save cycle synthesis"}
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                size="lg"
-                onClick={() => {
-                  setReview(clearCycleReview(review, selectedProgram?.intake));
-                }}
-              >
-                Clear cycle
-              </Button>
-              {savedAt ? (
-                <p className={`self-center text-sm ${saveState === "error" ? "text-amber-200" : "text-cyan-200"}`}>
-                  {saveState === "error" ? "Saved locally only" : "Saved to server and refreshed guided plan"} at {savedAt}
-                </p>
-              ) : null}
-            </div>
-          </div>
-
-          <ActiveProgramSidebar
-            latestUpdate={latestUpdate}
-            leadershipSignal={leadershipSignal}
-            programSynthesis={programSynthesis}
-            completion={completion}
-            updateImpact={updateImpact}
-            selectedProgramHistory={selectedProgramHistory}
-            meetingInputs={meetingInputs}
-            formatTimestamp={formatTimestamp}
-            onLoadUpdate={(update) => setReview(update.review)}
-          />
-        </div>
+        <ActiveProgramTeamSignalFlow
+          teamRoleUpdates={teamRoleUpdates}
+          assignedOwnersByRole={assignedOwnersByRole}
+          ownerCoverage={ownerCoverage}
+          saveState={saveState}
+          saveConfirmation={saveConfirmation}
+          defaultFocusRole={defaultFocusRole}
+          ownershipSaveState={ownershipSaveState}
+          ownershipSavedAt={ownershipSavedAt}
+          meetingInputDraft={meetingInputDraft}
+          meetingSaveState={meetingSaveState}
+          meetingUploadState={meetingUploadState}
+          artifacts={review.artifacts}
+          latestUpdate={latestUpdate}
+          leadershipSignal={leadershipSignal}
+          programSynthesis={programSynthesis}
+          completion={completion}
+          updateImpact={updateImpact}
+          selectedProgramHistory={selectedProgramHistory}
+          meetingInputs={meetingInputs}
+          savedAt={savedAt}
+          formatTimestamp={formatTimestamp}
+          formatFileSize={formatFileSize}
+          onUpdateRoleField={updateRoleField}
+          onSaveOwnership={saveReviewSnapshot}
+          onSaveRoleSignal={saveReviewSnapshot}
+          onMeetingDraftChange={(patch) => setMeetingInputDraft((current) => ({ ...current, ...patch }))}
+          onMeetingAttachmentsChange={handleMeetingAttachments}
+          onRemoveMeetingAttachment={removeMeetingAttachment}
+          onSaveMeetingInput={saveMeetingInput}
+          onArtifactsChange={handleArtifacts}
+          onRemoveArtifact={removeArtifact}
+          onClearCycle={() => {
+            setReview(clearCycleReview(review, selectedProgram?.intake));
+          }}
+          onLoadUpdate={(update) => setReview(update.review)}
+        />
       </form>
     </section>
   );
