@@ -16,7 +16,7 @@ type ActiveProgramStateCardProps = {
   programOptions: ProgramOption[];
   review: ActiveProgramReview;
   onSelectProgram: (programId: string) => void;
-  onFieldChange: (field: keyof Omit<ActiveProgramReview, "artifacts">, value: string) => void;
+  onFieldChange: (field: keyof Omit<ActiveProgramReview, "artifacts" | "deliveryBoardItems" | "teamRoleUpdates">, value: string) => void;
 };
 
 export function ActiveProgramStateCard({

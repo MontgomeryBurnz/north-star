@@ -1,6 +1,9 @@
 import type { ProgramArtifact } from "@/lib/program-intake-types";
+import type { ProgramMeetingAttachment } from "@/lib/program-intelligence-types";
 
 export type TeamRoleUpdateStatus = "on-track" | "at-risk" | "blocked";
+
+export type DeliveryBoardStatus = "not-started" | "in-progress" | "needs-review" | "blocked" | "done";
 
 export type TeamRoleUpdate = {
   role: string;
@@ -14,6 +17,20 @@ export type TeamRoleUpdate = {
   status: TeamRoleUpdateStatus;
   needsLeadershipAttention: boolean;
   lastUpdatedAt?: string;
+};
+
+export type DeliveryBoardItem = {
+  id: string;
+  role: string;
+  title: string;
+  description: string;
+  owner: string;
+  status: DeliveryBoardStatus;
+  dueDate: string;
+  latestNote: string;
+  attachments: ProgramMeetingAttachment[];
+  createdAt?: string;
+  updatedAt?: string;
 };
 
 export type ActiveProgramReview = {
@@ -33,6 +50,7 @@ export type ActiveProgramReview = {
   programSynthesisNote?: string;
   lastUpdatedRole?: string;
   teamRoleUpdates?: TeamRoleUpdate[];
+  deliveryBoardItems?: DeliveryBoardItem[];
   artifacts: ProgramArtifact[];
 };
 

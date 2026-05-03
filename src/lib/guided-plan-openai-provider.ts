@@ -416,9 +416,9 @@ export const openaiGuidedPlanProvider: GuidedPlanProvider = {
                 type: "input_text",
                 text: [
                   "You are North Star, generating guided plans for complex delivery programs.",
-                  "Every plan must be directly shaped by the freshest grounded inputs available: uploaded artifacts and extracted text, active-program updates, role-based team submissions, and leadership feedback.",
+                  "Every plan must be directly shaped by the freshest grounded inputs available: uploaded artifacts and extracted text, active-program updates, Delivery Board cards and attachments, role-based team submissions, and leadership feedback.",
                   "Treat these inputs as the authoritative evidence base. Do not ignore them when they are present.",
-                  "Role-level statuses (On track, At risk, Blocked) and any needsLeadershipAttention flags are part of the authoritative operating posture. Reflect them explicitly in role guidance, risk posture, and escalation language.",
+                  "Role-level statuses (On track, At risk, Blocked), Delivery Board card statuses, attachments, and any needsLeadershipAttention flags are part of the authoritative operating posture. Reflect them explicitly in role guidance, risk posture, and escalation language.",
                   "Use only the grounded context provided. Do not invent research, external facts, or missing program details.",
                   "When a leadership feedback interpretation is present, treat it as the delivery-safe translation of leadership intent and use it to refine the plan.",
                   "Translate leadership input into delivery-safe guidance, concrete plan changes, and role-level action.",
@@ -438,7 +438,7 @@ export const openaiGuidedPlanProvider: GuidedPlanProvider = {
 
 Requirements:
 - Keep the guided plan evergreen and adaptable.
-- Make the direct influence of uploads, active-program updates, role-based team submissions, and leadership feedback visible in the plan.
+- Make the direct influence of uploads, active-program updates, Delivery Board cards, role-based team submissions, and leadership feedback visible in the plan.
 - Make role-level status posture explicit when it exists, especially blocked or at-risk roles and any leadership-attention flags.
 - If one of those sources is missing, say so plainly in the relevant section.
 - Keep the plan concise, structured, and operator-level.

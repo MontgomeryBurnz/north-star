@@ -1,6 +1,6 @@
 "use client";
 
-import { CalendarCheck, FileText, History, MessageSquareQuote, Users2, Video } from "lucide-react";
+import { CalendarCheck, FileText, History, KanbanSquare, MessageSquareQuote, Users2, Video } from "lucide-react";
 import type { ActiveProgramUpdate } from "@/lib/active-program-types";
 import type { DeliveryLeadershipSignal } from "@/lib/leadership-feedback-types";
 import type { ProgramMeetingInput } from "@/lib/program-intelligence-types";
@@ -11,7 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 type TimelineEvent = {
   detail: string;
   id: string;
-  kind: "role" | "leadership" | "meeting" | "artifact" | "program";
+  kind: "role" | "leadership" | "meeting" | "artifact" | "program" | "delivery-board";
   timestamp: string;
   title: string;
   update?: ActiveProgramUpdate;
@@ -40,6 +40,12 @@ const eventChrome: Record<TimelineEvent["kind"], { icon: typeof Users2; label: s
     marker: "border-amber-300/40 bg-amber-300/20 text-amber-100",
     panel: "border-amber-300/15 bg-amber-300/[0.045]"
   },
+  "delivery-board": {
+    icon: KanbanSquare,
+    label: "Board",
+    marker: "border-emerald-300/40 bg-emerald-300/20 text-emerald-100",
+    panel: "border-emerald-300/15 bg-emerald-300/[0.045]"
+  },
   meeting: {
     icon: Video,
     label: "Meeting",
@@ -61,9 +67,11 @@ const eventChrome: Record<TimelineEvent["kind"], { icon: typeof Users2; label: s
 };
 
 function buildUpdateEvents(updates: ActiveProgramUpdate[]): TimelineEvent[] {
-  return updates.slice(0, 8).map((update) => {
+  return updates.slice(0, 8).flatMap((update) => {
     const role = update.review.lastUpdatedRole?.trim();
-    return {
+    const deliveryBoardItems = update.review.deliveryBoardItems ?? [];
+    const activeBoardItems = deliveryBoardItems.filter((item) => item.status !== "done");
+    const events: TimelineEvent[] = [{
       detail:
         update.review.programSynthesisNote ||
         firstSignal(
@@ -75,7 +83,25 @@ function buildUpdateEvents(updates: ActiveProgramUpdate[]): TimelineEvent[] {
       timestamp: update.createdAt,
       title: role ? `${role} submitted a role signal` : "Cycle update saved",
       update
-    };
+    }];
+
+    if (deliveryBoardItems.length) {
+      events.push({
+        detail: activeBoardItems.length
+          ? activeBoardItems
+              .slice(0, 3)
+              .map((item) => `${item.role}: ${item.title} (${item.status.replace(/-/g, " ")})`)
+              .join(" / ")
+          : "All delivery board cards are currently marked done.",
+        id: `${update.id}-delivery-board`,
+        kind: "delivery-board",
+        timestamp: update.createdAt,
+        title: "Delivery board updated",
+        update
+      });
+    }
+
+    return events;
   });
 }
 
@@ -140,7 +166,7 @@ export function ActiveProgramSidebar({
             This week timeline
           </CardTitle>
           <p className="mt-2 text-xs leading-5 text-zinc-500">
-            What changed across roles, leadership, meetings, and artifacts.
+            What changed across roles, delivery board, leadership, meetings, and artifacts.
           </p>
         </CardHeader>
         <CardContent className="p-5">

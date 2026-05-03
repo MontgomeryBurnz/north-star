@@ -1,7 +1,7 @@
 "use client";
 
 import { ChangeEvent, FormEvent, useCallback, useEffect, useMemo, useState } from "react";
-import type { ActiveProgramReview, ActiveProgramUpdate, TeamRoleUpdate } from "@/lib/active-program-types";
+import type { ActiveProgramReview, ActiveProgramUpdate, DeliveryBoardItem, TeamRoleUpdate } from "@/lib/active-program-types";
 import { useCurrentUserAssignments } from "@/hooks/use-current-user-assignments";
 import { useForegroundRefresh } from "@/hooks/use-foreground-refresh";
 import { useRequestSequence } from "@/hooks/use-request-sequence";
@@ -12,6 +12,7 @@ import type { ProgramArtifact, ProgramIntake } from "@/lib/program-intake-types"
 import { splitLines } from "@/lib/text-signals";
 import {
   buildCycleMetadata,
+  buildDeliveryBoardItem,
   buildFallbackOwnershipSignature,
   clearCycleReview,
   emptyMeetingInputDraft,
@@ -25,6 +26,7 @@ import {
   isOwnerOnlyRoleSnapshot,
   isTextLikeMeetingFile,
   normalizeProgramLabel,
+  normalizeDeliveryBoardItems,
   normalizeReview,
   normalizeTeamRoleUpdates,
   optionFromSavedIntake,
@@ -63,6 +65,10 @@ export function useActiveProgramReviewController() {
   const [meetingInputDraft, setMeetingInputDraft] = useState(emptyMeetingInputDraft);
   const [meetingSaveState, setMeetingSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const [meetingUploadState, setMeetingUploadState] = useState<"idle" | "uploading" | "uploaded" | "error">("idle");
+  const [deliveryBoardUploadState, setDeliveryBoardUploadState] = useState<{
+    itemId: string;
+    status: "idle" | "uploading" | "uploaded" | "error";
+  } | null>(null);
 
   const loadServerPrograms = useCallback(async () => {
     const requestId = programsRequest.beginRequest();
@@ -294,7 +300,7 @@ export function useActiveProgramReviewController() {
   }, [fallbackOwnershipHasEntries, ownerCoverage.configured, ownershipSignature, saveState, savedOwnershipSignature]);
 
   const updateField = useCallback(
-    (field: keyof Omit<ActiveProgramReview, "artifacts">, value: string) => {
+    (field: keyof Omit<ActiveProgramReview, "artifacts" | "deliveryBoardItems" | "teamRoleUpdates">, value: string) => {
       setReview((current) =>
         normalizeReview(
           {
@@ -463,9 +469,137 @@ export function useActiveProgramReviewController() {
     }));
   }, []);
 
+  const addDeliveryBoardItem = useCallback(
+    (input: Pick<DeliveryBoardItem, "description" | "dueDate" | "latestNote" | "owner" | "role" | "status" | "title">) => {
+      const now = new Date().toISOString();
+      const item = buildDeliveryBoardItem({
+        ...input,
+        id: `delivery-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        attachments: [],
+        createdAt: now,
+        updatedAt: now
+      });
+
+      setReview((current) =>
+        normalizeReview(
+          {
+            ...current,
+            deliveryBoardItems: [...normalizeDeliveryBoardItems(current.deliveryBoardItems, activeTeamRoles), item]
+          },
+          selectedProgram?.intake
+        )
+      );
+    },
+    [activeTeamRoles, selectedProgram?.intake]
+  );
+
+  const updateDeliveryBoardItem = useCallback(
+    (itemId: string, patch: Partial<Omit<DeliveryBoardItem, "attachments" | "createdAt" | "id">>) => {
+      setReview((current) =>
+        normalizeReview(
+          {
+            ...current,
+            deliveryBoardItems: normalizeDeliveryBoardItems(current.deliveryBoardItems, activeTeamRoles).map((item) =>
+              item.id === itemId
+                ? buildDeliveryBoardItem({
+                    ...item,
+                    ...patch,
+                    updatedAt: new Date().toISOString()
+                  })
+                : item
+            )
+          },
+          selectedProgram?.intake
+        )
+      );
+    },
+    [activeTeamRoles, selectedProgram?.intake]
+  );
+
+  const removeDeliveryBoardItem = useCallback(
+    (itemId: string) => {
+      setReview((current) =>
+        normalizeReview(
+          {
+            ...current,
+            deliveryBoardItems: normalizeDeliveryBoardItems(current.deliveryBoardItems, activeTeamRoles).filter(
+              (item) => item.id !== itemId
+            )
+          },
+          selectedProgram?.intake
+        )
+      );
+    },
+    [activeTeamRoles, selectedProgram?.intake]
+  );
+
+  const handleDeliveryBoardAttachments = useCallback(
+    async (itemId: string, event: ChangeEvent<HTMLInputElement>) => {
+      const files = Array.from(event.target.files ?? []);
+      if (!files.length) return;
+
+      setDeliveryBoardUploadState({ itemId, status: "uploading" });
+
+      try {
+        const attachments = await Promise.all(files.map((file) => uploadMeetingAttachment(file)));
+        setReview((current) =>
+          normalizeReview(
+            {
+              ...current,
+              deliveryBoardItems: normalizeDeliveryBoardItems(current.deliveryBoardItems, activeTeamRoles).map((item) => {
+                if (item.id !== itemId) return item;
+                const nextAttachments = [...item.attachments, ...attachments].filter(
+                  (attachment, index, all) => all.findIndex((candidate) => candidate.id === attachment.id) === index
+                );
+
+                return buildDeliveryBoardItem({
+                  ...item,
+                  attachments: nextAttachments,
+                  updatedAt: new Date().toISOString()
+                });
+              })
+            },
+            selectedProgram?.intake
+          )
+        );
+        setDeliveryBoardUploadState({ itemId, status: "uploaded" });
+      } catch {
+        setDeliveryBoardUploadState({ itemId, status: "error" });
+      } finally {
+        event.target.value = "";
+      }
+    },
+    [activeTeamRoles, selectedProgram?.intake, uploadMeetingAttachment]
+  );
+
+  const removeDeliveryBoardAttachment = useCallback(
+    (itemId: string, attachmentId: string) => {
+      setReview((current) =>
+        normalizeReview(
+          {
+            ...current,
+            deliveryBoardItems: normalizeDeliveryBoardItems(current.deliveryBoardItems, activeTeamRoles).map((item) =>
+              item.id === itemId
+                ? buildDeliveryBoardItem({
+                    ...item,
+                    attachments: item.attachments.filter((attachment) => attachment.id !== attachmentId),
+                    updatedAt: new Date().toISOString()
+                  })
+                : item
+            )
+          },
+          selectedProgram?.intake
+        )
+      );
+    },
+    [activeTeamRoles, selectedProgram?.intake]
+  );
+
   const saveReviewSnapshot = useCallback(
-    async (lastUpdatedRole = "") => {
+    async (lastUpdatedRole = "", scopeOverride = "") => {
       const timestamp = new Date();
+      const saveScope = scopeOverride || (lastUpdatedRole ? `${lastUpdatedRole} signal` : "Cycle synthesis");
+      const nextLastUpdatedRole = lastUpdatedRole || (scopeOverride ? "" : review.lastUpdatedRole || "");
       const programId =
         selectedProgramId || `local-${review.programName.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-") || "active-program"}`;
       const currentRoleUpdates = normalizeTeamRoleUpdates(review.teamRoleUpdates, activeTeamRoles);
@@ -492,7 +626,7 @@ export function useActiveProgramReviewController() {
                   : roleUpdate
               )
             : currentRoleUpdates,
-          lastUpdatedRole: lastUpdatedRole || review.lastUpdatedRole || ""
+          lastUpdatedRole: nextLastUpdatedRole
         },
         selectedProgram?.intake
       );
@@ -511,7 +645,7 @@ export function useActiveProgramReviewController() {
       setReview(nextReview);
       setSaveState("saving");
       setSaveConfirmation({
-        scope: lastUpdatedRole ? `${lastUpdatedRole} signal` : "Cycle synthesis",
+        scope: saveScope,
         status: "saving"
       });
 
@@ -528,7 +662,7 @@ export function useActiveProgramReviewController() {
         setSavedAt(savedTime);
         setSaveConfirmation({
           savedAt: savedTime,
-          scope: lastUpdatedRole ? `${lastUpdatedRole} signal` : "Cycle synthesis",
+          scope: saveScope,
           status: "saved"
         });
         setSavedOwnershipSignature(buildFallbackOwnershipSignature(nextReview.teamRoleUpdates, activeTeamRoles, assignedOwnersByRole));
@@ -539,7 +673,7 @@ export function useActiveProgramReviewController() {
         setSaveState("error");
         setSavedAt(timestamp.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }));
         setSaveConfirmation({
-          scope: lastUpdatedRole ? `${lastUpdatedRole} signal` : "Cycle synthesis",
+          scope: saveScope,
           status: "error"
         });
       }
@@ -632,6 +766,8 @@ export function useActiveProgramReviewController() {
     clearCycle,
     currentUserId: currentUser?.id ?? null,
     defaultFocusRole,
+    addDeliveryBoardItem,
+    deliveryBoardUploadState,
     formatFileSize,
     formatTimestamp,
     handleArtifacts,
@@ -649,6 +785,8 @@ export function useActiveProgramReviewController() {
     ownershipSaveState,
     programOptions,
     removeArtifact,
+    removeDeliveryBoardAttachment,
+    removeDeliveryBoardItem,
     removeMeetingAttachment,
     review,
     saveConfirmation,
@@ -662,6 +800,8 @@ export function useActiveProgramReviewController() {
     teamCoverage,
     teamRoleUpdates,
     updateField,
+    updateDeliveryBoardItem,
+    handleDeliveryBoardAttachments,
     updateMeetingInputDraft,
     updateRoleField
   };

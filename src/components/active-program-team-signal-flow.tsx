@@ -2,10 +2,11 @@
 
 import type { ChangeEvent } from "react";
 import { Save } from "lucide-react";
-import type { ActiveProgramUpdate, TeamRoleUpdate } from "@/lib/active-program-types";
+import type { ActiveProgramUpdate, DeliveryBoardItem, TeamRoleUpdate } from "@/lib/active-program-types";
 import type { DeliveryLeadershipSignal } from "@/lib/leadership-feedback-types";
 import type { ProgramMeetingInput } from "@/lib/program-intelligence-types";
 import type { ProgramArtifact } from "@/lib/program-intake-types";
+import { ActiveProgramDeliveryBoardCard } from "@/components/active-program-delivery-board-card";
 import { ActiveProgramMeetingIntelligenceCard } from "@/components/active-program-meeting-intelligence-card";
 import { ActiveProgramSidebar } from "@/components/active-program-sidebar";
 import { ActiveProgramStatusArtifactsCard } from "@/components/active-program-status-artifacts-card";
@@ -23,8 +24,13 @@ type ActiveProgramTeamSignalFlowProps = {
   teamRoleUpdates: TeamRoleUpdate[];
   assignedOwnersByRole: Record<string, string[]>;
   ownerCoverage: { configured: number; total: number };
+  deliveryBoardItems: DeliveryBoardItem[];
   saveState: "idle" | "saving" | "saved" | "error";
   saveConfirmation: SaveConfirmation;
+  deliveryBoardUploadState: {
+    itemId: string;
+    status: "idle" | "uploading" | "uploaded" | "error";
+  } | null;
   defaultFocusRole: string | null;
   currentUserId: string | null;
   selectedProgramId: string;
@@ -41,6 +47,14 @@ type ActiveProgramTeamSignalFlowProps = {
   savedAt: string | null;
   formatTimestamp: (value: string) => string;
   formatFileSize: (size: number) => string;
+  onAddDeliveryBoardItem: (
+    input: Pick<DeliveryBoardItem, "description" | "dueDate" | "latestNote" | "owner" | "role" | "status" | "title">
+  ) => void;
+  onUpdateDeliveryBoardItem: (itemId: string, patch: Partial<Omit<DeliveryBoardItem, "attachments" | "createdAt" | "id">>) => void;
+  onRemoveDeliveryBoardItem: (itemId: string) => void;
+  onDeliveryBoardAttachmentsChange: (itemId: string, event: ChangeEvent<HTMLInputElement>) => void | Promise<void>;
+  onRemoveDeliveryBoardAttachment: (itemId: string, attachmentId: string) => void;
+  onSaveDeliveryBoard: () => void | Promise<void>;
   onUpdateRoleField: (role: string, field: keyof Omit<TeamRoleUpdate, "role">, value: string | boolean) => void;
   onSaveOwnership: (lastUpdatedRole?: string) => void | Promise<void>;
   onSaveRoleSignal: (lastUpdatedRole?: string) => void | Promise<void>;
@@ -58,8 +72,10 @@ export function ActiveProgramTeamSignalFlow({
   teamRoleUpdates,
   assignedOwnersByRole,
   ownerCoverage,
+  deliveryBoardItems,
   saveState,
   saveConfirmation,
+  deliveryBoardUploadState,
   defaultFocusRole,
   currentUserId,
   selectedProgramId,
@@ -76,6 +92,12 @@ export function ActiveProgramTeamSignalFlow({
   savedAt,
   formatTimestamp,
   formatFileSize,
+  onAddDeliveryBoardItem,
+  onUpdateDeliveryBoardItem,
+  onRemoveDeliveryBoardItem,
+  onDeliveryBoardAttachmentsChange,
+  onRemoveDeliveryBoardAttachment,
+  onSaveDeliveryBoard,
   onUpdateRoleField,
   onSaveOwnership,
   onSaveRoleSignal,
@@ -91,6 +113,22 @@ export function ActiveProgramTeamSignalFlow({
   return (
     <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_360px] xl:grid-cols-[minmax(0,1fr)_380px]">
       <div className="grid gap-4">
+        <ActiveProgramDeliveryBoardCard
+          deliveryBoardItems={deliveryBoardItems}
+          deliveryBoardUploadState={deliveryBoardUploadState}
+          teamRoleUpdates={teamRoleUpdates}
+          assignedOwnersByRole={assignedOwnersByRole}
+          saveState={saveState}
+          saveConfirmation={saveConfirmation}
+          formatFileSize={formatFileSize}
+          onAddDeliveryBoardItem={onAddDeliveryBoardItem}
+          onUpdateDeliveryBoardItem={onUpdateDeliveryBoardItem}
+          onRemoveDeliveryBoardItem={onRemoveDeliveryBoardItem}
+          onDeliveryBoardAttachmentsChange={onDeliveryBoardAttachmentsChange}
+          onRemoveDeliveryBoardAttachment={onRemoveDeliveryBoardAttachment}
+          onSaveDeliveryBoard={onSaveDeliveryBoard}
+        />
+
         <ActiveProgramTeamUpdatesCard
           teamRoleUpdates={teamRoleUpdates}
           assignedOwnersByRole={assignedOwnersByRole}

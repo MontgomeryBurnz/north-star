@@ -1,4 +1,11 @@
-import type { ActiveProgramReview, ActiveProgramUpdate, TeamRoleUpdate, TeamRoleUpdateStatus } from "@/lib/active-program-types";
+import type {
+  ActiveProgramReview,
+  ActiveProgramUpdate,
+  DeliveryBoardItem,
+  DeliveryBoardStatus,
+  TeamRoleUpdate,
+  TeamRoleUpdateStatus
+} from "@/lib/active-program-types";
 import type { ProgramMeetingAttachment, ProgramMeetingInput } from "@/lib/program-intelligence-types";
 import type { ProgramIntake } from "@/lib/program-intake-types";
 import { normalizeTeamRoles } from "@/lib/team-roles";
@@ -20,6 +27,7 @@ export const emptyReview: ActiveProgramReview = {
   programSynthesisNote: "",
   lastUpdatedRole: "",
   teamRoleUpdates: [],
+  deliveryBoardItems: [],
   artifacts: []
 };
 
@@ -56,6 +64,8 @@ function mapLegacyConfidenceToStatus(confidence?: string): TeamRoleUpdateStatus 
   if (confidence === "medium") return "at-risk";
   return "on-track";
 }
+
+const deliveryBoardStatusSet = new Set<DeliveryBoardStatus>(["not-started", "in-progress", "needs-review", "blocked", "done"]);
 
 export function formatFileSize(size: number) {
   if (size < 1024) return `${size} B`;
@@ -162,6 +172,26 @@ export function buildTeamRoleUpdate(role: string, existing?: Partial<TeamRoleUpd
   };
 }
 
+export function buildDeliveryBoardItem(existing: Partial<DeliveryBoardItem>, fallbackRole = ""): DeliveryBoardItem {
+  const title = existing.title?.trim() ?? "";
+  const role = existing.role?.trim() || fallbackRole;
+  const createdAt = existing.createdAt || new Date().toISOString();
+
+  return {
+    id: existing.id || `delivery-${createdAt}-${title || role}`.replace(/[^a-zA-Z0-9-]+/g, "-").toLowerCase(),
+    role,
+    title,
+    description: existing.description ?? "",
+    owner: existing.owner ?? "",
+    status: deliveryBoardStatusSet.has(existing.status as DeliveryBoardStatus) ? (existing.status as DeliveryBoardStatus) : "not-started",
+    dueDate: existing.dueDate ?? "",
+    latestNote: existing.latestNote ?? "",
+    attachments: Array.isArray(existing.attachments) ? existing.attachments : [],
+    createdAt,
+    updatedAt: existing.updatedAt || createdAt
+  };
+}
+
 function roleUpdatesMatch(current: TeamRoleUpdate | undefined, next: TeamRoleUpdate) {
   return Boolean(
     current &&
@@ -207,6 +237,17 @@ export function normalizeTeamRoleUpdates(roleUpdates: TeamRoleUpdate[] | undefin
       ? existingRoleUpdate
       : normalizedRoleUpdate;
   });
+}
+
+export function normalizeDeliveryBoardItems(deliveryBoardItems: DeliveryBoardItem[] | undefined, roles: string[]) {
+  const knownRoleByKey = new Map(roles.map((role) => [normalizeProgramLabel(role), role]));
+
+  return (deliveryBoardItems ?? [])
+    .map((item) => {
+      const normalizedRole = knownRoleByKey.get(normalizeProgramLabel(item.role)) ?? item.role;
+      return buildDeliveryBoardItem(item, normalizedRole);
+    })
+    .filter((item) => item.title || item.description || item.latestNote || item.attachments.length);
 }
 
 export function buildFallbackOwnershipSignature(
@@ -271,6 +312,7 @@ export function clearCycleReview(review: ActiveProgramReview, intake?: ProgramIn
       deliveryHealth: review.deliveryHealth,
       updateCadence: review.updateCadence ?? "weekly",
       teamRoleUpdates: preservedOwners,
+      deliveryBoardItems: normalizeDeliveryBoardItems(review.deliveryBoardItems, roles),
       artifacts: review.artifacts
     },
     intake
@@ -279,12 +321,20 @@ export function clearCycleReview(review: ActiveProgramReview, intake?: ProgramIn
 
 export function buildSynthesizedReview(review: ActiveProgramReview, roles: string[], lastUpdatedRole = ""): ActiveProgramReview {
   const normalizedRoleUpdates = normalizeTeamRoleUpdates(review.teamRoleUpdates, roles);
+  const deliveryBoardItems = normalizeDeliveryBoardItems(review.deliveryBoardItems, roles);
   const touchedRoles = normalizedRoleUpdates.filter(hasRoleSubmission);
+  const activeBoardItems = deliveryBoardItems.filter((item) => item.status !== "done");
   const cycleMetadata = buildCycleMetadata(review.updateCadence === "biweekly" ? "biweekly" : "weekly");
   const cadence: ActiveProgramReview["updateCadence"] = review.updateCadence === "biweekly" ? "biweekly" : "weekly";
-  const programSynthesisNote = touchedRoles.length
-    ? `${touchedRoles.length} of ${roles.length} assigned team roles submitted updates in the current ${cadence === "biweekly" ? "bi-weekly" : "weekly"} cycle.`
-    : `No team role submissions are on file for the current ${cadence === "biweekly" ? "bi-weekly" : "weekly"} cycle yet.`;
+  const synthesisParts = [
+    touchedRoles.length
+      ? `${touchedRoles.length} of ${roles.length} assigned team roles submitted updates`
+      : "No team role submissions are on file",
+    activeBoardItems.length ? `${activeBoardItems.length} active delivery board card${activeBoardItems.length === 1 ? "" : "s"} are driving weekly execution` : ""
+  ].filter(Boolean);
+  const programSynthesisNote = `${synthesisParts.join("; ")} in the current ${
+    cadence === "biweekly" ? "bi-weekly" : "weekly"
+  } cycle.`;
 
   return {
     ...review,
@@ -294,6 +344,7 @@ export function buildSynthesizedReview(review: ActiveProgramReview, roles: strin
     programSynthesisNote,
     lastUpdatedRole: lastUpdatedRole || review.lastUpdatedRole || "",
     teamRoleUpdates: normalizedRoleUpdates,
+    deliveryBoardItems,
     progressSinceLastReview: joinRoleSignals(
       normalizedRoleUpdates,
       (role) => role.progressUpdate,

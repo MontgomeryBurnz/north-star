@@ -1,5 +1,5 @@
 import { randomUUID } from "crypto";
-import type { StoredProgramUpdate } from "./active-program-types.ts";
+import type { DeliveryBoardItem, DeliveryBoardStatus, StoredProgramUpdate } from "./active-program-types.ts";
 import type { AssistantConversationTurn } from "./assistant-conversation-types.ts";
 import type { GuidedPlan, GuidedPlanRolePlan } from "./guided-plan-types.ts";
 import type { LeadershipReviewRecord } from "./leadership-feedback-types.ts";
@@ -62,6 +62,35 @@ function getTeamRoleUpdates(update: StoredProgramUpdate | undefined) {
   ) ?? [];
 }
 
+function getDeliveryBoardItems(update: StoredProgramUpdate | undefined) {
+  return update?.review.deliveryBoardItems?.filter((item) => item.role.trim() && item.title.trim()) ?? [];
+}
+
+function formatDeliveryBoardStatus(status: DeliveryBoardStatus) {
+  if (status === "not-started") return "Not started";
+  if (status === "in-progress") return "In progress";
+  if (status === "needs-review") return "Needs review";
+  if (status === "blocked") return "Blocked";
+  if (status === "done") return "Done";
+  return "Unstated";
+}
+
+function summarizeDeliveryBoardItems(items: DeliveryBoardItem[], limit = 3) {
+  return items
+    .slice(0, limit)
+    .map((item) => {
+      const dueDate = item.dueDate ? `, due ${item.dueDate}` : "";
+      const attachmentSignal = item.attachments.length ? `, ${sourceLabel(item.attachments.length, "attachment")}` : "";
+      return `${item.role}: ${item.title} (${formatDeliveryBoardStatus(item.status)}${dueDate}${attachmentSignal})`;
+    })
+    .join(" / ");
+}
+
+function getRoleDeliveryBoardItems(items: DeliveryBoardItem[], role: string) {
+  const roleKey = role.toLowerCase();
+  return items.filter((item) => item.role.toLowerCase() === roleKey || item.role.toLowerCase().includes(roleKey) || roleKey.includes(item.role.toLowerCase()));
+}
+
 function formatRoleStatus(status: string) {
   if (status === "on-track") return "On track";
   if (status === "at-risk") return "At risk";
@@ -105,14 +134,31 @@ function buildRolePlans(
   const roleUpdateMap = new Map(
     getTeamRoleUpdates(latestUpdate).map((roleUpdate) => [roleUpdate.role.toLowerCase(), roleUpdate])
   );
+  const deliveryBoardItems = getDeliveryBoardItems(latestUpdate);
 
   return roleNames.map((role) => {
     const roleUpdate = roleUpdateMap.get(role.toLowerCase());
-    const roleProgress = firstAvailable(roleUpdate?.progressUpdate ?? "", progressFocus);
+    const roleBoardItems = getRoleDeliveryBoardItems(deliveryBoardItems, role);
+    const roleBoardSignal = summarizeDeliveryBoardItems(roleBoardItems, 2);
+    const blockedBoardSignal = roleBoardItems.find((item) => item.status === "blocked");
+    const reviewBoardSignal = roleBoardItems.find((item) => item.status === "needs-review");
+    const roleAttachmentSignal = roleBoardItems.flatMap((item) => item.attachments).length
+      ? `${sourceLabel(roleBoardItems.flatMap((item) => item.attachments).length, "attachment")} attached to ${role}'s delivery board cards.`
+      : "";
+    const roleProgress = firstAvailable(roleUpdate?.progressUpdate ?? "", roleBoardSignal, progressFocus);
     const roleChange = firstAvailable(roleUpdate?.changesObserved ?? "", mitigationFocus);
-    const roleRisk = firstAvailable(roleUpdate?.activeRisks ?? "", roleUpdate?.blockers ?? "", riskFocus);
-    const roleDecision = firstAvailable(roleUpdate?.decisionsNeeded ?? "", decisionFocus);
-    const roleSupport = firstAvailable(roleUpdate?.supportNeeded ?? "", requirementFocus);
+    const roleRisk = firstAvailable(
+      roleUpdate?.activeRisks ?? "",
+      roleUpdate?.blockers ?? "",
+      blockedBoardSignal ? `${blockedBoardSignal.title}: ${blockedBoardSignal.latestNote || blockedBoardSignal.description}` : "",
+      riskFocus
+    );
+    const roleDecision = firstAvailable(
+      roleUpdate?.decisionsNeeded ?? "",
+      reviewBoardSignal ? `${reviewBoardSignal.title}: ${reviewBoardSignal.latestNote || reviewBoardSignal.description}` : "",
+      decisionFocus
+    );
+    const roleSupport = firstAvailable(roleUpdate?.supportNeeded ?? "", roleAttachmentSignal, requirementFocus);
     const roleStatusLabel = formatRoleStatus(roleUpdate?.status ?? "on-track");
     const roleEscalation = roleUpdate?.needsLeadershipAttention
       ? "Leadership attention is requested from this role's current signal."
@@ -322,6 +368,9 @@ export function generateLocalGuidedPlan(
     (leadershipInterpretation?.roleImpacts ?? []).map((item) => [item.role, item.focus])
   );
   const teamRoleUpdates = getTeamRoleUpdates(latestUpdate);
+  const deliveryBoardItems = getDeliveryBoardItems(latestUpdate);
+  const blockedBoardItems = deliveryBoardItems.filter((item) => item.status === "blocked");
+  const reviewBoardItems = deliveryBoardItems.filter((item) => item.status === "needs-review");
   const roleStatusSummary = buildRoleStatusSummary(teamRoleUpdates);
   const escalatedRoleUpdates = teamRoleUpdates.filter((roleUpdate) => roleUpdate.needsLeadershipAttention);
   const artifactSignals = getArtifactSignals(program);
@@ -330,6 +379,7 @@ export function generateLocalGuidedPlan(
     artifactSignals.length ? sourceLabel(artifactSignals.length, "upload") : "",
     latestUpdate ? "latest active-program update" : "",
     teamRoleUpdates.length ? sourceLabel(teamRoleUpdates.length, "role submission") : "",
+    deliveryBoardItems.length ? sourceLabel(deliveryBoardItems.length, "delivery board card") : "",
     latestLeadershipFeedback ? "latest leadership feedback" : "",
     latestAssistantConversation
       ? sourceLabel(assistantConversations.length, "guide dialogue turn", "guide dialogue turns")
@@ -367,6 +417,9 @@ export function generateLocalGuidedPlan(
           )
           .join(" / ")}`
       : "No role-specific team submissions are on file yet. Capture role updates through Programs so the guided plan reflects what each function is seeing this cycle.",
+    deliveryBoardItems.length
+      ? `Delivery board shaping this plan: ${summarizeDeliveryBoardItems(deliveryBoardItems, 4)}`
+      : "No delivery board cards are on file yet. Add role-owned delivery cards when the team needs a shared execution board with attachments.",
     latestLeadershipFeedback
       ? `Leadership feedback shaping this plan: ${excerpt(
           firstAvailable(
@@ -454,6 +507,10 @@ export function generateLocalGuidedPlan(
               `Team status signal: ${roleStatusSummary.slice(0, 2).join(" / ")}`
             ]
           : []),
+        ...(deliveryBoardItems.length ? [`Delivery board signal: ${summarizeDeliveryBoardItems(deliveryBoardItems, 3)}`] : []),
+        ...(blockedBoardItems.length
+          ? [`Blocked delivery cards: ${blockedBoardItems.slice(0, 2).map((item) => `${item.role}: ${item.title}`).join(" / ")}`]
+          : []),
         ...(escalatedRoleUpdates.length
           ? [
               `Leadership attention signal: ${escalatedRoleUpdates
@@ -470,6 +527,12 @@ export function generateLocalGuidedPlan(
       items: [
         "Start with the decision or dependency that unlocks the next useful move.",
         `Use this decision as the next checkpoint: ${firstAvailable(decisions, "Define the next decision needed.")}`,
+        deliveryBoardItems.length
+          ? `Center the weekly team review on delivery board cards that are blocked, need review, or are due next: ${summarizeDeliveryBoardItems(
+              [...blockedBoardItems, ...reviewBoardItems, ...deliveryBoardItems],
+              3
+            )}`
+          : "Stand up a delivery board when role-owned actions, deliverables, or attachments need shared visibility.",
         leadershipGuidancePresent
           ? `Tighten the next checkpoint structure to reflect the latest leadership direction: ${excerpt(
               leadershipInterpretation?.summary ?? leadershipSignal.summary,
@@ -517,6 +580,14 @@ export function generateLocalGuidedPlan(
                 .join(" / ")}`
             ]
           : []),
+        ...(deliveryBoardItems.length
+          ? [
+              `Delivery-board adjustment: ${summarizeDeliveryBoardItems(
+                [...blockedBoardItems, ...reviewBoardItems, ...deliveryBoardItems],
+                3
+              )}`
+            ]
+          : []),
         artifactSignals.length
           ? `Use extracted artifact text as evidence before expanding scope: ${artifactSignals
               .map((artifact) => `${artifact.name} (${artifact.artifactType ?? "unclassified"})`)
@@ -556,6 +627,8 @@ export function generateLocalGuidedPlan(
         ...(roleStatusSummary.length
           ? [`Role risk posture: ${roleStatusSummary.join(" / ")}`]
           : []),
+        ...(blockedBoardItems.length ? [`Delivery board blockers: ${summarizeDeliveryBoardItems(blockedBoardItems, 3)}`] : []),
+        ...(reviewBoardItems.length ? [`Delivery board review needs: ${summarizeDeliveryBoardItems(reviewBoardItems, 3)}`] : []),
         ...(escalatedRoleUpdates.length
           ? [
               `Leadership attention requested by: ${escalatedRoleUpdates

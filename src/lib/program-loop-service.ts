@@ -45,6 +45,7 @@ function normalizeReview(review: Partial<ActiveProgramReview>): MutationResult<A
       programSynthesisNote: review.programSynthesisNote ?? "",
       lastUpdatedRole: review.lastUpdatedRole ?? "",
       teamRoleUpdates: Array.isArray(review.teamRoleUpdates) ? review.teamRoleUpdates : [],
+      deliveryBoardItems: Array.isArray(review.deliveryBoardItems) ? review.deliveryBoardItems : [],
       artifacts: review.artifacts ?? []
     }
   };

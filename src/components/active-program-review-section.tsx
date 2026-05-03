@@ -36,8 +36,10 @@ export function ActiveProgramReviewSection() {
           teamRoleUpdates={controller.teamRoleUpdates}
           assignedOwnersByRole={controller.assignedOwnersByRole}
           ownerCoverage={controller.ownerCoverage}
+          deliveryBoardItems={controller.review.deliveryBoardItems ?? []}
           saveState={controller.saveState}
           saveConfirmation={controller.saveConfirmation}
+          deliveryBoardUploadState={controller.deliveryBoardUploadState}
           defaultFocusRole={controller.defaultFocusRole}
           currentUserId={controller.currentUserId}
           selectedProgramId={controller.selectedProgramId}
@@ -54,6 +56,12 @@ export function ActiveProgramReviewSection() {
           savedAt={controller.savedAt}
           formatTimestamp={controller.formatTimestamp}
           formatFileSize={controller.formatFileSize}
+          onAddDeliveryBoardItem={controller.addDeliveryBoardItem}
+          onUpdateDeliveryBoardItem={controller.updateDeliveryBoardItem}
+          onRemoveDeliveryBoardItem={controller.removeDeliveryBoardItem}
+          onDeliveryBoardAttachmentsChange={controller.handleDeliveryBoardAttachments}
+          onRemoveDeliveryBoardAttachment={controller.removeDeliveryBoardAttachment}
+          onSaveDeliveryBoard={() => controller.saveReviewSnapshot("", "Delivery board")}
           onUpdateRoleField={controller.updateRoleField}
           onSaveOwnership={controller.saveReviewSnapshot}
           onSaveRoleSignal={controller.saveReviewSnapshot}

@@ -65,7 +65,7 @@ async function authenticate(session) {
 }
 
 async function selectProgram(session) {
-  await session.navigate(`${baseUrl}/active-program?smoke=active-program-save`);
+  await session.navigate(`${baseUrl}/active-program?mode=manage&smoke=active-program-save`);
   await session.waitFor("Active Program slicer", async () => {
     const state = await session.execute(`
       const slicer = document.querySelector("[data-program-slicer]");
@@ -144,7 +144,10 @@ async function verifyOperatingView(session) {
     return {
       hasCockpit: bodyText.includes("Program cockpit") && bodyText.includes("Phase progress"),
       hasRoleLanes: bodyText.includes("Focus role") && roleCards.some((card) => card.textContent.includes("risk") && card.textContent.includes("decision")),
-      hasTimeline: bodyText.includes("This week timeline") && bodyText.includes("What changed across roles, leadership, meetings, and artifacts"),
+      hasDeliveryBoard: Boolean(document.querySelector("[data-active-delivery-board]")) &&
+        document.querySelectorAll("[data-delivery-board-lane]").length > 0 &&
+        document.querySelectorAll("[data-delivery-board-column]").length >= 5,
+      hasTimeline: bodyText.includes("This week timeline") && bodyText.includes("What changed across roles, delivery board, leadership, meetings, and artifacts"),
       roleFormOpen: Boolean(document.querySelector("[data-active-role-progress]"))
     };
   `);
@@ -155,6 +158,10 @@ async function verifyOperatingView(session) {
 
   if (!state.hasRoleLanes) {
     throw new Error("Active Program compact role lanes did not render risk and decision counts.");
+  }
+
+  if (!state.hasDeliveryBoard) {
+    throw new Error("Active Program Delivery Board did not render lanes, status columns, and attachment controls.");
   }
 
   if (!state.hasTimeline) {
@@ -290,6 +297,31 @@ async function captureMobileRoleFocusScreenshot(session, program) {
 
 async function saveRoleSignal(session, program) {
   const smokeText = `North Star active-program save smoke ${new Date().toISOString()}`;
+  const deliveryCardAdded = await session.execute(
+    `
+      const title = document.querySelector("[data-delivery-board-title]");
+      const addButton = document.querySelector("[data-delivery-board-add]");
+      if (!title || !addButton) return false;
+      const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value").set;
+      setter.call(title, arguments[0]);
+      title.dispatchEvent(new Event("input", { bubbles: true }));
+      addButton.click();
+      return true;
+    `,
+    [smokeText]
+  );
+
+  if (!deliveryCardAdded) {
+    throw new Error("Active Program smoke could not add a Delivery Board card.");
+  }
+
+  await session.waitFor("Active Program Delivery Board card added", async () => {
+    return session.execute(`
+      return Array.from(document.querySelectorAll("[data-delivery-board-card]"))
+        .some((card) => card.textContent.includes("North Star active-program save smoke") && card.querySelector("[data-delivery-board-attachment]"));
+    `);
+  });
+
   const selectedRole = await session.execute(
     `
       const wanted = arguments[0].trim().toLowerCase();
@@ -361,7 +393,8 @@ async function saveRoleSignal(session, program) {
         .then((payload) => payload.updates.some((update) =>
           (update.review.teamRoleUpdates ?? []).some((roleUpdate) =>
             roleUpdate.role === arguments[1] && roleUpdate.progressUpdate.includes(arguments[2])
-          )
+          ) &&
+          (update.review.deliveryBoardItems ?? []).some((item) => item.title.includes(arguments[2]))
         ));
     `,
     [program.id, selectedRole, smokeText]

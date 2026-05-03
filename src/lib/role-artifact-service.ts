@@ -238,7 +238,7 @@ export async function generateRoleArtifactDraft(context: RoleArtifactGenerationC
               type: "input_text",
               text: [
                 "You are North Star generating role-ready delivery artifacts from grounded program context.",
-                "Use only the provided program inputs, uploaded artifact excerpts, active updates, leadership feedback, Guide dialogue, meeting inputs, and guided plan.",
+                "Use only the provided program inputs, uploaded artifact excerpts, active updates, Delivery Board cards and attachments, leadership feedback, Guide dialogue, meeting inputs, and guided plan.",
                 "Do not invent client facts. If information is missing, call it out as a gap or validation need.",
                 "Make the output practical for the named role to iterate against immediately.",
                 "Keep content concise, structured, and specific to the selected artifact type.",

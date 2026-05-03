@@ -7,7 +7,7 @@ type ActiveProgramStateFlowProps = {
   selectedProgramId: string;
   programOptions: Array<{ id: string; label: string }>;
   review: ActiveProgramReview;
-  onFieldChange: (field: keyof Omit<ActiveProgramReview, "artifacts">, value: string) => void;
+  onFieldChange: (field: keyof Omit<ActiveProgramReview, "artifacts" | "deliveryBoardItems" | "teamRoleUpdates">, value: string) => void;
   onSelectProgram: (programId: string) => void;
 };
 

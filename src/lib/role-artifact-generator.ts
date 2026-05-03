@@ -70,9 +70,11 @@ function buildSourceSummary(context: RoleArtifactGenerationContext) {
   const latestLeadership = context.leadershipFeedbacks[0];
   const latestGuide = context.assistantConversations[0];
   const latestMeeting = context.meetingInputs[0];
+  const deliveryBoardItems = latestUpdate?.review.deliveryBoardItems ?? [];
   const sourceParts = [
     `${artifactCount} uploaded artifact${artifactCount === 1 ? "" : "s"}`,
     latestUpdate ? "latest active-program update" : "",
+    deliveryBoardItems.length ? `${deliveryBoardItems.length} delivery board card${deliveryBoardItems.length === 1 ? "" : "s"}` : "",
     latestLeadership ? "latest leadership feedback" : "",
     latestGuide ? "latest Guide dialogue" : "",
     latestMeeting ? "latest meeting input" : ""
@@ -87,15 +89,34 @@ function buildBaseSignals(context: RoleArtifactGenerationContext) {
   const intake = context.program.intake;
   const review = context.updates[0]?.review;
   const plan = context.latestPlan;
+  const deliveryBoardItems = review?.deliveryBoardItems ?? [];
+  const boardSummary = deliveryBoardItems
+    .slice(0, 4)
+    .map((item) => `${item.role}: ${item.title} (${item.status.replace(/-/g, " ")}${item.dueDate ? ` due ${item.dueDate}` : ""})`)
+    .join("; ");
+  const blockedBoardSummary = deliveryBoardItems
+    .filter((item) => item.status === "blocked")
+    .slice(0, 3)
+    .map((item) => `${item.role}: ${item.title}${item.latestNote ? ` - ${item.latestNote}` : ""}`)
+    .join("; ");
+  const reviewBoardSummary = deliveryBoardItems
+    .filter((item) => item.status === "needs-review")
+    .slice(0, 3)
+    .map((item) => `${item.role}: ${item.title}${item.latestNote ? ` - ${item.latestNote}` : ""}`)
+    .join("; ");
+  const attachmentSummary = deliveryBoardItems
+    .flatMap((item) => item.attachments.map((attachment) => `${item.role}: ${attachment.fileName}`))
+    .slice(0, 5)
+    .join("; ");
 
   return {
     outcome: firstAvailable(plan?.northStar, intake.outcomes, intake.vision, intake.sowSummary, "Align delivery to the clearest program outcome."),
-    progress: firstAvailable(review?.progressSinceLastReview, intake.currentStatus, plan?.summary, "Current progress needs sharper role-level detail."),
+    progress: firstAvailable(review?.progressSinceLastReview, boardSummary, intake.currentStatus, plan?.summary, "Current progress needs sharper role-level detail."),
     requirements: firstAvailable(intake.reviewedContext?.requirements, intake.constraints, plan?.criticalRequirements?.items.join("; ")),
-    risk: firstAvailable(review?.activeRisks, review?.planChanges, intake.reviewedContext?.risks, intake.risks, plan?.risksAndDecisions?.items.join("; ")),
-    decisions: firstAvailable(review?.decisionsPending, intake.reviewedContext?.decisions, intake.decisionsNeeded, plan?.risksAndDecisions?.items.join("; ")),
+    risk: firstAvailable(review?.activeRisks, blockedBoardSummary, review?.planChanges, intake.reviewedContext?.risks, intake.risks, plan?.risksAndDecisions?.items.join("; ")),
+    decisions: firstAvailable(review?.decisionsPending, reviewBoardSummary, intake.reviewedContext?.decisions, intake.decisionsNeeded, plan?.risksAndDecisions?.items.join("; ")),
     stakeholders: firstAvailable(review?.stakeholderTemperature, intake.reviewedContext?.stakeholders, intake.stakeholders),
-    outputs: firstAvailable(intake.reviewedContext?.outputs, plan?.keyOutputs?.items.join("; "), "Working outputs, decisions, and delivery evidence."),
+    outputs: firstAvailable(attachmentSummary, intake.reviewedContext?.outputs, plan?.keyOutputs?.items.join("; "), "Working outputs, decisions, and delivery evidence."),
     feedback: compact(context.feedback)
   };
 }

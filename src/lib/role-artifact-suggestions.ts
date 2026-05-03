@@ -102,12 +102,16 @@ function mergeRoleSuggestions(primary: RoleArtifactSuggestion[], fallback: RoleA
 }
 
 function buildSourceSignals(context: RoleArtifactSuggestionContext) {
+  const latestDeliveryBoardItems = context.updates[0]?.review.deliveryBoardItems ?? [];
   const signals = [
     context.program.intake.artifacts.length
       ? `${context.program.intake.artifacts.length} uploaded artifact${context.program.intake.artifacts.length === 1 ? "" : "s"} available`
       : "",
     context.latestPlan ? "current guided plan available" : "",
     context.updates.length ? "active-program updates captured" : "",
+    latestDeliveryBoardItems.length
+      ? `${latestDeliveryBoardItems.length} delivery board card${latestDeliveryBoardItems.length === 1 ? "" : "s"} available`
+      : "",
     context.leadershipFeedbacks.length ? "leadership feedback is influencing the program" : "",
     context.assistantConversations.length ? "Guide dialogue exists for this program" : "",
     context.meetingInputs.length ? "meeting intelligence is attached" : "",
@@ -128,7 +132,7 @@ function suggestionForDefinition(
     businessValue: `Helps ${definition.role} turn current program signal into a reusable work product instead of another status narrative.`,
     definition,
     expectedOutput: definition.outputLabel,
-    generationBrief: `Generate ${definition.title} for ${definition.role}. Use the latest guided plan, source artifacts, team updates, leadership feedback, Guide dialogue, risks, decisions, timeline, and role composition for ${context.program.intake.programName}.`,
+    generationBrief: `Generate ${definition.title} for ${definition.role}. Use the latest guided plan, source artifacts, team updates, Delivery Board cards and attachments, leadership feedback, Guide dialogue, risks, decisions, timeline, and role composition for ${context.program.intake.programName}.`,
     id: `${definition.type}-${definition.role}`,
     recommendedFormat: definition.primaryColumns.join(" / "),
     role: definition.role,
@@ -379,6 +383,7 @@ export async function suggestRoleArtifacts(context: RoleArtifactSuggestionContex
                 "Use the provided grounded program context only.",
                 "Recommend artifacts that would help the selected role or cross-functional team move work forward.",
                 "When roleFocus is a specific role, every suggestion must be directly tailored to that role only.",
+                "Use Delivery Board cards and attachments as execution evidence when they are present.",
                 "Prefer the provided artifact catalog when it fits, but you may suggest a custom artifact when the context justifies it.",
                 "Explain why each artifact matters, what source signals justify it, the recommended format, and expected business value."
               ].join(" ")
