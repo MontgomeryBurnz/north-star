@@ -101,6 +101,25 @@ test("Navigation presents Quick Start and keeps Admin as settings access", () =>
   assert.match(loginSource, /Welcome to North Star/);
 });
 
+test("Program Hub launches setup and active management as separate paths", () => {
+  const pageSource = readFileSync(new URL("../src/app/active-program/page.tsx", import.meta.url), "utf8");
+  const programSource = readFileSync(new URL("../src/components/program-workspace.tsx", import.meta.url), "utf8");
+  const slicerSmokeSource = readFileSync(new URL("../scripts/smoke-program-slicers.mjs", import.meta.url), "utf8");
+
+  assert.match(pageSource, /: null/);
+  assert.match(programSource, /data-program-hub-landing/);
+  assert.match(programSource, /data-program-hub-entry=\{entry\.id\}/);
+  assert.match(programSource, /Set Up New Program/);
+  assert.match(programSource, /Manage Active Program/);
+  assert.match(programSource, /href: "\/active-program\?mode=setup"/);
+  assert.match(programSource, /href: "\/active-program\?mode=manage"/);
+  assert.match(programSource, /Program Hub home/);
+  assert.doesNotMatch(programSource, /useState/);
+  assert.match(slicerSmokeSource, /smokeProgramHubLanding/);
+  assert.match(slicerSmokeSource, /\/active-program\?mode=manage/);
+  assert.match(slicerSmokeSource, /buildSmokePath/);
+});
+
 test("Buyer-ready surfaces map each module to a clear user job", () => {
   const heroSource = readFileSync(new URL("../src/components/hero-section.tsx", import.meta.url), "utf8");
   const quickStartSource = readFileSync(new URL("../src/components/command-center-grid.tsx", import.meta.url), "utf8");

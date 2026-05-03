@@ -8,5 +8,10 @@ export default async function ActiveProgramPage({
 }) {
   await requireSiteAccessPage("/active-program");
   const resolvedSearchParams = await searchParams;
-  return <ProgramWorkspace initialMode={resolvedSearchParams.mode === "setup" ? "setup" : "manage"} />;
+  const initialMode =
+    resolvedSearchParams.mode === "setup" || resolvedSearchParams.mode === "manage"
+      ? resolvedSearchParams.mode
+      : null;
+
+  return <ProgramWorkspace initialMode={initialMode} />;
 }

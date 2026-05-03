@@ -13,7 +13,7 @@ const surfaces = [
   { name: "Guided Plans", path: "/systems" },
   { name: "Leadership", path: "/leadership" },
   { name: "Guide", path: "/assistant" },
-  { name: "Active Program", path: "/active-program" }
+  { name: "Active Program", path: "/active-program?mode=manage" }
 ];
 
 function requireCredential(value, label) {
@@ -75,8 +75,53 @@ async function authenticate(session) {
   }
 }
 
+function buildSmokePath(path, smoke) {
+  const delimiter = path.includes("?") ? "&" : "?";
+  return `${path}${delimiter}smoke=${smoke}`;
+}
+
+async function smokeProgramHubLanding(session) {
+  await session.navigate(`${baseUrl}/active-program?smoke=program-hub-landing`);
+  await session.waitFor("Program Hub landing entries", async () => {
+    const state = await session.execute(`
+      const landing = document.querySelector("[data-program-hub-landing]");
+      const setup = document.querySelector('[data-program-hub-entry="setup"]');
+      const manage = document.querySelector('[data-program-hub-entry="manage"]');
+      return {
+        landing: Boolean(landing),
+        setupHref: setup?.getAttribute("href") ?? "",
+        manageHref: manage?.getAttribute("href") ?? "",
+        text: document.body.textContent ?? ""
+      };
+    `);
+
+    return (
+      state.landing &&
+      state.setupHref.includes("mode=setup") &&
+      state.manageHref.includes("mode=manage") &&
+      state.text.includes("Set Up New Program") &&
+      state.text.includes("Manage Active Program")
+    );
+  }, 15_000);
+
+  await session.execute('document.querySelector("[data-program-hub-entry=\\"manage\\"]")?.click();');
+  await session.waitFor("Program Hub manage route", async () => {
+    const state = await session.execute(`
+      return {
+        search: location.search,
+        hasSlicer: Boolean(document.querySelector("[data-program-slicer]")),
+        title: document.body.textContent.includes("What changed, who owns it, and what needs action?")
+      };
+    `);
+
+    return state.search.includes("mode=manage") && state.hasSlicer && state.title;
+  }, 15_000);
+
+  console.log("✓ Program Hub: landing routes into the active management workspace.");
+}
+
 async function smokeSurface(session, surface) {
-  await session.navigate(`${baseUrl}${surface.path}?smoke=slicers`);
+  await session.navigate(`${baseUrl}${buildSmokePath(surface.path, "slicers")}`);
   await session.waitFor(`${surface.name} program slicer`, async () => {
     const count = await session.execute("return document.querySelectorAll('[data-program-slicer]').length;");
     return count > 0;
@@ -190,6 +235,7 @@ async function smokeAdminProgramRoleSelect(session) {
 async function main() {
   await withSafariBrowser(async (session) => {
     await authenticate(session);
+    await smokeProgramHubLanding(session);
 
     for (const surface of surfaces) {
       await smokeSurface(session, surface);
