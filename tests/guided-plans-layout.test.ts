@@ -264,3 +264,61 @@ test("Admin can manage OpenAI guidance model settings", () => {
   assert.match(guideProviderSource, /getGuidanceModelSettings/);
   assert.match(artifactProviderSource, /getGuidanceModelSettings/);
 });
+
+test("API routes use shared access helpers instead of one-off site checks", () => {
+  const routeAccessSource = readFileSync(new URL("../src/lib/api-route-access.ts", import.meta.url), "utf8");
+  const adminUserTypesSource = readFileSync(new URL("../src/lib/admin-user-types.ts", import.meta.url), "utf8");
+  const clientDecisionsSource = readFileSync(
+    new URL("../src/app/api/programs/[id]/client-decisions/route.ts", import.meta.url),
+    "utf8"
+  );
+
+  assert.match(routeAccessSource, /export async function requireProgramRouteAccess/);
+  assert.match(routeAccessSource, /canAccessProgramScope\(currentUser, programId\)/);
+  assert.match(routeAccessSource, /loadCurrentUser/);
+  assert.match(adminUserTypesSource, /export function canAccessProgramScope/);
+  assert.doesNotMatch(clientDecisionsSource, /function canAccessProgram/);
+
+  const programScopedRoutes = [
+    "assistant-briefing",
+    "assistant-conversations",
+    "bundle",
+    "client-decisions",
+    "guidance-feedback-flags",
+    "guidance-justifications",
+    "guided-plan",
+    "leadership-signal",
+    "meeting-inputs",
+    "role-artifact-suggestions",
+    "role-artifacts",
+    "team-assignments",
+    "updates"
+  ];
+
+  for (const route of programScopedRoutes) {
+    const source = readFileSync(new URL(`../src/app/api/programs/[id]/${route}/route.ts`, import.meta.url), "utf8");
+    assert.match(source, /requireProgramRouteAccess/);
+    assert.doesNotMatch(source, /isSiteAccessRequestAuthorized/);
+    assert.doesNotMatch(source, /createSiteAccessDeniedResponse/);
+  }
+
+  const siteScopedRoutes = [
+    "src/app/api/artifacts/extract/route.ts",
+    "src/app/api/artifacts/upload/route.ts",
+    "src/app/api/assistant/route.ts",
+    "src/app/api/audit-events/route.ts",
+    "src/app/api/auth/leadership/login/route.ts",
+    "src/app/api/auth/leadership/logout/route.ts",
+    "src/app/api/auth/leadership/sso/route.ts",
+    "src/app/api/health/route.ts",
+    "src/app/api/me/route.ts",
+    "src/app/api/programs/route.ts"
+  ];
+
+  for (const route of siteScopedRoutes) {
+    const source = readFileSync(new URL(`../${route}`, import.meta.url), "utf8");
+    assert.match(source, /requireSiteAccessRequest/);
+    assert.doesNotMatch(source, /isSiteAccessRequestAuthorized/);
+    assert.doesNotMatch(source, /createSiteAccessDeniedResponse/);
+  }
+});

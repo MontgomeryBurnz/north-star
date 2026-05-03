@@ -1,15 +1,14 @@
 import { NextResponse } from "next/server";
+import { requireProgramRouteAccess } from "@/lib/api-route-access";
 import { buildProgramTeamAssignments } from "@/lib/program-team-assignments";
 import { getProgram, listManagedUsers } from "@/lib/program-store";
 import { normalizeTeamRoles } from "@/lib/team-roles";
-import { createSiteAccessDeniedResponse, isSiteAccessRequestAuthorized } from "@/lib/site-access";
 
 export async function GET(request: Request, context: { params: Promise<{ id: string }> }) {
-  if (!isSiteAccessRequestAuthorized(request)) {
-    return createSiteAccessDeniedResponse();
-  }
-
   const { id } = await context.params;
+  const { response } = await requireProgramRouteAccess(request, id);
+  if (response) return response;
+
   const program = await getProgram(id);
 
   if (!program) {

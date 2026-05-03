@@ -83,3 +83,12 @@ export function canAccessLeadershipSurface(user: Pick<ManagedAppUser, "credentia
       (user.userType === "admin" || user.userType === "leadership")
   );
 }
+
+export function canAccessProgramScope(
+  user: Pick<ManagedAppUser, "assignments" | "credentialStatus" | "userType"> | null | undefined,
+  programId: string
+) {
+  if (!user || user.credentialStatus === "disabled") return false;
+  if (user.userType !== "client") return true;
+  return user.assignments.some((assignment) => assignment.programId === programId);
+}

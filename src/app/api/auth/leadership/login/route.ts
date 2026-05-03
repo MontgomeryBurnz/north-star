@@ -1,17 +1,16 @@
 import { NextResponse } from "next/server";
+import { requireSiteAccessRequest } from "@/lib/api-route-access";
 import {
   getConfiguredLeadershipAuthProvider,
   getLeadershipAuthConfig,
   isLeadershipCredentialsValid,
   leadershipSessionCookieName
 } from "@/lib/leadership-auth";
-import { createSiteAccessDeniedResponse, isSiteAccessRequestAuthorized } from "@/lib/site-access";
 import { isSupabaseConfigured } from "@/lib/supabase/server";
 
 export async function POST(request: Request) {
-  if (!isSiteAccessRequestAuthorized(request)) {
-    return createSiteAccessDeniedResponse();
-  }
+  const denied = requireSiteAccessRequest(request);
+  if (denied) return denied;
 
   if (isSupabaseConfigured()) {
     return NextResponse.json({ error: "Use your North Star username and password." }, { status: 400 });

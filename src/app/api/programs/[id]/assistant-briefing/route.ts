@@ -1,14 +1,13 @@
 import { NextResponse } from "next/server";
+import { requireProgramRouteAccess } from "@/lib/api-route-access";
 import { getAssistantBriefing } from "@/lib/assistant-briefing";
 import { createOpenAIUsageRecord } from "@/lib/program-store";
-import { createSiteAccessDeniedResponse, isSiteAccessRequestAuthorized } from "@/lib/site-access";
 
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
-  if (!isSiteAccessRequestAuthorized(request)) {
-    return createSiteAccessDeniedResponse();
-  }
-
   const { id } = await params;
+  const { response } = await requireProgramRouteAccess(request, id);
+  if (response) return response;
+
   const briefing = await getAssistantBriefing(id);
   const { modelUsage, ...publicBriefing } = briefing;
 

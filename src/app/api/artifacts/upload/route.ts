@@ -1,13 +1,12 @@
 import { NextResponse } from "next/server";
+import { requireSiteAccessRequest } from "@/lib/api-route-access";
 import { getArtifactStorageProvider } from "@/lib/artifact-storage";
-import { createSiteAccessDeniedResponse, isSiteAccessRequestAuthorized } from "@/lib/site-access";
 
 export const runtime = "nodejs";
 
 export async function POST(request: Request) {
-  if (!isSiteAccessRequestAuthorized(request)) {
-    return createSiteAccessDeniedResponse();
-  }
+  const denied = requireSiteAccessRequest(request);
+  if (denied) return denied;
 
   const formData = await request.formData();
   const file = formData.get("file");

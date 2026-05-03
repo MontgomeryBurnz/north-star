@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { requireProgramRouteAccess } from "@/lib/api-route-access";
 import {
   createOpenAIUsageRecord,
   getLatestGuidedPlan,
@@ -9,14 +10,12 @@ import {
   listProgramUpdates
 } from "@/lib/program-store";
 import { suggestRoleArtifacts } from "@/lib/role-artifact-suggestions";
-import { createSiteAccessDeniedResponse, isSiteAccessRequestAuthorized } from "@/lib/site-access";
 
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
-  if (!isSiteAccessRequestAuthorized(request)) {
-    return createSiteAccessDeniedResponse();
-  }
-
   const { id } = await params;
+  const { response } = await requireProgramRouteAccess(request, id);
+  if (response) return response;
+
   const { searchParams } = new URL(request.url);
   const roleFocus = searchParams.get("role") ?? undefined;
   const program = await getProgram(id);

@@ -1,26 +1,24 @@
 import { NextResponse } from "next/server";
+import { requireProgramRouteAccess } from "@/lib/api-route-access";
 import { buildSystemAuditActor } from "@/lib/audit-event-service";
 import { createAuditEvent, createGuidanceFeedbackFlag, listGuidanceFeedbackFlags } from "@/lib/program-store";
 import type { GuidanceFeedbackFlag } from "@/lib/program-intelligence-types";
 import { createGovernanceFlag } from "@/lib/program-loop-service";
-import { createSiteAccessDeniedResponse, isSiteAccessRequestAuthorized } from "@/lib/site-access";
 
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
-  if (!isSiteAccessRequestAuthorized(request)) {
-    return createSiteAccessDeniedResponse();
-  }
-
   const { id } = await params;
+  const { response } = await requireProgramRouteAccess(request, id);
+  if (response) return response;
+
   const flags = await listGuidanceFeedbackFlags(id);
   return NextResponse.json({ flags });
 }
 
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
-  if (!isSiteAccessRequestAuthorized(request)) {
-    return createSiteAccessDeniedResponse();
-  }
-
   const { id } = await params;
+  const { response } = await requireProgramRouteAccess(request, id);
+  if (response) return response;
+
   const body = (await request.json()) as Partial<GuidanceFeedbackFlag>;
   const result = await createGovernanceFlag(
     {

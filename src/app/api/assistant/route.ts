@@ -1,15 +1,14 @@
 import { NextResponse } from "next/server";
+import { requireSiteAccessRequest } from "@/lib/api-route-access";
 import { getAssistantServiceResponse } from "@/lib/assistant-service";
 import type { AssistantRequest } from "@/lib/assistant-types";
 import { auditActorFromManagedUser } from "@/lib/audit-event-service";
 import { getCurrentManagedUser } from "@/lib/current-managed-user";
 import { createAssistantConversation, createAuditEvent } from "@/lib/program-store";
-import { createSiteAccessDeniedResponse, isSiteAccessRequestAuthorized } from "@/lib/site-access";
 
 export async function POST(request: Request) {
-  if (!isSiteAccessRequestAuthorized(request)) {
-    return createSiteAccessDeniedResponse();
-  }
+  const denied = requireSiteAccessRequest(request);
+  if (denied) return denied;
 
   const body = (await request.json()) as Partial<AssistantRequest>;
   const prompt = typeof body.prompt === "string" ? body.prompt.trim() : "";

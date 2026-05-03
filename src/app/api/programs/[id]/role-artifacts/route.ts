@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { requireProgramRouteAccess } from "@/lib/api-route-access";
 import { buildSystemAuditActor } from "@/lib/audit-event-service";
 import {
   createAuditEvent,
@@ -20,7 +21,6 @@ import {
   roleArtifactDefinitions,
   type RoleArtifactDefinition
 } from "@/lib/role-artifact-types";
-import { createSiteAccessDeniedResponse, isSiteAccessRequestAuthorized } from "@/lib/site-access";
 
 function getRequestArtifactDefinition(input: {
   artifactType: string;
@@ -50,11 +50,10 @@ function getRequestArtifactDefinition(input: {
 }
 
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
-  if (!isSiteAccessRequestAuthorized(request)) {
-    return createSiteAccessDeniedResponse();
-  }
-
   const { id } = await params;
+  const { response } = await requireProgramRouteAccess(request, id);
+  if (response) return response;
+
   const { searchParams } = new URL(request.url);
   const requestedArtifactType = searchParams.get("artifactType") ?? undefined;
 
@@ -73,11 +72,10 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
 }
 
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
-  if (!isSiteAccessRequestAuthorized(request)) {
-    return createSiteAccessDeniedResponse();
-  }
-
   const { id } = await params;
+  const { response } = await requireProgramRouteAccess(request, id);
+  if (response) return response;
+
   const body = (await request.json().catch(() => null)) as {
     artifactDefinition?: Partial<RoleArtifactDefinition>;
     artifactType?: string;

@@ -1,15 +1,14 @@
 import { NextResponse } from "next/server";
+import { requireSiteAccessRequest } from "@/lib/api-route-access";
 import type { AuditEventInput, AuditEventType } from "@/lib/audit-event-types";
 import { getCurrentManagedUser } from "@/lib/current-managed-user";
 import { createAuditEvent } from "@/lib/program-store";
-import { createSiteAccessDeniedResponse, isSiteAccessRequestAuthorized } from "@/lib/site-access";
 
 const clientWritableEvents = new Set<AuditEventType>(["artifact.copy", "artifact.export"]);
 
 export async function POST(request: Request) {
-  if (!isSiteAccessRequestAuthorized(request)) {
-    return createSiteAccessDeniedResponse();
-  }
+  const denied = requireSiteAccessRequest(request);
+  if (denied) return denied;
 
   const body = (await request.json().catch(() => null)) as Partial<AuditEventInput> | null;
   const currentUser = await getCurrentManagedUser();

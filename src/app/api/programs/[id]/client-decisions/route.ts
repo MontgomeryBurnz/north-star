@@ -1,27 +1,12 @@
 import { NextResponse } from "next/server";
-import type { ManagedAppUser } from "@/lib/admin-user-types";
+import { requireProgramRouteAccess } from "@/lib/api-route-access";
 import { auditActorFromManagedUser } from "@/lib/audit-event-service";
-import { getCurrentManagedUser } from "@/lib/current-managed-user";
 import { createAuditEvent, createClientDecisionRequest, listClientDecisionRequests } from "@/lib/program-store";
-import { createSiteAccessDeniedResponse, isSiteAccessRequestAuthorized } from "@/lib/site-access";
-
-function canAccessProgram(user: ManagedAppUser | null, programId: string, hasSiteAccess: boolean) {
-  if (hasSiteAccess) return true;
-  if (!user || user.credentialStatus === "disabled") return false;
-  if (user.userType !== "client") return true;
-  return user.assignments.some((assignment) => assignment.programId === programId);
-}
 
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const [currentUser, hasSiteAccess] = await Promise.all([
-    getCurrentManagedUser(),
-    Promise.resolve(isSiteAccessRequestAuthorized(request))
-  ]);
-
-  if (!canAccessProgram(currentUser, id, hasSiteAccess)) {
-    return currentUser ? NextResponse.json({ error: "Program access denied." }, { status: 403 }) : createSiteAccessDeniedResponse();
-  }
+  const { response } = await requireProgramRouteAccess(request, id, { loadCurrentUser: true });
+  if (response) return response;
 
   const decisions = await listClientDecisionRequests(id);
   return NextResponse.json({ decisions });
@@ -29,14 +14,8 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
 
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const [currentUser, hasSiteAccess] = await Promise.all([
-    getCurrentManagedUser(),
-    Promise.resolve(isSiteAccessRequestAuthorized(request))
-  ]);
-
-  if (!canAccessProgram(currentUser, id, hasSiteAccess)) {
-    return currentUser ? NextResponse.json({ error: "Program access denied." }, { status: 403 }) : createSiteAccessDeniedResponse();
-  }
+  const { currentUser, response } = await requireProgramRouteAccess(request, id, { loadCurrentUser: true });
+  if (response) return response;
 
   const body = (await request.json().catch(() => ({}))) as { decisionText?: string };
   const decisionText = body.decisionText?.trim();

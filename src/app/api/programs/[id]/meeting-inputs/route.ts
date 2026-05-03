@@ -1,24 +1,22 @@
 import { NextResponse } from "next/server";
+import { requireProgramRouteAccess } from "@/lib/api-route-access";
 import { createGuidedPlan, createMeetingInput, getLatestGuidedPlan, listMeetingInputs } from "@/lib/program-store";
 import type { ProgramMeetingInput } from "@/lib/program-intelligence-types";
-import { createSiteAccessDeniedResponse, isSiteAccessRequestAuthorized } from "@/lib/site-access";
 
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
-  if (!isSiteAccessRequestAuthorized(request)) {
-    return createSiteAccessDeniedResponse();
-  }
-
   const { id } = await params;
+  const { response } = await requireProgramRouteAccess(request, id);
+  if (response) return response;
+
   const meetingInputs = await listMeetingInputs(id);
   return NextResponse.json({ meetingInputs });
 }
 
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
-  if (!isSiteAccessRequestAuthorized(request)) {
-    return createSiteAccessDeniedResponse();
-  }
-
   const { id } = await params;
+  const { response } = await requireProgramRouteAccess(request, id);
+  if (response) return response;
+
   const body = (await request.json()) as Partial<ProgramMeetingInput>;
 
   if (!body.title?.trim()) {

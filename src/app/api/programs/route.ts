@@ -1,22 +1,20 @@
 import { NextResponse } from "next/server";
+import { requireSiteAccessRequest } from "@/lib/api-route-access";
 import { buildSystemAuditActor } from "@/lib/audit-event-service";
 import { createAuditEvent, listPrograms, upsertProgram } from "@/lib/program-store";
 import type { ProgramIntake } from "@/lib/program-intake-types";
-import { createSiteAccessDeniedResponse, isSiteAccessRequestAuthorized } from "@/lib/site-access";
 
 export async function GET(request: Request) {
-  if (!isSiteAccessRequestAuthorized(request)) {
-    return createSiteAccessDeniedResponse();
-  }
+  const denied = requireSiteAccessRequest(request);
+  if (denied) return denied;
 
   const programs = await listPrograms();
   return NextResponse.json({ programs });
 }
 
 export async function POST(request: Request) {
-  if (!isSiteAccessRequestAuthorized(request)) {
-    return createSiteAccessDeniedResponse();
-  }
+  const denied = requireSiteAccessRequest(request);
+  if (denied) return denied;
 
   const body = (await request.json()) as Partial<ProgramIntake>;
 

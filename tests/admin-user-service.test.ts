@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { canAccessAdminSurface, canAccessLeadershipSurface } from "../src/lib/admin-user-types.ts";
+import { canAccessAdminSurface, canAccessLeadershipSurface, canAccessProgramScope } from "../src/lib/admin-user-types.ts";
 import { buildManagedAppUserRecord } from "../src/lib/admin-user-service.ts";
 import type { StoredProgram } from "../src/lib/program-intake-types.ts";
 
@@ -237,6 +237,29 @@ test("managed user surfaces authorize admin and leadership roles correctly", () 
   assert.equal(canAccessLeadershipSurface({ credentialStatus: "invited", userType: "leadership" }), false);
   assert.equal(canAccessLeadershipSurface({ credentialStatus: "active", userType: "team-member" }), false);
   assert.equal(canAccessLeadershipSurface({ credentialStatus: "disabled", userType: "admin" }), false);
+});
+
+test("managed user program scope keeps client access assignment-bound", () => {
+  const clientUser = {
+    assignments: [
+      {
+        id: "assignment-1",
+        programId: "compliance-hub",
+        programName: "Compliance Hub",
+        role: "Executive Sponsor",
+        isPrimary: true,
+        createdAt: "2026-04-29T12:00:00.000Z",
+        updatedAt: "2026-04-29T12:00:00.000Z"
+      }
+    ],
+    credentialStatus: "active" as const,
+    userType: "client" as const
+  };
+
+  assert.equal(canAccessProgramScope(clientUser, "compliance-hub"), true);
+  assert.equal(canAccessProgramScope(clientUser, "platform-modernization"), false);
+  assert.equal(canAccessProgramScope({ ...clientUser, credentialStatus: "disabled" }, "compliance-hub"), false);
+  assert.equal(canAccessProgramScope({ ...clientUser, userType: "delivery-lead" }, "platform-modernization"), true);
 });
 
 test("buildManagedAppUserRecord merges new assignments without dropping existing program roles", () => {
