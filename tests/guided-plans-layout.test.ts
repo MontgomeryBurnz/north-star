@@ -285,6 +285,8 @@ test("Active Program review is split into state, cockpit, and team signal flows"
   assert.match(activeProgramSaveSmokeSource, /Role lanes/);
   assert.match(activeProgramSaveSmokeSource, /This week timeline/);
   assert.match(activeProgramSaveSmokeSource, /roleFormOpen/);
+  assert.match(activeProgramSaveSmokeSource, /NORTHSTAR_SMOKE_AUTH_MODE/);
+  assert.match(activeProgramSaveSmokeSource, /authMode !== "site"/);
   assert.match(activeProgramSaveSmokeSource, /encodeURIComponent\(arguments\[0\]\)/);
   assert.match(activeProgramSaveSmokeSource, /NORTHSTAR_SMOKE_CLEANUP/);
   assert.match(activeProgramSaveSmokeSource, /method: "DELETE"/);

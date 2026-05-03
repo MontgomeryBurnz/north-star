@@ -8,6 +8,7 @@ const testUserEmail = process.env.NORTHSTAR_TEST_USER_EMAIL ?? process.env.NORTH
 const testUserPassword = process.env.NORTHSTAR_TEST_USER_PASSWORD ?? process.env.NORTHSTAR_USER_PASSWORD;
 const targetProgramName = process.env.NORTHSTAR_SMOKE_PROGRAM_NAME ?? "";
 const targetRoleName = process.env.NORTHSTAR_SMOKE_ACTIVE_ROLE ?? "";
+const authMode = (process.env.NORTHSTAR_SMOKE_AUTH_MODE ?? "auto").toLowerCase();
 const cleanupMode = (process.env.NORTHSTAR_SMOKE_CLEANUP ?? "off").toLowerCase();
 const shouldCleanup = ["1", "true", "prune", "refresh"].includes(cleanupMode);
 const shouldRefreshAfterCleanup =
@@ -24,7 +25,7 @@ async function authenticate(session) {
     session.execute("return location.origin === arguments[0];", [baseUrl])
   );
 
-  if (testUserEmail && testUserPassword) {
+  if (authMode !== "site" && testUserEmail && testUserPassword) {
     const userResult = await session.execute(
       `
         return fetch("/api/auth/user/login", {
