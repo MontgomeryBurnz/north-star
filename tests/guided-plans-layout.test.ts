@@ -222,6 +222,7 @@ test("Active Program review is split into state, cockpit, and team signal flows"
   const sidebarSource = readFileSync(new URL("../src/components/active-program-sidebar.tsx", import.meta.url), "utf8");
   const packageSource = readFileSync(new URL("../package.json", import.meta.url), "utf8");
   const activeProgramSaveSmokeSource = readFileSync(new URL("../scripts/smoke-active-program-save.mjs", import.meta.url), "utf8");
+  const browserWebdriverSource = readFileSync(new URL("../scripts/browser-webdriver.mjs", import.meta.url), "utf8");
 
   assert.match(reviewSectionSource, /useActiveProgramReviewController/);
   assert.match(reviewSectionSource, /ActiveProgramStateFlow/);
@@ -236,6 +237,7 @@ test("Active Program review is split into state, cockpit, and team signal flows"
   assert.match(reviewControllerSource, /useRequestSequence/);
   assert.match(reviewControllerSource, /useForegroundRefresh/);
   assert.match(reviewControllerSource, /useCurrentUserAssignments/);
+  assert.match(reviewControllerSource, /currentUserId: currentUser\?\.id \?\? null/);
   assert.doesNotMatch(reviewControllerSource, /const completion =/);
   assert.doesNotMatch(reviewControllerSource, /const programSynthesis =/);
   assert.doesNotMatch(reviewControllerSource, /const updateImpact =/);
@@ -256,6 +258,8 @@ test("Active Program review is split into state, cockpit, and team signal flows"
   assert.match(cockpitSource, /Next decision/);
   assert.match(cockpitSource, /Leadership/);
   assert.match(teamSignalFlowSource, /ActiveProgramTeamUpdatesCard/);
+  assert.match(teamSignalFlowSource, /currentUserId=\{currentUserId\}/);
+  assert.match(teamSignalFlowSource, /selectedProgramId=\{selectedProgramId\}/);
   assert.match(teamSignalFlowSource, /ActiveProgramMeetingIntelligenceCard/);
   assert.match(teamSignalFlowSource, /ActiveProgramSidebar/);
   assert.match(teamSignalFlowSource, /artifacts=\{artifacts\}/);
@@ -263,6 +267,9 @@ test("Active Program review is split into state, cockpit, and team signal flows"
   assert.doesNotMatch(teamSignalFlowSource, /updateImpact=/);
   assert.match(teamUpdatesSource, /Focus role/);
   assert.match(teamUpdatesSource, /data-active-role-focus/);
+  assert.match(teamUpdatesSource, /roleFocusStorageKey/);
+  assert.match(teamUpdatesSource, /north-star:active-program:role-focus/);
+  assert.match(teamUpdatesSource, /persistFocusedRole/);
   assert.match(teamUpdatesSource, /Primary role lane/);
   assert.match(teamUpdatesSource, /Adjacent team signals/);
   assert.match(teamUpdatesSource, /showOwnership/);
@@ -295,6 +302,14 @@ test("Active Program review is split into state, cockpit, and team signal flows"
   assert.match(activeProgramSaveSmokeSource, /NORTHSTAR_SMOKE_CLEANUP/);
   assert.match(activeProgramSaveSmokeSource, /method: "DELETE"/);
   assert.match(activeProgramSaveSmokeSource, /refreshGuidance/);
+  assert.match(activeProgramSaveSmokeSource, /captureMobileRoleFocusScreenshot/);
+  assert.match(activeProgramSaveSmokeSource, /NORTHSTAR_SMOKE_MOBILE_SCREENSHOT/);
+  assert.match(activeProgramSaveSmokeSource, /NORTHSTAR_SMOKE_SCREENSHOT_DIR/);
+  assert.match(activeProgramSaveSmokeSource, /setWindowRect/);
+  assert.match(activeProgramSaveSmokeSource, /screenshot/);
+  assert.match(browserWebdriverSource, /async setWindowRect/);
+  assert.match(browserWebdriverSource, /async screenshot/);
+  assert.match(browserWebdriverSource, /"\/screenshot"/);
 });
 
 test("Guide dialogue and client decisions write audit events", () => {

@@ -109,6 +109,15 @@ export class BrowserSession {
     await this.command("POST", "/url", { url });
   }
 
+  async setWindowRect(rect) {
+    return this.command("POST", "/window/rect", rect);
+  }
+
+  async screenshot(filePath) {
+    const image = await this.command("GET", "/screenshot");
+    fs.writeFileSync(filePath, image, "base64");
+  }
+
   async execute(script, args = []) {
     return this.command("POST", "/execute/sync", { script, args });
   }

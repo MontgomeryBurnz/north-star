@@ -39,6 +39,8 @@ export function ActiveProgramReviewSection() {
           saveState={controller.saveState}
           saveConfirmation={controller.saveConfirmation}
           defaultFocusRole={controller.defaultFocusRole}
+          currentUserId={controller.currentUserId}
+          selectedProgramId={controller.selectedProgramId}
           ownershipSaveState={controller.ownershipSaveState}
           ownershipSavedAt={controller.ownershipSavedAt}
           meetingInputDraft={controller.meetingInputDraft}

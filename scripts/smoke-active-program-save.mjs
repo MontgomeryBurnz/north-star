@@ -1,3 +1,5 @@
+import { mkdirSync } from "node:fs";
+import path from "node:path";
 import { loadEnvFile, withSafariBrowser } from "./browser-webdriver.mjs";
 
 loadEnvFile();
@@ -13,6 +15,8 @@ const cleanupMode = (process.env.NORTHSTAR_SMOKE_CLEANUP ?? "off").toLowerCase()
 const shouldCleanup = ["1", "true", "prune", "refresh"].includes(cleanupMode);
 const shouldRefreshAfterCleanup =
   cleanupMode === "refresh" || process.env.NORTHSTAR_SMOKE_REFRESH_AFTER_CLEANUP === "true";
+const shouldCaptureMobileScreenshot = process.env.NORTHSTAR_SMOKE_MOBILE_SCREENSHOT !== "false";
+const screenshotDirectory = process.env.NORTHSTAR_SMOKE_SCREENSHOT_DIR ?? "/tmp/north-star-smoke-screenshots";
 
 function requireCredential(value, label) {
   if (value) return value;
@@ -162,6 +166,128 @@ async function verifyOperatingView(session) {
   }
 }
 
+async function captureMobileRoleFocusScreenshot(session, program) {
+  if (!shouldCaptureMobileScreenshot) {
+    console.log("ℹ Active Program mobile role-focus screenshot skipped.");
+    return null;
+  }
+
+  await session.setWindowRect({ x: 0, y: 0, width: 390, height: 844 });
+
+  const selectedFocus = await session.execute(
+    `
+      const select = document.querySelector("[data-active-role-focus]");
+      const wanted = arguments[0].trim().toLowerCase();
+      const options = Array.from(select?.options ?? []).filter((option) => option.value);
+      const target = wanted
+        ? options.find((option) => option.value.includes(wanted) || option.textContent.toLowerCase().includes(wanted))
+        : options[0];
+
+      if (!select || !target) return null;
+
+      select.value = target.value;
+      select.dispatchEvent(new Event("change", { bubbles: true }));
+
+      return {
+        roleKey: target.value,
+        roleLabel: target.textContent.trim()
+      };
+    `,
+    [targetRoleName]
+  );
+
+  if (!selectedFocus?.roleKey) {
+    throw new Error("Active Program mobile screenshot smoke could not select a focus role.");
+  }
+
+  await session.waitFor("Active Program persisted role focus", async () => {
+    return session.execute(
+      `
+        const select = document.querySelector("[data-active-role-focus]");
+        const stored = Object.entries(window.localStorage)
+          .filter(([key]) => key.startsWith("north-star:active-program:role-focus:") && key.endsWith(":" + arguments[1]))
+          .some(([, value]) => value === arguments[0]);
+        return select?.value === arguments[0] && stored;
+      `,
+      [selectedFocus.roleKey, program.id]
+    );
+  });
+
+  await session.waitFor("Active Program selected primary role card", async () => {
+    return session.execute(
+      `
+        const roleCards = Array.from(document.querySelectorAll("[data-active-role-signal-card]"));
+        const focusedCard = roleCards.find((card) => card.getAttribute("data-active-role-signal-card") === arguments[0]);
+        return Boolean(focusedCard) && document.body.textContent.includes("Primary role lane");
+      `,
+      [selectedFocus.roleKey]
+    );
+  });
+
+  await session.execute(
+    `
+      const roleCards = Array.from(document.querySelectorAll("[data-active-role-signal-card]"));
+      const focusedCard = roleCards.find((card) => card.getAttribute("data-active-role-signal-card") === arguments[0]);
+      if (focusedCard) {
+        const targetTop = focusedCard.getBoundingClientRect().top + window.scrollY - 180;
+        (document.scrollingElement ?? document.documentElement).scrollTo(0, Math.max(0, targetTop));
+      }
+    `,
+    [selectedFocus.roleKey]
+  );
+
+  const visualState = await session.waitFor("Active Program mobile focused role lane in view", async () => {
+    const state = await session.execute(
+      `
+        const select = document.querySelector("[data-active-role-focus]");
+        const roleCards = Array.from(document.querySelectorAll("[data-active-role-signal-card]"));
+        const focusedCard = roleCards.find((card) => card.getAttribute("data-active-role-signal-card") === arguments[0]);
+        const focusedBounds = focusedCard?.getBoundingClientRect();
+        const focusedCardVisible = Boolean(focusedBounds && focusedBounds.top < window.innerHeight && focusedBounds.bottom > 0);
+
+        if (focusedCard && !focusedCardVisible) {
+          const targetTop = focusedCard.getBoundingClientRect().top + window.scrollY - 180;
+          (document.scrollingElement ?? document.documentElement).scrollTo(0, Math.max(0, targetTop));
+        }
+
+        return {
+          selectedRole: select?.value ?? "",
+          focusedCardVisible,
+          focusedTop: focusedBounds?.top ?? null,
+          focusedBottom: focusedBounds?.bottom ?? null,
+          focusedHeight: focusedBounds?.height ?? null,
+          width: window.innerWidth,
+          scrollY: window.scrollY,
+          documentScrollTop: (document.scrollingElement ?? document.documentElement).scrollTop,
+          hasPrimaryLabel: document.body.textContent.includes("Primary role lane")
+        };
+      `,
+      [selectedFocus.roleKey]
+    );
+
+    return state.focusedCardVisible ? state : false;
+  }, 10_000);
+
+  if (
+    visualState.selectedRole !== selectedFocus.roleKey ||
+    !visualState.focusedCardVisible ||
+    !visualState.hasPrimaryLabel ||
+    visualState.width > 430
+  ) {
+    throw new Error(`Active Program mobile role-focus layout did not verify: ${JSON.stringify(visualState)}`);
+  }
+
+  mkdirSync(screenshotDirectory, { recursive: true });
+  const screenshotPath = path.join(
+    screenshotDirectory,
+    `active-program-role-focus-mobile-${program.id}-${selectedFocus.roleKey}-${Date.now()}.png`
+  );
+  await session.screenshot(screenshotPath);
+  console.log(`✓ Active Program: captured mobile role focus screenshot for ${selectedFocus.roleLabel} at ${screenshotPath}.`);
+
+  return selectedFocus;
+}
+
 async function saveRoleSignal(session, program) {
   const smokeText = `North Star active-program save smoke ${new Date().toISOString()}`;
   const selectedRole = await session.execute(
@@ -304,6 +430,7 @@ async function main() {
     await authenticate(session);
     const program = await selectProgram(session);
     await verifyOperatingView(session);
+    await captureMobileRoleFocusScreenshot(session, program);
     const savedSignal = await saveRoleSignal(session, program);
     await cleanupRoleSignal(session, program, savedSignal);
   });

@@ -26,6 +26,8 @@ type ActiveProgramTeamSignalFlowProps = {
   saveState: "idle" | "saving" | "saved" | "error";
   saveConfirmation: SaveConfirmation;
   defaultFocusRole: string | null;
+  currentUserId: string | null;
+  selectedProgramId: string;
   ownershipSaveState: "idle" | "dirty" | "saving" | "saved" | "error";
   ownershipSavedAt: string | null;
   meetingInputDraft: typeof emptyMeetingInputDraft;
@@ -59,6 +61,8 @@ export function ActiveProgramTeamSignalFlow({
   saveState,
   saveConfirmation,
   defaultFocusRole,
+  currentUserId,
+  selectedProgramId,
   ownershipSaveState,
   ownershipSavedAt,
   meetingInputDraft,
@@ -94,6 +98,8 @@ export function ActiveProgramTeamSignalFlow({
           saveState={saveState}
           saveConfirmation={saveConfirmation}
           defaultFocusRole={defaultFocusRole}
+          currentUserId={currentUserId}
+          selectedProgramId={selectedProgramId}
           ownershipSaveState={ownershipSaveState}
           ownershipSavedAt={ownershipSavedAt}
           formatTimestamp={formatTimestamp}

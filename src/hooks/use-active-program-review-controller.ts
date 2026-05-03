@@ -47,7 +47,7 @@ export function useActiveProgramReviewController() {
   const updatesRequest = useRequestSequence();
   const signalRequest = useRequestSequence();
   const meetingInputsRequest = useRequestSequence();
-  const { getAssignmentForProgram, loaded: assignmentsLoaded, primaryAssignment } = useCurrentUserAssignments();
+  const { currentUser, getAssignmentForProgram, loaded: assignmentsLoaded, primaryAssignment } = useCurrentUserAssignments();
   const [review, setReview] = useState<ActiveProgramReview>(emptyReview);
   const [savedAt, setSavedAt] = useState<string | null>(null);
   const [savedOwnershipSignature, setSavedOwnershipSignature] = useState("");
@@ -630,6 +630,7 @@ export function useActiveProgramReviewController() {
     activeCycleMetadata,
     assignedOwnersByRole,
     clearCycle,
+    currentUserId: currentUser?.id ?? null,
     defaultFocusRole,
     formatFileSize,
     formatTimestamp,

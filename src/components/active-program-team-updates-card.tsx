@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   AlertTriangle,
   CheckCircle2,
@@ -78,6 +78,8 @@ type ActiveProgramTeamUpdatesCardProps = {
     status: "saving" | "saved" | "error";
   } | null;
   defaultFocusRole?: string | null;
+  currentUserId?: string | null;
+  selectedProgramId?: string | null;
   ownershipSaveState: "idle" | "dirty" | "saving" | "saved" | "error";
   ownershipSavedAt: string | null;
   formatTimestamp: (value: string) => string;
@@ -93,6 +95,8 @@ export function ActiveProgramTeamUpdatesCard({
   saveState,
   saveConfirmation,
   defaultFocusRole,
+  currentUserId,
+  selectedProgramId,
   ownershipSaveState,
   ownershipSavedAt,
   formatTimestamp,
@@ -103,11 +107,46 @@ export function ActiveProgramTeamUpdatesCard({
   const [expandedRole, setExpandedRole] = useState<string | null>(null);
   const [focusedRoleKey, setFocusedRoleKey] = useState("");
   const [showOwnership, setShowOwnership] = useState(false);
+  const lastRoleFocusStorageKey = useRef("");
   const roleKeysSignature = useMemo(
     () => teamRoleUpdates.map((roleUpdate) => normalizeRoleKey(roleUpdate.role)).join("|"),
     [teamRoleUpdates]
   );
   const defaultFocusRoleKey = defaultFocusRole ? normalizeRoleKey(defaultFocusRole) : "";
+  const roleFocusStorageKey = useMemo(
+    () =>
+      selectedProgramId
+        ? `north-star:active-program:role-focus:${currentUserId ?? "anonymous"}:${selectedProgramId}`
+        : "",
+    [currentUserId, selectedProgramId]
+  );
+
+  const readStoredFocusedRole = useCallback(() => {
+    if (!roleFocusStorageKey || typeof window === "undefined") return "";
+
+    try {
+      return window.localStorage.getItem(roleFocusStorageKey) ?? "";
+    } catch {
+      return "";
+    }
+  }, [roleFocusStorageKey]);
+
+  const persistFocusedRole = useCallback(
+    (roleKey: string) => {
+      if (!roleFocusStorageKey || typeof window === "undefined") return;
+
+      try {
+        if (roleKey) {
+          window.localStorage.setItem(roleFocusStorageKey, roleKey);
+        } else {
+          window.localStorage.removeItem(roleFocusStorageKey);
+        }
+      } catch {
+        // Local storage can be blocked in hardened browsers; role focus still works for the current session.
+      }
+    },
+    [roleFocusStorageKey]
+  );
   const sortedTeamRoleUpdates = useMemo(() => {
     if (!defaultFocusRole) return teamRoleUpdates;
     const focusedRoleUpdates: TeamRoleUpdate[] = [];
@@ -126,9 +165,23 @@ export function ActiveProgramTeamUpdatesCard({
 
   useEffect(() => {
     const availableRoleKeys = new Set(roleKeysSignature.split("|").filter(Boolean));
+    const scopeChanged = lastRoleFocusStorageKey.current !== roleFocusStorageKey;
+    const storedRoleKey = readStoredFocusedRole();
+
+    lastRoleFocusStorageKey.current = roleFocusStorageKey;
+
+    if (storedRoleKey && !availableRoleKeys.has(storedRoleKey)) {
+      persistFocusedRole("");
+    }
 
     setFocusedRoleKey((current) => {
+      if (scopeChanged) {
+        if (storedRoleKey && availableRoleKeys.has(storedRoleKey)) return storedRoleKey;
+        if (defaultFocusRoleKey && availableRoleKeys.has(defaultFocusRoleKey)) return defaultFocusRoleKey;
+        return "";
+      }
       if (current && availableRoleKeys.has(current)) return current;
+      if (storedRoleKey && availableRoleKeys.has(storedRoleKey)) return storedRoleKey;
       if (defaultFocusRoleKey && availableRoleKeys.has(defaultFocusRoleKey)) return defaultFocusRoleKey;
       return "";
     });
@@ -136,7 +189,7 @@ export function ActiveProgramTeamUpdatesCard({
       if (current && availableRoleKeys.has(normalizeRoleKey(current))) return current;
       return null;
     });
-  }, [defaultFocusRoleKey, roleKeysSignature]);
+  }, [defaultFocusRoleKey, persistFocusedRole, readStoredFocusedRole, roleFocusStorageKey, roleKeysSignature]);
   const ownershipStatus =
     ownershipSaveState === "saving"
       ? "Saving..."
@@ -200,6 +253,7 @@ export function ActiveProgramTeamUpdatesCard({
           aria-expanded={isExpanded}
           onClick={() => {
             if (!isPrimary) {
+              persistFocusedRole(roleKey);
               setFocusedRoleKey(roleKey);
               setExpandedRole(roleUpdate.role);
               return;
@@ -469,7 +523,9 @@ export function ActiveProgramTeamUpdatesCard({
                 data-active-role-focus
                 value={focusedRoleKey}
                 onChange={(event) => {
-                  setFocusedRoleKey(event.target.value);
+                  const nextRoleKey = event.target.value;
+                  persistFocusedRole(nextRoleKey);
+                  setFocusedRoleKey(nextRoleKey);
                   setExpandedRole(null);
                 }}
                 className="min-h-11 rounded-md border border-white/10 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 outline-none transition-colors focus:border-cyan-300/50"
