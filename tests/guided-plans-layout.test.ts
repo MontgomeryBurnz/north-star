@@ -311,6 +311,12 @@ test("Active Program review is split into state, cockpit, and team signal flows"
   assert.match(teamUpdatesSource, /data-active-role-save/);
   assert.match(teamUpdatesSource, /data-active-program-save-confirmation/);
   assert.match(sidebarSource, /This week timeline/);
+  assert.match(sidebarSource, /data-active-program-timeline/);
+  assert.match(sidebarSource, /data-active-program-timeline-event/);
+  assert.match(sidebarSource, /break-words text-sm/);
+  assert.match(sidebarSource, /whitespace-pre-line break-words text-xs/);
+  assert.doesNotMatch(sidebarSource, /line-clamp-2 text-sm font-medium leading-6 text-zinc-100/);
+  assert.doesNotMatch(sidebarSource, /line-clamp-3 text-xs leading-5 text-zinc-400/);
   assert.match(deliveryBoardSource, /data-active-delivery-board/);
   assert.match(deliveryBoardSource, /data-delivery-board-lane/);
   assert.match(deliveryBoardSource, /data-delivery-board-column/);

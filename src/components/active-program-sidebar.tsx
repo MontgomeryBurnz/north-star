@@ -178,7 +178,10 @@ export function ActiveProgramSidebar({
           </div>
 
           {timelineEvents.length ? (
-            <div className="relative grid gap-0 before:absolute before:left-[15px] before:top-3 before:h-[calc(100%-1.5rem)] before:w-px before:bg-white/10">
+            <div
+              data-active-program-timeline
+              className="relative grid min-w-0 gap-0 before:absolute before:left-[15px] before:top-3 before:h-[calc(100%-1.5rem)] before:w-px before:bg-white/10"
+            >
               {timelineEvents.map((event) => {
                 const chrome = eventChrome[event.kind];
                 const Icon = chrome.icon;
@@ -188,13 +191,13 @@ export function ActiveProgramSidebar({
                     <span className={`absolute left-0 top-4 grid h-8 w-8 place-items-center rounded-full border ${chrome.marker}`}>
                       <Icon className="h-3.5 w-3.5" />
                     </span>
-                    <div className={`rounded-lg border p-3 ${chrome.panel}`}>
+                    <div data-active-program-timeline-event className={`min-w-0 rounded-lg border p-3 ${chrome.panel}`}>
                       <div className="flex flex-wrap items-center justify-between gap-2">
                         <span className="text-[11px] font-medium uppercase tracking-[0.16em] text-cyan-200">{chrome.label}</span>
                         <span className="text-xs text-zinc-500">{formatTimestamp(event.timestamp)}</span>
                       </div>
-                      <p className="mt-2 line-clamp-2 text-sm font-medium leading-6 text-zinc-100">{event.title}</p>
-                      <p className="mt-1 line-clamp-3 text-xs leading-5 text-zinc-400">{event.detail}</p>
+                      <p className="mt-2 break-words text-sm font-medium leading-6 text-zinc-100">{event.title}</p>
+                      <p className="mt-1 whitespace-pre-line break-words text-xs leading-5 text-zinc-400">{event.detail}</p>
                     </div>
                   </>
                 );
@@ -204,12 +207,12 @@ export function ActiveProgramSidebar({
                     key={event.id}
                     type="button"
                     onClick={() => onLoadUpdate(eventUpdate)}
-                    className="relative grid gap-2 py-3 pl-12 text-left transition-colors hover:text-zinc-50"
+                    className="relative grid min-w-0 gap-2 py-3 pl-12 text-left transition-colors hover:text-zinc-50"
                   >
                     {content}
                   </button>
                 ) : (
-                  <div key={event.id} className="relative grid gap-2 py-3 pl-12">
+                  <div key={event.id} className="relative grid min-w-0 gap-2 py-3 pl-12">
                     {content}
                   </div>
                 );
