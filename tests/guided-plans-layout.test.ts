@@ -208,22 +208,42 @@ test("Repository persistence is split by domain modules", () => {
 
 test("Active Program review is split into state, cockpit, and team signal flows", () => {
   const reviewSectionSource = readFileSync(new URL("../src/components/active-program-review-section.tsx", import.meta.url), "utf8");
+  const reviewControllerSource = readFileSync(new URL("../src/hooks/use-active-program-review-controller.ts", import.meta.url), "utf8");
   const reviewModelSource = readFileSync(new URL("../src/components/active-program-review-model.ts", import.meta.url), "utf8");
   const stateFlowSource = readFileSync(new URL("../src/components/active-program-state-flow.tsx", import.meta.url), "utf8");
   const cockpitFlowSource = readFileSync(new URL("../src/components/active-program-cockpit-flow.tsx", import.meta.url), "utf8");
   const teamSignalFlowSource = readFileSync(new URL("../src/components/active-program-team-signal-flow.tsx", import.meta.url), "utf8");
+  const teamUpdatesSource = readFileSync(new URL("../src/components/active-program-team-updates-card.tsx", import.meta.url), "utf8");
+  const packageSource = readFileSync(new URL("../package.json", import.meta.url), "utf8");
+  const activeProgramSaveSmokeSource = readFileSync(new URL("../scripts/smoke-active-program-save.mjs", import.meta.url), "utf8");
 
+  assert.match(reviewSectionSource, /useActiveProgramReviewController/);
   assert.match(reviewSectionSource, /ActiveProgramStateFlow/);
   assert.match(reviewSectionSource, /ActiveProgramCockpitFlow/);
   assert.match(reviewSectionSource, /ActiveProgramTeamSignalFlow/);
+  assert.doesNotMatch(reviewSectionSource, /useRequestSequence/);
+  assert.doesNotMatch(reviewSectionSource, /useForegroundRefresh/);
+  assert.doesNotMatch(reviewSectionSource, /useCurrentUserAssignments/);
   assert.doesNotMatch(reviewSectionSource, /ActiveProgramStateCard/);
   assert.doesNotMatch(reviewSectionSource, /ActiveProgramTeamUpdatesCard/);
+  assert.match(reviewControllerSource, /export function useActiveProgramReviewController/);
+  assert.match(reviewControllerSource, /useRequestSequence/);
+  assert.match(reviewControllerSource, /useForegroundRefresh/);
+  assert.match(reviewControllerSource, /useCurrentUserAssignments/);
   assert.match(reviewModelSource, /export function normalizeReview/);
   assert.match(stateFlowSource, /ActiveProgramStateCard/);
   assert.match(cockpitFlowSource, /ActiveProgramCockpitCard/);
   assert.match(teamSignalFlowSource, /ActiveProgramTeamUpdatesCard/);
   assert.match(teamSignalFlowSource, /ActiveProgramMeetingIntelligenceCard/);
   assert.match(teamSignalFlowSource, /ActiveProgramSidebar/);
+  assert.match(teamUpdatesSource, /data-active-role-signal-card/);
+  assert.match(teamUpdatesSource, /data-active-role-progress/);
+  assert.match(teamUpdatesSource, /data-active-role-save/);
+  assert.match(teamUpdatesSource, /data-active-program-save-confirmation/);
+  assert.match(packageSource, /smoke:active-program-save/);
+  assert.match(activeProgramSaveSmokeSource, /data-active-role-signal-card/);
+  assert.match(activeProgramSaveSmokeSource, /data-active-program-save-confirmation/);
+  assert.match(activeProgramSaveSmokeSource, /encodeURIComponent\(arguments\[0\]\)/);
 });
 
 test("Guide dialogue and client decisions write audit events", () => {

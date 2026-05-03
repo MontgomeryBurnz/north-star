@@ -225,7 +225,7 @@ export function ActiveProgramTeamUpdatesCard({
 
           <div aria-live="polite">
             {saveConfirmation?.status === "saving" ? (
-              <div className="rounded-md border border-cyan-300/20 bg-cyan-300/[0.055] p-3">
+              <div data-active-program-save-confirmation className="rounded-md border border-cyan-300/20 bg-cyan-300/[0.055] p-3">
                 <p className="flex items-center gap-2 text-sm font-medium text-cyan-100">
                   <RefreshCw className="h-4 w-4 animate-spin" />
                   Saving update
@@ -235,7 +235,7 @@ export function ActiveProgramTeamUpdatesCard({
                 </p>
               </div>
             ) : saveConfirmation?.status === "saved" ? (
-              <div className="rounded-md border border-emerald-300/25 bg-emerald-300/[0.065] p-3">
+              <div data-active-program-save-confirmation className="rounded-md border border-emerald-300/25 bg-emerald-300/[0.065] p-3">
                 <p className="flex items-center gap-2 text-sm font-medium text-emerald-100">
                   <CheckCircle2 className="h-4 w-4" />
                   Update saved
@@ -246,7 +246,7 @@ export function ActiveProgramTeamUpdatesCard({
                 </p>
               </div>
             ) : saveConfirmation?.status === "error" ? (
-              <div className="rounded-md border border-amber-300/25 bg-amber-300/[0.065] p-3">
+              <div data-active-program-save-confirmation className="rounded-md border border-amber-300/25 bg-amber-300/[0.065] p-3">
                 <p className="text-sm font-medium text-amber-100">Saved locally only</p>
                 <p className="mt-1 text-xs leading-5 text-zinc-300">
                   The server save or guided plan refresh did not complete. Try saving again when the connection is stable.
@@ -266,12 +266,14 @@ export function ActiveProgramTeamUpdatesCard({
             return (
               <div
                 key={roleUpdate.role}
+                data-active-role-signal-card={normalizeRoleKey(roleUpdate.role)}
                 className={`rounded-lg border bg-white/[0.03] transition-colors ${
                   isExpanded ? "border-cyan-300/25" : "border-white/10"
                 }`}
               >
                 <button
                   type="button"
+                  data-active-role-signal-toggle={normalizeRoleKey(roleUpdate.role)}
                   aria-expanded={isExpanded}
                   onClick={() => setExpandedRole(isExpanded ? null : roleUpdate.role)}
                   className="grid w-full gap-3 p-4 text-left sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center"
@@ -319,6 +321,7 @@ export function ActiveProgramTeamUpdatesCard({
                             <button
                               key={option.value}
                               type="button"
+                              data-active-role-status={option.value}
                               onClick={() => onUpdateRoleField(roleUpdate.role, "status", option.value)}
                               className={`min-h-11 rounded-md border px-3 py-2 text-sm font-medium transition-colors ${
                                 selected
@@ -337,6 +340,7 @@ export function ActiveProgramTeamUpdatesCard({
                       <label className="grid min-w-0 gap-2">
                         <span className="text-xs font-medium uppercase tracking-[0.18em] text-zinc-300">Progress update</span>
                         <textarea
+                          data-active-role-progress
                           value={roleUpdate.progressUpdate}
                           onChange={(event) => onUpdateRoleField(roleUpdate.role, "progressUpdate", event.target.value)}
                           placeholder="What changed most since the last checkpoint?"
@@ -348,6 +352,7 @@ export function ActiveProgramTeamUpdatesCard({
                       <label className="grid min-w-0 gap-2">
                         <span className="text-xs font-medium uppercase tracking-[0.18em] text-zinc-300">Changes observed</span>
                         <textarea
+                          data-active-role-changes
                           value={roleUpdate.changesObserved}
                           onChange={(event) => onUpdateRoleField(roleUpdate.role, "changesObserved", event.target.value)}
                           placeholder="Scope, sequencing, dependency, or stakeholder changes."
@@ -359,6 +364,7 @@ export function ActiveProgramTeamUpdatesCard({
                       <label className="grid min-w-0 gap-2">
                         <span className="text-xs font-medium uppercase tracking-[0.18em] text-zinc-300">Risks and blockers</span>
                         <textarea
+                          data-active-role-risks
                           value={[roleUpdate.activeRisks, roleUpdate.blockers].filter(Boolean).join("\n")}
                           onChange={(event) => {
                             const [activeRisks, ...rest] = event.target.value.split("\n");
@@ -374,6 +380,7 @@ export function ActiveProgramTeamUpdatesCard({
                       <label className="grid min-w-0 gap-2">
                         <span className="text-xs font-medium uppercase tracking-[0.18em] text-zinc-300">Decisions and support</span>
                         <textarea
+                          data-active-role-decisions
                           value={[roleUpdate.decisionsNeeded, roleUpdate.supportNeeded].filter(Boolean).join("\n")}
                           onChange={(event) => {
                             const [decisionsNeeded, ...rest] = event.target.value.split("\n");
@@ -395,6 +402,7 @@ export function ActiveProgramTeamUpdatesCard({
                         type="button"
                         variant="outline"
                         size="sm"
+                        data-active-role-save
                         onClick={() => void onSaveRoleSignal(roleUpdate.role)}
                         disabled={saveState === "saving" || !hasSaveableSignal}
                       >

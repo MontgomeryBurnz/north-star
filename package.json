@@ -11,6 +11,7 @@
     "test": "node --experimental-strip-types --test tests/**/*.test.ts",
     "qa:ensure-user": "node scripts/ensure-codex-qa-user.mjs",
     "smoke:studio": "node scripts/smoke-studio.mjs",
+    "smoke:active-program-save": "node scripts/smoke-active-program-save.mjs",
     "smoke:slicers": "node scripts/smoke-program-slicers.mjs",
     "smoke:admin-model": "node scripts/smoke-admin-model-settings.mjs",
     "smoke:admin-audit": "node scripts/smoke-admin-audit-export.mjs",
