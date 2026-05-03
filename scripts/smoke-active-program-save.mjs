@@ -139,7 +139,7 @@ async function verifyOperatingView(session) {
     const roleCards = Array.from(document.querySelectorAll("[data-active-role-signal-card]"));
     return {
       hasCockpit: bodyText.includes("Program cockpit") && bodyText.includes("Phase progress"),
-      hasRoleLanes: bodyText.includes("Role lanes") && roleCards.some((card) => card.textContent.includes("risk") && card.textContent.includes("decision")),
+      hasRoleLanes: bodyText.includes("Focus role") && roleCards.some((card) => card.textContent.includes("risk") && card.textContent.includes("decision")),
       hasTimeline: bodyText.includes("This week timeline") && bodyText.includes("What changed across roles, leadership, meetings, and artifacts"),
       roleFormOpen: Boolean(document.querySelector("[data-active-role-progress]"))
     };

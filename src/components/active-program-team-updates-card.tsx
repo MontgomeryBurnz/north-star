@@ -1,7 +1,17 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { AlertTriangle, CheckCircle2, ChevronDown, Clock3, GitPullRequestArrow, RefreshCw, Save, Users2 } from "lucide-react";
+import {
+  AlertTriangle,
+  CheckCircle2,
+  ChevronDown,
+  Clock3,
+  GitPullRequestArrow,
+  RefreshCw,
+  Save,
+  Target,
+  Users2
+} from "lucide-react";
 import type { TeamRoleUpdate, TeamRoleUpdateStatus } from "@/lib/active-program-types";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -91,6 +101,8 @@ export function ActiveProgramTeamUpdatesCard({
   onSaveRoleSignal
 }: ActiveProgramTeamUpdatesCardProps) {
   const [expandedRole, setExpandedRole] = useState<string | null>(null);
+  const [focusedRoleKey, setFocusedRoleKey] = useState("");
+  const [showOwnership, setShowOwnership] = useState(false);
   const roleKeysSignature = useMemo(
     () => teamRoleUpdates.map((roleUpdate) => normalizeRoleKey(roleUpdate.role)).join("|"),
     [teamRoleUpdates]
@@ -115,11 +127,16 @@ export function ActiveProgramTeamUpdatesCard({
   useEffect(() => {
     const availableRoleKeys = new Set(roleKeysSignature.split("|").filter(Boolean));
 
+    setFocusedRoleKey((current) => {
+      if (current && availableRoleKeys.has(current)) return current;
+      if (defaultFocusRoleKey && availableRoleKeys.has(defaultFocusRoleKey)) return defaultFocusRoleKey;
+      return "";
+    });
     setExpandedRole((current) => {
       if (current && availableRoleKeys.has(normalizeRoleKey(current))) return current;
       return null;
     });
-  }, [roleKeysSignature]);
+  }, [defaultFocusRoleKey, roleKeysSignature]);
   const ownershipStatus =
     ownershipSaveState === "saving"
       ? "Saving..."
@@ -144,6 +161,214 @@ export function ActiveProgramTeamUpdatesCard({
         : ownershipSaveState === "error"
           ? "border-rose-300/25 bg-rose-300/10 text-rose-100"
           : "border-white/10 bg-black/20 text-zinc-300";
+  const focusedRoleUpdate = useMemo(
+    () => sortedTeamRoleUpdates.find((roleUpdate) => normalizeRoleKey(roleUpdate.role) === focusedRoleKey) ?? null,
+    [focusedRoleKey, sortedTeamRoleUpdates]
+  );
+  const adjacentRoleUpdates = useMemo(
+    () =>
+      focusedRoleUpdate
+        ? sortedTeamRoleUpdates.filter((roleUpdate) => normalizeRoleKey(roleUpdate.role) !== focusedRoleKey)
+        : sortedTeamRoleUpdates,
+    [focusedRoleKey, focusedRoleUpdate, sortedTeamRoleUpdates]
+  );
+
+  const renderRoleLane = (roleUpdate: TeamRoleUpdate, variant: "primary" | "secondary") => {
+    const assignedOwners = assignedOwnersByRole[normalizeRoleKey(roleUpdate.role)] ?? [];
+    const ownerDisplay = roleUpdate.updatedBy || assignedOwners.join(", ");
+    const hasSaveableSignal = hasRoleSubmission(roleUpdate);
+    const isExpanded = expandedRole === roleUpdate.role;
+    const statusLabel = roleStatusOptions.find((option) => option.value === roleUpdate.status)?.label ?? "On track";
+    const summary = firstRoleSignal(roleUpdate);
+    const openRiskCount = countSignals(roleUpdate.activeRisks, roleUpdate.blockers);
+    const openDecisionCount = countSignals(roleUpdate.decisionsNeeded, roleUpdate.supportNeeded);
+    const lastUpdatedLabel = roleUpdate.lastUpdatedAt ? formatTimestamp(roleUpdate.lastUpdatedAt) : "No update this cycle";
+    const roleKey = normalizeRoleKey(roleUpdate.role);
+    const isPrimary = variant === "primary";
+
+    return (
+      <div
+        key={roleUpdate.role}
+        data-active-role-signal-card={roleKey}
+        className={`overflow-hidden rounded-lg border bg-white/[0.03] transition-colors ${
+          isExpanded || isPrimary ? "border-cyan-300/25 shadow-[0_0_24px_rgba(103,232,249,0.08)]" : "border-white/10"
+        }`}
+      >
+        <button
+          type="button"
+          data-active-role-signal-toggle={roleKey}
+          aria-expanded={isExpanded}
+          onClick={() => {
+            if (!isPrimary) {
+              setFocusedRoleKey(roleKey);
+              setExpandedRole(roleUpdate.role);
+              return;
+            }
+            setExpandedRole(isExpanded ? null : roleUpdate.role);
+          }}
+          className={`grid w-full gap-4 text-left ${
+            isPrimary ? "p-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center" : "p-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center"
+          }`}
+        >
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2">
+              <p className="font-medium text-zinc-100">{roleUpdate.role}</p>
+              <span className={`rounded-full border px-2.5 py-1 text-[11px] font-medium uppercase tracking-[0.12em] ${roleStatusClassName(roleUpdate.status)}`}>
+                {statusLabel}
+              </span>
+              {isPrimary ? (
+                <span className="rounded-full border border-cyan-300/25 bg-cyan-300/10 px-2.5 py-1 text-[11px] font-medium uppercase tracking-[0.12em] text-cyan-100">
+                  Focus role
+                </span>
+              ) : null}
+              <span
+                className={`rounded-full border px-2.5 py-1 text-[11px] font-medium uppercase tracking-[0.12em] ${
+                  hasSaveableSignal
+                    ? "border-cyan-300/20 bg-cyan-300/10 text-cyan-100"
+                    : "border-white/10 bg-black/20 text-zinc-500"
+                }`}
+              >
+                {hasSaveableSignal ? "Signal captured" : "Awaiting input"}
+              </span>
+            </div>
+            <div className={`mt-3 grid gap-3 ${isPrimary ? "lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end" : ""}`}>
+              <p className={`${isPrimary ? "line-clamp-3" : "line-clamp-1"} min-w-0 text-sm leading-6 text-zinc-400`}>
+                {summary || (isPrimary ? "Capture the signal this role needs to move the program forward." : "No weekly signal captured yet.")}
+              </p>
+              <div className={`grid gap-2 ${isPrimary ? "sm:grid-cols-3 lg:min-w-[360px]" : "sm:grid-cols-3"}`}>
+                <span className="inline-flex min-h-9 items-center gap-2 rounded-md border border-white/10 bg-black/20 px-3 py-2 text-xs text-zinc-400">
+                  <Clock3 className="h-3.5 w-3.5 text-zinc-500" />
+                  <span className="truncate">{lastUpdatedLabel}</span>
+                </span>
+                <span className="inline-flex min-h-9 items-center gap-2 rounded-md border border-amber-300/15 bg-amber-300/[0.055] px-3 py-2 text-xs text-amber-100">
+                  <AlertTriangle className="h-3.5 w-3.5" />
+                  {openRiskCount} risk{openRiskCount === 1 ? "" : "s"}
+                </span>
+                <span className="inline-flex min-h-9 items-center gap-2 rounded-md border border-cyan-300/15 bg-cyan-300/[0.055] px-3 py-2 text-xs text-cyan-100">
+                  <GitPullRequestArrow className="h-3.5 w-3.5" />
+                  {openDecisionCount} decision{openDecisionCount === 1 ? "" : "s"}
+                </span>
+              </div>
+            </div>
+            <p className="mt-2 line-clamp-1 text-xs leading-5 text-zinc-500">
+              {ownerDisplay ? `Owner: ${ownerDisplay}` : "Owner not mapped"}
+            </p>
+          </div>
+          <div className="flex items-center justify-between gap-3 sm:justify-end">
+            <span className="text-xs font-medium text-cyan-200">
+              {isPrimary ? (isExpanded ? "Close" : "Update role") : "Focus"}
+            </span>
+            <ChevronDown className={`h-4 w-4 text-zinc-400 transition-transform ${isExpanded ? "rotate-180" : ""}`} />
+          </div>
+        </button>
+
+        {isExpanded ? (
+          <div className="grid gap-4 border-t border-white/10 p-4 pt-3">
+            <div className="grid min-w-0 gap-2">
+              <span className="text-xs font-medium uppercase tracking-[0.18em] text-zinc-300">Status</span>
+              <div className="grid gap-2 sm:grid-cols-3">
+                {roleStatusOptions.map((option) => {
+                  const selected = roleUpdate.status === option.value;
+                  const selectedClassName = roleStatusClassName(option.value);
+
+                  return (
+                    <button
+                      key={option.value}
+                      type="button"
+                      data-active-role-status={option.value}
+                      onClick={() => onUpdateRoleField(roleUpdate.role, "status", option.value)}
+                      className={`min-h-11 rounded-md border px-3 py-2 text-sm font-medium transition-colors ${
+                        selected
+                          ? selectedClassName
+                          : "border-white/10 bg-zinc-950 text-zinc-300 hover:border-cyan-300/30 hover:text-zinc-100"
+                      }`}
+                    >
+                      {option.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="grid gap-4 lg:grid-cols-2">
+              <label className="grid min-w-0 gap-2">
+                <span className="text-xs font-medium uppercase tracking-[0.18em] text-zinc-300">Progress update</span>
+                <textarea
+                  data-active-role-progress
+                  value={roleUpdate.progressUpdate}
+                  onChange={(event) => onUpdateRoleField(roleUpdate.role, "progressUpdate", event.target.value)}
+                  placeholder="What changed most since the last checkpoint?"
+                  rows={3}
+                  className="min-h-[104px] resize-none rounded-md border border-white/10 bg-zinc-950 px-3 py-3 text-sm leading-6 text-zinc-100 outline-none transition-colors placeholder:text-zinc-500 focus:border-cyan-300/50"
+                />
+              </label>
+
+              <label className="grid min-w-0 gap-2">
+                <span className="text-xs font-medium uppercase tracking-[0.18em] text-zinc-300">Changes observed</span>
+                <textarea
+                  data-active-role-changes
+                  value={roleUpdate.changesObserved}
+                  onChange={(event) => onUpdateRoleField(roleUpdate.role, "changesObserved", event.target.value)}
+                  placeholder="Scope, sequencing, dependency, or stakeholder changes."
+                  rows={3}
+                  className="min-h-[104px] resize-none rounded-md border border-white/10 bg-zinc-950 px-3 py-3 text-sm leading-6 text-zinc-100 outline-none transition-colors placeholder:text-zinc-500 focus:border-cyan-300/50"
+                />
+              </label>
+
+              <label className="grid min-w-0 gap-2">
+                <span className="text-xs font-medium uppercase tracking-[0.18em] text-zinc-300">Risks and blockers</span>
+                <textarea
+                  data-active-role-risks
+                  value={[roleUpdate.activeRisks, roleUpdate.blockers].filter(Boolean).join("\n")}
+                  onChange={(event) => {
+                    const [activeRisks, ...rest] = event.target.value.split("\n");
+                    onUpdateRoleField(roleUpdate.role, "activeRisks", activeRisks ?? "");
+                    onUpdateRoleField(roleUpdate.role, "blockers", rest.join("\n"));
+                  }}
+                  placeholder="Top risk on the first line, blockers beneath it."
+                  rows={4}
+                  className="min-h-[120px] resize-none rounded-md border border-white/10 bg-zinc-950 px-3 py-3 text-sm leading-6 text-zinc-100 outline-none transition-colors placeholder:text-zinc-500 focus:border-cyan-300/50"
+                />
+              </label>
+
+              <label className="grid min-w-0 gap-2">
+                <span className="text-xs font-medium uppercase tracking-[0.18em] text-zinc-300">Decisions and support</span>
+                <textarea
+                  data-active-role-decisions
+                  value={[roleUpdate.decisionsNeeded, roleUpdate.supportNeeded].filter(Boolean).join("\n")}
+                  onChange={(event) => {
+                    const [decisionsNeeded, ...rest] = event.target.value.split("\n");
+                    onUpdateRoleField(roleUpdate.role, "decisionsNeeded", decisionsNeeded ?? "");
+                    onUpdateRoleField(roleUpdate.role, "supportNeeded", rest.join("\n"));
+                  }}
+                  placeholder="Decision needed on the first line, support ask beneath it."
+                  rows={4}
+                  className="min-h-[120px] resize-none rounded-md border border-white/10 bg-zinc-950 px-3 py-3 text-sm leading-6 text-zinc-100 outline-none transition-colors placeholder:text-zinc-500 focus:border-cyan-300/50"
+                />
+              </label>
+            </div>
+
+            <div className="flex flex-wrap items-center justify-between gap-3 border-t border-white/10 pt-3">
+              <p className="text-xs leading-5 text-zinc-500">
+                Saving role signal refreshes the program synthesis and can update guided plans.
+              </p>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                data-active-role-save
+                onClick={() => void onSaveRoleSignal(roleUpdate.role)}
+                disabled={saveState === "saving" || !hasSaveableSignal}
+              >
+                <Save className="h-4 w-4" />
+                {hasSaveableSignal ? "Save signal" : "Add signal to save"}
+              </Button>
+            </div>
+          </div>
+        ) : null}
+      </div>
+    );
+  };
 
   return (
     <Card className="bg-zinc-950/80">
@@ -159,7 +384,7 @@ export function ActiveProgramTeamUpdatesCard({
             <div>
               <p className="text-sm font-medium text-zinc-100">Team ownership</p>
               <p className="mt-1 text-xs leading-5 text-zinc-500">
-                Role assignments come from Admin. Add a fallback owner only while a role is not assigned there yet.
+                Role assignments come from Admin and stay collapsed unless ownership needs adjustment.
               </p>
             </div>
             <div className="flex flex-wrap items-center gap-2">
@@ -169,65 +394,94 @@ export function ActiveProgramTeamUpdatesCard({
               <span className={`rounded-full border px-3 py-1 text-[11px] font-medium uppercase tracking-[0.14em] ${ownershipStatusClassName}`}>
                 {hasAdminAssignedOwners && ownershipSaveState === "saved" ? "Admin managed" : ownershipStatus}
               </span>
+              <Button type="button" variant="ghost" size="sm" onClick={() => setShowOwnership((current) => !current)}>
+                {showOwnership ? "Hide ownership" : "Show ownership"}
+              </Button>
             </div>
           </div>
-          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-            {sortedTeamRoleUpdates.map((roleUpdate) => {
-              const assignedOwners = assignedOwnersByRole[normalizeRoleKey(roleUpdate.role)] ?? [];
+          {showOwnership ? (
+            <>
+              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                {sortedTeamRoleUpdates.map((roleUpdate) => {
+                  const assignedOwners = assignedOwnersByRole[normalizeRoleKey(roleUpdate.role)] ?? [];
 
-              return (
-                <div key={roleUpdate.role} className="grid min-w-0 gap-2 rounded-md border border-white/10 bg-black/20 p-3">
-                  <span className="truncate text-xs font-medium text-zinc-300">{roleUpdate.role}</span>
-                  {assignedOwners.length ? (
-                    <div className="min-h-10 rounded-md border border-emerald-300/15 bg-emerald-300/[0.055] px-3 py-2">
-                      <p className="line-clamp-2 text-sm leading-5 text-emerald-100">{assignedOwners.join(", ")}</p>
-                      <p className="mt-1 text-[11px] uppercase tracking-[0.12em] text-emerald-200/75">Assigned in Admin</p>
+                  return (
+                    <div key={roleUpdate.role} className="grid min-w-0 gap-2 rounded-md border border-white/10 bg-black/20 p-3">
+                      <span className="truncate text-xs font-medium text-zinc-300">{roleUpdate.role}</span>
+                      {assignedOwners.length ? (
+                        <div className="min-h-10 rounded-md border border-emerald-300/15 bg-emerald-300/[0.055] px-3 py-2">
+                          <p className="line-clamp-2 text-sm leading-5 text-emerald-100">{assignedOwners.join(", ")}</p>
+                          <p className="mt-1 text-[11px] uppercase tracking-[0.12em] text-emerald-200/75">Assigned in Admin</p>
+                        </div>
+                      ) : (
+                        <input
+                          value={roleUpdate.updatedBy}
+                          onChange={(event) => onUpdateRoleField(roleUpdate.role, "updatedBy", event.target.value)}
+                          placeholder="Fallback owner"
+                          className="min-h-10 rounded-md border border-white/10 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 outline-none transition-colors placeholder:text-zinc-500 focus:border-cyan-300/50"
+                        />
+                      )}
                     </div>
-                  ) : (
-                    <input
-                      value={roleUpdate.updatedBy}
-                      onChange={(event) => onUpdateRoleField(roleUpdate.role, "updatedBy", event.target.value)}
-                      placeholder="Fallback owner"
-                      className="min-h-10 rounded-md border border-white/10 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 outline-none transition-colors placeholder:text-zinc-500 focus:border-cyan-300/50"
-                    />
-                  )}
-                </div>
-              );
-            })}
-          </div>
-          <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-white/10 pt-3">
-            <p className="text-xs leading-5 text-zinc-500">
-              Admin assignments are the default role ownership model; fallback owners are retained only for unmapped roles.
-            </p>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => void onSaveOwnership()}
-              disabled={ownershipSaveState === "saving" || ownershipSaveState === "idle" || ownershipSaveState === "saved"}
-            >
-              <Save className="h-4 w-4" />
-              {hasAdminAssignedOwners && ownershipSaveState === "saved"
-                ? "Managed in Admin"
-                : ownershipSaveState === "saving"
-                ? "Saving..."
-                : ownershipSaveState === "saved"
-                  ? "Ownership saved"
-                  : ownershipSaveState === "error"
-                    ? "Try again"
-                    : "Save ownership"}
-            </Button>
-          </div>
+                  );
+                })}
+              </div>
+              <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-white/10 pt-3">
+                <p className="text-xs leading-5 text-zinc-500">
+                  Admin assignments are the default role ownership model; fallback owners are retained only for unmapped roles.
+                </p>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => void onSaveOwnership()}
+                  disabled={ownershipSaveState === "saving" || ownershipSaveState === "idle" || ownershipSaveState === "saved"}
+                >
+                  <Save className="h-4 w-4" />
+                  {hasAdminAssignedOwners && ownershipSaveState === "saved"
+                    ? "Managed in Admin"
+                    : ownershipSaveState === "saving"
+                    ? "Saving..."
+                    : ownershipSaveState === "saved"
+                      ? "Ownership saved"
+                      : ownershipSaveState === "error"
+                        ? "Try again"
+                        : "Save ownership"}
+                </Button>
+              </div>
+            </>
+          ) : null}
         </div>
 
-        <div className="grid gap-3">
-          <div className="flex flex-wrap items-end justify-between gap-3">
+        <div className="grid gap-4">
+          <div className="grid gap-4 rounded-lg border border-cyan-300/15 bg-cyan-300/[0.035] p-4 lg:grid-cols-[minmax(0,1fr)_280px] lg:items-end">
             <div>
-              <p className="text-sm font-medium text-zinc-100">Role lanes</p>
+              <p className="flex items-center gap-2 text-sm font-medium text-zinc-100">
+                <Target className="h-4 w-4 text-cyan-200" />
+                Focus role
+              </p>
               <p className="mt-1 text-xs leading-5 text-zinc-500">
-                Each lane shows role status, open risks, decisions, ownership, and the latest signal. Expand only when updating.
+                Select the role you are updating. North Star will make that lane primary and keep adjacent roles compact for context.
               </p>
             </div>
+            <label className="grid gap-2">
+              <span className="text-[11px] font-medium uppercase tracking-[0.16em] text-zinc-500">Role view</span>
+              <select
+                data-active-role-focus
+                value={focusedRoleKey}
+                onChange={(event) => {
+                  setFocusedRoleKey(event.target.value);
+                  setExpandedRole(null);
+                }}
+                className="min-h-11 rounded-md border border-white/10 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 outline-none transition-colors focus:border-cyan-300/50"
+              >
+                <option value="">Select a role...</option>
+                {sortedTeamRoleUpdates.map((roleUpdate) => (
+                  <option key={roleUpdate.role} value={normalizeRoleKey(roleUpdate.role)}>
+                    {roleUpdate.role}
+                  </option>
+                ))}
+              </select>
+            </label>
           </div>
 
           <div aria-live="polite">
@@ -262,184 +516,40 @@ export function ActiveProgramTeamUpdatesCard({
             ) : null}
           </div>
 
-          {sortedTeamRoleUpdates.map((roleUpdate) => {
-            const assignedOwners = assignedOwnersByRole[normalizeRoleKey(roleUpdate.role)] ?? [];
-            const ownerDisplay = roleUpdate.updatedBy || assignedOwners.join(", ");
-            const hasSaveableSignal = hasRoleSubmission(roleUpdate);
-            const isExpanded = expandedRole === roleUpdate.role;
-            const statusLabel = roleStatusOptions.find((option) => option.value === roleUpdate.status)?.label ?? "On track";
-            const summary = firstRoleSignal(roleUpdate);
-            const openRiskCount = countSignals(roleUpdate.activeRisks, roleUpdate.blockers);
-            const openDecisionCount = countSignals(roleUpdate.decisionsNeeded, roleUpdate.supportNeeded);
-            const lastUpdatedLabel = roleUpdate.lastUpdatedAt ? formatTimestamp(roleUpdate.lastUpdatedAt) : "No update this cycle";
-
-            return (
-              <div
-                key={roleUpdate.role}
-                data-active-role-signal-card={normalizeRoleKey(roleUpdate.role)}
-                className={`overflow-hidden rounded-lg border bg-white/[0.03] transition-colors ${
-                  isExpanded ? "border-cyan-300/25 shadow-[0_0_24px_rgba(103,232,249,0.08)]" : "border-white/10"
-                }`}
-              >
-                <button
-                  type="button"
-                  data-active-role-signal-toggle={normalizeRoleKey(roleUpdate.role)}
-                  aria-expanded={isExpanded}
-                  onClick={() => setExpandedRole(isExpanded ? null : roleUpdate.role)}
-                  className="grid w-full gap-4 p-4 text-left lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center"
-                >
-                  <div className="min-w-0">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <p className="font-medium text-zinc-100">{roleUpdate.role}</p>
-                      <span className={`rounded-full border px-2.5 py-1 text-[11px] font-medium uppercase tracking-[0.12em] ${roleStatusClassName(roleUpdate.status)}`}>
-                        {statusLabel}
-                      </span>
-                      <span
-                        className={`rounded-full border px-2.5 py-1 text-[11px] font-medium uppercase tracking-[0.12em] ${
-                          hasSaveableSignal
-                            ? "border-cyan-300/20 bg-cyan-300/10 text-cyan-100"
-                            : "border-white/10 bg-black/20 text-zinc-500"
-                        }`}
-                      >
-                        {hasSaveableSignal ? "Signal captured" : "Awaiting input"}
-                      </span>
-                    </div>
-                    <div className="mt-3 grid gap-3 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
-                      <p className="line-clamp-2 min-w-0 text-sm leading-6 text-zinc-400">
-                        {summary || "No weekly signal captured yet."}
-                      </p>
-                      <div className="grid gap-2 sm:grid-cols-3 lg:min-w-[360px]">
-                        <span className="inline-flex min-h-9 items-center gap-2 rounded-md border border-white/10 bg-black/20 px-3 py-2 text-xs text-zinc-400">
-                          <Clock3 className="h-3.5 w-3.5 text-zinc-500" />
-                          <span className="truncate">{lastUpdatedLabel}</span>
-                        </span>
-                        <span className="inline-flex min-h-9 items-center gap-2 rounded-md border border-amber-300/15 bg-amber-300/[0.055] px-3 py-2 text-xs text-amber-100">
-                          <AlertTriangle className="h-3.5 w-3.5" />
-                          {openRiskCount} risk{openRiskCount === 1 ? "" : "s"}
-                        </span>
-                        <span className="inline-flex min-h-9 items-center gap-2 rounded-md border border-cyan-300/15 bg-cyan-300/[0.055] px-3 py-2 text-xs text-cyan-100">
-                          <GitPullRequestArrow className="h-3.5 w-3.5" />
-                          {openDecisionCount} decision{openDecisionCount === 1 ? "" : "s"}
-                        </span>
-                      </div>
-                    </div>
-                    <p className="mt-2 line-clamp-1 text-xs leading-5 text-zinc-500">
-                      {ownerDisplay ? `Owner: ${ownerDisplay}` : "Owner not mapped"}
-                    </p>
-                  </div>
-                  <div className="flex items-center justify-between gap-3 sm:justify-end">
-                    <span className="text-xs font-medium text-cyan-200">{isExpanded ? "Close" : "Update"}</span>
-                    <ChevronDown className={`h-4 w-4 text-zinc-400 transition-transform ${isExpanded ? "rotate-180" : ""}`} />
-                  </div>
-                </button>
-
-                {isExpanded ? (
-                  <div className="grid gap-4 border-t border-white/10 p-4 pt-3">
-                    <div className="grid min-w-0 gap-2">
-                      <span className="text-xs font-medium uppercase tracking-[0.18em] text-zinc-300">Status</span>
-                      <div className="grid gap-2 sm:grid-cols-3">
-                        {roleStatusOptions.map((option) => {
-                          const selected = roleUpdate.status === option.value;
-                          const selectedClassName = roleStatusClassName(option.value);
-
-                          return (
-                            <button
-                              key={option.value}
-                              type="button"
-                              data-active-role-status={option.value}
-                              onClick={() => onUpdateRoleField(roleUpdate.role, "status", option.value)}
-                              className={`min-h-11 rounded-md border px-3 py-2 text-sm font-medium transition-colors ${
-                                selected
-                                  ? selectedClassName
-                                  : "border-white/10 bg-zinc-950 text-zinc-300 hover:border-cyan-300/30 hover:text-zinc-100"
-                              }`}
-                            >
-                              {option.label}
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </div>
-
-                    <div className="grid gap-4 lg:grid-cols-2">
-                      <label className="grid min-w-0 gap-2">
-                        <span className="text-xs font-medium uppercase tracking-[0.18em] text-zinc-300">Progress update</span>
-                        <textarea
-                          data-active-role-progress
-                          value={roleUpdate.progressUpdate}
-                          onChange={(event) => onUpdateRoleField(roleUpdate.role, "progressUpdate", event.target.value)}
-                          placeholder="What changed most since the last checkpoint?"
-                          rows={3}
-                          className="min-h-[104px] resize-none rounded-md border border-white/10 bg-zinc-950 px-3 py-3 text-sm leading-6 text-zinc-100 outline-none transition-colors placeholder:text-zinc-500 focus:border-cyan-300/50"
-                        />
-                      </label>
-
-                      <label className="grid min-w-0 gap-2">
-                        <span className="text-xs font-medium uppercase tracking-[0.18em] text-zinc-300">Changes observed</span>
-                        <textarea
-                          data-active-role-changes
-                          value={roleUpdate.changesObserved}
-                          onChange={(event) => onUpdateRoleField(roleUpdate.role, "changesObserved", event.target.value)}
-                          placeholder="Scope, sequencing, dependency, or stakeholder changes."
-                          rows={3}
-                          className="min-h-[104px] resize-none rounded-md border border-white/10 bg-zinc-950 px-3 py-3 text-sm leading-6 text-zinc-100 outline-none transition-colors placeholder:text-zinc-500 focus:border-cyan-300/50"
-                        />
-                      </label>
-
-                      <label className="grid min-w-0 gap-2">
-                        <span className="text-xs font-medium uppercase tracking-[0.18em] text-zinc-300">Risks and blockers</span>
-                        <textarea
-                          data-active-role-risks
-                          value={[roleUpdate.activeRisks, roleUpdate.blockers].filter(Boolean).join("\n")}
-                          onChange={(event) => {
-                            const [activeRisks, ...rest] = event.target.value.split("\n");
-                            onUpdateRoleField(roleUpdate.role, "activeRisks", activeRisks ?? "");
-                            onUpdateRoleField(roleUpdate.role, "blockers", rest.join("\n"));
-                          }}
-                          placeholder="Top risk on the first line, blockers beneath it."
-                          rows={4}
-                          className="min-h-[120px] resize-none rounded-md border border-white/10 bg-zinc-950 px-3 py-3 text-sm leading-6 text-zinc-100 outline-none transition-colors placeholder:text-zinc-500 focus:border-cyan-300/50"
-                        />
-                      </label>
-
-                      <label className="grid min-w-0 gap-2">
-                        <span className="text-xs font-medium uppercase tracking-[0.18em] text-zinc-300">Decisions and support</span>
-                        <textarea
-                          data-active-role-decisions
-                          value={[roleUpdate.decisionsNeeded, roleUpdate.supportNeeded].filter(Boolean).join("\n")}
-                          onChange={(event) => {
-                            const [decisionsNeeded, ...rest] = event.target.value.split("\n");
-                            onUpdateRoleField(roleUpdate.role, "decisionsNeeded", decisionsNeeded ?? "");
-                            onUpdateRoleField(roleUpdate.role, "supportNeeded", rest.join("\n"));
-                          }}
-                          placeholder="Decision needed on the first line, support ask beneath it."
-                          rows={4}
-                          className="min-h-[120px] resize-none rounded-md border border-white/10 bg-zinc-950 px-3 py-3 text-sm leading-6 text-zinc-100 outline-none transition-colors placeholder:text-zinc-500 focus:border-cyan-300/50"
-                        />
-                      </label>
-                    </div>
-
-                    <div className="flex flex-wrap items-center justify-between gap-3 border-t border-white/10 pt-3">
-                      <p className="text-xs leading-5 text-zinc-500">
-                        Saving role signal refreshes the program synthesis and can update guided plans.
-                      </p>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        data-active-role-save
-                        onClick={() => void onSaveRoleSignal(roleUpdate.role)}
-                        disabled={saveState === "saving" || !hasSaveableSignal}
-                      >
-                        <Save className="h-4 w-4" />
-                        {hasSaveableSignal ? "Save signal" : "Add signal to save"}
-                      </Button>
-                    </div>
-                  </div>
-                ) : null}
+          {focusedRoleUpdate ? (
+            <div className="grid gap-3">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <p className="text-sm font-medium text-zinc-100">Primary role lane</p>
+                  <p className="mt-1 text-xs leading-5 text-zinc-500">
+                    This is the role-centered update path. Open it only when you are ready to capture signal.
+                  </p>
+                </div>
               </div>
-            );
-          })}
+              {renderRoleLane(focusedRoleUpdate, "primary")}
+            </div>
+          ) : (
+            <div className="rounded-lg border border-amber-300/20 bg-amber-300/[0.055] p-4">
+              <p className="text-sm font-medium text-amber-100">Select a role to focus the workspace.</p>
+              <p className="mt-2 text-xs leading-5 text-zinc-300">
+                Role-specific signal, risks, decisions, and updates will move into the primary lane after selection.
+              </p>
+            </div>
+          )}
+
+          <div className="grid gap-3">
+            <div>
+              <p className="text-sm font-medium text-zinc-100">
+                {focusedRoleUpdate ? "Adjacent team signals" : "Team roles overview"}
+              </p>
+              <p className="mt-1 text-xs leading-5 text-zinc-500">
+                Use these compact lanes to scan dependencies or switch focus without reading every full role update.
+              </p>
+            </div>
+            <div className="grid gap-2 xl:grid-cols-2">
+              {adjacentRoleUpdates.map((roleUpdate) => renderRoleLane(roleUpdate, "secondary"))}
+            </div>
+          </div>
         </div>
       </CardContent>
     </Card>

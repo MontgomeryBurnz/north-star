@@ -261,7 +261,11 @@ test("Active Program review is split into state, cockpit, and team signal flows"
   assert.match(teamSignalFlowSource, /artifacts=\{artifacts\}/);
   assert.doesNotMatch(teamSignalFlowSource, /programSynthesis=/);
   assert.doesNotMatch(teamSignalFlowSource, /updateImpact=/);
-  assert.match(teamUpdatesSource, /Role lanes/);
+  assert.match(teamUpdatesSource, /Focus role/);
+  assert.match(teamUpdatesSource, /data-active-role-focus/);
+  assert.match(teamUpdatesSource, /Primary role lane/);
+  assert.match(teamUpdatesSource, /Adjacent team signals/);
+  assert.match(teamUpdatesSource, /showOwnership/);
   assert.match(teamUpdatesSource, /openRiskCount/);
   assert.match(teamUpdatesSource, /openDecisionCount/);
   assert.match(teamUpdatesSource, /No update this cycle/);
@@ -282,7 +286,7 @@ test("Active Program review is split into state, cockpit, and team signal flows"
   assert.match(activeProgramSaveSmokeSource, /data-active-program-save-confirmation/);
   assert.match(activeProgramSaveSmokeSource, /verifyOperatingView/);
   assert.match(activeProgramSaveSmokeSource, /Program cockpit/);
-  assert.match(activeProgramSaveSmokeSource, /Role lanes/);
+  assert.match(activeProgramSaveSmokeSource, /Focus role/);
   assert.match(activeProgramSaveSmokeSource, /This week timeline/);
   assert.match(activeProgramSaveSmokeSource, /roleFormOpen/);
   assert.match(activeProgramSaveSmokeSource, /NORTHSTAR_SMOKE_AUTH_MODE/);
