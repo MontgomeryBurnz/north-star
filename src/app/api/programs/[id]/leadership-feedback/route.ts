@@ -1,20 +1,13 @@
 import { NextResponse } from "next/server";
+import { requireLeadershipRouteAccess } from "@/lib/api-route-access";
 import { auditActorFromAccess } from "@/lib/audit-event-service";
-import { getLeadershipAccessContext } from "@/lib/leadership-auth";
 import { createAuditEvent, createGuidedPlan, createLeadershipFeedback, getLatestGuidedPlan, listLeadershipFeedback } from "@/lib/program-store";
 import type { LeadershipReviewInput } from "@/lib/leadership-feedback-types";
 import { saveLeadershipReview } from "@/lib/program-loop-service";
-import { createSiteAccessDeniedResponse, isSiteAccessRequestAuthorized } from "@/lib/site-access";
 
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
-  if (!isSiteAccessRequestAuthorized(request)) {
-    return createSiteAccessDeniedResponse();
-  }
-
-  const access = await getLeadershipAccessContext();
-  if (!access.authorized) {
-    return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
-  }
+  const { response } = await requireLeadershipRouteAccess(request);
+  if (response) return response;
 
   const { id } = await params;
   const feedback = await listLeadershipFeedback(id);
@@ -22,14 +15,8 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
 }
 
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
-  if (!isSiteAccessRequestAuthorized(request)) {
-    return createSiteAccessDeniedResponse();
-  }
-
-  const access = await getLeadershipAccessContext();
-  if (!access.authorized) {
-    return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
-  }
+  const { access, response } = await requireLeadershipRouteAccess(request);
+  if (response) return response;
 
   const { id } = await params;
   const body = (await request.json()) as Partial<LeadershipReviewInput>;

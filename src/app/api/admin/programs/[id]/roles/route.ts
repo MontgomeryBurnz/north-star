@@ -1,27 +1,12 @@
 import { NextResponse } from "next/server";
+import { requireAdminRouteAccess } from "@/lib/api-route-access";
 import { auditActorFromAccess } from "@/lib/audit-event-service";
-import { getAdminAccessContext } from "@/lib/leadership-auth";
 import { createAuditEvent, createGuidedPlan, getProgram, upsertProgram } from "@/lib/program-store";
-import { createSiteAccessDeniedResponse, isSiteAccessRequestAuthorized } from "@/lib/site-access";
 import { addProgramRoleToIntake } from "@/lib/team-roles";
 
-async function requireAdminAccess(request: Request) {
-  const access = await getAdminAccessContext();
-  if (!access.authorized) {
-    if (!isSiteAccessRequestAuthorized(request)) {
-      return createSiteAccessDeniedResponse();
-    }
-
-    return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
-  }
-
-  return null;
-}
-
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
-  const denied = await requireAdminAccess(request);
-  if (denied) return denied;
-  const access = await getAdminAccessContext();
+  const { access, response } = await requireAdminRouteAccess(request);
+  if (response) return response;
 
   const { id } = await params;
   const body = (await request.json()) as { role?: string };

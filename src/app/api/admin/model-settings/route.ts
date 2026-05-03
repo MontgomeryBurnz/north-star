@@ -10,29 +10,15 @@ import {
   normalizeGuidanceModelSettings,
   type GuidanceModelSettings
 } from "@/lib/guidance-model-settings-types";
-import { getAdminAccessContext } from "@/lib/leadership-auth";
+import { requireAdminRouteAccess } from "@/lib/api-route-access";
 import { createAuditEvent } from "@/lib/program-store";
-import { createSiteAccessDeniedResponse, isSiteAccessRequestAuthorized } from "@/lib/site-access";
 
 function isSupportedOption(value: unknown, options: readonly string[]) {
   return typeof value === "string" && options.includes(value);
 }
 
-async function requireAdminAccess(request: Request) {
-  const access = await getAdminAccessContext();
-  if (!access.authorized) {
-    if (!isSiteAccessRequestAuthorized(request)) {
-      return { access, response: createSiteAccessDeniedResponse() };
-    }
-
-    return { access, response: NextResponse.json({ error: "Unauthorized." }, { status: 401 }) };
-  }
-
-  return { access, response: null };
-}
-
 export async function GET(request: Request) {
-  const { response } = await requireAdminAccess(request);
+  const { response } = await requireAdminRouteAccess(request);
   if (response) return response;
 
   const settings = await getGuidanceModelSettings();
@@ -49,7 +35,7 @@ export async function GET(request: Request) {
 }
 
 export async function PUT(request: Request) {
-  const { access, response } = await requireAdminAccess(request);
+  const { access, response } = await requireAdminRouteAccess(request);
   if (response) return response;
 
   const body = (await request.json().catch(() => ({}))) as Partial<GuidanceModelSettings>;

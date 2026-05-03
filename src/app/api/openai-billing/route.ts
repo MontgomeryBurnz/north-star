@@ -1,9 +1,8 @@
 import { NextResponse } from "next/server";
-import { getAdminAccessContext } from "@/lib/leadership-auth";
+import { requireAdminRouteAccess } from "@/lib/api-route-access";
 import { getOpenAIBillingReconciliation } from "@/lib/openai-billing";
 import type { OpenAIBillingWindowKey } from "@/lib/openai-billing-types";
 import { listAllOpenAIUsageRecords } from "@/lib/program-store";
-import { createSiteAccessDeniedResponse, isSiteAccessRequestAuthorized } from "@/lib/site-access";
 
 const billingWindowKeys = new Set<OpenAIBillingWindowKey>([
   "month-to-date",
@@ -17,22 +16,9 @@ function parseBillingWindowKey(value: string | null): OpenAIBillingWindowKey | u
   return billingWindowKeys.has(value as OpenAIBillingWindowKey) ? (value as OpenAIBillingWindowKey) : undefined;
 }
 
-async function requireAdminAccess(request: Request) {
-  const access = await getAdminAccessContext();
-  if (!access.authorized) {
-    if (!isSiteAccessRequestAuthorized(request)) {
-      return createSiteAccessDeniedResponse();
-    }
-
-    return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
-  }
-
-  return null;
-}
-
 export async function GET(request: Request) {
-  const denied = await requireAdminAccess(request);
-  if (denied) return denied;
+  const { response } = await requireAdminRouteAccess(request);
+  if (response) return response;
 
   const url = new URL(request.url);
   const windowKey = parseBillingWindowKey(url.searchParams.get("window"));

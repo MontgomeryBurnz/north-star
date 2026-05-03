@@ -1,24 +1,10 @@
 import { NextResponse } from "next/server";
 import type { ManagedAppUser, ManagedAppUserInput } from "@/lib/admin-user-types";
 import { getInvitationProviderStatus, inviteManagedUser } from "@/lib/admin-user-invitations";
+import { requireAdminRouteAccess } from "@/lib/api-route-access";
 import { auditActorFromAccess } from "@/lib/audit-event-service";
-import { getAdminAccessContext } from "@/lib/leadership-auth";
 import { createAuditEvent, deleteManagedUser, listManagedUsers, upsertManagedUser } from "@/lib/program-store";
-import { createSiteAccessDeniedResponse, isSiteAccessRequestAuthorized } from "@/lib/site-access";
 import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/lib/supabase/server";
-
-async function requireAdminAccess(request: Request) {
-  const access = await getAdminAccessContext();
-  if (!access.authorized) {
-    if (!isSiteAccessRequestAuthorized(request)) {
-      return createSiteAccessDeniedResponse();
-    }
-
-    return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
-  }
-
-  return null;
-}
 
 function isAuthUserAlreadyGone(error: { message?: string; status?: number } | null) {
   if (!error) return false;
@@ -58,17 +44,16 @@ async function deleteLinkedAuthUser(user: ManagedAppUser) {
 }
 
 export async function GET(request: Request) {
-  const denied = await requireAdminAccess(request);
-  if (denied) return denied;
+  const { response } = await requireAdminRouteAccess(request);
+  if (response) return response;
 
   const users = await listManagedUsers();
   return NextResponse.json({ invitationProvider: getInvitationProviderStatus(), users });
 }
 
 export async function POST(request: Request) {
-  const denied = await requireAdminAccess(request);
-  if (denied) return denied;
-  const access = await getAdminAccessContext();
+  const { access, response } = await requireAdminRouteAccess(request);
+  if (response) return response;
 
   const body = (await request.json()) as ManagedAppUserInput & { sendInvite?: boolean };
 
@@ -139,9 +124,8 @@ export async function POST(request: Request) {
 }
 
 export async function DELETE(request: Request) {
-  const denied = await requireAdminAccess(request);
-  if (denied) return denied;
-  const access = await getAdminAccessContext();
+  const { access, response } = await requireAdminRouteAccess(request);
+  if (response) return response;
 
   const body = (await request.json().catch(() => ({}))) as { id?: string };
   const userId = body.id?.trim();

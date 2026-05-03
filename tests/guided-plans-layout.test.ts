@@ -193,6 +193,16 @@ test("Admin can manage OpenAI guidance model settings", () => {
   const costCenterSource = readFileSync(new URL("../src/components/admin-operating-cost-center.tsx", import.meta.url), "utf8");
   const modelCardSource = readFileSync(new URL("../src/components/admin-guidance-model-settings-card.tsx", import.meta.url), "utf8");
   const routeSource = readFileSync(new URL("../src/app/api/admin/model-settings/route.ts", import.meta.url), "utf8");
+  const routeAccessSource = readFileSync(new URL("../src/lib/api-route-access.ts", import.meta.url), "utf8");
+  const adminUsersRouteSource = readFileSync(new URL("../src/app/api/admin/users/route.ts", import.meta.url), "utf8");
+  const setupLinkRouteSource = readFileSync(new URL("../src/app/api/admin/users/setup-link/route.ts", import.meta.url), "utf8");
+  const adminRolesRouteSource = readFileSync(new URL("../src/app/api/admin/programs/[id]/roles/route.ts", import.meta.url), "utf8");
+  const vercelRouteSource = readFileSync(new URL("../src/app/api/admin/vercel-operations/route.ts", import.meta.url), "utf8");
+  const billingRouteSource = readFileSync(new URL("../src/app/api/openai-billing/route.ts", import.meta.url), "utf8");
+  const leadershipQueueRouteSource = readFileSync(new URL("../src/app/api/leadership/review-queue/route.ts", import.meta.url), "utf8");
+  const leadershipFeedbackRouteSource = readFileSync(new URL("../src/app/api/programs/[id]/leadership-feedback/route.ts", import.meta.url), "utf8");
+  const flagReviewRouteSource = readFileSync(new URL("../src/app/api/programs/[id]/guidance-feedback-flags/[flagId]/route.ts", import.meta.url), "utf8");
+  const openAiUsageRouteSource = readFileSync(new URL("../src/app/api/programs/[id]/openai-usage/route.ts", import.meta.url), "utf8");
   const packageSource = readFileSync(new URL("../package.json", import.meta.url), "utf8");
   const smokeSource = readFileSync(new URL("../scripts/smoke-admin-model-settings.mjs", import.meta.url), "utf8");
   const auditSmokeSource = readFileSync(new URL("../scripts/smoke-admin-audit-export.mjs", import.meta.url), "utf8");
@@ -210,6 +220,34 @@ test("Admin can manage OpenAI guidance model settings", () => {
   assert.match(modelCardSource, /Model settings changed to/);
   assert.match(routeSource, /saveGuidanceModelSettings/);
   assert.match(routeSource, /model\.settings\.update/);
+  assert.match(routeAccessSource, /requireAdminRouteAccess/);
+  assert.match(routeAccessSource, /requireLeadershipRouteAccess/);
+  assert.match(routeAccessSource, /requireSiteAccessRequest/);
+  for (const source of [
+    routeSource,
+    adminUsersRouteSource,
+    setupLinkRouteSource,
+    adminRolesRouteSource,
+    vercelRouteSource,
+    billingRouteSource,
+    leadershipQueueRouteSource,
+    leadershipFeedbackRouteSource,
+    flagReviewRouteSource,
+    openAiUsageRouteSource
+  ]) {
+    assert.doesNotMatch(source, /async function requireAdminAccess/);
+    assert.doesNotMatch(source, /async function requireLeadershipAccess/);
+  }
+  assert.match(routeSource, /requireAdminRouteAccess/);
+  assert.match(adminUsersRouteSource, /requireAdminRouteAccess/);
+  assert.match(setupLinkRouteSource, /requireAdminRouteAccess/);
+  assert.match(adminRolesRouteSource, /requireAdminRouteAccess/);
+  assert.match(vercelRouteSource, /requireAdminRouteAccess/);
+  assert.match(billingRouteSource, /requireAdminRouteAccess/);
+  assert.match(leadershipQueueRouteSource, /requireLeadershipRouteAccess/);
+  assert.match(leadershipFeedbackRouteSource, /requireLeadershipRouteAccess/);
+  assert.match(flagReviewRouteSource, /requireAdminRouteAccess/);
+  assert.match(openAiUsageRouteSource, /requireAdminRouteAccess/);
   assert.match(packageSource, /smoke:admin-model/);
   assert.match(packageSource, /smoke:admin-audit/);
   assert.match(smokeSource, /reversibleSettings/);

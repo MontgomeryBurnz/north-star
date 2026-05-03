@@ -1,27 +1,12 @@
 import { NextResponse } from "next/server";
 import { createManagedUserSetupLink, getInvitationProviderStatus } from "@/lib/admin-user-invitations";
+import { requireAdminRouteAccess } from "@/lib/api-route-access";
 import { auditActorFromAccess } from "@/lib/audit-event-service";
-import { getAdminAccessContext } from "@/lib/leadership-auth";
 import { createAuditEvent, listManagedUsers, upsertManagedUser } from "@/lib/program-store";
-import { createSiteAccessDeniedResponse, isSiteAccessRequestAuthorized } from "@/lib/site-access";
-
-async function requireAdminAccess(request: Request) {
-  const access = await getAdminAccessContext();
-  if (!access.authorized) {
-    if (!isSiteAccessRequestAuthorized(request)) {
-      return createSiteAccessDeniedResponse();
-    }
-
-    return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
-  }
-
-  return null;
-}
 
 export async function POST(request: Request) {
-  const denied = await requireAdminAccess(request);
-  if (denied) return denied;
-  const access = await getAdminAccessContext();
+  const { access, response } = await requireAdminRouteAccess(request);
+  if (response) return response;
 
   const body = (await request.json().catch(() => ({}))) as { id?: string };
   const userId = body.id?.trim();

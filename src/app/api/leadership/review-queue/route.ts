@@ -1,17 +1,10 @@
 import { NextResponse } from "next/server";
-import { getLeadershipAccessContext } from "@/lib/leadership-auth";
+import { requireLeadershipRouteAccess } from "@/lib/api-route-access";
 import { getLeadershipReviewQueue } from "@/lib/program-aggregates";
-import { createSiteAccessDeniedResponse, isSiteAccessRequestAuthorized } from "@/lib/site-access";
 
 export async function GET(request: Request) {
-  if (!isSiteAccessRequestAuthorized(request)) {
-    return createSiteAccessDeniedResponse();
-  }
-
-  const access = await getLeadershipAccessContext();
-  if (!access.authorized) {
-    return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
-  }
+  const { response } = await requireLeadershipRouteAccess(request);
+  if (response) return response;
 
   const reviewQueue = await getLeadershipReviewQueue();
   return NextResponse.json({ reviewQueue });

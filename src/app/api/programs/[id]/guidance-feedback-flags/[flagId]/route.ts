@@ -1,21 +1,14 @@
 import { NextResponse } from "next/server";
+import { requireAdminRouteAccess } from "@/lib/api-route-access";
 import { auditActorFromAccess } from "@/lib/audit-event-service";
-import { getAdminAccessContext } from "@/lib/leadership-auth";
 import { createAuditEvent, reviewGuidanceFeedbackFlag } from "@/lib/program-store";
-import { createSiteAccessDeniedResponse, isSiteAccessRequestAuthorized } from "@/lib/site-access";
 
 export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ id: string; flagId: string }> }
 ) {
-  if (!isSiteAccessRequestAuthorized(request)) {
-    return createSiteAccessDeniedResponse();
-  }
-
-  const access = await getAdminAccessContext();
-  if (!access.authorized) {
-    return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
-  }
+  const { access, response } = await requireAdminRouteAccess(request);
+  if (response) return response;
 
   const { id, flagId } = await params;
   const body = (await request.json()) as {
