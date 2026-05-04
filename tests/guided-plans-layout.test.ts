@@ -320,7 +320,11 @@ test("Active Program review is split into state, cockpit, and team signal flows"
   assert.match(deliveryBoardSource, /data-active-delivery-board/);
   assert.match(deliveryBoardSource, /data-delivery-board-lane/);
   assert.match(deliveryBoardSource, /data-delivery-board-column/);
+  assert.match(deliveryBoardSource, /data-delivery-board-card-open/);
+  assert.match(deliveryBoardSource, /data-delivery-board-detail-panel/);
   assert.match(deliveryBoardSource, /data-delivery-board-attachment/);
+  assert.match(deliveryBoardSource, /min-w-\[1180px\] grid-cols-5/);
+  assert.match(deliveryBoardSource, /Select a delivery card to update details and attach evidence/);
   assert.match(deliveryBoardSource, /Save delivery board/);
   assert.match(deliveryBoardSource, /Delivery Board/);
   assert.match(activeProgramTypesSource, /export type DeliveryBoardItem/);
@@ -350,6 +354,8 @@ test("Active Program review is split into state, cockpit, and team signal flows"
   assert.match(activeProgramSaveSmokeSource, /This week timeline/);
   assert.match(activeProgramSaveSmokeSource, /data-active-delivery-board/);
   assert.match(activeProgramSaveSmokeSource, /data-delivery-board-title/);
+  assert.match(activeProgramSaveSmokeSource, /data-delivery-board-card-open/);
+  assert.match(activeProgramSaveSmokeSource, /data-delivery-board-detail-panel/);
   assert.match(activeProgramSaveSmokeSource, /data-delivery-board-attachment/);
   assert.match(activeProgramSaveSmokeSource, /deliveryBoardItems/);
   assert.match(activeProgramSaveSmokeSource, /roleFormOpen/);

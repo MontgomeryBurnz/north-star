@@ -95,8 +95,13 @@ export function ActiveProgramDeliveryBoardCard({
     return Array.from(byKey.values());
   }, [deliveryBoardItems, teamRoleUpdates]);
   const [draft, setDraft] = useState<DeliveryBoardDraft>(() => emptyDraft(roleLanes[0] ?? ""));
+  const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
   const activeItems = deliveryBoardItems.filter((item) => item.status !== "done");
   const attachmentCount = deliveryBoardItems.reduce((total, item) => total + item.attachments.length, 0);
+  const selectedItem = useMemo(
+    () => deliveryBoardItems.find((item) => item.id === selectedItemId) ?? null,
+    [deliveryBoardItems, selectedItemId]
+  );
   const statusCounts = Object.fromEntries(
     deliveryBoardStatuses.map((status) => [
       status.value,
@@ -111,6 +116,12 @@ export function ActiveProgramDeliveryBoardCard({
       return { ...current, role: roleLanes[0] };
     });
   }, [roleLanes]);
+
+  useEffect(() => {
+    if (!selectedItemId) return;
+    if (deliveryBoardItems.some((item) => item.id === selectedItemId)) return;
+    setSelectedItemId(null);
+  }, [deliveryBoardItems, selectedItemId]);
 
   const handleAddItem = () => {
     if (!canAddItem) return;
@@ -247,140 +258,88 @@ export function ActiveProgramDeliveryBoardCard({
                       </p>
                     </div>
                   </div>
-                  <div className="grid gap-3 xl:grid-cols-5">
-                    {deliveryBoardStatuses.map((status) => {
-                      const statusItems = roleItems.filter((item) => item.status === status.value);
+                  <div className="overflow-x-auto pb-2">
+                    <div className="grid min-w-[1180px] grid-cols-5 gap-3">
+                      {deliveryBoardStatuses.map((status) => {
+                        const statusItems = roleItems.filter((item) => item.status === status.value);
 
-                      return (
-                        <div
-                          key={status.value}
-                          data-delivery-board-column={status.value}
-                          className="min-h-[150px] rounded-lg border border-white/10 bg-black/20 p-3"
-                        >
-                          <div className="mb-3 flex items-center justify-between gap-2">
-                            <span className={`rounded-full border px-2 py-1 text-[10px] font-medium uppercase tracking-[0.14em] ${status.tone}`}>
-                              {status.label}
-                            </span>
-                            <span className="text-xs text-zinc-500">{statusItems.length}</span>
-                          </div>
-                          <div className="grid gap-3">
-                            {statusItems.length ? (
-                              statusItems.map((item) => (
-                                <article
-                                  key={item.id}
-                                  data-delivery-board-card={item.id}
-                                  className="grid gap-3 rounded-md border border-white/10 bg-zinc-950 p-3 shadow-[0_16px_45px_rgba(0,0,0,0.18)]"
-                                >
-                                  <div className="flex items-start justify-between gap-2">
-                                    <div className="min-w-0">
-                                      <p className="line-clamp-2 text-sm font-medium leading-5 text-zinc-100">{item.title}</p>
-                                      <p className="mt-1 line-clamp-2 text-xs leading-5 text-zinc-500">
-                                        {item.description || "No context captured yet."}
-                                      </p>
-                                    </div>
-                                    <button
-                                      type="button"
-                                      aria-label={`Remove ${item.title}`}
-                                      onClick={() => onRemoveDeliveryBoardItem(item.id)}
-                                      className="rounded-md border border-white/10 p-1.5 text-zinc-500 transition-colors hover:border-rose-300/30 hover:text-rose-100"
+                        return (
+                          <div
+                            key={status.value}
+                            data-delivery-board-column={status.value}
+                            className="min-h-[180px] rounded-lg border border-white/10 bg-black/20 p-3"
+                          >
+                            <div className="mb-3 flex items-center justify-between gap-2">
+                              <span className={`rounded-full border px-2 py-1 text-[10px] font-medium uppercase tracking-[0.14em] ${status.tone}`}>
+                                {status.label}
+                              </span>
+                              <span className="text-xs text-zinc-500">{statusItems.length}</span>
+                            </div>
+                            <div className="grid gap-3">
+                              {statusItems.length ? (
+                                statusItems.map((item) => {
+                                  const isSelected = selectedItemId === item.id;
+
+                                  return (
+                                    <article
+                                      key={item.id}
+                                      data-delivery-board-card={item.id}
+                                      className={`grid gap-3 rounded-md border bg-zinc-950 p-3 shadow-[0_16px_45px_rgba(0,0,0,0.18)] transition-colors ${
+                                        isSelected ? "border-cyan-300/40 ring-1 ring-cyan-300/20" : "border-white/10"
+                                      }`}
                                     >
-                                      <Trash2 className="h-3.5 w-3.5" />
-                                    </button>
-                                  </div>
-                                  <div className="grid gap-2 text-xs text-zinc-400">
-                                    <span className="inline-flex items-center gap-2">
-                                      <CalendarClock className="h-3.5 w-3.5 text-cyan-200" />
-                                      {item.dueDate || "No due date"}
-                                    </span>
-                                    <input
-                                      value={item.owner}
-                                      onChange={(event) => onUpdateDeliveryBoardItem(item.id, { owner: event.target.value })}
-                                      placeholder={roleOwnerPlaceholder(item.role, assignedOwnersByRole)}
-                                      className="min-h-9 rounded-md border border-white/10 bg-black/20 px-2.5 py-2 text-xs text-zinc-100 outline-none transition-colors placeholder:text-zinc-500 focus:border-cyan-300/50"
-                                    />
-                                    <select
-                                      data-delivery-board-status
-                                      value={item.status}
-                                      onChange={(event) =>
-                                        onUpdateDeliveryBoardItem(item.id, { status: event.target.value as DeliveryBoardStatus })
-                                      }
-                                      className={`min-h-9 rounded-md border px-2.5 py-2 text-xs outline-none transition-colors focus:border-cyan-300/50 ${deliveryBoardStatusTone(
-                                        item.status
-                                      )}`}
-                                    >
-                                      {deliveryBoardStatuses.map((option) => (
-                                        <option key={option.value} value={option.value}>
-                                          {option.label}
-                                        </option>
-                                      ))}
-                                    </select>
-                                  </div>
-                                  <textarea
-                                    value={item.latestNote}
-                                    onChange={(event) => onUpdateDeliveryBoardItem(item.id, { latestNote: event.target.value })}
-                                    placeholder="Latest movement, review note, or blocker."
-                                    rows={2}
-                                    className="min-h-[72px] resize-none rounded-md border border-white/10 bg-black/20 px-2.5 py-2 text-xs leading-5 text-zinc-100 outline-none transition-colors placeholder:text-zinc-500 focus:border-cyan-300/50"
-                                  />
-                                  <div className="grid gap-2 border-t border-white/10 pt-3">
-                                    <label className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-md border border-white/10 bg-white/[0.035] px-3 py-2 text-xs font-medium text-zinc-300 transition-colors hover:border-cyan-300/30 hover:text-cyan-100">
-                                      <FileUp className="h-3.5 w-3.5" />
-                                      Attach evidence
-                                      <input
-                                        data-delivery-board-attachment
-                                        type="file"
-                                        multiple
-                                        className="sr-only"
-                                        onChange={(event) => void onDeliveryBoardAttachmentsChange(item.id, event)}
-                                      />
-                                    </label>
-                                    {deliveryBoardUploadState?.itemId === item.id ? (
-                                      <p className="text-[11px] text-zinc-500">
-                                        {deliveryBoardUploadState.status === "uploading"
-                                          ? "Uploading..."
-                                          : deliveryBoardUploadState.status === "uploaded"
-                                            ? "Attachment added"
-                                            : deliveryBoardUploadState.status === "error"
-                                              ? "Upload failed"
-                                              : ""}
-                                      </p>
-                                    ) : null}
-                                    {item.attachments.length ? (
-                                      <div className="grid gap-1">
-                                        {item.attachments.map((attachment) => (
-                                          <div
-                                            key={attachment.id}
-                                            className="flex items-center justify-between gap-2 rounded-md border border-white/10 bg-black/20 px-2.5 py-2"
-                                          >
-                                            <span className="inline-flex min-w-0 items-center gap-2 text-[11px] text-zinc-400">
-                                              <Paperclip className="h-3 w-3 shrink-0 text-cyan-200" />
-                                              <span className="truncate">{attachment.fileName}</span>
-                                              <span className="shrink-0 text-zinc-600">{formatFileSize(attachment.sizeBytes)}</span>
-                                            </span>
-                                            <button
-                                              type="button"
-                                              aria-label={`Remove ${attachment.fileName}`}
-                                              onClick={() => onRemoveDeliveryBoardAttachment(item.id, attachment.id)}
-                                              className="text-zinc-500 transition-colors hover:text-rose-100"
-                                            >
-                                              <Trash2 className="h-3 w-3" />
-                                            </button>
-                                          </div>
-                                        ))}
+                                      <div className="flex items-start justify-between gap-2">
+                                        <button
+                                          type="button"
+                                          data-delivery-board-card-open
+                                          onClick={() => setSelectedItemId(item.id)}
+                                          className="min-w-0 flex-1 text-left"
+                                        >
+                                          <span className="block break-words text-sm font-medium leading-5 text-zinc-100">{item.title}</span>
+                                          <span className="mt-1 line-clamp-2 block text-xs leading-5 text-zinc-500">
+                                            {item.description || item.latestNote || "Open details to add context, notes, and evidence."}
+                                          </span>
+                                        </button>
+                                        <button
+                                          type="button"
+                                          aria-label={`Remove ${item.title}`}
+                                          onClick={() => onRemoveDeliveryBoardItem(item.id)}
+                                          className="rounded-md border border-white/10 p-1.5 text-zinc-500 transition-colors hover:border-rose-300/30 hover:text-rose-100"
+                                        >
+                                          <Trash2 className="h-3.5 w-3.5" />
+                                        </button>
                                       </div>
-                                    ) : null}
-                                  </div>
-                                </article>
-                              ))
-                            ) : (
-                              <p className="rounded-md border border-white/10 bg-zinc-950/60 p-3 text-xs leading-5 text-zinc-600">
-                                No {deliveryBoardStatusLabel(status.value).toLowerCase()} cards.
-                              </p>
-                            )}
+                                      <div className="grid gap-2 text-[11px] text-zinc-500">
+                                        <span className="inline-flex items-center gap-2">
+                                          <CalendarClock className="h-3.5 w-3.5 shrink-0 text-cyan-200" />
+                                          <span>{item.dueDate || "No due date"}</span>
+                                        </span>
+                                        <span className="truncate">{item.owner || roleOwnerPlaceholder(item.role, assignedOwnersByRole)}</span>
+                                        <span className="inline-flex items-center gap-2">
+                                          <Paperclip className="h-3.5 w-3.5 shrink-0 text-cyan-200" />
+                                          {item.attachments.length} attachment{item.attachments.length === 1 ? "" : "s"}
+                                        </span>
+                                      </div>
+                                      <button
+                                        type="button"
+                                        onClick={() => setSelectedItemId(item.id)}
+                                        className="rounded-md border border-white/10 bg-white/[0.035] px-3 py-2 text-xs font-medium text-zinc-300 transition-colors hover:border-cyan-300/30 hover:text-cyan-100"
+                                      >
+                                        Open details
+                                      </button>
+                                    </article>
+                                  );
+                                })
+                              ) : (
+                                <p className="rounded-md border border-white/10 bg-zinc-950/60 p-3 text-xs leading-5 text-zinc-600">
+                                  No {deliveryBoardStatusLabel(status.value).toLowerCase()} cards.
+                                </p>
+                              )}
+                            </div>
                           </div>
-                        </div>
-                      );
-                    })}
+                        );
+                      })}
+                    </div>
                   </div>
                 </section>
               );
@@ -390,6 +349,159 @@ export function ActiveProgramDeliveryBoardCard({
               <p className="text-sm font-medium text-amber-100">Add team roles before building the delivery board.</p>
               <p className="mt-2 text-xs leading-5 text-zinc-300">
                 Program roles create the swimlanes used to track delivery actions and attached evidence.
+              </p>
+            </div>
+          )}
+        </div>
+
+        <div data-delivery-board-detail-panel className="rounded-lg border border-white/10 bg-white/[0.025] p-4">
+          {selectedItem ? (
+            <div className="grid gap-4">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-xs font-medium uppercase tracking-[0.16em] text-cyan-100">Selected delivery card</p>
+                  <h3 className="mt-2 break-words text-lg font-semibold text-zinc-50">{selectedItem.title}</h3>
+                  <p className="mt-1 text-sm text-zinc-500">{selectedItem.role}</p>
+                </div>
+                <span className={`rounded-full border px-3 py-1 text-[11px] font-medium uppercase tracking-[0.14em] ${deliveryBoardStatusTone(selectedItem.status)}`}>
+                  {deliveryBoardStatusLabel(selectedItem.status)}
+                </span>
+              </div>
+
+              <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_180px_180px]">
+                <label className="grid gap-2">
+                  <span className="text-[11px] font-medium uppercase tracking-[0.16em] text-zinc-500">Action or deliverable</span>
+                  <input
+                    value={selectedItem.title}
+                    onChange={(event) => onUpdateDeliveryBoardItem(selectedItem.id, { title: event.target.value })}
+                    className="min-h-11 rounded-md border border-white/10 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 outline-none transition-colors focus:border-cyan-300/50"
+                  />
+                </label>
+                <label className="grid gap-2">
+                  <span className="text-[11px] font-medium uppercase tracking-[0.16em] text-zinc-500">Owner</span>
+                  <input
+                    value={selectedItem.owner}
+                    onChange={(event) => onUpdateDeliveryBoardItem(selectedItem.id, { owner: event.target.value })}
+                    placeholder={roleOwnerPlaceholder(selectedItem.role, assignedOwnersByRole)}
+                    className="min-h-11 rounded-md border border-white/10 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 outline-none transition-colors placeholder:text-zinc-500 focus:border-cyan-300/50"
+                  />
+                </label>
+                <label className="grid gap-2">
+                  <span className="text-[11px] font-medium uppercase tracking-[0.16em] text-zinc-500">Due</span>
+                  <input
+                    type="date"
+                    value={selectedItem.dueDate}
+                    onChange={(event) => onUpdateDeliveryBoardItem(selectedItem.id, { dueDate: event.target.value })}
+                    className="min-h-11 rounded-md border border-white/10 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 outline-none transition-colors focus:border-cyan-300/50"
+                  />
+                </label>
+              </div>
+
+              <div className="grid gap-3 lg:grid-cols-[220px_minmax(0,1fr)]">
+                <label className="grid gap-2">
+                  <span className="text-[11px] font-medium uppercase tracking-[0.16em] text-zinc-500">Status</span>
+                  <select
+                    data-delivery-board-status
+                    value={selectedItem.status}
+                    onChange={(event) => onUpdateDeliveryBoardItem(selectedItem.id, { status: event.target.value as DeliveryBoardStatus })}
+                    className={`min-h-11 rounded-md border px-3 py-2 text-sm outline-none transition-colors focus:border-cyan-300/50 ${deliveryBoardStatusTone(
+                      selectedItem.status
+                    )}`}
+                  >
+                    {deliveryBoardStatuses.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="grid gap-2">
+                  <span className="text-[11px] font-medium uppercase tracking-[0.16em] text-zinc-500">Context</span>
+                  <textarea
+                    value={selectedItem.description}
+                    onChange={(event) => onUpdateDeliveryBoardItem(selectedItem.id, { description: event.target.value })}
+                    placeholder="What outcome, milestone, or blocker does this card support?"
+                    rows={3}
+                    className="min-h-[104px] resize-y rounded-md border border-white/10 bg-zinc-950 px-3 py-2 text-sm leading-6 text-zinc-100 outline-none transition-colors placeholder:text-zinc-500 focus:border-cyan-300/50"
+                  />
+                </label>
+              </div>
+
+              <label className="grid gap-2">
+                <span className="text-[11px] font-medium uppercase tracking-[0.16em] text-zinc-500">Latest movement</span>
+                <textarea
+                  value={selectedItem.latestNote}
+                  onChange={(event) => onUpdateDeliveryBoardItem(selectedItem.id, { latestNote: event.target.value })}
+                  placeholder="Latest movement, review note, blocker, or leadership ask."
+                  rows={3}
+                  className="min-h-[104px] resize-y rounded-md border border-white/10 bg-zinc-950 px-3 py-2 text-sm leading-6 text-zinc-100 outline-none transition-colors placeholder:text-zinc-500 focus:border-cyan-300/50"
+                />
+              </label>
+
+              <div className="grid gap-3 border-t border-white/10 pt-4">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-medium text-zinc-100">Evidence</p>
+                    <p className="mt-1 text-xs leading-5 text-zinc-500">Attach work products, review notes, or proof points for this card.</p>
+                  </div>
+                  <label className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-md border border-cyan-300/20 bg-cyan-300/[0.055] px-3 py-2 text-xs font-medium text-cyan-100 transition-colors hover:border-cyan-300/40">
+                    <FileUp className="h-3.5 w-3.5" />
+                    Attach evidence
+                    <input
+                      data-delivery-board-attachment
+                      type="file"
+                      multiple
+                      className="sr-only"
+                      onChange={(event) => void onDeliveryBoardAttachmentsChange(selectedItem.id, event)}
+                    />
+                  </label>
+                </div>
+                {deliveryBoardUploadState?.itemId === selectedItem.id ? (
+                  <p className="text-xs text-zinc-500">
+                    {deliveryBoardUploadState.status === "uploading"
+                      ? "Uploading..."
+                      : deliveryBoardUploadState.status === "uploaded"
+                        ? "Attachment added"
+                        : deliveryBoardUploadState.status === "error"
+                          ? "Upload failed"
+                          : ""}
+                  </p>
+                ) : null}
+                {selectedItem.attachments.length ? (
+                  <div className="grid gap-2 md:grid-cols-2">
+                    {selectedItem.attachments.map((attachment) => (
+                      <div
+                        key={attachment.id}
+                        className="flex items-center justify-between gap-2 rounded-md border border-white/10 bg-black/20 px-3 py-2"
+                      >
+                        <span className="inline-flex min-w-0 items-center gap-2 text-xs text-zinc-400">
+                          <Paperclip className="h-3.5 w-3.5 shrink-0 text-cyan-200" />
+                          <span className="truncate">{attachment.fileName}</span>
+                          <span className="shrink-0 text-zinc-600">{formatFileSize(attachment.sizeBytes)}</span>
+                        </span>
+                        <button
+                          type="button"
+                          aria-label={`Remove ${attachment.fileName}`}
+                          onClick={() => onRemoveDeliveryBoardAttachment(selectedItem.id, attachment.id)}
+                          className="text-zinc-500 transition-colors hover:text-rose-100"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="rounded-md border border-white/10 bg-black/20 p-3 text-xs leading-5 text-zinc-600">
+                    No evidence attached yet.
+                  </p>
+                )}
+              </div>
+            </div>
+          ) : (
+            <div className="grid gap-2">
+              <p className="text-sm font-medium text-zinc-100">Select a delivery card to update details and attach evidence.</p>
+              <p className="text-xs leading-5 text-zinc-500">
+                The board stays compact for weekly review. Card details open here when a role needs to update context, status, or proof.
               </p>
             </div>
           )}

@@ -318,7 +318,27 @@ async function saveRoleSignal(session, program) {
   await session.waitFor("Active Program Delivery Board card added", async () => {
     return session.execute(`
       return Array.from(document.querySelectorAll("[data-delivery-board-card]"))
-        .some((card) => card.textContent.includes("North Star active-program save smoke") && card.querySelector("[data-delivery-board-attachment]"));
+        .some((card) => card.textContent.includes("North Star active-program save smoke"));
+    `);
+  });
+
+  const deliveryCardOpened = await session.execute(`
+    const card = Array.from(document.querySelectorAll("[data-delivery-board-card]"))
+      .find((element) => element.textContent.includes("North Star active-program save smoke"));
+    card?.querySelector("[data-delivery-board-card-open]")?.click();
+    return Boolean(card);
+  `);
+
+  if (!deliveryCardOpened) {
+    throw new Error("Active Program smoke could not open the Delivery Board card detail panel.");
+  }
+
+  await session.waitFor("Active Program Delivery Board card details opened", async () => {
+    return session.execute(`
+      const panel = document.querySelector("[data-delivery-board-detail-panel]");
+      return Boolean(panel) &&
+        panel.textContent.includes("North Star active-program save smoke") &&
+        Boolean(panel.querySelector("[data-delivery-board-attachment]"));
     `);
   });
 
