@@ -306,8 +306,14 @@ export function ActiveProgramDeliveryBoardCard({
                       </p>
                     </div>
                   </div>
-                  {roleItems.length ? (
-                    <div data-delivery-board-status-rail className="grid gap-2 sm:grid-cols-2 xl:grid-cols-5">
+                  {draggingItemId && roleItems.length ? (
+                    <div
+                      data-delivery-board-status-rail
+                      className="flex items-center gap-2 overflow-x-auto rounded-lg border border-cyan-300/20 bg-cyan-300/[0.035] p-2"
+                    >
+                      <span className="shrink-0 px-2 text-[10px] font-medium uppercase tracking-[0.14em] text-cyan-100">
+                        Drop to move
+                      </span>
                       {deliveryBoardStatuses.map((status) => (
                         <div
                           key={status.value}
@@ -319,21 +325,12 @@ export function ActiveProgramDeliveryBoardCard({
                           }}
                           onDragLeave={() => setDragOverStatus((current) => (current === status.value ? null : current))}
                           onDrop={(event) => handleDrop(event, status.value)}
-                          className={`min-h-16 rounded-lg border px-3 py-3 transition-colors ${
-                            dragOverStatus === status.value
-                              ? "border-cyan-300/50 bg-cyan-300/[0.07]"
-                              : "border-white/10 bg-white/[0.025]"
+                          className={`flex min-h-10 shrink-0 items-center gap-2 rounded-full border px-3 transition-colors ${
+                            dragOverStatus === status.value ? "border-cyan-300/50 bg-cyan-300/[0.09]" : status.tone
                           }`}
                         >
-                          <div className="flex items-center justify-between gap-2">
-                            <span
-                              className={`rounded-full border px-2.5 py-1 text-[10px] font-medium uppercase tracking-[0.14em] ${status.tone}`}
-                            >
-                              {status.label}
-                            </span>
-                            <span className="text-xs text-zinc-500">{roleStatusCounts[status.value]}</span>
-                          </div>
-                          <p className="mt-2 text-[11px] leading-4 text-zinc-600">Drop here or use card chips.</p>
+                          <span className="text-[10px] font-medium uppercase tracking-[0.12em]">{status.label}</span>
+                          <span className="text-[10px] text-zinc-500">{roleStatusCounts[status.value]}</span>
                         </div>
                       ))}
                     </div>

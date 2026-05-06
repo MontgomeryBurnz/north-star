@@ -339,6 +339,27 @@ async function saveRoleSignal(session, program) {
     `);
   });
 
+  const deliveryCardDragStarted = await session.execute(`
+    const card = Array.from(document.querySelectorAll("[data-delivery-board-card]"))
+      .find((element) => element.textContent.includes("North Star active-program save smoke"));
+    if (!card || typeof DataTransfer === "undefined" || typeof DragEvent === "undefined") return false;
+
+    const dataTransfer = new DataTransfer();
+    card.dispatchEvent(new DragEvent("dragstart", { bubbles: true, cancelable: true, dataTransfer }));
+    return true;
+  `);
+
+  if (!deliveryCardDragStarted) {
+    throw new Error("Active Program smoke could not start dragging the Delivery Board card.");
+  }
+
+  await session.waitFor("Active Program compact drag targets visible", async () => {
+    return session.execute(`
+      return Boolean(document.querySelector('[data-delivery-board-drop-target="in-progress"]')) &&
+        Boolean(document.querySelector("[data-delivery-board-status-rail]"));
+    `);
+  });
+
   const deliveryCardMoved = await session.execute(`
     const card = Array.from(document.querySelectorAll("[data-delivery-board-card]"))
       .find((element) => element.textContent.includes("North Star active-program save smoke"));
@@ -346,7 +367,7 @@ async function saveRoleSignal(session, program) {
     if (!card || !target || typeof DataTransfer === "undefined" || typeof DragEvent === "undefined") return false;
 
     const dataTransfer = new DataTransfer();
-    card.dispatchEvent(new DragEvent("dragstart", { bubbles: true, cancelable: true, dataTransfer }));
+    dataTransfer.setData("text/plain", card.getAttribute("data-delivery-board-card") ?? "");
     target.dispatchEvent(new DragEvent("dragover", { bubbles: true, cancelable: true, dataTransfer }));
     target.dispatchEvent(new DragEvent("drop", { bubbles: true, cancelable: true, dataTransfer }));
     card.dispatchEvent(new DragEvent("dragend", { bubbles: true, cancelable: true, dataTransfer }));
