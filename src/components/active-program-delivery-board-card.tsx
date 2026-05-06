@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState, type ChangeEvent, type DragEvent } from "react";
-import { CalendarClock, FileUp, KanbanSquare, Paperclip, Plus, Save, Trash2 } from "lucide-react";
+import { CalendarClock, FileUp, KanbanSquare, Paperclip, Plus, Save, Trash2, X } from "lucide-react";
 import type { DeliveryBoardItem, DeliveryBoardStatus, TeamRoleUpdate } from "@/lib/active-program-types";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -99,6 +99,7 @@ export function ActiveProgramDeliveryBoardCard({
     return Array.from(byKey.values());
   }, [deliveryBoardItems, teamRoleUpdates]);
   const [draft, setDraft] = useState<DeliveryBoardDraft>(() => emptyDraft(roleLanes[0] ?? ""));
+  const [isAddCardOpen, setIsAddCardOpen] = useState(false);
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
   const [draggingItemId, setDraggingItemId] = useState<string | null>(null);
   const [dragOverStatus, setDragOverStatus] = useState<DeliveryBoardStatus | null>(null);
@@ -124,6 +125,23 @@ export function ActiveProgramDeliveryBoardCard({
   }, [roleLanes]);
 
   useEffect(() => {
+    if (roleLanes.length) return;
+    setIsAddCardOpen(false);
+  }, [roleLanes.length]);
+
+  useEffect(() => {
+    if (!isAddCardOpen) return;
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      setIsAddCardOpen(false);
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isAddCardOpen]);
+
+  useEffect(() => {
     if (!selectedItemId) return;
     if (deliveryBoardItems.some((item) => item.id === selectedItemId)) return;
     setSelectedItemId(null);
@@ -133,6 +151,7 @@ export function ActiveProgramDeliveryBoardCard({
     if (!canAddItem) return;
     onAddDeliveryBoardItem(draft);
     setDraft(emptyDraft(draft.role));
+    setIsAddCardOpen(false);
   };
 
   const handleDragStart = (event: DragEvent<HTMLElement>, itemId: string) => {
@@ -186,96 +205,149 @@ export function ActiveProgramDeliveryBoardCard({
               a status chip on mobile, then save the board to refresh guidance.
             </p>
           </div>
-          <div className="grid gap-2 sm:grid-cols-3">
-            <span className="rounded-md border border-white/10 bg-black/20 px-3 py-2 text-xs text-zinc-300">
-              {deliveryBoardItems.length} cards
-            </span>
+          <div className="grid gap-2 sm:grid-cols-[repeat(3,minmax(0,1fr))_auto]">
+            <span className="rounded-md border border-white/10 bg-black/20 px-3 py-2 text-xs text-zinc-300">{deliveryBoardItems.length} cards</span>
             <span className="rounded-md border border-amber-300/15 bg-amber-300/[0.055] px-3 py-2 text-xs text-amber-100">
               {statusCounts["needs-review"] + statusCounts.blocked} need action
             </span>
             <span className="rounded-md border border-emerald-300/15 bg-emerald-300/[0.055] px-3 py-2 text-xs text-emerald-100">
               {attachmentCount} attachments
             </span>
-          </div>
-        </div>
-
-        <div className="grid gap-3 rounded-lg border border-white/10 bg-white/[0.03] p-4">
-          <div className="grid gap-3 lg:grid-cols-[180px_minmax(0,1fr)_160px_160px]">
-            <label className="grid gap-2">
-              <span className="text-[11px] font-medium uppercase tracking-[0.16em] text-zinc-500">Function</span>
-              <select
-                data-delivery-board-role
-                value={draft.role}
-                onChange={(event) => setDraft((current) => ({ ...current, role: event.target.value }))}
-                className="min-h-11 rounded-md border border-white/10 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 outline-none transition-colors focus:border-cyan-300/50"
-              >
-                <option value="">Select role...</option>
-                {roleLanes.map((role) => (
-                  <option key={role} value={role}>
-                    {role}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="grid gap-2">
-              <span className="text-[11px] font-medium uppercase tracking-[0.16em] text-zinc-500">Action or deliverable</span>
-              <input
-                data-delivery-board-title
-                value={draft.title}
-                onChange={(event) => setDraft((current) => ({ ...current, title: event.target.value }))}
-                placeholder="Action, deliverable, review item, or dependency"
-                className="min-h-11 rounded-md border border-white/10 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 outline-none transition-colors placeholder:text-zinc-500 focus:border-cyan-300/50"
-              />
-            </label>
-            <label className="grid gap-2">
-              <span className="text-[11px] font-medium uppercase tracking-[0.16em] text-zinc-500">Owner</span>
-              <input
-                value={draft.owner}
-                onChange={(event) => setDraft((current) => ({ ...current, owner: event.target.value }))}
-                placeholder={roleOwnerPlaceholder(draft.role, assignedOwnersByRole)}
-                className="min-h-11 rounded-md border border-white/10 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 outline-none transition-colors placeholder:text-zinc-500 focus:border-cyan-300/50"
-              />
-            </label>
-            <label className="grid gap-2">
-              <span className="text-[11px] font-medium uppercase tracking-[0.16em] text-zinc-500">Due</span>
-              <input
-                type="date"
-                value={draft.dueDate}
-                onChange={(event) => setDraft((current) => ({ ...current, dueDate: event.target.value }))}
-                className="min-h-11 rounded-md border border-white/10 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 outline-none transition-colors focus:border-cyan-300/50"
-              />
-            </label>
-          </div>
-          <div className="grid gap-3 lg:grid-cols-[180px_minmax(0,1fr)_auto] lg:items-end">
-            <label className="grid gap-2">
-              <span className="text-[11px] font-medium uppercase tracking-[0.16em] text-zinc-500">Status</span>
-              <select
-                value={draft.status}
-                onChange={(event) => setDraft((current) => ({ ...current, status: event.target.value as DeliveryBoardStatus }))}
-                className="min-h-11 rounded-md border border-white/10 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 outline-none transition-colors focus:border-cyan-300/50"
-              >
-                {deliveryBoardStatuses.map((status) => (
-                  <option key={status.value} value={status.value}>
-                    {status.label}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="grid gap-2">
-              <span className="text-[11px] font-medium uppercase tracking-[0.16em] text-zinc-500">Context</span>
-              <input
-                value={draft.description}
-                onChange={(event) => setDraft((current) => ({ ...current, description: event.target.value }))}
-                placeholder="What outcome, milestone, or blocker does this card support?"
-                className="min-h-11 rounded-md border border-white/10 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 outline-none transition-colors placeholder:text-zinc-500 focus:border-cyan-300/50"
-              />
-            </label>
-            <Button type="button" data-delivery-board-add onClick={handleAddItem} disabled={!canAddItem}>
+            <Button
+              type="button"
+              data-delivery-board-open-add
+              onClick={() => setIsAddCardOpen(true)}
+              disabled={!roleLanes.length}
+              className="min-h-10"
+            >
               <Plus className="h-4 w-4" />
-              Add card
+              Add action
             </Button>
           </div>
         </div>
+
+        {isAddCardOpen ? (
+          <div
+            data-delivery-board-add-panel
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="delivery-board-add-title"
+            onClick={(event) => {
+              if (event.target !== event.currentTarget) return;
+              setIsAddCardOpen(false);
+            }}
+            className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 p-3 backdrop-blur-sm sm:items-center sm:p-6"
+          >
+            <div className="max-h-[92vh] w-full max-w-3xl overflow-y-auto rounded-lg border border-white/10 bg-zinc-950 shadow-[0_28px_90px_rgba(0,0,0,0.45)]">
+              <div className="flex items-start justify-between gap-3 border-b border-white/10 p-4">
+                <div>
+                  <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-cyan-100">Delivery Board</p>
+                  <h3 id="delivery-board-add-title" className="mt-1 text-lg font-semibold text-zinc-50">
+                    Add action
+                  </h3>
+                  <p className="mt-1 text-xs leading-5 text-zinc-500">
+                    Create one role-owned action, deliverable, review item, blocker, or artifact.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  aria-label="Close add action panel"
+                  onClick={() => setIsAddCardOpen(false)}
+                  className="rounded-md border border-white/10 p-2 text-zinc-500 transition-colors hover:border-cyan-300/30 hover:text-cyan-100"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+
+              <div className="grid gap-4 p-4">
+                <div className="grid gap-3 md:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)]">
+                  <label className="grid gap-2">
+                    <span className="text-[11px] font-medium uppercase tracking-[0.16em] text-zinc-500">Function</span>
+                    <select
+                      data-delivery-board-role
+                      value={draft.role}
+                      onChange={(event) => setDraft((current) => ({ ...current, role: event.target.value }))}
+                      className="min-h-11 rounded-md border border-white/10 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 outline-none transition-colors focus:border-cyan-300/50"
+                    >
+                      <option value="">Select role...</option>
+                      {roleLanes.map((role) => (
+                        <option key={role} value={role}>
+                          {role}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="grid gap-2">
+                    <span className="text-[11px] font-medium uppercase tracking-[0.16em] text-zinc-500">Action or deliverable</span>
+                    <input
+                      data-delivery-board-title
+                      value={draft.title}
+                      onChange={(event) => setDraft((current) => ({ ...current, title: event.target.value }))}
+                      placeholder="Action, deliverable, review item, or dependency"
+                      className="min-h-11 rounded-md border border-white/10 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 outline-none transition-colors placeholder:text-zinc-500 focus:border-cyan-300/50"
+                    />
+                  </label>
+                </div>
+
+                <div className="grid gap-3 md:grid-cols-3">
+                  <label className="grid gap-2">
+                    <span className="text-[11px] font-medium uppercase tracking-[0.16em] text-zinc-500">Owner</span>
+                    <input
+                      value={draft.owner}
+                      onChange={(event) => setDraft((current) => ({ ...current, owner: event.target.value }))}
+                      placeholder={roleOwnerPlaceholder(draft.role, assignedOwnersByRole)}
+                      className="min-h-11 rounded-md border border-white/10 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 outline-none transition-colors placeholder:text-zinc-500 focus:border-cyan-300/50"
+                    />
+                  </label>
+                  <label className="grid gap-2">
+                    <span className="text-[11px] font-medium uppercase tracking-[0.16em] text-zinc-500">Due</span>
+                    <input
+                      type="date"
+                      value={draft.dueDate}
+                      onChange={(event) => setDraft((current) => ({ ...current, dueDate: event.target.value }))}
+                      className="min-h-11 rounded-md border border-white/10 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 outline-none transition-colors focus:border-cyan-300/50"
+                    />
+                  </label>
+                  <label className="grid gap-2">
+                    <span className="text-[11px] font-medium uppercase tracking-[0.16em] text-zinc-500">Status</span>
+                    <select
+                      value={draft.status}
+                      onChange={(event) => setDraft((current) => ({ ...current, status: event.target.value as DeliveryBoardStatus }))}
+                      className="min-h-11 rounded-md border border-white/10 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 outline-none transition-colors focus:border-cyan-300/50"
+                    >
+                      {deliveryBoardStatuses.map((status) => (
+                        <option key={status.value} value={status.value}>
+                          {status.label}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                </div>
+
+                <label className="grid gap-2">
+                  <span className="text-[11px] font-medium uppercase tracking-[0.16em] text-zinc-500">Context</span>
+                  <textarea
+                    value={draft.description}
+                    onChange={(event) => setDraft((current) => ({ ...current, description: event.target.value }))}
+                    placeholder="What outcome, milestone, or blocker does this card support?"
+                    rows={3}
+                    className="min-h-[112px] resize-y rounded-md border border-white/10 bg-zinc-950 px-3 py-2 text-sm leading-6 text-zinc-100 outline-none transition-colors placeholder:text-zinc-500 focus:border-cyan-300/50"
+                  />
+                </label>
+
+                <div className="flex flex-wrap items-center justify-end gap-3 border-t border-white/10 pt-4">
+                  <Button type="button" variant="outline" onClick={() => setIsAddCardOpen(false)}>
+                    Cancel
+                  </Button>
+                  <Button type="button" data-delivery-board-add onClick={handleAddItem} disabled={!canAddItem}>
+                    <Plus className="h-4 w-4" />
+                    Add card
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </div>
+        ) : null}
 
         <div className="grid gap-5">
           {roleLanes.length ? (

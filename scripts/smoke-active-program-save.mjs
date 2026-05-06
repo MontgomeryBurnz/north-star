@@ -167,8 +167,7 @@ async function verifyOperatingView(session) {
       const bodyText = document.body.textContent ?? "";
       return Boolean(document.querySelector("[data-active-delivery-board]")) &&
         document.querySelectorAll("[data-delivery-board-lane]").length > 0 &&
-        Boolean(document.querySelector("[data-delivery-board-title]")) &&
-        Boolean(document.querySelector("[data-delivery-board-add]")) &&
+        Boolean(document.querySelector("[data-delivery-board-open-add]")) &&
         bodyText.includes("This week timeline") &&
         bodyText.includes("What changed across roles, delivery board, leadership, meetings, and artifacts");
     `);
@@ -309,6 +308,15 @@ async function saveRoleSignal(session, program) {
   await session.waitFor("Active Program Delivery Board visible for save", async () => {
     return session.execute(`
       return Boolean(document.querySelector("[data-active-delivery-board]")) &&
+        Boolean(document.querySelector("[data-delivery-board-open-add]")) &&
+        !document.querySelector("[data-delivery-board-add-panel]");
+    `);
+  });
+
+  await session.execute('document.querySelector("[data-delivery-board-open-add]")?.click();');
+  await session.waitFor("Active Program Delivery Board add panel", async () => {
+    return session.execute(`
+      return Boolean(document.querySelector("[data-delivery-board-add-panel]")) &&
         Boolean(document.querySelector("[data-delivery-board-title]")) &&
         Boolean(document.querySelector("[data-delivery-board-add]"));
     `);
