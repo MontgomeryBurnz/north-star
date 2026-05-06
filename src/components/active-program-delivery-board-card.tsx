@@ -541,97 +541,112 @@ export function ActiveProgramDeliveryBoardCard({
           )}
         </div>
 
-        <div data-delivery-board-detail-panel className="rounded-lg border border-white/10 bg-white/[0.025] p-4">
+        <div data-delivery-board-detail-panel className="overflow-hidden rounded-lg border border-white/10 bg-white/[0.025]">
           {selectedItem ? (
-            <div className="grid gap-4">
-              <div className="flex flex-wrap items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <p className="text-xs font-medium uppercase tracking-[0.16em] text-cyan-100">Selected delivery card</p>
-                  <h3 className="mt-2 break-words text-lg font-semibold text-zinc-50">{selectedItem.title}</h3>
-                  <p className="mt-1 text-sm text-zinc-500">{selectedItem.role}</p>
+            <div data-delivery-board-detail-workspace className="grid lg:grid-cols-[minmax(0,1fr)_340px]">
+              <div className="grid gap-4 p-4 md:p-5">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-cyan-100">Task workspace</p>
+                    <h3 className="mt-2 break-words text-lg font-semibold text-zinc-50">{selectedItem.title}</h3>
+                    <p className="mt-1 text-sm text-zinc-500">{selectedItem.role}</p>
+                  </div>
+                  <span className={`rounded-full border px-3 py-1 text-[11px] font-medium uppercase tracking-[0.14em] ${deliveryBoardStatusTone(selectedItem.status)}`}>
+                    {deliveryBoardStatusLabel(selectedItem.status)}
+                  </span>
                 </div>
-                <span className={`rounded-full border px-3 py-1 text-[11px] font-medium uppercase tracking-[0.14em] ${deliveryBoardStatusTone(selectedItem.status)}`}>
-                  {deliveryBoardStatusLabel(selectedItem.status)}
-                </span>
-              </div>
 
-              <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_180px_180px]">
                 <label className="grid gap-2">
                   <span className="text-[11px] font-medium uppercase tracking-[0.16em] text-zinc-500">Action or deliverable</span>
                   <input
                     value={selectedItem.title}
                     onChange={(event) => onUpdateDeliveryBoardItem(selectedItem.id, { title: event.target.value })}
-                    className="min-h-11 rounded-md border border-white/10 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 outline-none transition-colors focus:border-cyan-300/50"
+                    className="min-h-12 rounded-md border border-white/10 bg-zinc-950 px-3 py-2 text-base font-medium text-zinc-100 outline-none transition-colors focus:border-cyan-300/50"
                   />
                 </label>
-                <label className="grid gap-2">
-                  <span className="text-[11px] font-medium uppercase tracking-[0.16em] text-zinc-500">Owner</span>
-                  <input
-                    value={selectedItem.owner}
-                    onChange={(event) => onUpdateDeliveryBoardItem(selectedItem.id, { owner: event.target.value })}
-                    placeholder={roleOwnerPlaceholder(selectedItem.role, assignedOwnersByRole)}
-                    className="min-h-11 rounded-md border border-white/10 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 outline-none transition-colors placeholder:text-zinc-500 focus:border-cyan-300/50"
-                  />
-                </label>
-                <label className="grid gap-2">
-                  <span className="text-[11px] font-medium uppercase tracking-[0.16em] text-zinc-500">Due</span>
-                  <input
-                    type="date"
-                    value={selectedItem.dueDate}
-                    onChange={(event) => onUpdateDeliveryBoardItem(selectedItem.id, { dueDate: event.target.value })}
-                    className="min-h-11 rounded-md border border-white/10 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 outline-none transition-colors focus:border-cyan-300/50"
-                  />
-                </label>
-              </div>
 
-              <div className="grid gap-3 lg:grid-cols-[220px_minmax(0,1fr)]">
-                <label className="grid gap-2">
-                  <span className="text-[11px] font-medium uppercase tracking-[0.16em] text-zinc-500">Status</span>
-                  <select
-                    data-delivery-board-status
-                    value={selectedItem.status}
-                    onChange={(event) => onUpdateDeliveryBoardItem(selectedItem.id, { status: event.target.value as DeliveryBoardStatus })}
-                    className={`min-h-11 rounded-md border px-3 py-2 text-sm outline-none transition-colors focus:border-cyan-300/50 ${deliveryBoardStatusTone(
-                      selectedItem.status
-                    )}`}
-                  >
-                    {deliveryBoardStatuses.map((option) => (
-                      <option key={option.value} value={option.value}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <label className="grid gap-2">
-                  <span className="text-[11px] font-medium uppercase tracking-[0.16em] text-zinc-500">Context</span>
+                <label className="grid gap-2 rounded-lg border border-white/10 bg-black/20 p-3">
+                  <span className="text-[11px] font-medium uppercase tracking-[0.16em] text-zinc-500">Work context</span>
                   <textarea
                     value={selectedItem.description}
                     onChange={(event) => onUpdateDeliveryBoardItem(selectedItem.id, { description: event.target.value })}
                     placeholder="What outcome, milestone, or blocker does this card support?"
+                    rows={4}
+                    className="min-h-[132px] resize-y rounded-md border border-white/10 bg-zinc-950 px-3 py-2 text-sm leading-6 text-zinc-100 outline-none transition-colors placeholder:text-zinc-500 focus:border-cyan-300/50"
+                  />
+                </label>
+
+                <label className="grid gap-2 rounded-lg border border-white/10 bg-black/20 p-3">
+                  <span className="text-[11px] font-medium uppercase tracking-[0.16em] text-zinc-500">Latest movement</span>
+                  <textarea
+                    value={selectedItem.latestNote}
+                    onChange={(event) => onUpdateDeliveryBoardItem(selectedItem.id, { latestNote: event.target.value })}
+                    placeholder="Latest movement, review note, blocker, or leadership ask."
                     rows={3}
                     className="min-h-[104px] resize-y rounded-md border border-white/10 bg-zinc-950 px-3 py-2 text-sm leading-6 text-zinc-100 outline-none transition-colors placeholder:text-zinc-500 focus:border-cyan-300/50"
                   />
                 </label>
               </div>
 
-              <label className="grid gap-2">
-                <span className="text-[11px] font-medium uppercase tracking-[0.16em] text-zinc-500">Latest movement</span>
-                <textarea
-                  value={selectedItem.latestNote}
-                  onChange={(event) => onUpdateDeliveryBoardItem(selectedItem.id, { latestNote: event.target.value })}
-                  placeholder="Latest movement, review note, blocker, or leadership ask."
-                  rows={3}
-                  className="min-h-[104px] resize-y rounded-md border border-white/10 bg-zinc-950 px-3 py-2 text-sm leading-6 text-zinc-100 outline-none transition-colors placeholder:text-zinc-500 focus:border-cyan-300/50"
-                />
-              </label>
+              <aside className="grid content-start gap-4 border-t border-white/10 bg-black/20 p-4 md:p-5 lg:border-l lg:border-t-0">
+                <div className="grid gap-2">
+                  <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-cyan-100">Operating details</p>
+                  <p className="text-xs leading-5 text-zinc-500">Keep ownership, timing, status, and evidence current for this task.</p>
+                </div>
 
-              <div className="grid gap-3 border-t border-white/10 pt-4">
-                <div className="flex flex-wrap items-center justify-between gap-3">
+                <div className="grid gap-3 rounded-lg border border-white/10 bg-zinc-950/70 p-3">
+                  <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-zinc-500">Status</p>
+                  <div className="flex flex-wrap gap-2">
+                    {deliveryBoardStatuses.map((option) => {
+                      const isCurrentStatus = selectedItem.status === option.value;
+
+                      return (
+                        <button
+                          key={option.value}
+                          type="button"
+                          data-delivery-board-detail-status-chip={option.value}
+                          aria-pressed={isCurrentStatus}
+                          onClick={() => onUpdateDeliveryBoardItem(selectedItem.id, { status: option.value })}
+                          className={`min-h-10 rounded-full border px-3 text-[10px] font-medium uppercase tracking-[0.12em] transition-colors ${
+                            isCurrentStatus
+                              ? option.tone
+                              : "border-white/10 bg-white/[0.025] text-zinc-500 hover:border-cyan-300/30 hover:text-cyan-100"
+                          }`}
+                        >
+                          {option.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-1">
+                  <label className="grid gap-2 rounded-lg border border-white/10 bg-zinc-950/70 p-3">
+                    <span className="text-[11px] font-medium uppercase tracking-[0.16em] text-zinc-500">Owner</span>
+                    <input
+                      value={selectedItem.owner}
+                      onChange={(event) => onUpdateDeliveryBoardItem(selectedItem.id, { owner: event.target.value })}
+                      placeholder={roleOwnerPlaceholder(selectedItem.role, assignedOwnersByRole)}
+                      className="min-h-11 rounded-md border border-white/10 bg-black/30 px-3 py-2 text-sm text-zinc-100 outline-none transition-colors placeholder:text-zinc-500 focus:border-cyan-300/50"
+                    />
+                  </label>
+                  <label className="grid gap-2 rounded-lg border border-white/10 bg-zinc-950/70 p-3">
+                    <span className="text-[11px] font-medium uppercase tracking-[0.16em] text-zinc-500">Due date</span>
+                    <input
+                      type="date"
+                      value={selectedItem.dueDate}
+                      onChange={(event) => onUpdateDeliveryBoardItem(selectedItem.id, { dueDate: event.target.value })}
+                      className="min-h-11 rounded-md border border-white/10 bg-black/30 px-3 py-2 text-sm text-zinc-100 outline-none transition-colors focus:border-cyan-300/50"
+                    />
+                  </label>
+                </div>
+
+                <div className="grid gap-3 rounded-lg border border-cyan-300/15 bg-cyan-300/[0.035] p-3">
                   <div>
                     <p className="text-sm font-medium text-zinc-100">Evidence</p>
-                    <p className="mt-1 text-xs leading-5 text-zinc-500">Attach work products, review notes, or proof points for this card.</p>
+                    <p className="mt-1 text-xs leading-5 text-zinc-500">Attach proof points for review, leadership, and client-ready follow-through.</p>
                   </div>
-                  <label className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-md border border-cyan-300/20 bg-cyan-300/[0.055] px-3 py-2 text-xs font-medium text-cyan-100 transition-colors hover:border-cyan-300/40">
+                  <label className="inline-flex min-h-11 cursor-pointer items-center justify-center gap-2 rounded-md border border-cyan-300/20 bg-cyan-300/[0.055] px-3 py-2 text-xs font-medium text-cyan-100 transition-colors hover:border-cyan-300/40">
                     <FileUp className="h-3.5 w-3.5" />
                     Attach evidence
                     <input
@@ -642,50 +657,50 @@ export function ActiveProgramDeliveryBoardCard({
                       onChange={(event) => void onDeliveryBoardAttachmentsChange(selectedItem.id, event)}
                     />
                   </label>
-                </div>
-                {deliveryBoardUploadState?.itemId === selectedItem.id ? (
-                  <p className="text-xs text-zinc-500">
-                    {deliveryBoardUploadState.status === "uploading"
-                      ? "Uploading..."
-                      : deliveryBoardUploadState.status === "uploaded"
-                        ? "Attachment added"
-                        : deliveryBoardUploadState.status === "error"
-                          ? "Upload failed"
-                          : ""}
-                  </p>
-                ) : null}
-                {selectedItem.attachments.length ? (
-                  <div className="grid gap-2 md:grid-cols-2">
-                    {selectedItem.attachments.map((attachment) => (
-                      <div
-                        key={attachment.id}
-                        className="flex items-center justify-between gap-2 rounded-md border border-white/10 bg-black/20 px-3 py-2"
-                      >
-                        <span className="inline-flex min-w-0 items-center gap-2 text-xs text-zinc-400">
-                          <Paperclip className="h-3.5 w-3.5 shrink-0 text-cyan-200" />
-                          <span className="truncate">{attachment.fileName}</span>
-                          <span className="shrink-0 text-zinc-600">{formatFileSize(attachment.sizeBytes)}</span>
-                        </span>
-                        <button
-                          type="button"
-                          aria-label={`Remove ${attachment.fileName}`}
-                          onClick={() => onRemoveDeliveryBoardAttachment(selectedItem.id, attachment.id)}
-                          className="text-zinc-500 transition-colors hover:text-rose-100"
+                  {deliveryBoardUploadState?.itemId === selectedItem.id ? (
+                    <p className="text-xs text-zinc-500">
+                      {deliveryBoardUploadState.status === "uploading"
+                        ? "Uploading..."
+                        : deliveryBoardUploadState.status === "uploaded"
+                          ? "Attachment added"
+                          : deliveryBoardUploadState.status === "error"
+                            ? "Upload failed"
+                            : ""}
+                    </p>
+                  ) : null}
+                  {selectedItem.attachments.length ? (
+                    <div className="grid gap-2">
+                      {selectedItem.attachments.map((attachment) => (
+                        <div
+                          key={attachment.id}
+                          className="flex items-center justify-between gap-2 rounded-md border border-white/10 bg-black/20 px-3 py-2"
                         >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="rounded-md border border-white/10 bg-black/20 p-3 text-xs leading-5 text-zinc-600">
-                    No evidence attached yet.
-                  </p>
-                )}
-              </div>
+                          <span className="inline-flex min-w-0 items-center gap-2 text-xs text-zinc-400">
+                            <Paperclip className="h-3.5 w-3.5 shrink-0 text-cyan-200" />
+                            <span className="truncate">{attachment.fileName}</span>
+                            <span className="shrink-0 text-zinc-600">{formatFileSize(attachment.sizeBytes)}</span>
+                          </span>
+                          <button
+                            type="button"
+                            aria-label={`Remove ${attachment.fileName}`}
+                            onClick={() => onRemoveDeliveryBoardAttachment(selectedItem.id, attachment.id)}
+                            className="text-zinc-500 transition-colors hover:text-rose-100"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="rounded-md border border-white/10 bg-black/20 p-3 text-xs leading-5 text-zinc-600">
+                      No evidence attached yet.
+                    </p>
+                  )}
+                </div>
+              </aside>
             </div>
           ) : (
-            <div className="grid gap-2">
+            <div className="grid gap-2 p-4 md:p-5">
               <p className="text-sm font-medium text-zinc-100">Select a delivery card to update details and attach evidence.</p>
               <p className="text-xs leading-5 text-zinc-500">
                 The board stays compact for weekly review. Card details open here when a role needs to update context, status, or proof.

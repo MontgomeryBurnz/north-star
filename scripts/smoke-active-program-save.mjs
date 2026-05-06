@@ -428,7 +428,26 @@ async function saveRoleSignal(session, program) {
       const panel = document.querySelector("[data-delivery-board-detail-panel]");
       return Boolean(panel) &&
         panel.textContent.includes("North Star active-program save smoke") &&
+      Boolean(panel.querySelector('[data-delivery-board-detail-status-chip="blocked"]')) &&
       Boolean(panel.querySelector("[data-delivery-board-attachment]"));
+    `);
+  });
+
+  const detailStatusMoved = await session.execute(`
+    const panel = document.querySelector("[data-delivery-board-detail-panel]");
+    const chip = panel?.querySelector('[data-delivery-board-detail-status-chip="blocked"]');
+    chip?.click();
+    return Boolean(chip);
+  `);
+
+  if (!detailStatusMoved) {
+    throw new Error("Active Program smoke could not move the Delivery Board card from the detail workspace.");
+  }
+
+  await session.waitFor("Active Program Delivery Board card moved from detail workspace", async () => {
+    return session.execute(`
+      return Array.from(document.querySelectorAll('[data-delivery-board-column="blocked"] [data-delivery-board-card]'))
+        .some((card) => card.textContent.includes("North Star active-program save smoke"));
     `);
   });
 
