@@ -451,6 +451,13 @@ async function saveRoleSignal(session, program) {
     `);
   });
 
+  await session.execute('document.querySelector("[data-delivery-board-detail-close]")?.click();');
+  await session.waitFor("Active Program Delivery Board detail panel closed", async () => {
+    return session.execute(`
+      return !document.querySelector("[data-delivery-board-detail-panel]");
+    `);
+  });
+
   await session.execute('document.querySelector("[data-active-program-workspace-tab=\\"role\\"]")?.click();');
   await session.waitFor("Active Program role workspace visible for save", async () => {
     return session.execute(`

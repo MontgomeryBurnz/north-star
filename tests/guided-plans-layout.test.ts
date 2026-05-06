@@ -339,9 +339,12 @@ test("Active Program review is split into state, cockpit, and team signal flows"
   assert.match(deliveryBoardSource, /data-delivery-board-card-open/);
   assert.match(deliveryBoardSource, /data-delivery-board-detail-panel/);
   assert.match(deliveryBoardSource, /data-delivery-board-detail-workspace/);
+  assert.match(deliveryBoardSource, /data-delivery-board-detail-close/);
   assert.match(deliveryBoardSource, /data-delivery-board-detail-status-chip/);
   assert.match(deliveryBoardSource, /Task workspace/);
   assert.match(deliveryBoardSource, /Operating details/);
+  assert.match(deliveryBoardSource, /sm:w-\[min\(780px,calc\(100vw-2rem\)\)\]/);
+  assert.match(deliveryBoardSource, /setSelectedItemId\(null\)/);
   assert.match(deliveryBoardSource, /data-delivery-board-open-add/);
   assert.match(deliveryBoardSource, /data-delivery-board-add-panel/);
   assert.match(deliveryBoardSource, /role="dialog"/);
@@ -365,7 +368,7 @@ test("Active Program review is split into state, cockpit, and team signal flows"
   assert.doesNotMatch(deliveryBoardSource, /data-delivery-board-status"/);
   assert.doesNotMatch(deliveryBoardSource, /No \{deliveryBoardStatusLabel\(status\.value\)\.toLowerCase\(\)\} cards/);
   assert.doesNotMatch(deliveryBoardSource, /min-w-\[1180px\] grid-cols-5/);
-  assert.match(deliveryBoardSource, /Select a delivery card to update details and attach evidence/);
+  assert.doesNotMatch(deliveryBoardSource, /Select a delivery card to update details and attach evidence/);
   assert.match(deliveryBoardSource, /Save delivery board/);
   assert.match(deliveryBoardSource, /Delivery Board/);
   assert.match(activeProgramTypesSource, /export type DeliveryBoardItem/);
@@ -400,6 +403,7 @@ test("Active Program review is split into state, cockpit, and team signal flows"
   assert.match(activeProgramSaveSmokeSource, /data-delivery-board-title/);
   assert.match(activeProgramSaveSmokeSource, /data-delivery-board-card-open/);
   assert.match(activeProgramSaveSmokeSource, /data-delivery-board-detail-panel/);
+  assert.match(activeProgramSaveSmokeSource, /data-delivery-board-detail-close/);
   assert.match(activeProgramSaveSmokeSource, /data-delivery-board-detail-status-chip/);
   assert.match(activeProgramSaveSmokeSource, /data-delivery-board-drop-target/);
   assert.match(activeProgramSaveSmokeSource, /DragEvent/);
