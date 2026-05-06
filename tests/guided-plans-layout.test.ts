@@ -234,6 +234,7 @@ test("Active Program review is split into state, cockpit, and team signal flows"
   const programPersistenceSource = readFileSync(new URL("../src/lib/program-persistence.ts", import.meta.url), "utf8");
   const storeSource = readFileSync(new URL("../src/lib/program-store.ts", import.meta.url), "utf8");
   const stateFlowSource = readFileSync(new URL("../src/components/active-program-state-flow.tsx", import.meta.url), "utf8");
+  const stateCardSource = readFileSync(new URL("../src/components/active-program-state-card.tsx", import.meta.url), "utf8");
   const cockpitFlowSource = readFileSync(new URL("../src/components/active-program-cockpit-flow.tsx", import.meta.url), "utf8");
   const cockpitSource = readFileSync(new URL("../src/components/active-program-cockpit-card.tsx", import.meta.url), "utf8");
   const teamSignalFlowSource = readFileSync(new URL("../src/components/active-program-team-signal-flow.tsx", import.meta.url), "utf8");
@@ -279,6 +280,11 @@ test("Active Program review is split into state, cockpit, and team signal flows"
   assert.match(reviewModelSource, /export function normalizeReview/);
   assert.match(stateFlowSource, /ActiveProgramStateCard/);
   assert.match(stateFlowSource, /Keep the program aligned as reality changes/);
+  assert.match(stateFlowSource, /Select a program, then use the cockpit, role updates, and progress board/);
+  assert.match(stateCardSource, /Select a program to manage the live operating view/);
+  assert.match(stateCardSource, /Profile fields should change only when the program baseline changes/);
+  assert.match(stateCardSource, /const hasSelectedProgram = Boolean\(selectedProgramId\)/);
+  assert.doesNotMatch(stateCardSource, /setIsSetupOpen\(!hasSelectedProgram\)/);
   assert.match(cockpitFlowSource, /ActiveProgramCockpitCard/);
   assert.match(cockpitSource, /Program cockpit/);
   assert.match(cockpitSource, /derivePhaseProgress/);
@@ -332,6 +338,9 @@ test("Active Program review is split into state, cockpit, and team signal flows"
   assert.match(deliveryBoardSource, /data-delivery-board-column/);
   assert.match(deliveryBoardSource, /data-delivery-board-card-open/);
   assert.match(deliveryBoardSource, /data-delivery-board-detail-panel/);
+  assert.match(deliveryBoardSource, /data-delivery-board-drop-target/);
+  assert.match(deliveryBoardSource, /draggable/);
+  assert.match(deliveryBoardSource, /handleDrop/);
   assert.match(deliveryBoardSource, /data-delivery-board-attachment/);
   assert.match(deliveryBoardSource, /min-w-\[1180px\] grid-cols-5/);
   assert.match(deliveryBoardSource, /Select a delivery card to update details and attach evidence/);
@@ -367,6 +376,8 @@ test("Active Program review is split into state, cockpit, and team signal flows"
   assert.match(activeProgramSaveSmokeSource, /data-delivery-board-title/);
   assert.match(activeProgramSaveSmokeSource, /data-delivery-board-card-open/);
   assert.match(activeProgramSaveSmokeSource, /data-delivery-board-detail-panel/);
+  assert.match(activeProgramSaveSmokeSource, /data-delivery-board-drop-target/);
+  assert.match(activeProgramSaveSmokeSource, /DragEvent/);
   assert.match(activeProgramSaveSmokeSource, /data-delivery-board-attachment/);
   assert.match(activeProgramSaveSmokeSource, /deliveryBoardItems/);
   assert.match(activeProgramSaveSmokeSource, /roleFormOpen/);

@@ -24,7 +24,7 @@ export function ActiveProgramStateFlow({
         <p className="mb-3 text-xs font-medium uppercase tracking-[0.22em] text-cyan-300">Active program review</p>
         <h2 className="text-3xl font-semibold text-zinc-50 md:text-4xl">Keep the program aligned as reality changes.</h2>
         <p className="mt-4 text-sm leading-7 text-zinc-400">
-          Start with program setup, then use the cockpit to read the current picture, capture team updates, and keep guided plans pointed at the next move.
+          Select a program, then use the cockpit, role updates, and progress board to manage the weekly execution picture.
         </p>
       </div>
 

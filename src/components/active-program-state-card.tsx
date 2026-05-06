@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Activity, ChevronDown, SlidersHorizontal } from "lucide-react";
+import { Activity, ChevronDown, Compass, SlidersHorizontal } from "lucide-react";
 import type { ActiveProgramReview } from "@/lib/active-program-types";
 import { ProgramSlicer } from "@/components/program-slicer";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -26,16 +26,16 @@ export function ActiveProgramStateCard({
   onSelectProgram,
   onFieldChange
 }: ActiveProgramStateCardProps) {
-  const [isSetupOpen, setIsSetupOpen] = useState(!selectedProgramId);
+  const [isSetupOpen, setIsSetupOpen] = useState(false);
   const slicerOptions = useMemo(
     () => programOptions.map((program) => ({ id: program.id, label: program.label })),
     [programOptions]
   );
-  const hasSelectedProgram = Boolean(selectedProgramId || review.programName.trim());
+  const hasSelectedProgram = Boolean(selectedProgramId);
 
   useEffect(() => {
-    setIsSetupOpen(!hasSelectedProgram);
-  }, [hasSelectedProgram]);
+    setIsSetupOpen(false);
+  }, [selectedProgramId]);
 
   return (
     <Card className="bg-zinc-950/80">
@@ -43,7 +43,7 @@ export function ActiveProgramStateCard({
         <CardTitle className="flex flex-wrap items-center justify-between gap-3 text-zinc-50">
           <span className="flex items-center gap-2">
             <Activity className="h-4 w-4 text-cyan-200" />
-            Program setup
+            Program profile
           </span>
           {hasSelectedProgram ? (
             <button
@@ -52,7 +52,7 @@ export function ActiveProgramStateCard({
               className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.035] px-3 py-1.5 text-xs font-medium text-zinc-300 transition-colors hover:border-cyan-300/30 hover:text-cyan-100"
             >
               <SlidersHorizontal className="h-3.5 w-3.5" />
-              {isSetupOpen ? "Hide setup" : "Edit setup"}
+              {isSetupOpen ? "Close profile" : "Edit profile"}
               <ChevronDown className={`h-3.5 w-3.5 transition-transform ${isSetupOpen ? "rotate-180" : ""}`} />
             </button>
           ) : null}
@@ -69,6 +69,19 @@ export function ActiveProgramStateCard({
           helperText="Selecting a program prefills the review with its north star, current risks, decisions, and delivery context."
           tone="cyan"
         />
+
+        {!hasSelectedProgram ? (
+          <div className="rounded-lg border border-cyan-300/15 bg-cyan-300/[0.035] p-4">
+            <p className="flex items-center gap-2 text-sm font-medium text-zinc-100">
+              <Compass className="h-4 w-4 text-cyan-200" />
+              Select a program to manage the live operating view.
+            </p>
+            <p className="mt-2 max-w-3xl text-xs leading-5 text-zinc-500">
+              Program setup is captured when the program is created. This page is optimized for weekly execution: role updates,
+              progress board movement, and attached evidence.
+            </p>
+          </div>
+        ) : null}
 
         {hasSelectedProgram ? (
           <div className="grid gap-3 rounded-lg border border-cyan-300/15 bg-cyan-300/[0.035] p-4 md:grid-cols-3">
@@ -89,8 +102,14 @@ export function ActiveProgramStateCard({
           </div>
         ) : null}
 
-        {isSetupOpen ? (
+        {isSetupOpen && hasSelectedProgram ? (
           <div className="grid gap-4 border-t border-white/10 pt-4">
+            <div className="rounded-md border border-amber-300/20 bg-amber-300/[0.055] p-3">
+              <p className="text-xs leading-5 text-amber-100">
+                Profile fields should change only when the program baseline changes. Weekly movement belongs in Role update,
+                Progress board, or Artifacts.
+              </p>
+            </div>
             <label className="grid gap-2">
               <span className="text-xs font-medium uppercase tracking-[0.18em] text-zinc-300">Program name</span>
               <input

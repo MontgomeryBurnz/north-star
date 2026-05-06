@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, type ChangeEvent } from "react";
+import { useEffect, useMemo, useState, type ChangeEvent, type DragEvent } from "react";
 import { CalendarClock, FileUp, KanbanSquare, Paperclip, Plus, Save, Trash2 } from "lucide-react";
 import type { DeliveryBoardItem, DeliveryBoardStatus, TeamRoleUpdate } from "@/lib/active-program-types";
 import { Button } from "@/components/ui/button";
@@ -96,6 +96,8 @@ export function ActiveProgramDeliveryBoardCard({
   }, [deliveryBoardItems, teamRoleUpdates]);
   const [draft, setDraft] = useState<DeliveryBoardDraft>(() => emptyDraft(roleLanes[0] ?? ""));
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
+  const [draggingItemId, setDraggingItemId] = useState<string | null>(null);
+  const [dragOverStatus, setDragOverStatus] = useState<DeliveryBoardStatus | null>(null);
   const activeItems = deliveryBoardItems.filter((item) => item.status !== "done");
   const attachmentCount = deliveryBoardItems.reduce((total, item) => total + item.attachments.length, 0);
   const selectedItem = useMemo(
@@ -129,6 +131,30 @@ export function ActiveProgramDeliveryBoardCard({
     setDraft(emptyDraft(draft.role));
   };
 
+  const handleDragStart = (event: DragEvent<HTMLElement>, itemId: string) => {
+    event.dataTransfer.effectAllowed = "move";
+    event.dataTransfer.setData("text/plain", itemId);
+    setDraggingItemId(itemId);
+  };
+
+  const handleDrop = (event: DragEvent<HTMLDivElement>, status: DeliveryBoardStatus) => {
+    event.preventDefault();
+    const itemId = event.dataTransfer.getData("text/plain") || draggingItemId;
+    setDraggingItemId(null);
+    setDragOverStatus(null);
+
+    if (!itemId) return;
+
+    const item = deliveryBoardItems.find((candidate) => candidate.id === itemId);
+    if (!item || item.status === status) {
+      setSelectedItemId(itemId);
+      return;
+    }
+
+    onUpdateDeliveryBoardItem(itemId, { status });
+    setSelectedItemId(itemId);
+  };
+
   return (
     <Card data-active-delivery-board className="overflow-hidden bg-zinc-950/80">
       <CardHeader className="border-b border-white/10">
@@ -147,7 +173,8 @@ export function ActiveProgramDeliveryBoardCard({
           <div>
             <p className="text-sm font-medium text-zinc-100">Weekly delivery center</p>
             <p className="mt-1 text-xs leading-5 text-zinc-500">
-              Track role-owned actions, deliverables, review needs, blockers, and attached evidence.
+              Track role-owned actions, deliverables, review needs, blockers, and attached evidence. Drag cards between statuses,
+              then save the board to refresh guidance.
             </p>
           </div>
           <div className="grid gap-2 sm:grid-cols-3">
@@ -267,7 +294,17 @@ export function ActiveProgramDeliveryBoardCard({
                           <div
                             key={status.value}
                             data-delivery-board-column={status.value}
-                            className="min-h-[180px] rounded-lg border border-white/10 bg-black/20 p-3"
+                            data-delivery-board-drop-target={status.value}
+                            onDragOver={(event) => {
+                              event.preventDefault();
+                              event.dataTransfer.dropEffect = "move";
+                              setDragOverStatus(status.value);
+                            }}
+                            onDragLeave={() => setDragOverStatus((current) => (current === status.value ? null : current))}
+                            onDrop={(event) => handleDrop(event, status.value)}
+                            className={`min-h-[180px] rounded-lg border bg-black/20 p-3 transition-colors ${
+                              dragOverStatus === status.value ? "border-cyan-300/45 bg-cyan-300/[0.055]" : "border-white/10"
+                            }`}
                           >
                             <div className="mb-3 flex items-center justify-between gap-2">
                               <span className={`rounded-full border px-2 py-1 text-[10px] font-medium uppercase tracking-[0.14em] ${status.tone}`}>
@@ -284,8 +321,18 @@ export function ActiveProgramDeliveryBoardCard({
                                     <article
                                       key={item.id}
                                       data-delivery-board-card={item.id}
+                                      draggable
+                                      onDragStart={(event) => handleDragStart(event, item.id)}
+                                      onDragEnd={() => {
+                                        setDraggingItemId(null);
+                                        setDragOverStatus(null);
+                                      }}
                                       className={`grid gap-3 rounded-md border bg-zinc-950 p-3 shadow-[0_16px_45px_rgba(0,0,0,0.18)] transition-colors ${
-                                        isSelected ? "border-cyan-300/40 ring-1 ring-cyan-300/20" : "border-white/10"
+                                        isSelected
+                                          ? "border-cyan-300/40 ring-1 ring-cyan-300/20"
+                                          : draggingItemId === item.id
+                                            ? "border-cyan-300/30 opacity-70"
+                                            : "border-white/10"
                                       }`}
                                     >
                                       <div className="flex items-start justify-between gap-2">
@@ -325,7 +372,7 @@ export function ActiveProgramDeliveryBoardCard({
                                         onClick={() => setSelectedItemId(item.id)}
                                         className="rounded-md border border-white/10 bg-white/[0.035] px-3 py-2 text-xs font-medium text-zinc-300 transition-colors hover:border-cyan-300/30 hover:text-cyan-100"
                                       >
-                                        Open details
+                                        Open details / drag to move
                                       </button>
                                     </article>
                                   );
