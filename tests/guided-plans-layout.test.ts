@@ -338,11 +338,18 @@ test("Active Program review is split into state, cockpit, and team signal flows"
   assert.match(deliveryBoardSource, /data-delivery-board-column/);
   assert.match(deliveryBoardSource, /data-delivery-board-card-open/);
   assert.match(deliveryBoardSource, /data-delivery-board-detail-panel/);
+  assert.match(deliveryBoardSource, /data-delivery-board-status-rail/);
   assert.match(deliveryBoardSource, /data-delivery-board-drop-target/);
+  assert.match(deliveryBoardSource, /data-delivery-board-status-chip/);
   assert.match(deliveryBoardSource, /draggable/);
   assert.match(deliveryBoardSource, /handleDrop/);
+  assert.match(deliveryBoardSource, /sortDeliveryBoardItemsByCreatedAt/);
+  assert.match(deliveryBoardSource, /Drop here or use card chips/);
   assert.match(deliveryBoardSource, /data-delivery-board-attachment/);
-  assert.match(deliveryBoardSource, /min-w-\[1180px\] grid-cols-5/);
+  assert.match(deliveryBoardSource, /md:grid-cols-2 2xl:grid-cols-3/);
+  assert.match(deliveryBoardSource, /No delivery cards for this role yet/);
+  assert.doesNotMatch(deliveryBoardSource, /No \{deliveryBoardStatusLabel\(status\.value\)\.toLowerCase\(\)\} cards/);
+  assert.doesNotMatch(deliveryBoardSource, /min-w-\[1180px\] grid-cols-5/);
   assert.match(deliveryBoardSource, /Select a delivery card to update details and attach evidence/);
   assert.match(deliveryBoardSource, /Save delivery board/);
   assert.match(deliveryBoardSource, /Delivery Board/);
@@ -378,6 +385,8 @@ test("Active Program review is split into state, cockpit, and team signal flows"
   assert.match(activeProgramSaveSmokeSource, /data-delivery-board-detail-panel/);
   assert.match(activeProgramSaveSmokeSource, /data-delivery-board-drop-target/);
   assert.match(activeProgramSaveSmokeSource, /DragEvent/);
+  assert.match(activeProgramSaveSmokeSource, /data-delivery-board-status-chip/);
+  assert.match(activeProgramSaveSmokeSource, /moved by status chip/);
   assert.match(activeProgramSaveSmokeSource, /data-delivery-board-attachment/);
   assert.match(activeProgramSaveSmokeSource, /deliveryBoardItems/);
   assert.match(activeProgramSaveSmokeSource, /roleFormOpen/);

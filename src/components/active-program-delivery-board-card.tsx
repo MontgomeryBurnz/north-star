@@ -69,6 +69,10 @@ function roleOwnerPlaceholder(role: string, assignedOwnersByRole: Record<string,
   return assignedOwnersByRole[normalizeRoleKey(role)]?.join(", ") || "Owner";
 }
 
+function sortDeliveryBoardItemsByCreatedAt(items: DeliveryBoardItem[]) {
+  return [...items].sort((first, second) => (second.createdAt ?? "").localeCompare(first.createdAt ?? ""));
+}
+
 export function ActiveProgramDeliveryBoardCard({
   deliveryBoardItems,
   deliveryBoardUploadState,
@@ -137,6 +141,12 @@ export function ActiveProgramDeliveryBoardCard({
     setDraggingItemId(itemId);
   };
 
+  const moveDeliveryBoardItem = (item: DeliveryBoardItem, status: DeliveryBoardStatus) => {
+    setSelectedItemId(item.id);
+    if (item.status === status) return;
+    onUpdateDeliveryBoardItem(item.id, { status });
+  };
+
   const handleDrop = (event: DragEvent<HTMLDivElement>, status: DeliveryBoardStatus) => {
     event.preventDefault();
     const itemId = event.dataTransfer.getData("text/plain") || draggingItemId;
@@ -151,8 +161,7 @@ export function ActiveProgramDeliveryBoardCard({
       return;
     }
 
-    onUpdateDeliveryBoardItem(itemId, { status });
-    setSelectedItemId(itemId);
+    moveDeliveryBoardItem(item, status);
   };
 
   return (
@@ -173,8 +182,8 @@ export function ActiveProgramDeliveryBoardCard({
           <div>
             <p className="text-sm font-medium text-zinc-100">Weekly delivery center</p>
             <p className="mt-1 text-xs leading-5 text-zinc-500">
-              Track role-owned actions, deliverables, review needs, blockers, and attached evidence. Drag cards between statuses,
-              then save the board to refresh guidance.
+              Track role-owned actions, deliverables, review needs, blockers, and attached evidence. Drag cards on desktop, or tap
+              a status chip on mobile, then save the board to refresh guidance.
             </p>
           </div>
           <div className="grid gap-2 sm:grid-cols-3">
@@ -273,6 +282,18 @@ export function ActiveProgramDeliveryBoardCard({
             roleLanes.map((role) => {
               const roleItems = deliveryBoardItems.filter((item) => normalizeRoleKey(item.role) === normalizeRoleKey(role));
               const roleAttachments = roleItems.reduce((total, item) => total + item.attachments.length, 0);
+              const roleStatusCounts = Object.fromEntries(
+                deliveryBoardStatuses.map((status) => [
+                  status.value,
+                  roleItems.filter((item) => item.status === status.value).length
+                ])
+              ) as Record<DeliveryBoardStatus, number>;
+              const statusGroups = deliveryBoardStatuses
+                .map((status) => ({
+                  status,
+                  items: sortDeliveryBoardItemsByCreatedAt(roleItems.filter((item) => item.status === status.value))
+                }))
+                .filter((group) => group.items.length > 0);
 
               return (
                 <section key={role} data-delivery-board-lane={normalizeRoleKey(role)} className="grid gap-3">
@@ -285,109 +306,159 @@ export function ActiveProgramDeliveryBoardCard({
                       </p>
                     </div>
                   </div>
-                  <div className="overflow-x-auto pb-2">
-                    <div className="grid min-w-[1180px] grid-cols-5 gap-3">
-                      {deliveryBoardStatuses.map((status) => {
-                        const statusItems = roleItems.filter((item) => item.status === status.value);
-
-                        return (
-                          <div
-                            key={status.value}
-                            data-delivery-board-column={status.value}
-                            data-delivery-board-drop-target={status.value}
-                            onDragOver={(event) => {
-                              event.preventDefault();
-                              event.dataTransfer.dropEffect = "move";
-                              setDragOverStatus(status.value);
-                            }}
-                            onDragLeave={() => setDragOverStatus((current) => (current === status.value ? null : current))}
-                            onDrop={(event) => handleDrop(event, status.value)}
-                            className={`min-h-[180px] rounded-lg border bg-black/20 p-3 transition-colors ${
-                              dragOverStatus === status.value ? "border-cyan-300/45 bg-cyan-300/[0.055]" : "border-white/10"
-                            }`}
-                          >
-                            <div className="mb-3 flex items-center justify-between gap-2">
-                              <span className={`rounded-full border px-2 py-1 text-[10px] font-medium uppercase tracking-[0.14em] ${status.tone}`}>
-                                {status.label}
-                              </span>
-                              <span className="text-xs text-zinc-500">{statusItems.length}</span>
-                            </div>
-                            <div className="grid gap-3">
-                              {statusItems.length ? (
-                                statusItems.map((item) => {
-                                  const isSelected = selectedItemId === item.id;
-
-                                  return (
-                                    <article
-                                      key={item.id}
-                                      data-delivery-board-card={item.id}
-                                      draggable
-                                      onDragStart={(event) => handleDragStart(event, item.id)}
-                                      onDragEnd={() => {
-                                        setDraggingItemId(null);
-                                        setDragOverStatus(null);
-                                      }}
-                                      className={`grid gap-3 rounded-md border bg-zinc-950 p-3 shadow-[0_16px_45px_rgba(0,0,0,0.18)] transition-colors ${
-                                        isSelected
-                                          ? "border-cyan-300/40 ring-1 ring-cyan-300/20"
-                                          : draggingItemId === item.id
-                                            ? "border-cyan-300/30 opacity-70"
-                                            : "border-white/10"
-                                      }`}
-                                    >
-                                      <div className="flex items-start justify-between gap-2">
-                                        <button
-                                          type="button"
-                                          data-delivery-board-card-open
-                                          onClick={() => setSelectedItemId(item.id)}
-                                          className="min-w-0 flex-1 text-left"
-                                        >
-                                          <span className="block break-words text-sm font-medium leading-5 text-zinc-100">{item.title}</span>
-                                          <span className="mt-1 line-clamp-2 block text-xs leading-5 text-zinc-500">
-                                            {item.description || item.latestNote || "Open details to add context, notes, and evidence."}
-                                          </span>
-                                        </button>
-                                        <button
-                                          type="button"
-                                          aria-label={`Remove ${item.title}`}
-                                          onClick={() => onRemoveDeliveryBoardItem(item.id)}
-                                          className="rounded-md border border-white/10 p-1.5 text-zinc-500 transition-colors hover:border-rose-300/30 hover:text-rose-100"
-                                        >
-                                          <Trash2 className="h-3.5 w-3.5" />
-                                        </button>
-                                      </div>
-                                      <div className="grid gap-2 text-[11px] text-zinc-500">
-                                        <span className="inline-flex items-center gap-2">
-                                          <CalendarClock className="h-3.5 w-3.5 shrink-0 text-cyan-200" />
-                                          <span>{item.dueDate || "No due date"}</span>
-                                        </span>
-                                        <span className="truncate">{item.owner || roleOwnerPlaceholder(item.role, assignedOwnersByRole)}</span>
-                                        <span className="inline-flex items-center gap-2">
-                                          <Paperclip className="h-3.5 w-3.5 shrink-0 text-cyan-200" />
-                                          {item.attachments.length} attachment{item.attachments.length === 1 ? "" : "s"}
-                                        </span>
-                                      </div>
-                                      <button
-                                        type="button"
-                                        onClick={() => setSelectedItemId(item.id)}
-                                        className="rounded-md border border-white/10 bg-white/[0.035] px-3 py-2 text-xs font-medium text-zinc-300 transition-colors hover:border-cyan-300/30 hover:text-cyan-100"
-                                      >
-                                        Open details / drag to move
-                                      </button>
-                                    </article>
-                                  );
-                                })
-                              ) : (
-                                <p className="rounded-md border border-white/10 bg-zinc-950/60 p-3 text-xs leading-5 text-zinc-600">
-                                  No {deliveryBoardStatusLabel(status.value).toLowerCase()} cards.
-                                </p>
-                              )}
-                            </div>
+                  {roleItems.length ? (
+                    <div data-delivery-board-status-rail className="grid gap-2 sm:grid-cols-2 xl:grid-cols-5">
+                      {deliveryBoardStatuses.map((status) => (
+                        <div
+                          key={status.value}
+                          data-delivery-board-drop-target={status.value}
+                          onDragOver={(event) => {
+                            event.preventDefault();
+                            event.dataTransfer.dropEffect = "move";
+                            setDragOverStatus(status.value);
+                          }}
+                          onDragLeave={() => setDragOverStatus((current) => (current === status.value ? null : current))}
+                          onDrop={(event) => handleDrop(event, status.value)}
+                          className={`min-h-16 rounded-lg border px-3 py-3 transition-colors ${
+                            dragOverStatus === status.value
+                              ? "border-cyan-300/50 bg-cyan-300/[0.07]"
+                              : "border-white/10 bg-white/[0.025]"
+                          }`}
+                        >
+                          <div className="flex items-center justify-between gap-2">
+                            <span
+                              className={`rounded-full border px-2.5 py-1 text-[10px] font-medium uppercase tracking-[0.14em] ${status.tone}`}
+                            >
+                              {status.label}
+                            </span>
+                            <span className="text-xs text-zinc-500">{roleStatusCounts[status.value]}</span>
                           </div>
-                        );
-                      })}
+                          <p className="mt-2 text-[11px] leading-4 text-zinc-600">Drop here or use card chips.</p>
+                        </div>
+                      ))}
                     </div>
-                  </div>
+                  ) : null}
+
+                  {statusGroups.length ? (
+                    <div className="grid gap-4">
+                      {statusGroups.map(({ status, items }) => (
+                        <div
+                          key={status.value}
+                          data-delivery-board-column={status.value}
+                          className="grid gap-3 rounded-lg border border-white/10 bg-black/20 p-3"
+                        >
+                          <div className="flex flex-wrap items-center justify-between gap-2">
+                            <span
+                              className={`rounded-full border px-2.5 py-1 text-[10px] font-medium uppercase tracking-[0.14em] ${status.tone}`}
+                            >
+                              {status.label}
+                            </span>
+                            <span className="text-xs text-zinc-500">
+                              {items.length} card{items.length === 1 ? "" : "s"}
+                            </span>
+                          </div>
+                          <div className="grid gap-3 md:grid-cols-2 2xl:grid-cols-3">
+                            {items.map((item) => {
+                              const isSelected = selectedItemId === item.id;
+
+                              return (
+                                <article
+                                  key={item.id}
+                                  data-delivery-board-card={item.id}
+                                  draggable
+                                  onDragStart={(event) => handleDragStart(event, item.id)}
+                                  onDragEnd={() => {
+                                    setDraggingItemId(null);
+                                    setDragOverStatus(null);
+                                  }}
+                                  className={`grid gap-3 rounded-md border bg-zinc-950 p-3 shadow-[0_16px_45px_rgba(0,0,0,0.18)] transition-colors ${
+                                    isSelected
+                                      ? "border-cyan-300/40 ring-1 ring-cyan-300/20"
+                                      : draggingItemId === item.id
+                                        ? "border-cyan-300/30 opacity-70"
+                                        : "border-white/10"
+                                  }`}
+                                >
+                                  <div className="flex items-start justify-between gap-2">
+                                    <button
+                                      type="button"
+                                      data-delivery-board-card-open
+                                      onClick={() => setSelectedItemId(item.id)}
+                                      className="min-w-0 flex-1 text-left"
+                                    >
+                                      <span className="block break-words text-sm font-medium leading-5 text-zinc-100">{item.title}</span>
+                                      <span className="mt-1 line-clamp-2 block text-xs leading-5 text-zinc-500">
+                                        {item.description || item.latestNote || "Open details to add context, notes, and evidence."}
+                                      </span>
+                                    </button>
+                                    <button
+                                      type="button"
+                                      aria-label={`Remove ${item.title}`}
+                                      onClick={() => onRemoveDeliveryBoardItem(item.id)}
+                                      className="rounded-md border border-white/10 p-1.5 text-zinc-500 transition-colors hover:border-rose-300/30 hover:text-rose-100"
+                                    >
+                                      <Trash2 className="h-3.5 w-3.5" />
+                                    </button>
+                                  </div>
+                                  <div className="grid gap-2 text-[11px] text-zinc-500">
+                                    <span className="inline-flex items-center gap-2">
+                                      <CalendarClock className="h-3.5 w-3.5 shrink-0 text-cyan-200" />
+                                      <span>{item.dueDate || "No due date"}</span>
+                                    </span>
+                                    <span className="truncate">{item.owner || roleOwnerPlaceholder(item.role, assignedOwnersByRole)}</span>
+                                    <span className="inline-flex items-center gap-2">
+                                      <Paperclip className="h-3.5 w-3.5 shrink-0 text-cyan-200" />
+                                      {item.attachments.length} attachment{item.attachments.length === 1 ? "" : "s"}
+                                    </span>
+                                  </div>
+                                  <div data-delivery-board-status-chips className="grid gap-2 border-t border-white/10 pt-3">
+                                    <p className="text-[10px] font-medium uppercase tracking-[0.14em] text-zinc-600">Move card</p>
+                                    <div className="flex gap-2 overflow-x-auto pb-1">
+                                      {deliveryBoardStatuses.map((option) => {
+                                        const isCurrentStatus = item.status === option.value;
+
+                                        return (
+                                          <button
+                                            key={option.value}
+                                            type="button"
+                                            data-delivery-board-status-chip={option.value}
+                                            aria-pressed={isCurrentStatus}
+                                            aria-label={`Move ${item.title} to ${option.label}`}
+                                            onClick={() => moveDeliveryBoardItem(item, option.value)}
+                                            className={`min-h-10 shrink-0 rounded-full border px-3 text-[10px] font-medium uppercase tracking-[0.12em] transition-colors ${
+                                              isCurrentStatus
+                                                ? option.tone
+                                                : "border-white/10 bg-white/[0.025] text-zinc-500 hover:border-cyan-300/30 hover:text-cyan-100"
+                                            }`}
+                                          >
+                                            {option.label}
+                                          </button>
+                                        );
+                                      })}
+                                    </div>
+                                  </div>
+                                  <button
+                                    type="button"
+                                    onClick={() => setSelectedItemId(item.id)}
+                                    className="rounded-md border border-white/10 bg-white/[0.035] px-3 py-2 text-xs font-medium text-zinc-300 transition-colors hover:border-cyan-300/30 hover:text-cyan-100"
+                                  >
+                                    Open details
+                                  </button>
+                                </article>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="rounded-lg border border-white/10 bg-white/[0.025] p-4">
+                      <p className="text-sm font-medium text-zinc-100">No delivery cards for this role yet.</p>
+                      <p className="mt-2 text-xs leading-5 text-zinc-500">
+                        Add a card above when this function owns an action, deliverable, review item, blocker, or artifact.
+                      </p>
+                    </div>
+                  )}
                 </section>
               );
             })
