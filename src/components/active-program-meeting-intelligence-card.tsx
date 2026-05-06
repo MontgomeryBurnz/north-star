@@ -1,6 +1,7 @@
 "use client";
 
-import { FolderUp, Save, Trash2, MessageSquareQuote } from "lucide-react";
+import { useState } from "react";
+import { ChevronDown, FolderUp, Save, Trash2, MessageSquareQuote } from "lucide-react";
 import type { ProgramMeetingAttachment, ProgramMeetingInput } from "@/lib/program-intelligence-types";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -38,12 +39,24 @@ export function ActiveProgramMeetingIntelligenceCard({
   onSave,
   formatFileSize
 }: ActiveProgramMeetingIntelligenceCardProps) {
+  const [showDetails, setShowDetails] = useState(false);
+
   return (
     <Card className="bg-zinc-950/80">
       <CardHeader className="border-b border-white/10">
-        <CardTitle className="flex items-center gap-2 text-zinc-50">
-          <MessageSquareQuote className="h-4 w-4 text-cyan-200" />
-          Meeting intelligence
+        <CardTitle className="flex flex-wrap items-center justify-between gap-3 text-zinc-50">
+          <span className="flex items-center gap-2">
+            <MessageSquareQuote className="h-4 w-4 text-cyan-200" />
+            Meeting intelligence
+          </span>
+          <button
+            type="button"
+            onClick={() => setShowDetails((current) => !current)}
+            className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.035] px-3 py-1.5 text-xs font-medium text-zinc-300 transition-colors hover:border-cyan-300/30 hover:text-cyan-100"
+          >
+            {showDetails ? "Hide details" : "Add context"}
+            <ChevronDown className={`h-3.5 w-3.5 transition-transform ${showDetails ? "rotate-180" : ""}`} />
+          </button>
         </CardTitle>
       </CardHeader>
       <CardContent className="grid gap-4 p-5">
@@ -108,87 +121,91 @@ export function ActiveProgramMeetingIntelligenceCard({
             ) : null}
           </div>
 
-          <label className="grid gap-2">
-            <span className="text-xs font-medium uppercase tracking-[0.18em] text-zinc-300">Input type</span>
-            <select
-              value={meetingInputDraft.sourceType}
-              onChange={(event) => onDraftChange({ sourceType: event.target.value as ProgramMeetingInput["sourceType"] })}
-              className="min-h-11 rounded-md border border-white/10 bg-zinc-950 px-3 py-3 text-sm text-zinc-100 outline-none transition-colors focus:border-cyan-300/50"
-            >
-              <option value="meeting-notes">Meeting notes</option>
-              <option value="transcript">Transcript summary</option>
-              <option value="recording">Recording recap</option>
-            </select>
-          </label>
+          {showDetails ? (
+            <>
+              <label className="grid gap-2">
+                <span className="text-xs font-medium uppercase tracking-[0.18em] text-zinc-300">Input type</span>
+                <select
+                  value={meetingInputDraft.sourceType}
+                  onChange={(event) => onDraftChange({ sourceType: event.target.value as ProgramMeetingInput["sourceType"] })}
+                  className="min-h-11 rounded-md border border-white/10 bg-zinc-950 px-3 py-3 text-sm text-zinc-100 outline-none transition-colors focus:border-cyan-300/50"
+                >
+                  <option value="meeting-notes">Meeting notes</option>
+                  <option value="transcript">Transcript summary</option>
+                  <option value="recording">Recording recap</option>
+                </select>
+              </label>
 
-          <label className="grid gap-2">
-            <span className="text-xs font-medium uppercase tracking-[0.18em] text-zinc-300">Capture source</span>
-            <select
-              value={meetingInputDraft.sourceProvider}
-              onChange={(event) =>
-                onDraftChange({ sourceProvider: event.target.value as ProgramMeetingInput["sourceProvider"] })
-              }
-              className="min-h-11 rounded-md border border-white/10 bg-zinc-950 px-3 py-3 text-sm text-zinc-100 outline-none transition-colors focus:border-cyan-300/50"
-            >
-              <option value="manual">Manual summary</option>
-              <option value="upload">Uploaded recording / transcript</option>
-              <option value="linked-series">Linked meeting series</option>
-            </select>
-          </label>
+              <label className="grid gap-2">
+                <span className="text-xs font-medium uppercase tracking-[0.18em] text-zinc-300">Capture source</span>
+                <select
+                  value={meetingInputDraft.sourceProvider}
+                  onChange={(event) =>
+                    onDraftChange({ sourceProvider: event.target.value as ProgramMeetingInput["sourceProvider"] })
+                  }
+                  className="min-h-11 rounded-md border border-white/10 bg-zinc-950 px-3 py-3 text-sm text-zinc-100 outline-none transition-colors focus:border-cyan-300/50"
+                >
+                  <option value="manual">Manual summary</option>
+                  <option value="upload">Uploaded recording / transcript</option>
+                  <option value="linked-series">Linked meeting series</option>
+                </select>
+              </label>
 
-          <label className="grid gap-2">
-            <span className="text-xs font-medium uppercase tracking-[0.18em] text-zinc-300">Captured at</span>
-            <input
-              type="datetime-local"
-              value={meetingInputDraft.capturedAt}
-              onChange={(event) => onDraftChange({ capturedAt: event.target.value })}
-              className="min-h-11 rounded-md border border-white/10 bg-zinc-950 px-3 py-3 text-sm text-zinc-100 outline-none transition-colors focus:border-cyan-300/50"
-            />
-          </label>
+              <label className="grid gap-2">
+                <span className="text-xs font-medium uppercase tracking-[0.18em] text-zinc-300">Captured at</span>
+                <input
+                  type="datetime-local"
+                  value={meetingInputDraft.capturedAt}
+                  onChange={(event) => onDraftChange({ capturedAt: event.target.value })}
+                  className="min-h-11 rounded-md border border-white/10 bg-zinc-950 px-3 py-3 text-sm text-zinc-100 outline-none transition-colors focus:border-cyan-300/50"
+                />
+              </label>
 
-          <label className="grid gap-2 md:col-span-2">
-            <span className="text-xs font-medium uppercase tracking-[0.18em] text-zinc-300">Meeting summary</span>
-            <textarea
-              value={meetingInputDraft.summary}
-              onChange={(event) => onDraftChange({ summary: event.target.value })}
-              rows={4}
-              placeholder="Summarize the material program signal from this meeting."
-              className="resize-none rounded-md border border-white/10 bg-zinc-950 px-3 py-3 text-sm leading-6 text-zinc-100 outline-none transition-colors placeholder:text-zinc-500 focus:border-cyan-300/50"
-            />
-          </label>
+              <label className="grid gap-2 md:col-span-2">
+                <span className="text-xs font-medium uppercase tracking-[0.18em] text-zinc-300">Meeting summary</span>
+                <textarea
+                  value={meetingInputDraft.summary}
+                  onChange={(event) => onDraftChange({ summary: event.target.value })}
+                  rows={4}
+                  placeholder="Summarize the material program signal from this meeting."
+                  className="resize-none rounded-md border border-white/10 bg-zinc-950 px-3 py-3 text-sm leading-6 text-zinc-100 outline-none transition-colors placeholder:text-zinc-500 focus:border-cyan-300/50"
+                />
+              </label>
 
-          <label className="grid gap-2 md:col-span-2">
-            <span className="text-xs font-medium uppercase tracking-[0.18em] text-zinc-300">Transcript excerpt</span>
-            <textarea
-              value={meetingInputDraft.transcriptExcerpt}
-              onChange={(event) => onDraftChange({ transcriptExcerpt: event.target.value })}
-              rows={3}
-              placeholder="Paste the most useful excerpt if a transcript or recording summary exists."
-              className="resize-none rounded-md border border-white/10 bg-zinc-950 px-3 py-3 text-sm leading-6 text-zinc-100 outline-none transition-colors placeholder:text-zinc-500 focus:border-cyan-300/50"
-            />
-          </label>
+              <label className="grid gap-2 md:col-span-2">
+                <span className="text-xs font-medium uppercase tracking-[0.18em] text-zinc-300">Transcript excerpt</span>
+                <textarea
+                  value={meetingInputDraft.transcriptExcerpt}
+                  onChange={(event) => onDraftChange({ transcriptExcerpt: event.target.value })}
+                  rows={3}
+                  placeholder="Paste the most useful excerpt if a transcript or recording summary exists."
+                  className="resize-none rounded-md border border-white/10 bg-zinc-950 px-3 py-3 text-sm leading-6 text-zinc-100 outline-none transition-colors placeholder:text-zinc-500 focus:border-cyan-300/50"
+                />
+              </label>
 
-          <label className="grid gap-2">
-            <span className="text-xs font-medium uppercase tracking-[0.18em] text-zinc-300">Signals detected</span>
-            <textarea
-              value={meetingInputDraft.extractedSignals}
-              onChange={(event) => onDraftChange({ extractedSignals: event.target.value })}
-              rows={4}
-              placeholder="One per line: sponsor concern, dependency risk, decision gap, scope pressure"
-              className="resize-none rounded-md border border-white/10 bg-zinc-950 px-3 py-3 text-sm leading-6 text-zinc-100 outline-none transition-colors placeholder:text-zinc-500 focus:border-cyan-300/50"
-            />
-          </label>
+              <label className="grid gap-2">
+                <span className="text-xs font-medium uppercase tracking-[0.18em] text-zinc-300">Signals detected</span>
+                <textarea
+                  value={meetingInputDraft.extractedSignals}
+                  onChange={(event) => onDraftChange({ extractedSignals: event.target.value })}
+                  rows={4}
+                  placeholder="One per line: sponsor concern, dependency risk, decision gap, scope pressure"
+                  className="resize-none rounded-md border border-white/10 bg-zinc-950 px-3 py-3 text-sm leading-6 text-zinc-100 outline-none transition-colors placeholder:text-zinc-500 focus:border-cyan-300/50"
+                />
+              </label>
 
-          <label className="grid gap-2">
-            <span className="text-xs font-medium uppercase tracking-[0.18em] text-zinc-300">Recommended plan adjustments</span>
-            <textarea
-              value={meetingInputDraft.recommendedPlanAdjustments}
-              onChange={(event) => onDraftChange({ recommendedPlanAdjustments: event.target.value })}
-              rows={4}
-              placeholder="One per line: tighten decision gate, escalate API dependency, change checkpoint cadence"
-              className="resize-none rounded-md border border-white/10 bg-zinc-950 px-3 py-3 text-sm leading-6 text-zinc-100 outline-none transition-colors placeholder:text-zinc-500 focus:border-cyan-300/50"
-            />
-          </label>
+              <label className="grid gap-2">
+                <span className="text-xs font-medium uppercase tracking-[0.18em] text-zinc-300">Recommended plan adjustments</span>
+                <textarea
+                  value={meetingInputDraft.recommendedPlanAdjustments}
+                  onChange={(event) => onDraftChange({ recommendedPlanAdjustments: event.target.value })}
+                  rows={4}
+                  placeholder="One per line: tighten decision gate, escalate API dependency, change checkpoint cadence"
+                  className="resize-none rounded-md border border-white/10 bg-zinc-950 px-3 py-3 text-sm leading-6 text-zinc-100 outline-none transition-colors placeholder:text-zinc-500 focus:border-cyan-300/50"
+                />
+              </label>
+            </>
+          ) : null}
         </div>
 
         <div className="flex flex-wrap items-center gap-3">

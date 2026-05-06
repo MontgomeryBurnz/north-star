@@ -139,17 +139,14 @@ function argumentsTarget(value) {
 
 async function verifyOperatingView(session) {
   const state = await session.execute(`
-    const bodyText = document.body.textContent ?? "";
-    const roleCards = Array.from(document.querySelectorAll("[data-active-role-signal-card]"));
-    return {
-      hasCockpit: bodyText.includes("Program cockpit") && bodyText.includes("Phase progress"),
-      hasRoleLanes: bodyText.includes("Focus role") && roleCards.some((card) => card.textContent.includes("risk") && card.textContent.includes("decision")),
-      hasDeliveryBoard: Boolean(document.querySelector("[data-active-delivery-board]")) &&
-        document.querySelectorAll("[data-delivery-board-lane]").length > 0 &&
-        document.querySelectorAll("[data-delivery-board-column]").length >= 5,
-      hasTimeline: bodyText.includes("This week timeline") && bodyText.includes("What changed across roles, delivery board, leadership, meetings, and artifacts"),
-      roleFormOpen: Boolean(document.querySelector("[data-active-role-progress]"))
-    };
+      const bodyText = document.body.textContent ?? "";
+      const roleCards = Array.from(document.querySelectorAll("[data-active-role-signal-card]"));
+      return {
+        hasCockpit: bodyText.includes("Program cockpit") && bodyText.includes("Phase progress"),
+        hasRoleLanes: bodyText.includes("Focus role") && roleCards.some((card) => card.textContent.includes("risk") && card.textContent.includes("decision")),
+        hasWorkspaceTabs: document.querySelectorAll("[data-active-program-workspace-tab]").length >= 3,
+        roleFormOpen: Boolean(document.querySelector("[data-active-role-progress]"))
+      };
   `);
 
   if (!state.hasCockpit) {
@@ -160,13 +157,23 @@ async function verifyOperatingView(session) {
     throw new Error("Active Program compact role lanes did not render risk and decision counts.");
   }
 
-  if (!state.hasDeliveryBoard) {
-    throw new Error("Active Program Delivery Board did not render lanes, status columns, and attachment controls.");
+  if (!state.hasWorkspaceTabs) {
+    throw new Error("Active Program workspace tabs did not render.");
   }
 
-  if (!state.hasTimeline) {
-    throw new Error("Active Program weekly timeline did not render.");
-  }
+  await session.execute('document.querySelector("[data-active-program-workspace-tab=\\"board\\"]")?.click();');
+  await session.waitFor("Active Program Delivery Board workspace", async () => {
+    return session.execute(`
+      const bodyText = document.body.textContent ?? "";
+      return Boolean(document.querySelector("[data-active-delivery-board]")) &&
+        document.querySelectorAll("[data-delivery-board-lane]").length > 0 &&
+        document.querySelectorAll("[data-delivery-board-column]").length >= 5 &&
+        bodyText.includes("This week timeline") &&
+        bodyText.includes("What changed across roles, delivery board, leadership, meetings, and artifacts");
+    `);
+  });
+
+  await session.execute('document.querySelector("[data-active-program-workspace-tab=\\"role\\"]")?.click();');
 
   if (state.roleFormOpen) {
     throw new Error("Active Program role lane was expanded before the user selected a role to update.");
@@ -297,6 +304,15 @@ async function captureMobileRoleFocusScreenshot(session, program) {
 
 async function saveRoleSignal(session, program) {
   const smokeText = `North Star active-program save smoke ${new Date().toISOString()}`;
+  await session.execute('document.querySelector("[data-active-program-workspace-tab=\\"board\\"]")?.click();');
+  await session.waitFor("Active Program Delivery Board visible for save", async () => {
+    return session.execute(`
+      return Boolean(document.querySelector("[data-active-delivery-board]")) &&
+        Boolean(document.querySelector("[data-delivery-board-title]")) &&
+        Boolean(document.querySelector("[data-delivery-board-add]"));
+    `);
+  });
+
   const deliveryCardAdded = await session.execute(
     `
       const title = document.querySelector("[data-delivery-board-title]");
@@ -338,7 +354,15 @@ async function saveRoleSignal(session, program) {
       const panel = document.querySelector("[data-delivery-board-detail-panel]");
       return Boolean(panel) &&
         panel.textContent.includes("North Star active-program save smoke") &&
-        Boolean(panel.querySelector("[data-delivery-board-attachment]"));
+      Boolean(panel.querySelector("[data-delivery-board-attachment]"));
+    `);
+  });
+
+  await session.execute('document.querySelector("[data-active-program-workspace-tab=\\"role\\"]")?.click();');
+  await session.waitFor("Active Program role workspace visible for save", async () => {
+    return session.execute(`
+      return document.querySelectorAll("[data-active-role-signal-card]").length > 0 &&
+        Boolean(document.querySelector("[data-active-role-focus]"));
     `);
   });
 

@@ -30,7 +30,7 @@ export function ActiveProgramStatusArtifactsCard({
           <FileClock className="mb-3 h-7 w-7 text-emerald-200" />
           <span className="text-sm font-medium text-zinc-100">Add status report, RAID log, meeting notes, or plan update</span>
           <span className="mt-2 text-xs leading-5 text-zinc-500">
-            Local metadata only for now. These will later be stored, parsed, and used for grounded guidance.
+            Attach the artifacts that should shape program progress, guided plans, and role-based work products.
           </span>
           <input className="hidden" type="file" multiple onChange={onArtifactsChange} />
         </label>

@@ -1,7 +1,7 @@
 "use client";
 
-import type { ChangeEvent } from "react";
-import { Save } from "lucide-react";
+import { useMemo, useState, type ChangeEvent } from "react";
+import { FileUp, KanbanSquare, Save, Users2 } from "lucide-react";
 import type { ActiveProgramUpdate, DeliveryBoardItem, TeamRoleUpdate } from "@/lib/active-program-types";
 import type { DeliveryLeadershipSignal } from "@/lib/leadership-feedback-types";
 import type { ProgramMeetingInput } from "@/lib/program-intelligence-types";
@@ -110,25 +110,88 @@ export function ActiveProgramTeamSignalFlow({
   onClearCycle,
   onLoadUpdate
 }: ActiveProgramTeamSignalFlowProps) {
-  return (
-    <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_360px] xl:grid-cols-[minmax(0,1fr)_380px]">
-      <div className="grid gap-4">
-        <ActiveProgramDeliveryBoardCard
-          deliveryBoardItems={deliveryBoardItems}
-          deliveryBoardUploadState={deliveryBoardUploadState}
-          teamRoleUpdates={teamRoleUpdates}
-          assignedOwnersByRole={assignedOwnersByRole}
-          saveState={saveState}
-          saveConfirmation={saveConfirmation}
-          formatFileSize={formatFileSize}
-          onAddDeliveryBoardItem={onAddDeliveryBoardItem}
-          onUpdateDeliveryBoardItem={onUpdateDeliveryBoardItem}
-          onRemoveDeliveryBoardItem={onRemoveDeliveryBoardItem}
-          onDeliveryBoardAttachmentsChange={onDeliveryBoardAttachmentsChange}
-          onRemoveDeliveryBoardAttachment={onRemoveDeliveryBoardAttachment}
-          onSaveDeliveryBoard={onSaveDeliveryBoard}
-        />
+  const [activeWorkspace, setActiveWorkspace] = useState<"role" | "board" | "evidence">("role");
+  const activeBoardItems = useMemo(
+    () => deliveryBoardItems.filter((item) => item.status !== "done"),
+    [deliveryBoardItems]
+  );
+  const uploadedEvidenceCount = artifacts.length + meetingInputs.reduce((total, input) => total + input.attachments.length, 0);
+  const roleSignalsCaptured = useMemo(
+    () =>
+      teamRoleUpdates.filter((roleUpdate) =>
+        Boolean(
+          roleUpdate.status !== "on-track" ||
+            roleUpdate.progressUpdate.trim() ||
+            roleUpdate.changesObserved.trim() ||
+            roleUpdate.activeRisks.trim() ||
+            roleUpdate.blockers.trim() ||
+            roleUpdate.decisionsNeeded.trim() ||
+            roleUpdate.supportNeeded.trim()
+        )
+      ).length,
+    [teamRoleUpdates]
+  );
+  const workspaceTabs = [
+    {
+      id: "role" as const,
+      label: "Role update",
+      detail: "Capture responsibility-level signal",
+      metric: `${roleSignalsCaptured}/${teamRoleUpdates.length || 0}`,
+      icon: Users2
+    },
+    {
+      id: "board" as const,
+      label: "Progress board",
+      detail: "Track deliverables and blockers",
+      metric: `${activeBoardItems.length} active`,
+      icon: KanbanSquare
+    },
+    {
+      id: "evidence" as const,
+      label: "Artifacts",
+      detail: "Attach files, recordings, and proof",
+      metric: `${uploadedEvidenceCount} files`,
+      icon: FileUp
+    }
+  ];
 
+  return (
+    <div className="grid gap-5">
+      <div className="rounded-xl border border-white/10 bg-zinc-950/80 p-3 sm:p-4">
+        <div className="grid gap-3 lg:grid-cols-3">
+          {workspaceTabs.map((tab) => {
+            const Icon = tab.icon;
+            const selected = activeWorkspace === tab.id;
+
+            return (
+              <button
+                key={tab.id}
+                type="button"
+                data-active-program-workspace-tab={tab.id}
+                onClick={() => setActiveWorkspace(tab.id)}
+                className={`grid min-h-[116px] gap-3 rounded-lg border p-4 text-left transition-colors ${
+                  selected
+                    ? "border-cyan-300/35 bg-cyan-300/[0.075] text-cyan-50 shadow-[0_0_30px_rgba(103,232,249,0.08)]"
+                    : "border-white/10 bg-white/[0.025] text-zinc-300 hover:border-cyan-300/25 hover:bg-cyan-300/[0.035]"
+                }`}
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <span className="inline-flex items-center gap-2 text-sm font-semibold">
+                    <Icon className="h-4 w-4" />
+                    {tab.label}
+                  </span>
+                  <span className="rounded-full border border-white/10 bg-black/20 px-2.5 py-1 text-[11px] font-medium uppercase tracking-[0.12em]">
+                    {tab.metric}
+                  </span>
+                </div>
+                <p className="text-xs leading-5 text-zinc-500">{tab.detail}</p>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {activeWorkspace === "role" ? (
         <ActiveProgramTeamUpdatesCard
           teamRoleUpdates={teamRoleUpdates}
           assignedOwnersByRole={assignedOwnersByRole}
@@ -145,50 +208,82 @@ export function ActiveProgramTeamSignalFlow({
           onSaveOwnership={onSaveOwnership}
           onSaveRoleSignal={onSaveRoleSignal}
         />
+      ) : null}
 
-        <ActiveProgramMeetingIntelligenceCard
-          meetingInputDraft={meetingInputDraft}
-          meetingSaveState={meetingSaveState}
-          meetingUploadState={meetingUploadState}
-          onDraftChange={onMeetingDraftChange}
-          onAttachmentsChange={onMeetingAttachmentsChange}
-          onRemoveAttachment={onRemoveMeetingAttachment}
-          onSave={onSaveMeetingInput}
-          formatFileSize={formatFileSize}
-        />
+      {activeWorkspace === "board" ? (
+        <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_380px]">
+          <ActiveProgramDeliveryBoardCard
+            deliveryBoardItems={deliveryBoardItems}
+            deliveryBoardUploadState={deliveryBoardUploadState}
+            teamRoleUpdates={teamRoleUpdates}
+            assignedOwnersByRole={assignedOwnersByRole}
+            saveState={saveState}
+            saveConfirmation={saveConfirmation}
+            formatFileSize={formatFileSize}
+            onAddDeliveryBoardItem={onAddDeliveryBoardItem}
+            onUpdateDeliveryBoardItem={onUpdateDeliveryBoardItem}
+            onRemoveDeliveryBoardItem={onRemoveDeliveryBoardItem}
+            onDeliveryBoardAttachmentsChange={onDeliveryBoardAttachmentsChange}
+            onRemoveDeliveryBoardAttachment={onRemoveDeliveryBoardAttachment}
+            onSaveDeliveryBoard={onSaveDeliveryBoard}
+          />
 
-        <ActiveProgramStatusArtifactsCard
-          artifacts={artifacts}
-          onArtifactsChange={onArtifactsChange}
-          onRemoveArtifact={onRemoveArtifact}
-          formatFileSize={formatFileSize}
-        />
+          <ActiveProgramSidebar
+            artifacts={artifacts}
+            latestUpdate={latestUpdate}
+            leadershipSignal={leadershipSignal}
+            selectedProgramHistory={selectedProgramHistory}
+            meetingInputs={meetingInputs}
+            formatTimestamp={formatTimestamp}
+            onLoadUpdate={onLoadUpdate}
+          />
+        </div>
+      ) : null}
 
-        <div className="flex flex-col gap-3 sm:flex-row">
-          <Button type="submit" size="lg">
-            <Save className="h-4 w-4" />
-            {saveState === "saving" ? "Saving..." : "Save cycle synthesis"}
-          </Button>
-          <Button type="button" variant="outline" size="lg" onClick={onClearCycle}>
-            Clear cycle
-          </Button>
+      {activeWorkspace === "evidence" ? (
+        <div className="grid gap-5 xl:grid-cols-[minmax(0,0.72fr)_minmax(0,1fr)]">
+          <ActiveProgramStatusArtifactsCard
+            artifacts={artifacts}
+            onArtifactsChange={onArtifactsChange}
+            onRemoveArtifact={onRemoveArtifact}
+            formatFileSize={formatFileSize}
+          />
+
+          <ActiveProgramMeetingIntelligenceCard
+            meetingInputDraft={meetingInputDraft}
+            meetingSaveState={meetingSaveState}
+            meetingUploadState={meetingUploadState}
+            onDraftChange={onMeetingDraftChange}
+            onAttachmentsChange={onMeetingAttachmentsChange}
+            onRemoveAttachment={onRemoveMeetingAttachment}
+            onSave={onSaveMeetingInput}
+            formatFileSize={formatFileSize}
+          />
+        </div>
+      ) : null}
+
+      <div className="flex flex-col gap-3 rounded-xl border border-white/10 bg-zinc-950/80 p-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <p className="text-sm font-medium text-zinc-100">Cycle synthesis</p>
+          <p className="mt-1 text-xs leading-5 text-zinc-500">
+            Save the full operating picture when multiple inputs need to refresh guidance together.
+          </p>
           {savedAt ? (
-            <p className={`self-center text-sm ${saveState === "error" ? "text-amber-200" : "text-cyan-200"}`}>
+            <p className={`mt-2 text-sm ${saveState === "error" ? "text-amber-200" : "text-cyan-200"}`}>
               {saveState === "error" ? "Saved locally only" : "Saved to server and refreshed guided plan"} at {savedAt}
             </p>
           ) : null}
         </div>
+        <div className="flex flex-col gap-3 sm:flex-row">
+          <Button type="button" variant="outline" size="lg" onClick={onClearCycle}>
+            Clear cycle
+          </Button>
+          <Button type="submit" size="lg">
+            <Save className="h-4 w-4" />
+            {saveState === "saving" ? "Saving..." : "Save cycle synthesis"}
+          </Button>
+        </div>
       </div>
-
-      <ActiveProgramSidebar
-        artifacts={artifacts}
-        latestUpdate={latestUpdate}
-        leadershipSignal={leadershipSignal}
-        selectedProgramHistory={selectedProgramHistory}
-        meetingInputs={meetingInputs}
-        formatTimestamp={formatTimestamp}
-        onLoadUpdate={onLoadUpdate}
-      />
     </div>
   );
 }

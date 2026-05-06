@@ -239,6 +239,8 @@ test("Active Program review is split into state, cockpit, and team signal flows"
   const teamSignalFlowSource = readFileSync(new URL("../src/components/active-program-team-signal-flow.tsx", import.meta.url), "utf8");
   const deliveryBoardSource = readFileSync(new URL("../src/components/active-program-delivery-board-card.tsx", import.meta.url), "utf8");
   const teamUpdatesSource = readFileSync(new URL("../src/components/active-program-team-updates-card.tsx", import.meta.url), "utf8");
+  const meetingInputSource = readFileSync(new URL("../src/components/active-program-meeting-intelligence-card.tsx", import.meta.url), "utf8");
+  const statusArtifactsSource = readFileSync(new URL("../src/components/active-program-status-artifacts-card.tsx", import.meta.url), "utf8");
   const sidebarSource = readFileSync(new URL("../src/components/active-program-sidebar.tsx", import.meta.url), "utf8");
   const activeProgramTypesSource = readFileSync(new URL("../src/lib/active-program-types.ts", import.meta.url), "utf8");
   const programLoopSource = readFileSync(new URL("../src/lib/program-loop-service.ts", import.meta.url), "utf8");
@@ -276,6 +278,7 @@ test("Active Program review is split into state, cockpit, and team signal flows"
   assert.match(storeSource, /export async function deleteProgramUpdatesByTag/);
   assert.match(reviewModelSource, /export function normalizeReview/);
   assert.match(stateFlowSource, /ActiveProgramStateCard/);
+  assert.match(stateFlowSource, /Keep the program aligned as reality changes/);
   assert.match(cockpitFlowSource, /ActiveProgramCockpitCard/);
   assert.match(cockpitSource, /Program cockpit/);
   assert.match(cockpitSource, /derivePhaseProgress/);
@@ -286,6 +289,10 @@ test("Active Program review is split into state, cockpit, and team signal flows"
   assert.match(cockpitSource, /Leadership/);
   assert.match(teamSignalFlowSource, /ActiveProgramTeamUpdatesCard/);
   assert.match(teamSignalFlowSource, /ActiveProgramDeliveryBoardCard/);
+  assert.match(teamSignalFlowSource, /data-active-program-workspace-tab/);
+  assert.match(teamSignalFlowSource, /Role update/);
+  assert.match(teamSignalFlowSource, /Progress board/);
+  assert.match(teamSignalFlowSource, /Artifacts/);
   assert.match(teamSignalFlowSource, /deliveryBoardItems=\{deliveryBoardItems\}/);
   assert.match(teamSignalFlowSource, /onSaveDeliveryBoard=\{onSaveDeliveryBoard\}/);
   assert.match(teamSignalFlowSource, /currentUserId=\{currentUserId\}/);
@@ -310,6 +317,9 @@ test("Active Program review is split into state, cockpit, and team signal flows"
   assert.match(teamUpdatesSource, /data-active-role-progress/);
   assert.match(teamUpdatesSource, /data-active-role-save/);
   assert.match(teamUpdatesSource, /data-active-program-save-confirmation/);
+  assert.match(meetingInputSource, /Add context/);
+  assert.match(meetingInputSource, /showDetails/);
+  assert.match(statusArtifactsSource, /Attach the artifacts that should shape program progress/);
   assert.match(sidebarSource, /This week timeline/);
   assert.match(sidebarSource, /data-active-program-timeline/);
   assert.match(sidebarSource, /data-active-program-timeline-event/);
@@ -351,6 +361,7 @@ test("Active Program review is split into state, cockpit, and team signal flows"
   assert.match(activeProgramSaveSmokeSource, /verifyOperatingView/);
   assert.match(activeProgramSaveSmokeSource, /Program cockpit/);
   assert.match(activeProgramSaveSmokeSource, /Focus role/);
+  assert.match(activeProgramSaveSmokeSource, /data-active-program-workspace-tab/);
   assert.match(activeProgramSaveSmokeSource, /This week timeline/);
   assert.match(activeProgramSaveSmokeSource, /data-active-delivery-board/);
   assert.match(activeProgramSaveSmokeSource, /data-delivery-board-title/);
