@@ -393,25 +393,6 @@ async function saveRoleSignal(session, program) {
     `);
   });
 
-  const deliveryCardMovedByChip = await session.execute(`
-    const card = Array.from(document.querySelectorAll('[data-delivery-board-column="in-progress"] [data-delivery-board-card]'))
-      .find((element) => element.textContent.includes("North Star active-program save smoke"));
-    const chip = card?.querySelector('[data-delivery-board-status-chip="needs-review"]');
-    chip?.click();
-    return Boolean(chip);
-  `);
-
-  if (!deliveryCardMovedByChip) {
-    throw new Error("Active Program smoke could not move the Delivery Board card with a status chip.");
-  }
-
-  await session.waitFor("Active Program Delivery Board card moved by status chip", async () => {
-    return session.execute(`
-      return Array.from(document.querySelectorAll('[data-delivery-board-column="needs-review"] [data-delivery-board-card]'))
-        .some((card) => card.textContent.includes("North Star active-program save smoke"));
-    `);
-  });
-
   const deliveryCardOpened = await session.execute(`
     const card = Array.from(document.querySelectorAll("[data-delivery-board-card]"))
       .find((element) => element.textContent.includes("North Star active-program save smoke"));

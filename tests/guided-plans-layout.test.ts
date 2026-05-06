@@ -352,7 +352,6 @@ test("Active Program review is split into state, cockpit, and team signal flows"
   assert.match(deliveryBoardSource, /setIsAddCardOpen\(false\)/);
   assert.match(deliveryBoardSource, /data-delivery-board-status-rail/);
   assert.match(deliveryBoardSource, /data-delivery-board-drop-target/);
-  assert.match(deliveryBoardSource, /data-delivery-board-status-chip/);
   assert.match(deliveryBoardSource, /draggable/);
   assert.match(deliveryBoardSource, /handleDrop/);
   assert.match(deliveryBoardSource, /sortDeliveryBoardItemsByCreatedAt/);
@@ -361,7 +360,13 @@ test("Active Program review is split into state, cockpit, and team signal flows"
   assert.match(deliveryBoardSource, /data-delivery-board-attachment/);
   assert.match(deliveryBoardSource, /md:grid-cols-2 2xl:grid-cols-3/);
   assert.match(deliveryBoardSource, /No delivery cards for this role yet/);
+  assert.match(deliveryBoardSource, /deliveryBoardStatusLabel\(item\.status\)/);
   assert.doesNotMatch(deliveryBoardSource, /Drop here or use card chips/);
+  assert.doesNotMatch(deliveryBoardSource, /data-delivery-board-status-chips/);
+  assert.doesNotMatch(deliveryBoardSource, /data-delivery-board-status-chip/);
+  assert.doesNotMatch(deliveryBoardSource, /Open details to add context/);
+  assert.doesNotMatch(deliveryBoardSource, /Move card/);
+  assert.doesNotMatch(deliveryBoardSource, /Open details/);
   assert.doesNotMatch(deliveryBoardSource, /min-h-16 rounded-lg border/);
   assert.doesNotMatch(deliveryBoardSource, /lg:grid-cols-\[180px_minmax\(0,1fr\)_160px_160px\]/);
   assert.doesNotMatch(deliveryBoardSource, /lg:grid-cols-\[minmax\(0,1fr\)_180px_180px\]/);
@@ -408,8 +413,8 @@ test("Active Program review is split into state, cockpit, and team signal flows"
   assert.match(activeProgramSaveSmokeSource, /data-delivery-board-drop-target/);
   assert.match(activeProgramSaveSmokeSource, /DragEvent/);
   assert.match(activeProgramSaveSmokeSource, /compact drag targets visible/);
-  assert.match(activeProgramSaveSmokeSource, /data-delivery-board-status-chip/);
-  assert.match(activeProgramSaveSmokeSource, /moved by status chip/);
+  assert.doesNotMatch(activeProgramSaveSmokeSource, /data-delivery-board-status-chip/);
+  assert.doesNotMatch(activeProgramSaveSmokeSource, /moved by status chip/);
   assert.match(activeProgramSaveSmokeSource, /data-delivery-board-attachment/);
   assert.match(activeProgramSaveSmokeSource, /deliveryBoardItems/);
   assert.match(activeProgramSaveSmokeSource, /roleFormOpen/);

@@ -465,11 +465,22 @@ export function ActiveProgramDeliveryBoardCard({
                                       type="button"
                                       data-delivery-board-card-open
                                       onClick={() => setSelectedItemId(item.id)}
-                                      className="min-w-0 flex-1 text-left"
+                                      className="grid min-w-0 flex-1 gap-3 text-left"
                                     >
+                                      <span className={`w-fit rounded-full border px-2.5 py-1 text-[10px] font-medium uppercase tracking-[0.14em] ${deliveryBoardStatusTone(item.status)}`}>
+                                        {deliveryBoardStatusLabel(item.status)}
+                                      </span>
                                       <span className="block break-words text-sm font-medium leading-5 text-zinc-100">{item.title}</span>
-                                      <span className="mt-1 line-clamp-2 block text-xs leading-5 text-zinc-500">
-                                        {item.description || item.latestNote || "Open details to add context, notes, and evidence."}
+                                      <span className="grid gap-2 text-[11px] text-zinc-500 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
+                                        <span className="truncate">{item.owner || roleOwnerPlaceholder(item.role, assignedOwnersByRole)}</span>
+                                        <span className="inline-flex items-center gap-2">
+                                          <CalendarClock className="h-3.5 w-3.5 shrink-0 text-cyan-200" />
+                                          <span>{item.dueDate || "No due date"}</span>
+                                        </span>
+                                      </span>
+                                      <span className="inline-flex items-center gap-2 text-[11px] text-zinc-500">
+                                        <Paperclip className="h-3.5 w-3.5 shrink-0 text-cyan-200" />
+                                        {item.attachments.length} attachment{item.attachments.length === 1 ? "" : "s"}
                                       </span>
                                     </button>
                                     <button
@@ -481,50 +492,6 @@ export function ActiveProgramDeliveryBoardCard({
                                       <Trash2 className="h-3.5 w-3.5" />
                                     </button>
                                   </div>
-                                  <div className="grid gap-2 text-[11px] text-zinc-500">
-                                    <span className="inline-flex items-center gap-2">
-                                      <CalendarClock className="h-3.5 w-3.5 shrink-0 text-cyan-200" />
-                                      <span>{item.dueDate || "No due date"}</span>
-                                    </span>
-                                    <span className="truncate">{item.owner || roleOwnerPlaceholder(item.role, assignedOwnersByRole)}</span>
-                                    <span className="inline-flex items-center gap-2">
-                                      <Paperclip className="h-3.5 w-3.5 shrink-0 text-cyan-200" />
-                                      {item.attachments.length} attachment{item.attachments.length === 1 ? "" : "s"}
-                                    </span>
-                                  </div>
-                                  <div data-delivery-board-status-chips className="grid gap-2 border-t border-white/10 pt-3">
-                                    <p className="text-[10px] font-medium uppercase tracking-[0.14em] text-zinc-600">Move card</p>
-                                    <div className="flex gap-2 overflow-x-auto pb-1">
-                                      {deliveryBoardStatuses.map((option) => {
-                                        const isCurrentStatus = item.status === option.value;
-
-                                        return (
-                                          <button
-                                            key={option.value}
-                                            type="button"
-                                            data-delivery-board-status-chip={option.value}
-                                            aria-pressed={isCurrentStatus}
-                                            aria-label={`Move ${item.title} to ${option.label}`}
-                                            onClick={() => moveDeliveryBoardItem(item, option.value)}
-                                            className={`min-h-10 shrink-0 rounded-full border px-3 text-[10px] font-medium uppercase tracking-[0.12em] transition-colors ${
-                                              isCurrentStatus
-                                                ? option.tone
-                                                : "border-white/10 bg-white/[0.025] text-zinc-500 hover:border-cyan-300/30 hover:text-cyan-100"
-                                            }`}
-                                          >
-                                            {option.label}
-                                          </button>
-                                        );
-                                      })}
-                                    </div>
-                                  </div>
-                                  <button
-                                    type="button"
-                                    onClick={() => setSelectedItemId(item.id)}
-                                    className="rounded-md border border-white/10 bg-white/[0.035] px-3 py-2 text-xs font-medium text-zinc-300 transition-colors hover:border-cyan-300/30 hover:text-cyan-100"
-                                  >
-                                    Open details
-                                  </button>
                                 </article>
                               );
                             })}
