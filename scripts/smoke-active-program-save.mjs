@@ -167,7 +167,8 @@ async function verifyOperatingView(session) {
       const bodyText = document.body.textContent ?? "";
       return Boolean(document.querySelector("[data-active-delivery-board]")) &&
         document.querySelectorAll("[data-delivery-board-lane]").length > 0 &&
-        document.querySelectorAll("[data-delivery-board-column]").length >= 5 &&
+        Boolean(document.querySelector("[data-delivery-board-title]")) &&
+        Boolean(document.querySelector("[data-delivery-board-add]")) &&
         bodyText.includes("This week timeline") &&
         bodyText.includes("What changed across roles, delivery board, leadership, meetings, and artifacts");
     `);
