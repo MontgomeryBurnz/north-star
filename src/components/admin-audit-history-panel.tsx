@@ -2,13 +2,15 @@
 
 import { useMemo, useState } from "react";
 import { ChevronDown, Download, FileText, Search } from "lucide-react";
-import type { AuditEventRecord } from "@/lib/audit-event-types";
+import type { AuditEventRecord, AuditEventType } from "@/lib/audit-event-types";
 import { Button } from "@/components/ui/button";
 
 type AdminAuditHistoryPanelProps = {
   auditEvents: AuditEventRecord[];
 };
 
+type AuditCategory = "all" | "access" | "guidance" | "studio" | "client" | "cost" | "system";
+type AuditVisibility = "important" | "all";
 type DateFilter = "all" | "today" | "last-7-days" | "last-30-days";
 
 const dateOptions: Array<{ label: string; value: DateFilter }> = [
@@ -17,6 +19,30 @@ const dateOptions: Array<{ label: string; value: DateFilter }> = [
   { label: "Last 7 days", value: "last-7-days" },
   { label: "Last 30 days", value: "last-30-days" }
 ];
+
+const categoryOptions: Array<{ label: string; value: AuditCategory }> = [
+  { label: "All", value: "all" },
+  { label: "Access", value: "access" },
+  { label: "Guidance", value: "guidance" },
+  { label: "Studio", value: "studio" },
+  { label: "Client", value: "client" },
+  { label: "Cost / Model", value: "cost" },
+  { label: "System", value: "system" }
+];
+
+const importantEventTypes = new Set<AuditEventType>([
+  "client.decision.create",
+  "flag.create",
+  "flag.review",
+  "guidance.refresh",
+  "leadership.feedback",
+  "model.settings.update",
+  "program.role.add",
+  "user.access.remove",
+  "user.access.update",
+  "user.invite.link",
+  "user.invite.send"
+]);
 
 function formatTimestamp(value: string | undefined) {
   if (!value) return "Not recorded";
@@ -42,6 +68,21 @@ function formatAuditType(value: AuditEventRecord["eventType"]) {
   return "Audit";
 }
 
+function eventCategory(eventType: AuditEventType): AuditCategory {
+  if (eventType.startsWith("user.")) return "access";
+  if (eventType.startsWith("artifact.")) return "studio";
+  if (eventType.startsWith("client.")) return "client";
+  if (eventType.startsWith("model.")) return "cost";
+  if (eventType.startsWith("flag.") || eventType.startsWith("guide.") || eventType.startsWith("guidance.") || eventType.startsWith("leadership.")) {
+    return "guidance";
+  }
+  return "system";
+}
+
+function isImportantEvent(event: AuditEventRecord) {
+  return importantEventTypes.has(event.eventType);
+}
+
 function actorLabel(event: AuditEventRecord) {
   return event.actor?.name || event.actor?.email || event.actor?.userType || "System";
 }
@@ -64,6 +105,34 @@ function matchesDateFilter(event: AuditEventRecord, dateFilter: DateFilter) {
 
   const dayWindow = dateFilter === "last-7-days" ? 7 : 30;
   return eventTime >= now.getTime() - dayWindow * 24 * 60 * 60 * 1000;
+}
+
+function getAuditGroupLabel(createdAt: string) {
+  const eventTime = new Date(createdAt).getTime();
+  if (!Number.isFinite(eventTime)) return "Older";
+
+  const now = new Date();
+  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  const yesterdayStart = todayStart - 24 * 60 * 60 * 1000;
+  const sevenDaysStart = todayStart - 6 * 24 * 60 * 60 * 1000;
+
+  if (eventTime >= todayStart) return "Today";
+  if (eventTime >= yesterdayStart) return "Yesterday";
+  if (eventTime >= sevenDaysStart) return "Last 7 days";
+  return "Older";
+}
+
+function groupAuditEvents(events: AuditEventRecord[]) {
+  const groups = new Map<string, AuditEventRecord[]>();
+
+  for (const event of events) {
+    const label = getAuditGroupLabel(event.createdAt);
+    groups.set(label, [...(groups.get(label) ?? []), event]);
+  }
+
+  return ["Today", "Yesterday", "Last 7 days", "Older"]
+    .map((label) => ({ events: groups.get(label) ?? [], label }))
+    .filter((group) => group.events.length > 0);
 }
 
 function csvValue(value: unknown) {
@@ -140,12 +209,72 @@ function SelectFilter({
   );
 }
 
+function EventDetail({ event }: { event: AuditEventRecord }) {
+  const metadata = event.metadata ? JSON.stringify(event.metadata, null, 2) : "";
+
+  return (
+    <div className="grid gap-3 border-t border-white/10 px-4 py-3 text-xs leading-5 text-zinc-400 md:grid-cols-3">
+      <div>
+        <p className="font-medium uppercase tracking-[0.14em] text-zinc-500">Actor</p>
+        <p className="mt-1 text-zinc-200">{actorLabel(event)}</p>
+        {event.actor?.email ? <p className="break-all text-zinc-500">{event.actor.email}</p> : null}
+      </div>
+      <div>
+        <p className="font-medium uppercase tracking-[0.14em] text-zinc-500">Entity</p>
+        <p className="mt-1 text-zinc-200">{event.entityLabel || event.entityId || "Not recorded"}</p>
+        <p className="text-zinc-500">{event.entityType}</p>
+      </div>
+      <div>
+        <p className="font-medium uppercase tracking-[0.14em] text-zinc-500">Source</p>
+        <p className="mt-1 text-zinc-200">{event.surface}</p>
+        <p className="break-all text-zinc-500">{event.programName || event.programId || "No program scope"}</p>
+      </div>
+      {metadata ? (
+        <pre className="max-h-48 overflow-auto rounded-md border border-white/10 bg-black/30 p-3 text-[11px] leading-5 text-zinc-400 md:col-span-3">
+          {metadata}
+        </pre>
+      ) : null}
+    </div>
+  );
+}
+
+function EventRow({ event }: { event: AuditEventRecord }) {
+  return (
+    <details
+      data-admin-audit-event-row
+      data-admin-audit-actor={actorLabel(event)}
+      data-admin-audit-created-at={event.createdAt}
+      data-admin-audit-event-type={event.eventType}
+      data-admin-audit-program={event.programName ?? event.programId ?? ""}
+      data-admin-audit-summary={event.summary}
+      className="group overflow-hidden rounded-md border border-white/10 bg-black/20 transition-colors open:border-cyan-300/25 open:bg-cyan-300/[0.035]"
+    >
+      <summary className="grid cursor-pointer list-none gap-3 px-4 py-3 hover:bg-white/[0.025] md:grid-cols-[9rem_minmax(0,1fr)_9rem] md:items-center [&::-webkit-details-marker]:hidden">
+        <span className="flex items-center gap-2 text-[11px] font-medium uppercase tracking-[0.14em] text-emerald-200">
+          <ChevronDown className="h-3.5 w-3.5 text-zinc-500 transition-transform group-open:rotate-180" />
+          {formatAuditType(event.eventType)}
+        </span>
+        <span className="min-w-0">
+          <span className="block truncate text-sm font-medium text-zinc-100">{event.summary}</span>
+          <span className="mt-1 block truncate text-xs leading-5 text-zinc-500">
+            {[event.surface, event.programName, actorLabel(event), event.entityLabel].filter(Boolean).join(" · ")}
+          </span>
+        </span>
+        <span className="text-xs text-zinc-500 md:text-right">{formatTimestamp(event.createdAt)}</span>
+      </summary>
+      <EventDetail event={event} />
+    </details>
+  );
+}
+
 export function AdminAuditHistoryPanel({ auditEvents }: AdminAuditHistoryPanelProps) {
   const [actorFilter, setActorFilter] = useState("all");
+  const [categoryFilter, setCategoryFilter] = useState<AuditCategory>("all");
   const [dateFilter, setDateFilter] = useState<DateFilter>("all");
   const [eventTypeFilter, setEventTypeFilter] = useState("all");
   const [programFilter, setProgramFilter] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
+  const [visibility, setVisibility] = useState<AuditVisibility>("important");
 
   const actorOptions = useMemo(() => selectOptions(auditEvents.map(actorLabel)), [auditEvents]);
   const eventTypeOptions = useMemo(() => selectOptions(auditEvents.map((event) => event.eventType)), [auditEvents]);
@@ -167,13 +296,16 @@ export function AdminAuditHistoryPanel({ auditEvents }: AdminAuditHistoryPanelPr
         event.programId,
         event.actor?.email,
         event.actor?.name,
-        event.actor?.userType
+        event.actor?.userType,
+        event.metadata ? JSON.stringify(event.metadata) : ""
       ]
         .filter(Boolean)
         .join(" ")
         .toLowerCase();
 
       return (
+        (visibility === "all" || isImportantEvent(event)) &&
+        (categoryFilter === "all" || eventCategory(event.eventType) === categoryFilter) &&
         (actorFilter === "all" || currentActorLabel === actorFilter) &&
         (eventTypeFilter === "all" || event.eventType === eventTypeFilter) &&
         (programFilter === "all" || currentProgramLabel === programFilter) &&
@@ -181,7 +313,8 @@ export function AdminAuditHistoryPanel({ auditEvents }: AdminAuditHistoryPanelPr
         (!query || searchableText.includes(query))
       );
     });
-  }, [actorFilter, auditEvents, dateFilter, eventTypeFilter, programFilter, searchQuery]);
+  }, [actorFilter, auditEvents, categoryFilter, dateFilter, eventTypeFilter, programFilter, searchQuery, visibility]);
+  const groupedEvents = useMemo(() => groupAuditEvents(filteredEvents), [filteredEvents]);
 
   return (
     <section className="grid gap-4" data-admin-audit-history>
@@ -192,7 +325,7 @@ export function AdminAuditHistoryPanel({ auditEvents }: AdminAuditHistoryPanelPr
             Audit history
           </p>
           <p className="mt-1 text-xs leading-5 text-zinc-500">
-            Review activity by program, actor, event type, and date.
+            Compact trust trail grouped by time. Open a row only when you need full metadata.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -214,6 +347,49 @@ export function AdminAuditHistoryPanel({ auditEvents }: AdminAuditHistoryPanelPr
             Export CSV
           </Button>
         </div>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-2 rounded-md border border-white/10 bg-white/[0.025] p-2">
+        <button
+          type="button"
+          onClick={() => setVisibility("important")}
+          data-admin-audit-visibility="important"
+          className={`rounded-full border px-3 py-1.5 text-xs font-medium transition-colors ${
+            visibility === "important"
+              ? "border-emerald-300/40 bg-emerald-300/15 text-emerald-100"
+              : "border-white/10 text-zinc-400 hover:border-white/20 hover:text-zinc-100"
+          }`}
+        >
+          Important only
+        </button>
+        <button
+          type="button"
+          onClick={() => setVisibility("all")}
+          data-admin-audit-visibility="all"
+          className={`rounded-full border px-3 py-1.5 text-xs font-medium transition-colors ${
+            visibility === "all"
+              ? "border-cyan-300/40 bg-cyan-300/15 text-cyan-100"
+              : "border-white/10 text-zinc-400 hover:border-white/20 hover:text-zinc-100"
+          }`}
+        >
+          All events
+        </button>
+        <span className="mx-1 hidden h-5 w-px bg-white/10 sm:block" />
+        {categoryOptions.map((option) => (
+          <button
+            key={option.value}
+            type="button"
+            onClick={() => setCategoryFilter(option.value)}
+            data-admin-audit-category={option.value}
+            className={`rounded-full border px-3 py-1.5 text-xs font-medium transition-colors ${
+              categoryFilter === option.value
+                ? "border-cyan-300/40 bg-cyan-300/15 text-cyan-100"
+                : "border-white/10 text-zinc-400 hover:border-white/20 hover:text-zinc-100"
+            }`}
+          >
+            {option.label}
+          </button>
+        ))}
       </div>
 
       <div className="grid gap-3 rounded-md border border-white/10 bg-white/[0.025] p-3 md:grid-cols-2 xl:grid-cols-[minmax(0,1.3fr)_repeat(4,minmax(0,1fr))]">
@@ -263,30 +439,28 @@ export function AdminAuditHistoryPanel({ auditEvents }: AdminAuditHistoryPanelPr
         />
       </div>
 
-      {filteredEvents.length ? (
-        <div className="grid gap-2">
-          {filteredEvents.slice(0, 40).map((event) => (
-            <div
-              key={event.id}
-              data-admin-audit-event-row
-              data-admin-audit-actor={actorLabel(event)}
-              data-admin-audit-created-at={event.createdAt}
-              data-admin-audit-event-type={event.eventType}
-              data-admin-audit-program={event.programName ?? event.programId ?? ""}
-              data-admin-audit-summary={event.summary}
-              className="grid gap-2 rounded-md border border-white/10 bg-black/20 p-3 md:grid-cols-[9rem_minmax(0,1fr)_10rem] md:items-center"
+      {groupedEvents.length ? (
+        <div className="grid gap-3">
+          {groupedEvents.map((group) => (
+            <details
+              key={group.label}
+              open={group.label === "Today"}
+              className="group rounded-md border border-white/10 bg-white/[0.018]"
+              data-admin-audit-group={group.label}
             >
-              <span className="text-[11px] font-medium uppercase tracking-[0.14em] text-emerald-200">
-                {formatAuditType(event.eventType)}
-              </span>
-              <span>
-                <span className="block text-sm font-medium text-zinc-100">{event.summary}</span>
-                <span className="mt-1 block text-xs leading-5 text-zinc-500">
-                  {[event.surface, event.programName, actorLabel(event), event.entityLabel].filter(Boolean).join(" · ")}
+              <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-3 py-2.5 text-xs font-medium uppercase tracking-[0.14em] text-zinc-400 [&::-webkit-details-marker]:hidden">
+                <span className="flex items-center gap-2">
+                  <ChevronDown className="h-3.5 w-3.5 transition-transform group-open:rotate-180" />
+                  {group.label}
                 </span>
-              </span>
-              <span className="text-xs text-zinc-500 md:text-right">{formatTimestamp(event.createdAt)}</span>
-            </div>
+                <span>{group.events.length} events</span>
+              </summary>
+              <div className="grid gap-2 border-t border-white/10 p-2">
+                {group.events.map((event) => (
+                  <EventRow key={event.id} event={event} />
+                ))}
+              </div>
+            </details>
           ))}
         </div>
       ) : (

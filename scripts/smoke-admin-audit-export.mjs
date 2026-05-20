@@ -101,7 +101,20 @@ async function openAdminAudit(session) {
   );
 }
 
+async function ensureAuditRows(session) {
+  const importantRows = await session.execute('return document.querySelectorAll("[data-admin-audit-event-row]").length;');
+  if (importantRows > 0) return;
+
+  await session.execute('document.querySelector("[data-admin-audit-visibility=\\"all\\"]")?.click();');
+  await session.waitFor("Admin audit rows", () =>
+    session.execute('return document.querySelectorAll("[data-admin-audit-event-row]").length > 0;'),
+    10_000
+  );
+}
+
 async function chooseTargetEvent(session) {
+  await ensureAuditRows(session);
+
   const target = await session.execute(`
     const rows = Array.from(document.querySelectorAll("[data-admin-audit-event-row]"));
     const now = Date.now();
