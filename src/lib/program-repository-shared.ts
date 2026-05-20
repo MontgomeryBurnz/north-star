@@ -6,8 +6,7 @@ import { Pool } from "pg";
 import type { AuditEventInput, AuditEventRecord } from "@/lib/audit-event-types";
 import type { ManagedAppUser } from "@/lib/admin-user-types";
 import type { ActiveProgramReview, StoredProgramUpdate } from "@/lib/active-program-types";
-import type { AssistantConversationTurn } from "@/lib/assistant-conversation-types";
-import type { AssistantServiceResponse } from "@/lib/assistant-types";
+import type { AssistantConversationTurn, LegacyAssistantResponse } from "@/lib/assistant-conversation-types";
 import type { GuidedPlan } from "@/lib/guided-plan-types";
 import type { LeadershipReviewInput, LeadershipReviewRecord } from "@/lib/leadership-feedback-types";
 import type {
@@ -435,7 +434,7 @@ export function mapAssistantConversationRow(row: {
   program_id: string;
   program_name: string;
   prompt: string;
-  response: AssistantServiceResponse;
+  response: LegacyAssistantResponse;
   created_at: Date;
   updated_at: Date;
 }): AssistantConversationTurn {

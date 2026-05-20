@@ -2,7 +2,6 @@ import "server-only";
 import { randomUUID } from "crypto";
 import type { ProgramRepository } from "@/lib/program-repository-types";
 import {
-  buildOpenAIUsageRecord,
   ensurePostgresSchema,
   getPool,
   mapAssistantConversationRow,
@@ -17,7 +16,7 @@ import {
   writeFileStore
 } from "@/lib/program-repository-shared";
 
-type ProgramPersistenceDependencies = Pick<ProgramRepository, "getProgram" | "createOpenAIUsageRecord">;
+type ProgramPersistenceDependencies = Pick<ProgramRepository, "getProgram">;
 
 export function createFileProgramPersistence(): Pick<
   ProgramRepository,
@@ -141,17 +140,6 @@ export function createFileProgramPersistence(): Pick<
       };
 
       store.assistantConversations = [record, ...store.assistantConversations];
-      if (response.debug.modelProfile?.usage) {
-        store.openAIUsageRecords = [
-          buildOpenAIUsageRecord({
-            programId,
-            programName: record.programName,
-            usage: { ...response.debug.modelProfile.usage, sourceId: record.id },
-            createdAt: now
-          }),
-          ...store.openAIUsageRecords
-        ];
-      }
       store.programs = store.programs.map((item) => (item.id === programId ? { ...item, updatedAt: now } : item));
       await writeFileStore(store);
       return record;
@@ -369,9 +357,6 @@ export function createPostgresProgramPersistence(
         `,
         [record.id, programId, record.programName, prompt, JSON.stringify(response), now]
       );
-      if (response.debug.modelProfile?.usage) {
-        await repository.createOpenAIUsageRecord(programId, { ...response.debug.modelProfile.usage, sourceId: record.id });
-      }
       await getPool().query("UPDATE programs SET updated_at = $2 WHERE id = $1", [programId, now]);
       return record;
     },

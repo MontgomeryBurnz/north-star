@@ -1,8 +1,7 @@
 import type { AuditEventInput, AuditEventRecord } from "@/lib/audit-event-types";
 import type { ManagedAppUser, ManagedAppUserInput } from "@/lib/admin-user-types";
 import type { ActiveProgramReview, StoredProgramUpdate } from "@/lib/active-program-types";
-import type { AssistantConversationTurn } from "@/lib/assistant-conversation-types";
-import type { AssistantServiceResponse } from "@/lib/assistant-types";
+import type { AssistantConversationTurn, LegacyAssistantResponse } from "@/lib/assistant-conversation-types";
 import type { GuidedPlan } from "@/lib/guided-plan-types";
 import type { LeadershipReviewInput, LeadershipReviewRecord } from "@/lib/leadership-feedback-types";
 import type {
@@ -27,7 +26,7 @@ export type ProgramRepository = {
   createProgramUpdate(programId: string, review: ActiveProgramReview): Promise<StoredProgramUpdate>;
   deleteProgramUpdatesByTag(programId: string, tag: string): Promise<number>;
   listAssistantConversations(programId: string): Promise<AssistantConversationTurn[]>;
-  createAssistantConversation(programId: string, prompt: string, response: AssistantServiceResponse): Promise<AssistantConversationTurn>;
+  createAssistantConversation(programId: string, prompt: string, response: LegacyAssistantResponse): Promise<AssistantConversationTurn>;
   getLatestGuidedPlan(programId: string): Promise<GuidedPlan | null>;
   createGuidedPlan(programId: string): Promise<GuidedPlan | null>;
   listLeadershipFeedback(programId: string): Promise<LeadershipReviewRecord[]>;

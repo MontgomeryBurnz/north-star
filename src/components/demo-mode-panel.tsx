@@ -46,7 +46,7 @@ export function DemoModePanel() {
                 ["frameworks", contentRegistry.frameworks.length],
                 ["AI products", contentRegistry.aiProducts.length],
                 ["experiments", contentRegistry.experiments.length],
-                ["FAQs", contentRegistry.assistantFaqs.length],
+                ["work methods", contentRegistry.workMethods.length],
                 ["profile records", 1]
               ].map(([label, value]) => (
                 <div key={label} className="rounded-md border border-white/10 bg-black/20 p-2">
@@ -57,7 +57,7 @@ export function DemoModePanel() {
             </div>
           ) : null}
           <p className="mt-3 text-xs leading-5 text-zinc-500">
-            Assistant debug output shows matched local records and scores when demo mode is enabled.
+            Seeded records support prototype demos when demo mode is enabled.
           </p>
         </div>
       ) : null}

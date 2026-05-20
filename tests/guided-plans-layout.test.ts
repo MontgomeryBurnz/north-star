@@ -438,11 +438,20 @@ test("chat guidance is disabled and client decisions still write audit events", 
   const assistantRouteSource = readFileSync(new URL("../src/app/api/assistant/route.ts", import.meta.url), "utf8");
   const clientDecisionSource = readFileSync(new URL("../src/app/api/programs/[id]/client-decisions/route.ts", import.meta.url), "utf8");
   const auditTypesSource = readFileSync(new URL("../src/lib/audit-event-types.ts", import.meta.url), "utf8");
+  const adminCostSource = readFileSync(new URL("../src/components/admin-operating-cost-center.tsx", import.meta.url), "utf8");
+  const packageSource = readFileSync(new URL("../package.json", import.meta.url), "utf8");
+  const smokeSource = readFileSync(new URL("../scripts/smoke-chat-disabled.mjs", import.meta.url), "utf8");
 
   assert.match(auditTypesSource, /guide\.dialogue/);
   assert.match(auditTypesSource, /client\.decision\.create/);
   assert.match(assistantRouteSource, /status: 410/);
   assert.match(assistantRouteSource, /chat guidance has been disabled/);
+  assert.match(adminCostSource, /data-admin-cost-guardrail/);
+  assert.match(adminCostSource, /Open-ended chat disabled/);
+  assert.match(packageSource, /smoke:chat-disabled/);
+  assert.match(smokeSource, /\/assistant/);
+  assert.match(smokeSource, /\/api\/assistant/);
+  assert.match(smokeSource, /response\.status !== 410/);
   assert.match(clientDecisionSource, /eventType: "client\.decision\.create"/);
 });
 

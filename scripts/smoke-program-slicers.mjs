@@ -12,7 +12,6 @@ const leadershipPassword = process.env.NORTHSTAR_LEADERSHIP_PASSWORD ?? process.
 const surfaces = [
   { name: "Guided Plans", path: "/systems" },
   { name: "Leadership", path: "/leadership" },
-  { name: "Guide", path: "/assistant" },
   { name: "Active Program", path: "/active-program?mode=manage" }
 ];
 

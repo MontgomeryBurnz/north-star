@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Activity, CheckCircle2, ChevronDown, Cloud, DollarSign, RefreshCw, ServerCog, Wrench } from "lucide-react";
+import { Activity, CheckCircle2, ChevronDown, Cloud, DollarSign, RefreshCw, ServerCog, ShieldCheck, Wrench } from "lucide-react";
 import { getBillingExpenseForecast } from "@/lib/openai-billing-forecast";
 import type { GuidanceModelProfile } from "@/lib/guidance-model-profile";
 import type { OpenAIBillingReconciliation, OpenAIBillingWindowKey } from "@/lib/openai-billing-types";
@@ -213,6 +213,37 @@ function SelectControl<T extends string>({
         <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400" />
       </span>
     </label>
+  );
+}
+
+function CostControlGuardrailCard() {
+  return (
+    <Card className="bg-zinc-950/80" data-admin-cost-guardrail>
+      <CardHeader className="border-b border-white/10">
+        <CardTitle className="flex items-center gap-2 text-zinc-50">
+          <ShieldCheck className="h-4 w-4 text-emerald-200" />
+          Cost-control guardrails
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="grid gap-3 p-5">
+        <div className="rounded-md border border-emerald-300/20 bg-emerald-300/[0.055] p-4">
+          <p className="text-xs font-medium uppercase tracking-[0.16em] text-emerald-200">Open-ended chat disabled</p>
+          <p className="mt-2 text-sm leading-6 text-zinc-300">
+            North Star intentionally blocks user chat prompts so AI spend stays tied to governed workflows: intake, active updates,
+            guided plans, Studio artifacts, leadership feedback, and executive dashboards.
+          </p>
+        </div>
+        <div className="grid gap-3 text-sm leading-6 text-zinc-400">
+          <p>
+            Admins can still monitor model settings, token usage, cached-token efficiency, generated artifacts, and billing forecasts
+            from this cost center.
+          </p>
+          <p>
+            The disabled chat routes remain protected with explicit 410 responses so smoke tests catch any accidental reactivation.
+          </p>
+        </div>
+      </CardContent>
+    </Card>
   );
 }
 
@@ -518,10 +549,13 @@ export function AdminOperatingCostCenter({ guidanceModelProfile }: { guidanceMod
           </Card>
         </div>
 
-        <AdminGuidanceModelSettingsCard
-          initialProfile={guidanceModelProfile}
-          usageDescription="Used by Admin to monitor model choice, reasoning level, cost basis, and cache posture for North Star guidance workflows."
-        />
+        <div className="grid gap-6">
+          <CostControlGuardrailCard />
+          <AdminGuidanceModelSettingsCard
+            initialProfile={guidanceModelProfile}
+            usageDescription="Used by Admin to monitor model choice, reasoning level, cost basis, and cache posture for North Star guidance workflows."
+          />
+        </div>
       </div>
     </section>
   );
