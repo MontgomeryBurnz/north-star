@@ -18,7 +18,6 @@ function statusTone(value: boolean) {
 export default async function AlphaStatusPage() {
   await requireSiteAccessPage("/alpha-status");
   const metrics = await getDashboardMetrics();
-  const assistantProvider = process.env.ASSISTANT_PROVIDER === "openai" ? "openai" : "local";
   const guidedPlanProvider = getConfiguredGuidedPlanProvider();
   const persistenceProvider = getConfiguredPersistenceProvider();
   const artifactStorageProvider = getConfiguredArtifactStorageProvider();
@@ -46,11 +45,6 @@ export default async function AlphaStatusPage() {
       ok: artifactStorageProvider === "supabase",
       detail:
         artifactStorageProvider === "supabase" ? "Artifacts store in Supabase." : "Artifacts are not on shared object storage yet."
-    },
-    {
-      label: "Guide provider",
-      ok: assistantProvider === "openai",
-      detail: assistantProvider === "openai" ? "Server-side intelligence is enabled." : "Guide is still using the local fallback."
     },
     {
       label: "Guided plan provider",
@@ -135,7 +129,7 @@ export default async function AlphaStatusPage() {
                 "Update the program in Program Hub.",
                 "Enter leadership feedback.",
                 "Regenerate the plan and confirm leadership signal appears.",
-                "Ask Guide a grounded program question."
+                "Generate a Studio artifact and confirm it uses program context."
               ].map((step) => (
                 <div key={step} className="rounded-md border border-white/10 bg-white/[0.035] px-3 py-2 text-sm text-zinc-300">
                   {step}

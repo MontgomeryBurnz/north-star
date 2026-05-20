@@ -6,7 +6,6 @@ import type { GuidedPlan } from "@/lib/guided-plan-types";
 type GuidedPlanOverviewCardProps = {
   plan: GuidedPlan;
   currentPhaseLabel: string;
-  lastAssistantDialogueAt?: string;
   formatDate: (value: string) => string;
 };
 
@@ -25,7 +24,6 @@ function shortenReadout(value: string, maxLength = 220) {
 export function GuidedPlanOverviewCard({
   plan,
   currentPhaseLabel,
-  lastAssistantDialogueAt,
   formatDate
 }: GuidedPlanOverviewCardProps) {
   return (
@@ -64,11 +62,6 @@ export function GuidedPlanOverviewCard({
           </summary>
           <p className="mt-3 border-t border-white/10 pt-3 text-sm leading-6 text-zinc-300">{plan.summary}</p>
         </details>
-        {lastAssistantDialogueAt ? (
-          <p className="rounded-md border border-cyan-300/15 bg-cyan-300/[0.04] px-3 py-2 text-xs leading-5 text-cyan-100">
-            Last updated from Guide dialogue {formatDate(lastAssistantDialogueAt)}
-          </p>
-        ) : null}
       </CardContent>
     </Card>
   );

@@ -102,10 +102,6 @@ function buildPromptContext(context: RoleArtifactGenerationContext, baseline: Ro
   const latestUpdate = context.updates[0];
   const latestLeadershipFeedback = context.leadershipFeedbacks[0];
   const latestMeetingInput = context.meetingInputs[0];
-  const recentAssistantConversations = context.assistantConversations.slice(0, 4).map((turn) => ({
-    prompt: excerpt(turn.prompt, 400),
-    answer: excerpt(turn.response.answer, 700)
-  }));
   const artifacts = context.program.intake.artifacts.slice(0, 5).map((artifact) => ({
     id: artifact.id,
     name: artifact.name,
@@ -141,7 +137,6 @@ function buildPromptContext(context: RoleArtifactGenerationContext, baseline: Ro
       latestUpdate: latestUpdate ?? null,
       latestLeadershipFeedback: latestLeadershipFeedback ?? null,
       latestMeetingInput: latestMeetingInput ?? null,
-      recentAssistantConversations,
       localBaselineArtifact: baseline
     },
     null,
@@ -238,7 +233,7 @@ export async function generateRoleArtifactDraft(context: RoleArtifactGenerationC
               type: "input_text",
               text: [
                 "You are North Star generating role-ready delivery artifacts from grounded program context.",
-                "Use only the provided program inputs, uploaded artifact excerpts, active updates, Delivery Board cards and attachments, leadership feedback, Guide dialogue, meeting inputs, and guided plan.",
+                "Use only the provided program inputs, uploaded artifact excerpts, active updates, Delivery Board cards and attachments, leadership feedback, meeting inputs, and guided plan.",
                 "Do not invent client facts. If information is missing, call it out as a gap or validation need.",
                 "Make the output practical for the named role to iterate against immediately.",
                 "Keep content concise, structured, and specific to the selected artifact type.",

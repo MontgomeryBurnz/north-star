@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowRight, BookOpenCheck, FilePlus2, FileText, Gauge, Info, Layers3, ListChecks, MessageSquareText, Sparkles } from "lucide-react";
+import { ArrowRight, BookOpenCheck, FilePlus2, FileText, Gauge, Info, Layers3, ListChecks, Sparkles } from "lucide-react";
 
 import { MotionDiv } from "@/components/motion";
 import { Button } from "@/components/ui/button";
@@ -30,12 +30,6 @@ const quickStartActions = [
     icon: FileText,
     label: "Open Studio",
     detail: "Generate role-specific work products that teams can refine, version, and export."
-  },
-  {
-    href: "/assistant",
-    icon: MessageSquareText,
-    label: "Open Guide",
-    detail: "Ask program-specific questions and keep the dialogue tied to the same program context."
   }
 ];
 

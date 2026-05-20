@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowRight, Bot, CornerDownRight, Database, LockKeyhole, MessageSquareText, Search } from "lucide-react";
+import { ArrowRight, Bot, CornerDownRight, Database, FileText, LockKeyhole } from "lucide-react";
 import { aiProducts, assistantFaqs, frameworks, initiatives } from "@/data";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -9,9 +9,9 @@ export function AssistantPreview() {
   return (
     <section id="assistant" className="mx-auto max-w-7xl px-4 py-20 sm:px-6 lg:px-8">
       <SectionHeader
-        eyebrow="North Star guide"
-        title="Ask for the clearest next move."
-        description="Use program context to separate noise from the plan, outputs, risks, and next step."
+        eyebrow="North Star intelligence"
+        title="Turn signal into the clearest next move."
+        description="Use program context to shape guided plans, reusable artifacts, risks, and next steps."
       />
       <div className="mt-10">
         <Card className="relative overflow-hidden bg-zinc-950/85">
@@ -31,7 +31,7 @@ export function AssistantPreview() {
             <div className="grid gap-3 sm:grid-cols-3">
               {[
                 { label: "Program examples", value: String(initiatives.length).padStart(2, "0"), icon: Database },
-                { label: "Guided prompts", value: String(assistantFaqs.length).padStart(2, "0"), icon: MessageSquareText },
+                { label: "Reusable outputs", value: String(aiProducts.length).padStart(2, "0"), icon: FileText },
                 { label: "Work posture", value: "clear", icon: LockKeyhole }
               ].map((item) => (
                 <div key={item.label} className="rounded-md border border-white/10 bg-white/[0.035] p-3">
@@ -40,12 +40,6 @@ export function AssistantPreview() {
                   <p className="mt-1 text-xs text-zinc-500">{item.label}</p>
                 </div>
               ))}
-            </div>
-            <div className="rounded-lg border border-white/10 bg-black/25 p-3">
-              <div className="flex items-center gap-2 rounded-md border border-white/10 bg-zinc-950 px-3 py-3 text-sm text-zinc-500">
-                <Search className="h-4 w-4 text-zinc-500" />
-                Ask for plan, approach, deliverables, risks, or next steps
-              </div>
             </div>
             {assistantFaqs.slice(0, 4).map((faq) => (
               <div key={faq.id} className="rounded-md border border-white/10 bg-white/[0.035] p-4">
@@ -67,8 +61,8 @@ export function AssistantPreview() {
               </div>
             </div>
             <Button asChild className="mt-2 w-full">
-              <Link href="/assistant">
-                Open work path guide
+              <Link href="/systems">
+                Open guided plans
                 <ArrowRight className="h-4 w-4" />
               </Link>
             </Button>

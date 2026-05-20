@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Bot, ChevronDown, LogOut, Menu, Settings, UserRound, X } from "lucide-react";
+import { ChevronDown, LogOut, Menu, Settings, UserRound, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { AnimatedNorthStarMark } from "@/components/login-brand-mark";
 import { useCurrentUserAssignments } from "@/hooks/use-current-user-assignments";
@@ -163,12 +163,6 @@ export function SiteNav() {
             </Button>
           </div>
           <div className="flex items-center gap-2">
-            <Button asChild size="sm" className="hidden sm:inline-flex">
-              <Link href="/assistant">
-                <Bot className="h-4 w-4" />
-                Guide
-              </Link>
-            </Button>
             <CurrentUserMenu className="hidden lg:block" />
             <Button
               variant="ghost"
@@ -216,12 +210,6 @@ export function SiteNav() {
               <Link href="/admin">
                 <Settings className="h-4 w-4" />
                 Settings
-              </Link>
-            </Button>
-            <Button asChild className="mt-2">
-              <Link href="/assistant">
-                <Bot className="h-4 w-4" />
-                Guide
               </Link>
             </Button>
           </div>

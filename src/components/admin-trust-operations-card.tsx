@@ -27,7 +27,7 @@ const permissionRows = [
   },
   {
     title: "Delivery Lead",
-    detail: "Program Hub ownership, team signal capture, guided plans, Studio outputs, and Guide dialogue for assigned programs."
+    detail: "Program Hub ownership, team signal capture, guided plans, Studio outputs, and delivery board movement for assigned programs."
   },
   {
     title: "Team Member",
@@ -119,7 +119,6 @@ export function AdminTrustOperationsCard({
   const userAccessEvents = auditEvents.filter((event) => event.eventType.startsWith("user.")).length;
   const guidanceRefreshEvents = auditEvents.filter((event) => event.eventType === "guidance.refresh").length;
   const exportEvents = auditEvents.filter((event) => event.eventType === "artifact.export" || event.eventType === "artifact.copy").length;
-  const guideEvents = auditEvents.filter((event) => event.eventType === "guide.dialogue").length;
   const clientDecisionEvents = auditEvents.filter((event) => event.eventType === "client.decision.create").length;
 
   return (
@@ -197,12 +196,11 @@ export function AdminTrustOperationsCard({
 
         <section className="grid gap-3">
           <p className="text-sm font-semibold text-zinc-100">Audit coverage</p>
-          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-6">
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
             <AuditCoverageTile label="User access" value={String(userAccessEvents).padStart(2, "0")} detail="Invites, setup links, role assignments, and removals." />
             <AuditCoverageTile label="Guidance refreshes" value={String(guidanceRefreshEvents).padStart(2, "0")} detail="Plan refreshes triggered by program signal." />
             <AuditCoverageTile label="Guidance flags" value={`${pendingFlags}/${reviewedFlags}`} detail="Pending flags / reviewed flags." />
             <AuditCoverageTile label="Exports" value={String(exportEvents).padStart(2, "0")} detail="Studio copy, DOCX export, and CSV export activity." />
-            <AuditCoverageTile label="Guide dialogue" value={String(guideEvents).padStart(2, "0")} detail="Saved Guide prompts and grounded answers." />
             <AuditCoverageTile label="Client decisions" value={String(clientDecisionEvents).padStart(2, "0")} detail="Client Portal decision requests." />
           </div>
         </section>

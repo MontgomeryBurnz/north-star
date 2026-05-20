@@ -138,14 +138,14 @@ function getModelFitRecommendation(input: {
       }
     ],
     optimization:
-      "Next best governance step: keep guided plans on the recommended model, then evaluate lighter routing only for routine Guide prompts, summaries, or prompt-chip generation with quality gates."
+      "Next best governance step: keep guided plans, Studio artifacts, leadership interpretation, and executive summaries on the recommended model, then evaluate lighter routing only for routine summaries with quality gates."
   };
 }
 
 function getWorkflowLabel(workflow: OpenAIUsageRecord["workflow"]) {
   if (workflow === "guided-plan") return "Guided plans";
-  if (workflow === "guide") return "Guide dialogue";
-  if (workflow === "assistant-briefing") return "Prompt briefing";
+  if (workflow === "guide") return "Legacy chat";
+  if (workflow === "assistant-briefing") return "Legacy prompt briefing";
   return "Leadership feedback";
 }
 

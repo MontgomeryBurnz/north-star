@@ -34,7 +34,7 @@ const triggerLabels: Record<GuidanceJustificationRecord["triggeredBy"][number], 
   artifact: "Upload",
   "active-update": "Active update",
   "leadership-feedback": "Leadership",
-  "assistant-dialogue": "Guide dialogue",
+  "assistant-dialogue": "Legacy context",
   "meeting-input": "Meeting input"
 };
 

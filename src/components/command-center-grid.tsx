@@ -11,7 +11,6 @@ import {
   Flag,
   Info,
   Layers3,
-  MessageSquareText,
   RefreshCcw,
   UsersRound
 } from "lucide-react";
@@ -58,15 +57,6 @@ const workflowSteps = [
     outcome: "A polished external view without exposing internal workflow noise."
   },
   {
-    href: "/assistant",
-    icon: MessageSquareText,
-    label: "Guide",
-    title: "What should we ask or pressure-test?",
-    detail:
-      "Select the active program, ask targeted questions, and keep the conversation anchored to the same context that informs plans and artifacts.",
-    outcome: "Program-grounded dialogue that sharpens the next move."
-  },
-  {
     href: "/leadership",
     icon: UsersRound,
     label: "Leadership",
@@ -90,7 +80,7 @@ const intelligenceLayers = [
   {
     icon: UsersRound,
     title: "Signal",
-    detail: "Uploads, updates, leadership feedback, Guide dialogue, meetings, risks, decisions, and role changes."
+    detail: "Uploads, updates, leadership feedback, meetings, risks, decisions, delivery board activity, and role changes."
   },
   {
     icon: BrainCircuit,
@@ -109,7 +99,6 @@ const capabilityOutputs = [
   "Guided plans and Team Action Plans",
   "Role-based artifacts and reusable work products",
   "Risks, decisions, and executive-ready summaries",
-  "Guide dialogue grounded in the selected program",
   "Governed feedback when guidance needs correction"
 ];
 
@@ -118,7 +107,6 @@ const refreshSources = [
   "Role-level weekly or biweekly progress updates",
   "Risks, blockers, decisions, and support requests",
   "Meeting recordings, notes, and recurring meeting context",
-  "Guide conversations tied to the selected program",
   "Leadership feedback and approved guidance corrections",
   "Team role changes that reshape action plans and artifacts"
 ];
@@ -305,7 +293,7 @@ export function CommandCenterGrid({ metrics }: { metrics: DashboardMetrics }) {
           <div>
             <p className="text-sm font-medium text-cyan-100">Recommended operating habit</p>
             <p className="mt-2 text-sm leading-6 text-zinc-300">
-              Each week, refresh program signal first, review the updated work path, use Guide to pressure-test the next move,
+              Each week, refresh program signal first, review the updated work path, generate the work products that move delivery,
               and route leaders to the Leadership page when sponsor input is due.
             </p>
           </div>

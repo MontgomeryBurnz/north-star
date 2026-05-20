@@ -113,7 +113,6 @@ function buildSourceSignals(context: RoleArtifactSuggestionContext) {
       ? `${latestDeliveryBoardItems.length} delivery board card${latestDeliveryBoardItems.length === 1 ? "" : "s"} available`
       : "",
     context.leadershipFeedbacks.length ? "leadership feedback is influencing the program" : "",
-    context.assistantConversations.length ? "Guide dialogue exists for this program" : "",
     context.meetingInputs.length ? "meeting intelligence is attached" : "",
     context.program.intake.risks ? `risk context: ${excerpt(context.program.intake.risks, 120)}` : "",
     context.program.intake.decisionsNeeded ? `decision context: ${excerpt(context.program.intake.decisionsNeeded, 120)}` : ""
@@ -132,7 +131,7 @@ function suggestionForDefinition(
     businessValue: `Helps ${definition.role} turn current program signal into a reusable work product instead of another status narrative.`,
     definition,
     expectedOutput: definition.outputLabel,
-    generationBrief: `Generate ${definition.title} for ${definition.role}. Use the latest guided plan, source artifacts, team updates, Delivery Board cards and attachments, leadership feedback, Guide dialogue, risks, decisions, timeline, and role composition for ${context.program.intake.programName}.`,
+    generationBrief: `Generate ${definition.title} for ${definition.role}. Use the latest guided plan, source artifacts, team updates, Delivery Board cards and attachments, leadership feedback, meeting inputs, risks, decisions, timeline, and role composition for ${context.program.intake.programName}.`,
     id: `${definition.type}-${definition.role}`,
     recommendedFormat: definition.primaryColumns.join(" / "),
     role: definition.role,
@@ -282,10 +281,6 @@ function buildPromptContext(context: RoleArtifactSuggestionContext) {
         : null,
       latestUpdates: context.updates.slice(0, 3),
       latestLeadershipFeedback: context.leadershipFeedbacks.slice(0, 2),
-      latestGuideDialogue: context.assistantConversations.slice(0, 3).map((turn) => ({
-        prompt: excerpt(turn.prompt, 350),
-        answer: excerpt(turn.response.answer, 500)
-      })),
       latestMeetingInputs: context.meetingInputs.slice(0, 2)
     },
     null,

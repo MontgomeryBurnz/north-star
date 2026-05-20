@@ -434,14 +434,15 @@ test("Active Program review is split into state, cockpit, and team signal flows"
   assert.match(browserWebdriverSource, /"\/screenshot"/);
 });
 
-test("Guide dialogue and client decisions write audit events", () => {
+test("chat guidance is disabled and client decisions still write audit events", () => {
   const assistantRouteSource = readFileSync(new URL("../src/app/api/assistant/route.ts", import.meta.url), "utf8");
   const clientDecisionSource = readFileSync(new URL("../src/app/api/programs/[id]/client-decisions/route.ts", import.meta.url), "utf8");
   const auditTypesSource = readFileSync(new URL("../src/lib/audit-event-types.ts", import.meta.url), "utf8");
 
   assert.match(auditTypesSource, /guide\.dialogue/);
   assert.match(auditTypesSource, /client\.decision\.create/);
-  assert.match(assistantRouteSource, /eventType: "guide\.dialogue"/);
+  assert.match(assistantRouteSource, /status: 410/);
+  assert.match(assistantRouteSource, /chat guidance has been disabled/);
   assert.match(clientDecisionSource, /eventType: "client\.decision\.create"/);
 });
 
@@ -466,7 +467,6 @@ test("Admin can manage OpenAI guidance model settings", () => {
   const studioSmokeSource = readFileSync(new URL("../scripts/smoke-studio.mjs", import.meta.url), "utf8");
   const settingsSource = readFileSync(new URL("../src/lib/guidance-model-settings.ts", import.meta.url), "utf8");
   const guidedProviderSource = readFileSync(new URL("../src/lib/guided-plan-openai-provider.ts", import.meta.url), "utf8");
-  const guideProviderSource = readFileSync(new URL("../src/lib/assistant-openai-provider.ts", import.meta.url), "utf8");
   const artifactProviderSource = readFileSync(new URL("../src/lib/role-artifact-service.ts", import.meta.url), "utf8");
 
   assert.match(adminSource, /getConfiguredGuidanceModelProfile/);
@@ -518,7 +518,6 @@ test("Admin can manage OpenAI guidance model settings", () => {
   assert.match(studioSmokeSource, /data-studio-export-csv/);
   assert.match(settingsSource, /CREATE TABLE IF NOT EXISTS app_settings/);
   assert.match(guidedProviderSource, /getGuidanceModelSettings/);
-  assert.match(guideProviderSource, /getGuidanceModelSettings/);
   assert.match(artifactProviderSource, /getGuidanceModelSettings/);
 });
 

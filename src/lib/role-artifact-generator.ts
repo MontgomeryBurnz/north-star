@@ -68,7 +68,6 @@ function buildSourceSummary(context: RoleArtifactGenerationContext) {
   const artifactCount = context.program.intake.artifacts.length;
   const latestUpdate = context.updates[0];
   const latestLeadership = context.leadershipFeedbacks[0];
-  const latestGuide = context.assistantConversations[0];
   const latestMeeting = context.meetingInputs[0];
   const deliveryBoardItems = latestUpdate?.review.deliveryBoardItems ?? [];
   const sourceParts = [
@@ -76,7 +75,6 @@ function buildSourceSummary(context: RoleArtifactGenerationContext) {
     latestUpdate ? "latest active-program update" : "",
     deliveryBoardItems.length ? `${deliveryBoardItems.length} delivery board card${deliveryBoardItems.length === 1 ? "" : "s"}` : "",
     latestLeadership ? "latest leadership feedback" : "",
-    latestGuide ? "latest Guide dialogue" : "",
     latestMeeting ? "latest meeting input" : ""
   ].filter(Boolean);
 
@@ -340,7 +338,7 @@ function genericArtifact(context: RoleArtifactGenerationContext): Pick<RoleArtif
         title: "Iteration Focus",
         items: [
           signals.feedback ? `User direction to incorporate: ${excerpt(signals.feedback, 150)}` : `Next decision to clarify: ${excerpt(decisions[0], 150)}`,
-          "Ask Guide to regenerate after new uploads, team updates, or leadership feedback materially changes the context."
+          "Refresh this artifact after new uploads, team updates, delivery board movement, or leadership feedback materially changes the context."
         ]
       }
     ],

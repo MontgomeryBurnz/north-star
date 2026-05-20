@@ -4,7 +4,6 @@ import {
   createOpenAIUsageRecord,
   getLatestGuidedPlan,
   getProgram,
-  listAssistantConversations,
   listLeadershipFeedback,
   listMeetingInputs,
   listProgramUpdates
@@ -24,15 +23,14 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     return NextResponse.json({ error: "Program not found." }, { status: 404 });
   }
 
-  const [latestPlan, updates, leadershipFeedbacks, assistantConversations, meetingInputs] = await Promise.all([
+  const [latestPlan, updates, leadershipFeedbacks, meetingInputs] = await Promise.all([
     getLatestGuidedPlan(id),
     listProgramUpdates(id),
     listLeadershipFeedback(id),
-    listAssistantConversations(id),
     listMeetingInputs(id)
   ]);
   const result = await suggestRoleArtifacts({
-    assistantConversations,
+    assistantConversations: [],
     latestPlan,
     leadershipFeedbacks,
     meetingInputs,

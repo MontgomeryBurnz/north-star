@@ -17,7 +17,7 @@ export async function GET(request: Request) {
     environment: process.env.NODE_ENV,
     persistenceProvider: getConfiguredPersistenceProvider(),
     artifactStorageProvider: getConfiguredArtifactStorageProvider(),
-    assistantProvider: process.env.ASSISTANT_PROVIDER === "openai" ? "openai" : "local",
+    chatGuideEnabled: false,
     guidedPlanProvider: getConfiguredGuidedPlanProvider(),
     siteAccessEnabled: siteAccess.enabled,
     leadershipAuthProvider: getConfiguredLeadershipAuthProvider(),

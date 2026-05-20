@@ -112,10 +112,10 @@ const seededLeadershipPlan: GuidedPlan = {
     ]
   },
   assistantDialogue: {
-    title: "Guide Dialogue Shaping This Plan",
+    title: "Program Context Shaping This Plan",
     items: [
-      "No guide dialogue is on file in the seeded leadership scenario.",
-      "Use Guide to capture delivery-lead context that should influence the next plan refresh."
+      "Seeded leadership scenario uses active-program updates and leadership feedback as the context layer.",
+      "Add uploads, delivery board movement, meeting inputs, or leadership feedback to influence the next plan refresh."
     ]
   },
   signalFromNoise: {

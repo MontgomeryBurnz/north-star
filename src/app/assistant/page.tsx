@@ -1,11 +1,9 @@
-import { AssistantChat } from "@/components/assistant-chat";
-import { requireSiteAccessPage } from "@/lib/app-page-access";
+import { redirect } from "next/navigation";
 
 export const metadata = {
-  title: "Guide | North Star"
+  title: "Guided Plans | North Star"
 };
 
-export default async function AssistantPage() {
-  await requireSiteAccessPage("/assistant");
-  return <AssistantChat />;
+export default function AssistantPage() {
+  redirect("/systems");
 }

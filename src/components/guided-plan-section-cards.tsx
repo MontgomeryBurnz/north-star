@@ -12,7 +12,7 @@ import { GuidanceFlagForm } from "@/components/guidance-flag-form";
 const allRolesOption = "__all_roles__";
 const primaryInsightTitles = new Set([
   "Fresh Inputs Driving This Plan",
-  "Guide Dialogue Shaping This Plan",
+  "Program Context Shaping This Plan",
   "Signal From Noise",
   "Recommended Work Path",
   "Planning Approach",
@@ -25,7 +25,7 @@ const sectionGroups = [
   {
     title: "Inputs",
     description: "What changed or informed the refresh.",
-    sections: ["Fresh Inputs Driving This Plan", "Guide Dialogue Shaping This Plan"]
+    sections: ["Fresh Inputs Driving This Plan", "Program Context Shaping This Plan"]
   },
   {
     title: "Execution",
@@ -78,7 +78,7 @@ const triggerLabels: Record<GuidanceJustificationRecord["triggeredBy"][number], 
   artifact: "Upload",
   "active-update": "Active update",
   "leadership-feedback": "Leadership",
-  "assistant-dialogue": "Guide dialogue",
+  "assistant-dialogue": "Legacy context",
   "meeting-input": "Meeting input"
 };
 
@@ -171,7 +171,7 @@ function getSectionGroup(sectionTitle: string) {
 
 function getInsightLabel(sectionTitle: string) {
   if (sectionTitle === "Fresh Inputs Driving This Plan") return "Inputs";
-  if (sectionTitle === "Guide Dialogue Shaping This Plan") return "Guide";
+  if (sectionTitle === "Program Context Shaping This Plan") return "Context";
   if (sectionTitle === "Signal From Noise") return "Signal";
   if (sectionTitle === "Recommended Work Path") return "Next Move";
   if (sectionTitle === "Planning Approach") return "Approach";

@@ -49,7 +49,6 @@ function buildGuidanceJustificationRecord(input: {
 }): GuidanceJustificationRecord {
   const latestUpdate = input.updates[0];
   const latestLeadership = input.leadershipFeedbacks[0];
-  const latestAssistant = input.assistantConversations[0];
   const latestMeetingInput = input.meetingInputs[0];
   const artifactsById = new Map(input.program.intake.artifacts.map((artifact) => [artifact.id, artifact]));
   const citations: GuidanceJustificationRecord["citations"] = [];
@@ -91,18 +90,6 @@ function buildGuidanceJustificationRecord(input: {
         input.plan.leadershipChanges.items[0] ??
         input.plan.sourceInputs.items.find((item) => item.startsWith("Leadership feedback")) ??
         "Leadership feedback adjusted the plan."
-    });
-  }
-
-  if (latestAssistant) {
-    triggeredBy.push("assistant-dialogue");
-    citations.push({
-      sourceType: "assistant-dialogue",
-      sourceId: latestAssistant.id,
-      label: "Guide dialogue",
-      rationale:
-        input.plan.assistantDialogue.items[1] ??
-        "Guide dialogue added operator context that shaped the refreshed plan."
     });
   }
 
@@ -220,13 +207,10 @@ export function createFileGuidancePersistence(): Pick<
       const leadershipFeedbacks = sortByUpdatedDesc(
         store.leadershipFeedbacks.filter((feedback) => feedback.programId === programId)
       );
-      const assistantConversations = sortByUpdatedDesc(
-        store.assistantConversations.filter((conversation) => conversation.programId === programId)
-      );
       const meetingInputs = sortByUpdatedDesc(store.meetingInputs.filter((input) => input.programId === programId)).map(
         normalizeMeetingInput
       );
-      const plan = await generateGuidedPlan({ program, updates, leadershipFeedbacks, assistantConversations, meetingInputs });
+      const plan = await generateGuidedPlan({ program, updates, leadershipFeedbacks, assistantConversations: [], meetingInputs });
 
       store.guidedPlans = [plan, ...store.guidedPlans];
       if (plan.modelUsage) {
@@ -247,7 +231,7 @@ export function createFileGuidancePersistence(): Pick<
         plan,
         updates,
         leadershipFeedbacks,
-        assistantConversations,
+        assistantConversations: [],
         meetingInputs
       });
       store.guidanceJustifications = [justification, ...store.guidanceJustifications];
@@ -401,9 +385,8 @@ export function createPostgresGuidancePersistence(
 
       const updates = await repository.listProgramUpdates(programId);
       const leadershipFeedbacks = await repository.listLeadershipFeedback(programId);
-      const assistantConversations = await repository.listAssistantConversations(programId);
       const meetingInputs = await repository.listMeetingInputs(programId);
-      const plan = await generateGuidedPlan({ program, updates, leadershipFeedbacks, assistantConversations, meetingInputs });
+      const plan = await generateGuidedPlan({ program, updates, leadershipFeedbacks, assistantConversations: [], meetingInputs });
 
       await getPool().query(
         `
@@ -422,7 +405,7 @@ export function createPostgresGuidancePersistence(
         plan,
         updates,
         leadershipFeedbacks,
-        assistantConversations,
+        assistantConversations: [],
         meetingInputs
       });
       await repository.createGuidanceJustification(justification);

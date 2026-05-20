@@ -13,13 +13,13 @@ export type AIProduct = {
 export const aiProducts: AIProduct[] = [
   {
     id: "work-context-assistant",
-    name: "Work Context Assistant",
+    name: "Program Intelligence Engine",
     status: "beta",
-    summary: "Answers questions from local operating content, decisions, frameworks, and open risks.",
-    purpose: "Provide a grounded intelligence layer over the operator console without external dependencies.",
-    inputs: ["initiatives", "frameworks", "assistant FAQs", "experiments", "profile signals"],
-    outputs: ["grounded answer", "source labels", "related prompts", "matched records"],
-    value: "Makes the site inspectable, testable, and ready for later OpenAI-backed retrieval.",
+    summary: "Turns intake, delivery updates, leadership feedback, and artifacts into guidance and reusable outputs.",
+    purpose: "Provide a grounded intelligence layer over program execution without open-ended chat spend.",
+    inputs: ["program intake", "team updates", "leadership feedback", "delivery artifacts", "governance flags"],
+    outputs: ["guided plans", "role artifacts", "risk signals", "decision prompts"],
+    value: "Keeps AI usage focused on governed workflows that create durable program value.",
     relatedInitiativeIds: ["coolition-decision-surface", "order-guide-transformation"]
   },
   {

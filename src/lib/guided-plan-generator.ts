@@ -1,6 +1,5 @@
 import { randomUUID } from "crypto";
 import type { DeliveryBoardItem, DeliveryBoardStatus, StoredProgramUpdate } from "./active-program-types.ts";
-import type { AssistantConversationTurn } from "./assistant-conversation-types.ts";
 import type { GuidedPlan, GuidedPlanRolePlan } from "./guided-plan-types.ts";
 import type { LeadershipReviewRecord } from "./leadership-feedback-types.ts";
 import { buildDeliveryLeadershipSignal } from "./leadership-signal.ts";
@@ -335,12 +334,10 @@ export function generateLocalGuidedPlan(
   program: StoredProgram,
   updates: StoredProgramUpdate[],
   leadershipFeedbacks: LeadershipReviewRecord[] = [],
-  assistantConversations: AssistantConversationTurn[] = [],
   meetingInputs: ProgramMeetingInput[] = []
 ): GuidedPlan {
   const latestUpdate = updates[0];
   const latestLeadershipFeedback = leadershipFeedbacks[0];
-  const latestAssistantConversation = assistantConversations[0];
   const latestMeetingInput = meetingInputs[0];
   const intake = program.intake;
   const review = latestUpdate?.review;
@@ -381,9 +378,6 @@ export function generateLocalGuidedPlan(
     teamRoleUpdates.length ? sourceLabel(teamRoleUpdates.length, "role submission") : "",
     deliveryBoardItems.length ? sourceLabel(deliveryBoardItems.length, "delivery board card") : "",
     latestLeadershipFeedback ? "latest leadership feedback" : "",
-    latestAssistantConversation
-      ? sourceLabel(assistantConversations.length, "guide dialogue turn", "guide dialogue turns")
-      : "",
     latestMeetingInput ? sourceLabel(meetingInputs.length, "meeting input") : ""
   ].filter(Boolean);
   const sourceSummary = sourceSummaryParts.length ? sourceSummaryParts.join(", ") : "initial intake only";
@@ -434,12 +428,6 @@ export function generateLocalGuidedPlan(
           140
         )}`
       : "No leadership feedback is on file yet. Once entered, leadership signal will be translated into plan changes and role-level direction.",
-    latestAssistantConversation
-      ? `Guide dialogue shaping this plan: ${excerpt(
-          `${latestAssistantConversation.prompt} ${latestAssistantConversation.response.answer}`,
-          140
-        )}`
-      : "No guide dialogue is on file yet. Use Guide to capture operator context that should influence the next plan.",
     latestMeetingInput
       ? `Meeting context shaping this plan: ${excerpt(
           `${latestMeetingInput.title}. ${latestMeetingInput.summary} ${latestMeetingInput.recommendedPlanAdjustments.join(" ")}`,
@@ -460,20 +448,30 @@ export function generateLocalGuidedPlan(
       items: sourceInputItems
     },
     assistantDialogue: {
-      title: "Guide Dialogue Shaping This Plan",
-      items: latestAssistantConversation
-        ? [
-            `Latest operator prompt: ${excerpt(latestAssistantConversation.prompt, 140)}`,
-            `Latest Guide response influencing this plan: ${excerpt(latestAssistantConversation.response.answer, 140)}`,
-            `Dialogue history on file: ${sourceLabel(
-              assistantConversations.length,
-              "turn"
-            )}. Guide dialogue is treated as a grounded planning input for this program.`
-          ]
-        : [
-            "No guide dialogue is on file yet for this program.",
-            "Use Guide to capture delivery-lead context, open questions, or operator judgment that should influence the next plan refresh."
-          ]
+      title: "Program Context Shaping This Plan",
+      items: [
+        latestUpdate
+          ? `Latest delivery context: ${excerpt(
+              firstAvailable(review?.programSynthesisNote ?? "", review?.progressSinceLastReview ?? "", review?.planChanges ?? ""),
+              140
+            )}`
+          : "No active-program update is on file yet.",
+        latestLeadershipFeedback
+          ? `Leadership context: ${excerpt(
+              leadershipInterpretation?.deliveryLeadMessage ??
+                leadershipInterpretation?.summary ??
+                latestLeadershipFeedback.feedback.feedbackToDeliveryLead ??
+                latestLeadershipFeedback.feedback.leadershipGuidance,
+              140
+            )}`
+          : "No leadership feedback is on file yet.",
+        deliveryBoardItems.length
+          ? `Delivery board context: ${summarizeDeliveryBoardItems(deliveryBoardItems, 3)}`
+          : "No delivery board movement is on file yet.",
+        latestMeetingInput
+          ? `Meeting context: ${excerpt(latestMeetingInput.summary, 140)}`
+          : "No meeting-derived program input is on file yet."
+      ]
     },
     signalFromNoise: {
       title: "Signal From Noise",
@@ -498,9 +496,6 @@ export function generateLocalGuidedPlan(
                 latestArtifactSignal.fileFormat ?? "unknown"
               }): ${latestArtifactSignal.signal}`
             ]
-          : []),
-        ...(latestAssistantConversation
-          ? [`Guide dialogue signal: ${excerpt(latestAssistantConversation.response.answer, 140)}`]
           : []),
         ...(teamRoleUpdates.length
           ? [
@@ -549,14 +544,6 @@ export function generateLocalGuidedPlan(
         `Account for current change: ${firstAvailable(review?.planChanges ?? "", "No plan changes captured yet.")}`,
         ...(leadershipInterpretation?.planImpacts.length
           ? leadershipInterpretation.planImpacts.slice(0, 2).map((item) => `Leadership-adjusted planning impact: ${item}`)
-          : []),
-        ...(latestAssistantConversation
-          ? [
-              `Assistant dialogue adjustment: ${excerpt(
-                `${latestAssistantConversation.prompt} ${latestAssistantConversation.response.answer}`,
-                140
-              )}`
-            ]
           : []),
         ...(latestMeetingInput
           ? [
@@ -678,13 +665,12 @@ export function generateLocalGuidedPlan(
       "What decision or consideration would remove the most ambiguity this week?",
       "Which stakeholder, team role, or dependency needs alignment before the next move?",
       "What evidence would prove the program is still moving toward true north?",
-      "What new upload, update, leadership signal, assistant dialogue, or team role should be added before the next plan refresh?"
+      "What new upload, update, leadership signal, meeting input, delivery board movement, or team role should be added before the next plan refresh?"
     ],
     sourceRecordIds: [
       program.id,
       ...(latestUpdate ? [latestUpdate.id] : []),
       ...(latestLeadershipFeedback ? [latestLeadershipFeedback.id] : []),
-      ...(latestAssistantConversation ? [latestAssistantConversation.id] : []),
       ...(latestMeetingInput ? [latestMeetingInput.id] : []),
       ...artifactSignals.map((artifact) => artifact.id)
     ]

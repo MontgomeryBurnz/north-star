@@ -1,9 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { MessageSquareText } from "lucide-react";
 import type { StoredProgramUpdate } from "@/lib/active-program-types";
-import type { AssistantConversationTurn } from "@/lib/assistant-conversation-types";
 import type { GuidedPlan, GuidedPlanRolePlans, GuidedPlanSection } from "@/lib/guided-plan-types";
 import type { DeliveryLeadershipSignal } from "@/lib/leadership-feedback-types";
 import type { GuidanceFeedbackFlag, GuidanceFeedbackFlagTargetType, GuidanceJustificationRecord } from "@/lib/program-intelligence-types";
@@ -15,7 +13,6 @@ import { useRequestSequence } from "@/hooks/use-request-sequence";
 import { buildTeamActionPlanFlagSourceId } from "@/lib/guidance-feedback-flag-sources";
 import { buildProgramGantt } from "@/lib/program-gantt";
 import { normalizeTeamRoles } from "@/lib/team-roles";
-import { Button } from "@/components/ui/button";
 import { GuidedPlanEmptyStateCard } from "@/components/guided-plan-empty-state-card";
 import { GuidedPlanGanttSummary } from "@/components/guided-plan-gantt-summary";
 import { GuidedPlanLeadershipSignalCard } from "@/components/guided-plan-leadership-signal-card";
@@ -117,8 +114,6 @@ export function GuidedPlansConsole() {
   const bundleRequest = useRequestSequence();
   const [plan, setPlan] = useState<GuidedPlan | null>(null);
   const [updates, setUpdates] = useState<StoredProgramUpdate[]>([]);
-  const [assistantConversations, setAssistantConversations] = useState<AssistantConversationTurn[]>([]);
-  const [showAssistantHistory, setShowAssistantHistory] = useState(false);
   const [leadershipSignal, setLeadershipSignal] = useState<DeliveryLeadershipSignal | null>(null);
   const [justifications, setJustifications] = useState<GuidanceJustificationRecord[]>([]);
   const [guidanceFlags, setGuidanceFlags] = useState<GuidanceFeedbackFlag[]>([]);
@@ -167,8 +162,6 @@ export function GuidedPlansConsole() {
       if (!programId) {
         setPlan(null);
         setUpdates([]);
-        setAssistantConversations([]);
-        setShowAssistantHistory(false);
         setLeadershipSignal(null);
         setJustifications([]);
         setGuidanceFlags([]);
@@ -184,7 +177,6 @@ export function GuidedPlansConsole() {
         const payload = (await response.json()) as {
           plan: GuidedPlan | null;
           updates: StoredProgramUpdate[];
-          assistantConversations: AssistantConversationTurn[];
           leadershipSignal: DeliveryLeadershipSignal;
           justifications: GuidanceJustificationRecord[];
           flags: GuidanceFeedbackFlag[];
@@ -194,7 +186,6 @@ export function GuidedPlansConsole() {
 
         setPlan(payload.plan);
         setUpdates(payload.updates);
-        setAssistantConversations(payload.assistantConversations);
         setLeadershipSignal(payload.leadershipSignal);
         setJustifications(payload.justifications);
         setGuidanceFlags(payload.flags);
@@ -427,10 +418,10 @@ export function GuidedPlansConsole() {
       ),
       normalizePlanSection(
         plan.assistantDialogue,
-        "Guide Dialogue Shaping This Plan",
+        "Program Context Shaping This Plan",
         [
-          "No guide dialogue is visible in this saved version.",
-          "Use Guide to capture operator context that should influence the next guided-plan refresh."
+          "No supplemental program context is visible in this saved version.",
+          "Upload artifacts, update role signals, add delivery board movement, or capture leadership feedback to influence the next refresh."
         ]
       ),
       normalizePlanSection(plan.signalFromNoise, "Signal From Noise", ["No current signal summary is available."]),
@@ -455,54 +446,6 @@ export function GuidedPlansConsole() {
     ];
   }, [leadershipSignal?.status, plan]);
   const rolePlans = useMemo(() => (plan ? normalizeRolePlans(plan.rolePlans) : null), [plan]);
-  const latestAssistantConversation = assistantConversations[0];
-  const lastAssistantDialogueAt = latestAssistantConversation?.updatedAt || latestAssistantConversation?.createdAt;
-  const assistantDialogueFooter = useMemo(() => {
-    if (!assistantConversations.length) return null;
-
-    return (
-      <div className="mt-2 grid gap-3 rounded-md border border-cyan-300/20 bg-cyan-300/[0.055] p-3">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <p className="flex items-center gap-2 text-sm font-medium text-cyan-100">
-            <MessageSquareText className="h-4 w-4" />
-            Conversation history
-          </p>
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            className="h-auto px-2 py-1 text-cyan-100 hover:text-cyan-50"
-            onClick={() => setShowAssistantHistory((open) => !open)}
-          >
-            {showAssistantHistory ? "Hide history" : "View full history"}
-          </Button>
-        </div>
-        {showAssistantHistory ? (
-          <div className="grid gap-3">
-            {assistantConversations.map((turn) => (
-              <div key={turn.id} className="rounded-md border border-white/10 bg-black/20 p-3">
-                <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-zinc-500">{formatDate(turn.updatedAt)}</p>
-                <p className="mt-2 text-xs font-medium uppercase tracking-[0.14em] text-zinc-300">Prompt</p>
-                <p className="mt-1 text-sm leading-6 text-zinc-200">{turn.prompt}</p>
-                <p className="mt-3 text-xs font-medium uppercase tracking-[0.14em] text-zinc-300">Guide</p>
-                <p className="mt-1 text-sm leading-6 text-zinc-400">{turn.response.answer}</p>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <p className="text-xs leading-5 text-zinc-300">
-            {assistantConversations.length} stored dialogue {assistantConversations.length === 1 ? "turn is" : "turns are"} from Guide shaping this plan.
-          </p>
-        )}
-      </div>
-    );
-  }, [assistantConversations, showAssistantHistory]);
-  const planSectionFooters = useMemo(
-    () => ({
-      "Guide Dialogue Shaping This Plan": assistantDialogueFooter
-    }),
-    [assistantDialogueFooter]
-  );
 
   return (
     <main className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
@@ -539,7 +482,6 @@ export function GuidedPlansConsole() {
                 <GuidedPlanOverviewCard
                   plan={plan}
                   currentPhaseLabel={currentPhase.label}
-                  lastAssistantDialogueAt={lastAssistantDialogueAt}
                   formatDate={formatDate}
                 />
                 <GuidedPlanLeadershipSignalCard leadershipSignal={leadershipSignal} />
@@ -598,7 +540,6 @@ export function GuidedPlansConsole() {
                 <div className="grid gap-4 border-t border-white/10 p-4 sm:p-5">
                   <GuidanceReviewPanel
                     sections={planSections}
-                    sectionFooters={planSectionFooters}
                     justification={latestJustification}
                     pendingFlagCount={pendingFlagCount}
                     flagTarget={flagTarget}

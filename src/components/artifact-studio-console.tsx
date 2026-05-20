@@ -76,8 +76,8 @@ function EmptyArtifactState({ hasPrograms }: { hasPrograms: boolean }) {
             {hasPrograms ? "Select a program to begin." : "Create a program before generating artifacts."}
           </p>
           <p className="mx-auto mt-2 max-w-lg text-sm leading-6 text-zinc-500">
-            Studio uses the selected program&apos;s uploads, guided plan, team updates, leadership feedback, Guide dialogue,
-            risks, decisions, timeline, and roles to recommend useful work products.
+            Studio uses the selected program&apos;s uploads, guided plan, team updates, leadership feedback, delivery board
+            movement, meeting inputs, risks, decisions, timeline, and roles to recommend useful work products.
           </p>
         </div>
       </CardContent>
@@ -455,7 +455,7 @@ export function ArtifactStudioConsole() {
                 </span>
               </summary>
               <p className="mt-3 border-t border-white/10 pt-3 text-sm leading-6 text-zinc-300">
-                Studio uses uploads, guided plans, team updates, leadership feedback, Guide dialogue, meeting inputs,
+                Studio uses uploads, guided plans, team updates, leadership feedback, delivery board movement, meeting inputs,
                 risks, decisions, timeline, and role composition to shape each artifact.
               </p>
             </details>

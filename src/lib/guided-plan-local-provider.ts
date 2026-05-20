@@ -8,7 +8,7 @@ export const localGuidedPlanProvider: GuidedPlanProvider = {
       context.program,
       context.updates,
       context.leadershipFeedbacks,
-      context.assistantConversations
+      context.meetingInputs
     );
   }
 };

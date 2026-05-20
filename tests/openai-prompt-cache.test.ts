@@ -7,7 +7,7 @@ test("getNorthStarPromptCacheKey creates stable normalized workflow keys", () =>
     getNorthStarPromptCacheKey("Guided Plan", "Compass Compliance Hub Alpha"),
     "north-star:guided-plan:compass-compliance-hub-alpha"
   );
-  assert.equal(getNorthStarPromptCacheKey("Guide"), "north-star:guide:global");
+  assert.equal(getNorthStarPromptCacheKey("Studio Artifact"), "north-star:studio-artifact:global");
 });
 
 test("getNorthStarPromptCacheKey caps long cache keys", () => {
