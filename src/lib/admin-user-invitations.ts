@@ -9,7 +9,7 @@ import {
 import { upsertManagedUser } from "@/lib/program-store";
 import { buildPublicAppUrl } from "@/lib/public-origin";
 import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/lib/supabase/server";
-import { createUserActivationToken } from "@/lib/user-activation-tokens";
+import { appendUserActivationToken, createUserActivationToken } from "@/lib/user-activation-tokens";
 
 export type InvitationProviderStatus = {
   brandedEmail: ReturnType<typeof getNorthStarEmailDeliveryStatus>;
@@ -24,6 +24,7 @@ export type ManagedUserInvitationResult =
       activationTokenCreatedAt?: string;
       activationTokenExpiresAt?: string;
       activationTokenHash?: string;
+      activationTokens?: ManagedAppUser["activationTokens"];
       authUserId?: string;
       invitedAt: string;
     }
@@ -38,6 +39,7 @@ export type ManagedUserSetupLinkResult =
       activationTokenCreatedAt?: string;
       activationTokenExpiresAt?: string;
       activationTokenHash?: string;
+      activationTokens?: ManagedAppUser["activationTokens"];
       authUserId?: string;
       invitedAt: string;
       setupUrl: string;
@@ -101,6 +103,7 @@ async function generateSetupLink({
   }
 
   const activation = createUserActivationToken();
+  const activationTokens = appendUserActivationToken(user, activation);
   const setupUrl = buildManagedUserActivationUrl({ request, token: activation.token });
 
   return {
@@ -108,6 +111,7 @@ async function generateSetupLink({
     activationTokenCreatedAt: activation.createdAt,
     activationTokenExpiresAt: activation.expiresAt,
     activationTokenHash: activation.tokenHash,
+    activationTokens,
     authUserId: data.user?.id,
     invitedAt: data.user?.invited_at ?? data.user?.confirmation_sent_at ?? new Date().toISOString(),
     setupUrl,
@@ -141,10 +145,6 @@ export async function inviteManagedUser(user: ManagedAppUser, request: Request):
     };
   }
 
-  const redirectTo = buildPublicAppUrl("/auth/callback", request);
-  redirectTo.searchParams.set("next", "/auth/setup");
-
-  const supabase = createSupabaseAdminClient();
   const brandedEmail = getNorthStarEmailDeliveryStatus();
 
   if (!brandedEmail.configured) {
@@ -164,29 +164,8 @@ export async function inviteManagedUser(user: ManagedAppUser, request: Request):
     };
   }
 
-  const { data, error } = await supabase.auth.admin.generateLink({
-    email: user.email,
-    options: {
-      data: {
-        full_name: user.name,
-        northStarManagedUserId: user.id,
-        northStarUserType: user.userType
-      },
-      redirectTo: redirectTo.toString()
-    },
-    type: "invite"
-  });
-
-  if (error || !data.properties?.action_link) {
-    return {
-      ok: false,
-      error: error?.message || "Supabase could not generate the invitation link."
-    };
-  }
-
-  const activation = createUserActivationToken();
-  const actionUrl = buildManagedUserActivationUrl({ request, token: activation.token });
-  const invitedAt = data.user?.invited_at ?? data.user?.confirmation_sent_at ?? new Date().toISOString();
+  const setupLink = await createManagedUserSetupLink(user, request);
+  if (!setupLink.ok) return setupLink;
 
   // Persist the North Star token before sending email so link scanners or fast user clicks
   // cannot observe a valid-looking invite URL before the backing token exists.
@@ -196,11 +175,12 @@ export async function inviteManagedUser(user: ManagedAppUser, request: Request):
     email: user.email,
     userType: user.userType,
     credentialStatus: "invited",
-    activationTokenCreatedAt: activation.createdAt,
-    activationTokenExpiresAt: activation.expiresAt,
-    activationTokenHash: activation.tokenHash,
-    authUserId: data.user?.id,
-    invitedAt,
+    activationTokenCreatedAt: setupLink.activationTokenCreatedAt,
+    activationTokenExpiresAt: setupLink.activationTokenExpiresAt,
+    activationTokenHash: setupLink.activationTokenHash,
+    activationTokens: setupLink.activationTokens,
+    authUserId: setupLink.authUserId,
+    invitedAt: setupLink.invitedAt,
     lastAuthSyncAt: new Date().toISOString(),
     invitationError: ""
   });
@@ -208,13 +188,13 @@ export async function inviteManagedUser(user: ManagedAppUser, request: Request):
   try {
     await sendNorthStarEmail({
       html: buildNorthStarInviteEmail({
-        actionUrl,
+        actionUrl: setupLink.setupUrl,
         recipientEmail: user.email,
         recipientName: user.name
       }),
       subject: "Your North Star access is ready",
       text: buildNorthStarInviteText({
-        actionUrl,
+        actionUrl: setupLink.setupUrl,
         recipientEmail: user.email,
         recipientName: user.name
       }),
@@ -229,11 +209,12 @@ export async function inviteManagedUser(user: ManagedAppUser, request: Request):
 
   return {
     ok: true,
-    activationTokenCreatedAt: activation.createdAt,
-    activationTokenExpiresAt: activation.expiresAt,
-    activationTokenHash: activation.tokenHash,
-    authUserId: data.user?.id,
-    invitedAt
+    activationTokenCreatedAt: setupLink.activationTokenCreatedAt,
+    activationTokenExpiresAt: setupLink.activationTokenExpiresAt,
+    activationTokenHash: setupLink.activationTokenHash,
+    activationTokens: setupLink.activationTokens,
+    authUserId: setupLink.authUserId,
+    invitedAt: setupLink.invitedAt
   };
 }
 

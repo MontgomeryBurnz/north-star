@@ -59,6 +59,7 @@ export async function POST(request: Request) {
     userType: managedUser.userType,
     credentialStatus: "active",
     activationTokenHash: "",
+    activationTokens: [],
     authUserId: signIn.data.user.id,
     lastAuthSyncAt: new Date().toISOString(),
     invitationError: ""

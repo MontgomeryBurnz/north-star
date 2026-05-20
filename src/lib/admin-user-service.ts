@@ -3,6 +3,7 @@ import type {
   AppUserType,
   ManagedAppUser,
   ManagedAppUserInput,
+  ManagedUserActivationToken,
   ManagedProgramAssignment,
   ManagedProgramAssignmentInput
 } from "./admin-user-types.ts";
@@ -27,6 +28,18 @@ function normalizeEmail(value: string | undefined) {
 
 function normalizeText(value: string | undefined) {
   return value?.trim() ?? "";
+}
+
+function normalizeActivationTokens(value: ManagedUserActivationToken[] | undefined) {
+  if (!Array.isArray(value)) return undefined;
+
+  return value
+    .map((token) => ({
+      createdAt: normalizeText(token.createdAt),
+      expiresAt: normalizeText(token.expiresAt),
+      tokenHash: normalizeText(token.tokenHash)
+    }))
+    .filter((token) => token.createdAt && token.expiresAt && /^[0-9a-f]{64}$/i.test(token.tokenHash));
 }
 
 function isAppUserType(value: unknown): value is AppUserType {
@@ -138,6 +151,9 @@ export function buildManagedAppUserRecord({
         programs
       })
     : [];
+  const activationTokens = input.activationTokenHash === ""
+    ? normalizeActivationTokens(input.activationTokens)
+    : normalizeActivationTokens(input.activationTokens) ?? existing?.activationTokens;
 
   if (isProgramScopedUserType(userType) && assignments.length === 0) {
     return { ok: false, error: "Select a program and program role for this user type." };
@@ -157,6 +173,7 @@ export function buildManagedAppUserRecord({
       activationTokenHash: input.activationTokenHash === ""
         ? undefined
         : normalizeText(input.activationTokenHash) || existing?.activationTokenHash,
+      activationTokens,
       invitedAt: normalizeText(input.invitedAt) || existing?.invitedAt,
       lastAuthSyncAt: normalizeText(input.lastAuthSyncAt) || existing?.lastAuthSyncAt,
       invitationError: input.invitationError === "" ? undefined : normalizeText(input.invitationError) || existing?.invitationError,

@@ -371,6 +371,13 @@ test("buildManagedAppUserRecord stores invitation and auth metadata", () => {
       activationTokenCreatedAt: "2026-04-29T13:59:00.000Z",
       activationTokenExpiresAt: "2026-05-01T13:59:00.000Z",
       activationTokenHash: "abc123",
+      activationTokens: [
+        {
+          createdAt: "2026-04-29T13:59:00.000Z",
+          expiresAt: "2026-05-01T13:59:00.000Z",
+          tokenHash: "a".repeat(64)
+        }
+      ],
       authUserId: "auth-user-1",
       invitedAt: "2026-04-29T14:00:00.000Z",
       lastAuthSyncAt: "2026-04-29T14:01:00.000Z",
@@ -391,9 +398,61 @@ test("buildManagedAppUserRecord stores invitation and auth metadata", () => {
   assert.equal(result.record.activationTokenCreatedAt, "2026-04-29T13:59:00.000Z");
   assert.equal(result.record.activationTokenExpiresAt, "2026-05-01T13:59:00.000Z");
   assert.equal(result.record.activationTokenHash, "abc123");
+  assert.equal(result.record.activationTokens?.length, 1);
+  assert.equal(result.record.activationTokens?.[0]?.tokenHash, "a".repeat(64));
   assert.equal(result.record.invitedAt, "2026-04-29T14:00:00.000Z");
   assert.equal(result.record.lastAuthSyncAt, "2026-04-29T14:01:00.000Z");
   assert.equal(result.record.invitationError, "temporary issue");
+});
+
+test("buildManagedAppUserRecord clears activation tokens after access is activated", () => {
+  const existing = buildManagedAppUserRecord({
+    idFactory: () => "user-1",
+    input: {
+      name: "Avery Morgan",
+      email: "avery@example.com",
+      credentialStatus: "invited",
+      activationTokenCreatedAt: "2026-04-29T13:59:00.000Z",
+      activationTokenExpiresAt: "2026-05-01T13:59:00.000Z",
+      activationTokenHash: "a".repeat(64),
+      activationTokens: [
+        {
+          createdAt: "2026-04-29T13:59:00.000Z",
+          expiresAt: "2026-05-01T13:59:00.000Z",
+          tokenHash: "a".repeat(64)
+        }
+      ],
+      assignment: {
+        programId: "compliance-hub",
+        role: "Delivery Lead"
+      }
+    },
+    now: "2026-04-29T14:00:00.000Z",
+    programs: [program]
+  });
+
+  assert.equal(existing.ok, true);
+  if (!existing.ok) return;
+
+  const active = buildManagedAppUserRecord({
+    existing: existing.record,
+    idFactory: () => "unused",
+    input: {
+      credentialStatus: "active",
+      activationTokenHash: "",
+      activationTokens: [],
+      email: "avery@example.com",
+      name: "Avery Morgan"
+    },
+    now: "2026-04-29T14:05:00.000Z",
+    programs: [program]
+  });
+
+  assert.equal(active.ok, true);
+  if (!active.ok) return;
+
+  assert.equal(active.record.activationTokenHash, undefined);
+  assert.deepEqual(active.record.activationTokens, []);
 });
 
 test("buildManagedAppUserRecord can clear a stale invitation error", () => {

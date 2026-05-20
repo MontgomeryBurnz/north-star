@@ -16,6 +16,12 @@ export type ManagedProgramAssignment = {
   updatedAt: string;
 };
 
+export type ManagedUserActivationToken = {
+  createdAt: string;
+  expiresAt: string;
+  tokenHash: string;
+};
+
 export type ManagedAppUser = {
   id: string;
   name: string;
@@ -26,6 +32,7 @@ export type ManagedAppUser = {
   activationTokenCreatedAt?: string;
   activationTokenExpiresAt?: string;
   activationTokenHash?: string;
+  activationTokens?: ManagedUserActivationToken[];
   invitedAt?: string;
   lastAuthSyncAt?: string;
   invitationError?: string;
@@ -50,6 +57,7 @@ export type ManagedAppUserInput = Partial<
     | "activationTokenCreatedAt"
     | "activationTokenExpiresAt"
     | "activationTokenHash"
+    | "activationTokens"
     | "invitedAt"
     | "lastAuthSyncAt"
     | "invitationError"

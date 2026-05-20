@@ -55,6 +55,7 @@ export async function POST(request: Request) {
     activationTokenCreatedAt: linkResult.activationTokenCreatedAt,
     activationTokenExpiresAt: linkResult.activationTokenExpiresAt,
     activationTokenHash: linkResult.activationTokenHash,
+    activationTokens: linkResult.activationTokens,
     authUserId: linkResult.authUserId,
     invitedAt: linkResult.invitedAt,
     lastAuthSyncAt: new Date().toISOString(),
