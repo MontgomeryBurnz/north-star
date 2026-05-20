@@ -17,12 +17,12 @@ For the current alpha:
 1. **Vercel** for application hosting
 2. **Supabase Postgres** for persistence
 3. **Supabase Storage** for artifacts
-4. **env-based leadership auth** for prototype access
-5. **OpenAI server-side provider** for assistant and future guided synthesis
+4. **Supabase auth-backed managed users and roles** for access control
+5. **OpenAI server-side providers** for guided plans, Studio artifacts, leadership interpretation, and cost tracking
 
 After alpha approval:
 
-1. replace env leadership auth with SSO
+1. add SSO for enterprise identity management
 2. add role-aware navigation and authorization
 3. add audit logging
 4. add stronger artifact processing and confidence scoring
@@ -33,7 +33,7 @@ The current codebase already supports:
 
 - `postgres` persistence
 - `supabase` artifact storage
-- `openai` assistant provider
+- `openai` guidance provider
 - leadership feedback capture
 - delivery-safe leadership signal synthesis
 - guided-plan generation from saved program context
@@ -62,8 +62,9 @@ Then:
 6. Open `/api/health` on the deployed URL and confirm:
    - `persistenceProvider: postgres`
    - `artifactStorageProvider: supabase`
-   - `assistantProvider: openai` or `local`
-   - `leadershipAuthProvider: env`
+   - `guidedPlanProvider: openai` or `local`
+   - `chatGuideEnabled: false`
+   - `leadershipAuthProvider: supabase`
 7. Open `/alpha-status` and run the in-app readiness checks.
 
 ## Required Environment Variables
@@ -91,21 +92,21 @@ RESEND_API_KEY=...
 NORTHSTAR_EMAIL_FROM="North Star <no-reply@yourdomain.com>"
 NORTHSTAR_EMAIL_REPLY_TO=support@yourdomain.com
 
-LEADERSHIP_AUTH_PROVIDER=env
-LEADERSHIP_AUTH_USERNAME=leadership
-LEADERSHIP_AUTH_PASSWORD=replace-me
-LEADERSHIP_AUTH_SESSION_TOKEN=replace-with-a-long-random-token
+LEADERSHIP_AUTH_PROVIDER=supabase
 LEADERSHIP_ALLOWED_DOMAINS=yourcompany.com
 
-ASSISTANT_PROVIDER=openai
 OPENAI_API_KEY=...
-OPENAI_MODEL=gpt-4.1
+GUIDED_PLAN_PROVIDER=openai
+ROLE_ARTIFACT_PROVIDER=openai
+OPENAI_MODEL=gpt-5.5
+OPENAI_REASONING_EFFORT=medium
 ```
 
-For a non-OpenAI fallback deployment, use:
+For a non-model fallback deployment, use:
 
 ```bash
-ASSISTANT_PROVIDER=local
+GUIDED_PLAN_PROVIDER=local
+ROLE_ARTIFACT_PROVIDER=local
 ```
 
 ## Alpha Test Path
@@ -118,17 +119,18 @@ Once deployed, validate this sequence:
 4. Save the program
 5. Generate a guided plan
 6. Open the Active Program view and save an update
-7. Open Leadership, save feedback
-8. Regenerate the guided plan
+7. Open Leadership and save feedback
+8. Regenerate or refresh the guided plan
 9. Confirm the delivery-safe leadership signal appears
-10. Ask the Assistant a grounded question
+10. Generate a Studio artifact and confirm it uses program context
+11. After Vercel deploys successfully, run the production release checklist in `docs/northstar-release-checklist.md`
 
 ## Known Alpha Constraints
 
-- leadership auth is still prototype-grade, not enterprise SSO
+- access control is role-based through managed users, but enterprise SSO is still a future hardening step
 - artifact extraction is strongest for `.txt`, `.pdf`, `.docx`, `.pptx`
 - legacy `.doc` and `.ppt` remain best-effort
-- guided plan synthesis is still a local generator, though the assistant is already wired to OpenAI
+- guided plan and Studio synthesis use provider boundaries with local fallbacks for deterministic testing
 
 ## Security Notes
 
@@ -138,4 +140,4 @@ Before deploying publicly or sharing widely:
 2. confirm `.env.local` is not committed
 3. use Vercel env vars for all secrets
 4. do not expose service-role or OpenAI secrets to the client
-5. put the public alpha behind the shared site-access password gate
+5. require authenticated managed-user access for production alpha users

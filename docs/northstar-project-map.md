@@ -33,7 +33,7 @@ NorthStar is the product workspace for the app hosted at `https://www.north-star
 
 ## OpenAI
 
-- Used behind provider boundaries for Guide, guided-plan synthesis, role artifact recommendations, artifact generation, leadership interpretation, and usage tracking.
+- Used behind provider boundaries for guided-plan synthesis, role artifact recommendations, artifact generation, leadership interpretation, and usage tracking.
 - Model/cost settings live in environment variables and are surfaced in Admin cost-center views.
 - Prompt-cache and usage tracking are program/workflow scoped so Admin can reconcile spend and cache posture.
 
@@ -54,6 +54,8 @@ NorthStar is the product workspace for the app hosted at `https://www.north-star
   - generate artifact
   - verify export
 - `SMOKE_BASE_URL=https://www.north-star.live npm run smoke:slicers` validates program slicers across key product surfaces.
+- `SMOKE_BASE_URL=https://www.north-star.live npm run smoke:production` runs the standard post-deploy production smoke bundle.
+- Release verification is documented in `docs/northstar-release-checklist.md`.
 
 ## Codex Organization
 

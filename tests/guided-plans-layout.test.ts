@@ -458,6 +458,29 @@ test("chat guidance is disabled and client decisions still write audit events", 
   assert.match(clientDecisionSource, /eventType: "client\.decision\.create"/);
 });
 
+test("production releases have one documented smoke verification path", () => {
+  const readmeSource = readFileSync(new URL("../README.md", import.meta.url), "utf8");
+  const deploymentSource = readFileSync(new URL("../DEPLOYMENT.md", import.meta.url), "utf8");
+  const projectMapSource = readFileSync(new URL("../docs/northstar-project-map.md", import.meta.url), "utf8");
+  const checklistSource = readFileSync(new URL("../docs/northstar-release-checklist.md", import.meta.url), "utf8");
+
+  assert.match(readmeSource, /SMOKE_BASE_URL=https:\/\/www\.north-star\.live npm run smoke:production/);
+  assert.match(readmeSource, /NorthStar release checklist/);
+  assert.match(projectMapSource, /smoke:production/);
+  assert.match(deploymentSource, /docs\/northstar-release-checklist\.md/);
+  assert.match(deploymentSource, /guidedPlanProvider: openai/);
+  assert.match(deploymentSource, /chatGuideEnabled: false/);
+  assert.doesNotMatch(deploymentSource, /Ask the Assistant/);
+  assert.doesNotMatch(deploymentSource, /assistantProvider/);
+  assert.match(checklistSource, /npm run qa:ensure-user/);
+  assert.match(checklistSource, /SMOKE_BASE_URL=https:\/\/www\.north-star\.live npm run smoke:production/);
+  assert.match(checklistSource, /NORTHSTAR_TEST_USER_EMAIL/);
+  assert.match(checklistSource, /NORTHSTAR_TEST_USER_PASSWORD/);
+  assert.match(checklistSource, /\/api\/assistant/);
+  assert.match(checklistSource, /410/);
+  assert.match(checklistSource, /prune/);
+});
+
 test("legacy assistant program API and database surfaces are retired", () => {
   const repositoryTypesSource = readFileSync(new URL("../src/lib/program-repository-types.ts", import.meta.url), "utf8");
   const repositorySharedSource = readFileSync(new URL("../src/lib/program-repository-shared.ts", import.meta.url), "utf8");

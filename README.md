@@ -1,6 +1,6 @@
 # North Star
 
-North Star is an internal operator console for delivery leads and leadership teams. It captures program context, tracks active delivery posture, generates grounded guidance, and uses a provider-based assistant layer for server-side OpenAI synthesis.
+North Star is an internal operator console for delivery leads and leadership teams. It captures program context, tracks active delivery posture, generates grounded guidance, and uses a provider-based intelligence layer for server-side synthesis.
 
 ## Stack
 
@@ -9,7 +9,7 @@ North Star is an internal operator console for delivery leads and leadership tea
 - Tailwind CSS
 - shadcn/ui-style primitives
 - Framer Motion
-- Local retrieval + provider-based assistant service
+- Provider-based guidance, artifact, and leadership synthesis
 - File persistence fallback + optional Postgres persistence adapter
 
 ## Local Run
@@ -47,6 +47,15 @@ SMOKE_BASE_URL=https://www.north-star.live npm run smoke:studio
 ```
 
 The Studio smoke test signs in, selects a program, selects a role, loads a recommended brief, generates an artifact, and verifies export behavior. It reads `NORTHSTAR_TEST_USER_EMAIL` and `NORTHSTAR_TEST_USER_PASSWORD` from ignored `.env.local`.
+
+For production releases, use the standard manual release checklist and run the full smoke bundle after Vercel deploys:
+
+```bash
+npm run qa:ensure-user
+SMOKE_BASE_URL=https://www.north-star.live npm run smoke:production
+```
+
+See [NorthStar release checklist](./docs/northstar-release-checklist.md).
 
 ## Alpha Architecture
 
@@ -110,7 +119,7 @@ Recommended stack:
 1. Vercel for app hosting
 2. Supabase Postgres for persistence
 3. Supabase Storage for uploaded artifacts
-4. Server-side OpenAI integration through the existing assistant provider boundary
+4. Server-side OpenAI integration through provider boundaries for guidance, Studio, leadership interpretation, and cost tracking
 5. SSO or role-based auth before broad internal rollout
 
 Minimum production environment variables:
@@ -120,7 +129,11 @@ PERSISTENCE_PROVIDER=postgres
 DATABASE_URL=postgres://...
 DATABASE_SSL=require
 ARTIFACT_STORAGE_PROVIDER=supabase
-ASSISTANT_PROVIDER=local
+GUIDED_PLAN_PROVIDER=openai
+ROLE_ARTIFACT_PROVIDER=openai
+OPENAI_API_KEY=...
+OPENAI_MODEL=gpt-5.5
+OPENAI_REASONING_EFFORT=medium
 LEADERSHIP_AUTH_PROVIDER=supabase
 NEXT_PUBLIC_SUPABASE_URL=https://...
 NEXT_PUBLIC_SUPABASE_ANON_KEY=...
@@ -129,6 +142,8 @@ SUPABASE_STORAGE_BUCKET=artifacts
 LEADERSHIP_ALLOWED_DOMAINS=yourcompany.com
 ```
 
+For local or non-model fallback testing, set `GUIDED_PLAN_PROVIDER=local` and `ROLE_ARTIFACT_PROVIDER=local`.
+
 The app exposes a deployment-readiness check at `/api/health`.
 
 For actual deployment steps, use:
@@ -136,6 +151,7 @@ For actual deployment steps, use:
 - [DEPLOYMENT.md](./DEPLOYMENT.md)
 - [ALPHA_CHECKLIST.md](./ALPHA_CHECKLIST.md)
 - [NorthStar project map](./docs/northstar-project-map.md)
+- [NorthStar release checklist](./docs/northstar-release-checklist.md)
 
 ## Data Model
 
@@ -147,13 +163,13 @@ Server persistence is organized around:
 - `leadership_feedback`
 - `artifacts`
 
-The current guided-plan generator remains deterministic and local. That keeps the product testable and inspectable while the assistant and future guidance layers use server-side model synthesis.
+Guidance and artifact generation run through provider boundaries. Production can use server-side model synthesis, while local deterministic fallbacks keep the product testable and inspectable.
 
-## OpenAI Integration Boundary
+## Intelligence Integration Boundary
 
-The assistant service already uses a provider pattern:
+NorthStar generation workflows use provider patterns:
 
 - `local`: deterministic retrieval
-- `openai`: server-side OpenAI Responses API provider
+- `openai`: server-side model synthesis
 
-The OpenAI provider is already wired in `src/lib/assistant-openai-provider.ts`. Keep grounded record selection local and use the model for synthesis, not for source-of-truth retrieval.
+Keep grounded record selection local and use model providers for synthesis, not for source-of-truth retrieval. Open-ended chat is intentionally disabled; intelligence spend is focused on program intake, guided plans, Studio artifacts, leadership feedback, and executive views.
