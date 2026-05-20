@@ -1,6 +1,5 @@
 import { randomUUID } from "crypto";
 import type { StoredProgramUpdate } from "./active-program-types.ts";
-import type { AssistantConversationTurn } from "./assistant-conversation-types.ts";
 import type { GuidedPlan, GuidedPlanRolePlan } from "./guided-plan-types.ts";
 import type { LeadershipReviewRecord } from "./leadership-feedback-types.ts";
 import type { ProgramMeetingInput } from "./program-intelligence-types.ts";
@@ -21,7 +20,6 @@ export type RoleArtifactGenerationContext = {
   latestPlan: GuidedPlan | null;
   updates: StoredProgramUpdate[];
   leadershipFeedbacks: LeadershipReviewRecord[];
-  assistantConversations: AssistantConversationTurn[];
   meetingInputs: ProgramMeetingInput[];
   feedback?: string;
 };

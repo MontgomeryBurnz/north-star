@@ -4,7 +4,6 @@ import type { ProgramRepository } from "@/lib/program-repository-types";
 import {
   ensurePostgresSchema,
   getPool,
-  mapAssistantConversationRow,
   mapClientDecisionRequestRow,
   mapMeetingInputRow,
   mapProgramRow,
@@ -27,8 +26,6 @@ export function createFileProgramPersistence(): Pick<
   | "listAllProgramUpdates"
   | "createProgramUpdate"
   | "deleteProgramUpdatesByTag"
-  | "listAssistantConversations"
-  | "createAssistantConversation"
   | "listMeetingInputs"
   | "createMeetingInput"
   | "listClientDecisionRequests"
@@ -120,29 +117,6 @@ export function createFileProgramPersistence(): Pick<
       store.programs = store.programs.map((item) => (item.id === programId ? { ...item, updatedAt: now } : item));
       await writeFileStore(store);
       return deletedCount;
-    },
-    async listAssistantConversations(programId) {
-      const store = await readFileStore();
-      return sortByUpdatedDesc(store.assistantConversations.filter((conversation) => conversation.programId === programId));
-    },
-    async createAssistantConversation(programId, prompt, response) {
-      const store = await readFileStore();
-      const now = new Date().toISOString();
-      const program = store.programs.find((item) => item.id === programId);
-      const record = {
-        id: randomUUID(),
-        programId,
-        programName: program?.intake.programName || "Untitled program",
-        prompt,
-        response,
-        createdAt: now,
-        updatedAt: now
-      };
-
-      store.assistantConversations = [record, ...store.assistantConversations];
-      store.programs = store.programs.map((item) => (item.id === programId ? { ...item, updatedAt: now } : item));
-      await writeFileStore(store);
-      return record;
     },
     async listMeetingInputs(programId) {
       const store = await readFileStore();
@@ -322,43 +296,6 @@ export function createPostgresProgramPersistence(
       }
 
       return deletedCount;
-    },
-    async listAssistantConversations(programId) {
-      await ensurePostgresSchema();
-      const result = await getPool().query(
-        `
-          SELECT id, program_id, program_name, prompt, response, created_at, updated_at
-          FROM assistant_conversations
-          WHERE program_id = $1
-          ORDER BY created_at DESC
-        `,
-        [programId]
-      );
-      return result.rows.map(mapAssistantConversationRow);
-    },
-    async createAssistantConversation(programId, prompt, response) {
-      await ensurePostgresSchema();
-      const now = new Date();
-      const program = await repository.getProgram(programId);
-      const record = {
-        id: randomUUID(),
-        programId,
-        programName: program?.intake.programName || "Untitled program",
-        prompt,
-        response,
-        createdAt: now.toISOString(),
-        updatedAt: now.toISOString()
-      };
-
-      await getPool().query(
-        `
-          INSERT INTO assistant_conversations (id, program_id, program_name, prompt, response, created_at, updated_at)
-          VALUES ($1, $2, $3, $4, $5::jsonb, $6, $6)
-        `,
-        [record.id, programId, record.programName, prompt, JSON.stringify(response), now]
-      );
-      await getPool().query("UPDATE programs SET updated_at = $2 WHERE id = $1", [programId, now]);
-      return record;
     },
     async listMeetingInputs(programId) {
       await ensurePostgresSchema();

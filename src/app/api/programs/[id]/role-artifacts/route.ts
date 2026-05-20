@@ -107,7 +107,6 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     latestPlan,
     updates,
     leadershipFeedbacks,
-    assistantConversations: [],
     meetingInputs,
     feedback: body?.feedback
   });

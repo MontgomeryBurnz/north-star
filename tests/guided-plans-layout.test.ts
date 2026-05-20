@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 
 test("Guided Plans renders Gantt and Team Action Plans before change rationale", () => {
   const source = readFileSync(new URL("../src/components/guided-plans-console.tsx", import.meta.url), "utf8");
@@ -441,6 +441,7 @@ test("chat guidance is disabled and client decisions still write audit events", 
   const adminCostSource = readFileSync(new URL("../src/components/admin-operating-cost-center.tsx", import.meta.url), "utf8");
   const packageSource = readFileSync(new URL("../package.json", import.meta.url), "utf8");
   const smokeSource = readFileSync(new URL("../scripts/smoke-chat-disabled.mjs", import.meta.url), "utf8");
+  const productionSmokeSource = readFileSync(new URL("../scripts/smoke-production.mjs", import.meta.url), "utf8");
 
   assert.match(auditTypesSource, /guide\.dialogue/);
   assert.match(auditTypesSource, /client\.decision\.create/);
@@ -449,10 +450,27 @@ test("chat guidance is disabled and client decisions still write audit events", 
   assert.match(adminCostSource, /data-admin-cost-guardrail/);
   assert.match(adminCostSource, /Open-ended chat disabled/);
   assert.match(packageSource, /smoke:chat-disabled/);
+  assert.match(packageSource, /smoke:production/);
   assert.match(smokeSource, /\/assistant/);
   assert.match(smokeSource, /\/api\/assistant/);
   assert.match(smokeSource, /response\.status !== 410/);
+  assert.match(productionSmokeSource, /smoke-chat-disabled\.mjs/);
   assert.match(clientDecisionSource, /eventType: "client\.decision\.create"/);
+});
+
+test("legacy assistant program API and database surfaces are retired", () => {
+  const repositoryTypesSource = readFileSync(new URL("../src/lib/program-repository-types.ts", import.meta.url), "utf8");
+  const repositorySharedSource = readFileSync(new URL("../src/lib/program-repository-shared.ts", import.meta.url), "utf8");
+  const prismaSource = readFileSync(new URL("../prisma/schema.prisma", import.meta.url), "utf8");
+  const rlsCheckSource = readFileSync(new URL("../scripts/check-supabase-rls.mjs", import.meta.url), "utf8");
+
+  assert.equal(existsSync(new URL("../src/app/api/programs/[id]/assistant-briefing/route.ts", import.meta.url)), false);
+  assert.equal(existsSync(new URL("../src/app/api/programs/[id]/assistant-conversations/route.ts", import.meta.url)), false);
+  assert.equal(existsSync(new URL("../src/lib/assistant-conversation-types.ts", import.meta.url)), false);
+  assert.doesNotMatch(repositoryTypesSource, /AssistantConversation/);
+  assert.doesNotMatch(repositorySharedSource, /CREATE TABLE IF NOT EXISTS assistant_conversations/);
+  assert.doesNotMatch(prismaSource, /model AssistantConversation/);
+  assert.match(rlsCheckSource, /retiredAppTables = \["assistant_conversations"\]/);
 });
 
 test("Admin can manage OpenAI guidance model settings", () => {
@@ -545,8 +563,6 @@ test("API routes use shared access helpers instead of one-off site checks", () =
   assert.doesNotMatch(clientDecisionsSource, /function canAccessProgram/);
 
   const programScopedRoutes = [
-    "assistant-briefing",
-    "assistant-conversations",
     "bundle",
     "client-decisions",
     "guidance-feedback-flags",

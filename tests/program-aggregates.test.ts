@@ -100,9 +100,6 @@ test("buildGuidedPlanBundle returns the combined program context and derived lea
           }
         ];
       },
-      async listAssistantConversations() {
-        return [];
-      },
       async listGuidanceJustifications() {
         return [
           {

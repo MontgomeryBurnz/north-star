@@ -1,5 +1,4 @@
 import type { StoredProgramUpdate } from "@/lib/active-program-types";
-import type { AssistantConversationTurn } from "@/lib/assistant-conversation-types";
 import { getGuidanceModelSettings } from "@/lib/guidance-model-settings";
 import { localGuidedPlanProvider } from "@/lib/guided-plan-local-provider";
 import { openaiGuidedPlanProvider } from "@/lib/guided-plan-openai-provider";
@@ -14,7 +13,6 @@ export type GuidedPlanGenerationContext = {
   program: StoredProgram;
   updates: StoredProgramUpdate[];
   leadershipFeedbacks: LeadershipReviewRecord[];
-  assistantConversations: AssistantConversationTurn[];
   meetingInputs: ProgramMeetingInput[];
 };
 

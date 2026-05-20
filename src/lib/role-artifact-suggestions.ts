@@ -1,6 +1,5 @@
 import "server-only";
 import type { StoredProgramUpdate } from "@/lib/active-program-types";
-import type { AssistantConversationTurn } from "@/lib/assistant-conversation-types";
 import { getGuidanceModelSettings } from "@/lib/guidance-model-settings";
 import type { GuidedPlan } from "@/lib/guided-plan-types";
 import type { LeadershipReviewRecord } from "@/lib/leadership-feedback-types";
@@ -20,7 +19,6 @@ import {
 } from "@/lib/role-artifact-types";
 
 export type RoleArtifactSuggestionContext = {
-  assistantConversations: AssistantConversationTurn[];
   latestPlan: GuidedPlan | null;
   leadershipFeedbacks: LeadershipReviewRecord[];
   meetingInputs: ProgramMeetingInput[];

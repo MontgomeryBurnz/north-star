@@ -30,7 +30,6 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     listMeetingInputs(id)
   ]);
   const result = await suggestRoleArtifacts({
-    assistantConversations: [],
     latestPlan,
     leadershipFeedbacks,
     meetingInputs,

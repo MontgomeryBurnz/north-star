@@ -8,7 +8,6 @@ const appTables = [
   "program_updates",
   "guided_plans",
   "leadership_feedback",
-  "assistant_conversations",
   "artifacts",
   "meeting_inputs",
   "role_artifacts",
@@ -20,6 +19,8 @@ const appTables = [
   "audit_events",
   "app_settings"
 ];
+const retiredAppTables = ["assistant_conversations"];
+const securityCheckedTables = [...appTables, ...retiredAppTables];
 
 const exposedRoles = ["anon", "authenticated"];
 const checkedPrivileges = ["SELECT", "INSERT", "UPDATE", "DELETE"];
@@ -68,13 +69,23 @@ async function auditSupabaseRls() {
            AND c.relnamespace = n.oid
          ORDER BY expected_tables.table_name;
       `,
-      [appTables]
+      [securityCheckedTables]
     );
 
     const { rows: roleRows } = await pool.query(
       `
-        WITH app_tables AS (
+        WITH expected_tables AS (
           SELECT unnest($1::text[]) AS table_name
+        ),
+        app_tables AS (
+          SELECT expected_tables.table_name
+            FROM expected_tables
+            JOIN pg_namespace n
+              ON n.nspname = 'public'
+            JOIN pg_class c
+              ON c.relname = expected_tables.table_name
+             AND c.relkind IN ('r', 'p')
+             AND c.relnamespace = n.oid
         ),
         exposed_roles AS (
           SELECT rolname
@@ -97,11 +108,13 @@ async function auditSupabaseRls() {
                )
          ORDER BY exposed_roles.rolname, app_tables.table_name, privileges.privilege_name;
       `,
-      [appTables, exposedRoles, checkedPrivileges]
+      [securityCheckedTables, exposedRoles, checkedPrivileges]
     );
 
     const violations = [
-      ...tableRows.filter((row) => !row.exists).map((row) => `Missing expected public table: ${row.table_name}`),
+      ...tableRows
+        .filter((row) => appTables.includes(row.table_name) && !row.exists)
+        .map((row) => `Missing expected public table: ${row.table_name}`),
       ...tableRows
         .filter((row) => row.exists && !row.rls_enabled)
         .map((row) => `RLS is disabled on public.${row.table_name}`),
@@ -112,6 +125,7 @@ async function auditSupabaseRls() {
       ok: violations.length === 0,
       status: violations.length ? 500 : 200,
       checkedTables: appTables.length,
+      retiredTablesChecked: tableRows.filter((row) => retiredAppTables.includes(row.table_name) && row.exists).length,
       violations
     };
   } finally {

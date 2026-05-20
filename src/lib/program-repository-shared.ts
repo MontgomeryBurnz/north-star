@@ -6,7 +6,6 @@ import { Pool } from "pg";
 import type { AuditEventInput, AuditEventRecord } from "@/lib/audit-event-types";
 import type { ManagedAppUser } from "@/lib/admin-user-types";
 import type { ActiveProgramReview, StoredProgramUpdate } from "@/lib/active-program-types";
-import type { AssistantConversationTurn, LegacyAssistantResponse } from "@/lib/assistant-conversation-types";
 import type { GuidedPlan } from "@/lib/guided-plan-types";
 import type { LeadershipReviewInput, LeadershipReviewRecord } from "@/lib/leadership-feedback-types";
 import type {
@@ -24,7 +23,6 @@ import type { ProgramStoreFile } from "@/lib/program-repository-types";
 const emptyFileStore: ProgramStoreFile = {
   programs: [],
   updates: [],
-  assistantConversations: [],
   guidedPlans: [],
   leadershipFeedbacks: [],
   meetingInputs: [],
@@ -41,6 +39,25 @@ const storeDirectory = path.join(process.cwd(), ".data");
 const storePath = path.join(storeDirectory, "work-path-store.json");
 let pool: Pool | null = null;
 let schemaReadyPromise: Promise<void> | null = null;
+
+function normalizeFileStore(input: Partial<ProgramStoreFile>): ProgramStoreFile {
+  const store = { ...emptyFileStore, ...input };
+
+  return {
+    programs: store.programs,
+    updates: store.updates,
+    guidedPlans: store.guidedPlans,
+    leadershipFeedbacks: store.leadershipFeedbacks,
+    meetingInputs: store.meetingInputs,
+    roleArtifacts: store.roleArtifacts,
+    clientDecisionRequests: store.clientDecisionRequests,
+    guidanceJustifications: store.guidanceJustifications,
+    guidanceFeedbackFlags: store.guidanceFeedbackFlags,
+    openAIUsageRecords: store.openAIUsageRecords,
+    auditEvents: store.auditEvents,
+    managedUsers: store.managedUsers
+  };
+}
 
 export function slugify(value: string) {
   return value.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
@@ -118,7 +135,7 @@ export async function readFileStore(): Promise<ProgramStoreFile> {
 
   try {
     const raw = await readFile(storePath, "utf8");
-    return { ...emptyFileStore, ...JSON.parse(raw) };
+    return normalizeFileStore(JSON.parse(raw) as Partial<ProgramStoreFile>);
   } catch {
     await writeFileStore(emptyFileStore);
     return emptyFileStore;
@@ -178,16 +195,6 @@ export async function ensurePostgresSchema() {
             program_id TEXT NOT NULL REFERENCES programs(id) ON DELETE CASCADE,
             program_name TEXT NOT NULL,
             feedback JSONB NOT NULL,
-            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-            updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-          );
-
-          CREATE TABLE IF NOT EXISTS assistant_conversations (
-            id TEXT PRIMARY KEY,
-            program_id TEXT NOT NULL REFERENCES programs(id) ON DELETE CASCADE,
-            program_name TEXT NOT NULL,
-            prompt TEXT NOT NULL,
-            response JSONB NOT NULL,
             created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
             updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
           );
@@ -310,8 +317,6 @@ export async function ensurePostgresSchema() {
             ON guided_plans(program_id, created_at DESC);
           CREATE INDEX IF NOT EXISTS idx_leadership_feedback_program_id_created_at
             ON leadership_feedback(program_id, created_at DESC);
-          CREATE INDEX IF NOT EXISTS idx_assistant_conversations_program_id_created_at
-            ON assistant_conversations(program_id, created_at DESC);
           CREATE INDEX IF NOT EXISTS idx_artifacts_program_id_created_at
             ON artifacts(program_id, created_at DESC);
           CREATE INDEX IF NOT EXISTS idx_meeting_inputs_program_id_created_at
@@ -352,7 +357,6 @@ export async function ensurePostgresSchema() {
               'program_updates',
               'guided_plans',
               'leadership_feedback',
-              'assistant_conversations',
               'artifacts',
               'meeting_inputs',
               'role_artifacts',
@@ -370,11 +374,19 @@ export async function ensurePostgresSchema() {
               EXECUTE format('ALTER TABLE public.%I ENABLE ROW LEVEL SECURITY', app_table_name);
             END LOOP;
 
+            IF to_regclass('public.assistant_conversations') IS NOT NULL THEN
+              ALTER TABLE public.assistant_conversations ENABLE ROW LEVEL SECURITY;
+            END IF;
+
             FOREACH exposed_role_name IN ARRAY exposed_role_names LOOP
               IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = exposed_role_name) THEN
                 FOREACH app_table_name IN ARRAY app_table_names LOOP
                   EXECUTE format('REVOKE ALL ON TABLE public.%I FROM %I', app_table_name, exposed_role_name);
                 END LOOP;
+
+                IF to_regclass('public.assistant_conversations') IS NOT NULL THEN
+                  EXECUTE format('REVOKE ALL ON TABLE public.assistant_conversations FROM %I', exposed_role_name);
+                END IF;
 
                 EXECUTE format('REVOKE ALL ON ALL SEQUENCES IN SCHEMA public FROM %I', exposed_role_name);
                 EXECUTE format(
@@ -427,26 +439,6 @@ export function mapUpdateRow(row: {
 
 export function mapPlanRow(row: { plan: GuidedPlan }): GuidedPlan {
   return row.plan;
-}
-
-export function mapAssistantConversationRow(row: {
-  id: string;
-  program_id: string;
-  program_name: string;
-  prompt: string;
-  response: LegacyAssistantResponse;
-  created_at: Date;
-  updated_at: Date;
-}): AssistantConversationTurn {
-  return {
-    id: row.id,
-    programId: row.program_id,
-    programName: row.program_name,
-    prompt: row.prompt,
-    response: row.response,
-    createdAt: new Date(row.created_at).toISOString(),
-    updatedAt: new Date(row.updated_at).toISOString()
-  };
 }
 
 export function mapLeadershipRow(row: {

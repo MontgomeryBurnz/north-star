@@ -2,7 +2,6 @@ import "server-only";
 import type { AuditEventInput } from "@/lib/audit-event-types";
 import type { ManagedAppUserInput } from "@/lib/admin-user-types";
 import type { ActiveProgramReview } from "@/lib/active-program-types";
-import type { LegacyAssistantResponse } from "@/lib/assistant-conversation-types";
 import type { LeadershipReviewInput } from "@/lib/leadership-feedback-types";
 import type {
   ClientDecisionRequestInput,
@@ -41,14 +40,6 @@ export async function createProgramUpdate(programId: string, review: ActiveProgr
 
 export async function deleteProgramUpdatesByTag(programId: string, tag: string) {
   return getProgramRepository().deleteProgramUpdatesByTag(programId, tag);
-}
-
-export async function listAssistantConversations(programId: string) {
-  return getProgramRepository().listAssistantConversations(programId);
-}
-
-export async function createAssistantConversation(programId: string, prompt: string, response: LegacyAssistantResponse) {
-  return getProgramRepository().createAssistantConversation(programId, prompt, response);
 }
 
 export async function getLatestGuidedPlan(programId: string) {

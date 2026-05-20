@@ -21,7 +21,6 @@ import {
 import { generateGuidedPlan } from "@/lib/guided-plan-service";
 import type { GuidedPlan } from "@/lib/guided-plan-types";
 import type { StoredProgramUpdate } from "@/lib/active-program-types";
-import type { AssistantConversationTurn } from "@/lib/assistant-conversation-types";
 import type { ProgramMeetingInput } from "@/lib/program-intelligence-types";
 import type { StoredProgram } from "@/lib/program-intake-types";
 
@@ -30,7 +29,6 @@ type GuidancePersistenceDependencies = Pick<
   | "getProgram"
   | "listProgramUpdates"
   | "listLeadershipFeedback"
-  | "listAssistantConversations"
   | "listMeetingInputs"
   | "createOpenAIUsageRecord"
   | "createGuidanceJustification"
@@ -44,7 +42,6 @@ function buildGuidanceJustificationRecord(input: {
   plan: GuidedPlan;
   updates: StoredProgramUpdate[];
   leadershipFeedbacks: LeadershipReviewRecord[];
-  assistantConversations: AssistantConversationTurn[];
   meetingInputs: ProgramMeetingInput[];
 }): GuidanceJustificationRecord {
   const latestUpdate = input.updates[0];
@@ -210,7 +207,7 @@ export function createFileGuidancePersistence(): Pick<
       const meetingInputs = sortByUpdatedDesc(store.meetingInputs.filter((input) => input.programId === programId)).map(
         normalizeMeetingInput
       );
-      const plan = await generateGuidedPlan({ program, updates, leadershipFeedbacks, assistantConversations: [], meetingInputs });
+      const plan = await generateGuidedPlan({ program, updates, leadershipFeedbacks, meetingInputs });
 
       store.guidedPlans = [plan, ...store.guidedPlans];
       if (plan.modelUsage) {
@@ -231,7 +228,6 @@ export function createFileGuidancePersistence(): Pick<
         plan,
         updates,
         leadershipFeedbacks,
-        assistantConversations: [],
         meetingInputs
       });
       store.guidanceJustifications = [justification, ...store.guidanceJustifications];
@@ -386,7 +382,7 @@ export function createPostgresGuidancePersistence(
       const updates = await repository.listProgramUpdates(programId);
       const leadershipFeedbacks = await repository.listLeadershipFeedback(programId);
       const meetingInputs = await repository.listMeetingInputs(programId);
-      const plan = await generateGuidedPlan({ program, updates, leadershipFeedbacks, assistantConversations: [], meetingInputs });
+      const plan = await generateGuidedPlan({ program, updates, leadershipFeedbacks, meetingInputs });
 
       await getPool().query(
         `
@@ -405,7 +401,6 @@ export function createPostgresGuidancePersistence(
         plan,
         updates,
         leadershipFeedbacks,
-        assistantConversations: [],
         meetingInputs
       });
       await repository.createGuidanceJustification(justification);

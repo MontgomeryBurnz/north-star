@@ -8,7 +8,6 @@ const appTables = [
   "program_updates",
   "guided_plans",
   "leadership_feedback",
-  "assistant_conversations",
   "artifacts",
   "meeting_inputs",
   "role_artifacts",
@@ -20,6 +19,8 @@ const appTables = [
   "audit_events",
   "app_settings"
 ];
+const retiredAppTables = ["assistant_conversations"];
+const securityCheckedTables = [...appTables, ...retiredAppTables];
 
 const exposedRoles = ["anon", "authenticated"];
 const checkedPrivileges = ["SELECT", "INSERT", "UPDATE", "DELETE"];
@@ -79,7 +80,7 @@ try {
          AND c.relnamespace = n.oid
        ORDER BY expected_tables.table_name;
     `,
-    [appTables]
+    [securityCheckedTables]
   );
 
   const { rows: roleRows } = await pool.query(
@@ -118,10 +119,10 @@ try {
              )
        ORDER BY exposed_roles.rolname, app_tables.table_name, privileges.privilege_name;
     `,
-    [appTables, exposedRoles, checkedPrivileges]
+    [securityCheckedTables, exposedRoles, checkedPrivileges]
   );
 
-  const missingTables = tableRows.filter((row) => !row.exists);
+  const missingTables = tableRows.filter((row) => appTables.includes(row.table_name) && !row.exists);
   const rlsDisabledTables = tableRows.filter((row) => row.exists && !row.rls_enabled);
   const violations = [];
 
@@ -145,7 +146,11 @@ try {
     process.exit(1);
   }
 
-  console.log(`Supabase RLS security check passed for ${appTables.length} public app tables.`);
+  const retiredTablesPresent = tableRows.filter((row) => retiredAppTables.includes(row.table_name) && row.exists).length;
+  console.log(
+    `Supabase RLS security check passed for ${appTables.length} public app tables` +
+      `${retiredTablesPresent ? ` plus ${retiredTablesPresent} retired table${retiredTablesPresent === 1 ? "" : "s"}` : ""}.`
+  );
 } finally {
   await pool.end();
 }

@@ -1,5 +1,4 @@
 import type { StoredProgramUpdate } from "./active-program-types.ts";
-import type { AssistantConversationTurn } from "./assistant-conversation-types.ts";
 import type { GuidedPlan } from "./guided-plan-types.ts";
 import { buildDeliveryLeadershipSignal } from "./leadership-signal.ts";
 import { buildLeadershipReviewQueue } from "./leadership-review-queue.ts";
@@ -11,7 +10,6 @@ export type GuidedPlanBundle = {
   program: StoredProgram | null;
   plan: GuidedPlan | null;
   updates: StoredProgramUpdate[];
-  assistantConversations: AssistantConversationTurn[];
   leadershipSignal: DeliveryLeadershipSignal;
   justifications: GuidanceJustificationRecord[];
   flags: GuidanceFeedbackFlag[];
@@ -23,7 +21,6 @@ export type ProgramAggregateStore = {
   getLatestGuidedPlan: (programId: string) => Promise<GuidedPlan | null>;
   listProgramUpdates: (programId: string) => Promise<StoredProgramUpdate[]>;
   listLeadershipFeedback: (programId: string) => Promise<LeadershipReviewRecord[]>;
-  listAssistantConversations: (programId: string) => Promise<AssistantConversationTurn[]>;
   listGuidanceJustifications: (programId: string) => Promise<GuidanceJustificationRecord[]>;
   listGuidanceFeedbackFlags: (programId: string) => Promise<GuidanceFeedbackFlag[]>;
   listPrograms: () => Promise<StoredProgram[]>;
@@ -38,18 +35,16 @@ export async function buildGuidedPlanBundle(
     | "getLatestGuidedPlan"
     | "listProgramUpdates"
     | "listLeadershipFeedback"
-    | "listAssistantConversations"
     | "listGuidanceJustifications"
     | "listGuidanceFeedbackFlags"
   >,
   programId: string
 ): Promise<GuidedPlanBundle> {
-  const [program, plan, updates, feedbacks, assistantConversations, justifications, flags] = await Promise.all([
+  const [program, plan, updates, feedbacks, justifications, flags] = await Promise.all([
     store.getProgram(programId),
     store.getLatestGuidedPlan(programId),
     store.listProgramUpdates(programId),
     store.listLeadershipFeedback(programId),
-    store.listAssistantConversations(programId),
     store.listGuidanceJustifications(programId),
     store.listGuidanceFeedbackFlags(programId)
   ]);
@@ -58,7 +53,6 @@ export async function buildGuidedPlanBundle(
     program,
     plan,
     updates,
-    assistantConversations,
     leadershipSignal: buildDeliveryLeadershipSignal(feedbacks[0] ?? null, plan),
     justifications,
     flags,

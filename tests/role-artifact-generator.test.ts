@@ -36,7 +36,6 @@ test("generateLocalRoleArtifactDraft supports the starter role artifact types", 
       latestPlan,
       updates: [],
       leadershipFeedbacks: [],
-      assistantConversations: [],
       meetingInputs: []
     });
 
@@ -58,7 +57,6 @@ test("generateLocalRoleArtifactDraft incorporates iteration feedback", () => {
     latestPlan,
     updates: [],
     leadershipFeedbacks: [],
-    assistantConversations: [],
     meetingInputs: [],
     feedback: "Emphasize mobile alpha tester friction."
   });
