@@ -100,6 +100,29 @@ async function selectProgram(session) {
   return selected.label;
 }
 
+async function verifyAgentWorkbench(session) {
+  await session.waitFor("Studio Agent Workbench", () =>
+    session.execute(`
+      const workbench = document.querySelector("[data-agent-workbench]");
+      const agentIds = [
+        "program-management",
+        "requirements-elicitation",
+        "product-management",
+        "user-experience",
+        "data-analysis",
+        "application-development",
+        "data-engineering"
+      ];
+
+      return Boolean(
+        workbench
+        && agentIds.every((agentId) => workbench.querySelector('[data-agent-card="' + agentId + '"]'))
+        && workbench.querySelector('[data-agent-output]')
+      );
+    `)
+  );
+}
+
 async function selectRole(session) {
   await session.waitFor("Studio role select", () =>
     session.execute(`
@@ -257,12 +280,14 @@ async function main() {
   await withSafariBrowser(async (session) => {
     await authenticate(session);
     const program = await selectProgram(session);
+    await verifyAgentWorkbench(session);
     const role = await selectRole(session);
     const brief = await loadBrief(session);
     await generateArtifact(session);
     const downloads = await verifyExport(session);
 
     console.log(`✓ Studio program selected: ${program}`);
+    console.log("✓ Studio Agent Workbench verified.");
     console.log(`✓ Studio role selected: ${role}`);
     console.log(`✓ Studio brief loaded: ${brief}`);
     console.log("✓ Studio artifact generated.");

@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 import { notFound } from "next/navigation";
 import { initiatives } from "@/data";
 import { getInitiativeById, getRelatedFrameworks, getRelatedProducts } from "@/lib/content";

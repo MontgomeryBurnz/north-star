@@ -238,6 +238,42 @@ export const roleArtifactDefinitions: RoleArtifactDefinition[] = [
     primaryColumns: ["User / Persona", "Workflow Need", "Pain Point", "Validation Need"]
   },
   {
+    type: "data-analysis-kpi-definition-matrix",
+    role: "Data Analysis",
+    title: "KPI Definition Matrix",
+    shortTitle: "KPI Matrix",
+    description: "Defines metrics, formulas, source signals, decision use, and ownership for program measurement.",
+    outputLabel: "Analytics output",
+    primaryColumns: ["KPI", "Definition / Formula", "Source Signal", "Decision Supported"]
+  },
+  {
+    type: "data-analysis-reporting-requirements",
+    role: "Data Analysis",
+    title: "Reporting Requirements",
+    shortTitle: "Reporting Reqs",
+    description: "Turns stakeholder questions into reporting needs, cadence, source data, and acceptance criteria.",
+    outputLabel: "Reporting output",
+    primaryColumns: ["Report / View", "Question Answered", "Source Data", "Acceptance Criteria"]
+  },
+  {
+    type: "data-analysis-business-rules-inventory",
+    role: "Data Analysis",
+    title: "Business Rules Inventory",
+    shortTitle: "Rules Inventory",
+    description: "Captures analytical rules, exceptions, owners, and validation evidence needed for trusted outputs.",
+    outputLabel: "Rules output",
+    primaryColumns: ["Business Rule", "Exception", "Owner", "Validation Evidence"]
+  },
+  {
+    type: "data-analysis-insight-questions-log",
+    role: "Data Analysis",
+    title: "Insight Questions Log",
+    shortTitle: "Insight Questions",
+    description: "Organizes the decision questions analytics must answer and the evidence required to answer them.",
+    outputLabel: "Insight output",
+    primaryColumns: ["Question", "Decision Supported", "Evidence Needed", "Owner / Timing"]
+  },
+  {
     type: "app-dev-technical-delivery-plan",
     role: "Application Development",
     title: "Technical Delivery Plan",

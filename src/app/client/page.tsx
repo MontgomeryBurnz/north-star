@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 import { redirect } from "next/navigation";
 import { ClientPortalConsole } from "@/components/client-portal-console";
 import { buildClientPortalPortfolio, type ClientPortalProgramInput } from "@/lib/client-portal";

@@ -1,5 +1,4 @@
 import "server-only";
-import { cookies } from "next/headers";
 import { createServerClient } from "@supabase/ssr";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
@@ -23,6 +22,7 @@ export async function createSupabaseServerClient() {
     throw new Error("Supabase is not configured.");
   }
 
+  const { cookies } = await import("next/headers");
   const cookieStore = await cookies();
 
   return createServerClient(url, anonKey, {

@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 import { redirect } from "next/navigation";
 import { AuthPasswordForm } from "@/components/auth-password-form";
 import { createSupabaseServerClient, isSupabaseConfigured } from "@/lib/supabase/server";

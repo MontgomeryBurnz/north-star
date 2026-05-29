@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 import { CommandCenterGrid } from "@/components/command-center-grid";
 import { HeroSection } from "@/components/hero-section";
 import { OperatorSignalStrip, type OperatorSignal } from "@/components/operator-signal-strip";

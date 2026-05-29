@@ -4,6 +4,12 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ArrowRight, BrainCircuit, ChevronDown, Loader2, PencilLine, Sparkles } from "lucide-react";
 import { useCurrentUserAssignments } from "@/hooks/use-current-user-assignments";
 import { useProgramCatalog } from "@/hooks/use-program-catalog";
+import {
+  deliveryAgentDefinitions,
+  getDeliveryAgentRoleLenses,
+  type DeliveryAgentDefinition,
+  type DeliveryAgentId
+} from "@/lib/delivery-agent-types";
 import { programsToSlicerOptions } from "@/lib/program-slicer";
 import {
   buildCustomRoleArtifactDefinition,
@@ -14,6 +20,7 @@ import {
 import { normalizeTeamRoles } from "@/lib/team-roles";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { AgentWorkbenchCard } from "@/components/agent-workbench-card";
 import { ProgramSlicer } from "@/components/program-slicer";
 import { ProductPageHeader } from "@/components/product-page-header";
 import { RoleArtifactStudioCard, type RoleArtifactStudioRequest } from "@/components/role-artifact-studio-card";
@@ -240,6 +247,7 @@ export function ArtifactStudioConsole() {
   const workbenchRef = useRef<HTMLElement | null>(null);
   const [status, setStatus] = useState<string | null>(null);
   const [selectedRoleFocus, setSelectedRoleFocus] = useState("");
+  const [selectedAgentId, setSelectedAgentId] = useState<DeliveryAgentId>("program-management");
   const [suggestions, setSuggestions] = useState<RoleArtifactSuggestion[]>([]);
   const [isLoadingSuggestions, setIsLoadingSuggestions] = useState(false);
   const [launchRequest, setLaunchRequest] = useState<RoleArtifactStudioRequest | null>(null);
@@ -254,7 +262,11 @@ export function ArtifactStudioConsole() {
   const { getAssignmentForProgram, loaded: assignmentsLoaded } = useCurrentUserAssignments();
   const programOptions = useMemo(() => programsToSlicerOptions(programs, "signal"), [programs]);
   const teamRoles = useMemo(() => normalizeTeamRoles(selectedProgram?.intake.teamRoles), [selectedProgram?.intake.teamRoles]);
-  const roleOptions = useMemo(() => (selectedProgramId ? teamRoles : []), [selectedProgramId, teamRoles]);
+  const agentRoleLenses = useMemo(() => getDeliveryAgentRoleLenses(), []);
+  const roleOptions = useMemo(
+    () => (selectedProgramId ? Array.from(new Set([...teamRoles, ...agentRoleLenses])) : []),
+    [agentRoleLenses, selectedProgramId, teamRoles]
+  );
   const isRoleSelectionDisabled = !selectedProgramId || roleOptions.length === 0;
   const starterSuggestions = useMemo(() => {
     if (!selectedProgramId || !selectedRoleFocus) return [];
@@ -274,13 +286,13 @@ export function ArtifactStudioConsole() {
 
     const assignedRole = getAssignmentForProgram(selectedProgramId)?.role;
     const assignedRoleMatch = assignedRole
-      ? teamRoles.find((role) => role.toLowerCase() === assignedRole.toLowerCase())
+      ? roleOptions.find((role) => role.toLowerCase() === assignedRole.toLowerCase())
       : undefined;
 
-    setSelectedRoleFocus((current) => (teamRoles.includes(current) ? current : assignedRoleMatch ?? ""));
-    setCustomRole((current) => (teamRoles.includes(current) ? current : assignedRoleMatch ?? ""));
+    setSelectedRoleFocus((current) => (roleOptions.includes(current) ? current : assignedRoleMatch ?? ""));
+    setCustomRole((current) => (roleOptions.includes(current) ? current : assignedRoleMatch ?? ""));
     setLaunchRequest(null);
-  }, [assignmentsLoaded, getAssignmentForProgram, selectedProgramId, teamRoles]);
+  }, [assignmentsLoaded, getAssignmentForProgram, roleOptions, selectedProgramId]);
 
   useEffect(() => {
     setLaunchRequest(null);
@@ -356,6 +368,38 @@ export function ArtifactStudioConsole() {
     });
   }
 
+  function selectAgent(agentId: DeliveryAgentId) {
+    const agent = deliveryAgentDefinitions.find((candidate) => candidate.id === agentId) ?? deliveryAgentDefinitions[0];
+
+    setSelectedAgentId(agent.id);
+    setSelectedRoleFocus(agent.roleLens);
+    setCustomRole(agent.roleLens);
+    setLaunchRequest(null);
+    setStatus(`${agent.title} selected. Choose a suggested output or refresh role-specific briefs.`);
+  }
+
+  function useAgentArtifact(definition: RoleArtifactDefinition, agent: DeliveryAgentDefinition) {
+    setSelectedAgentId(agent.id);
+    setSelectedRoleFocus(agent.roleLens);
+    setCustomRole(agent.roleLens);
+    setLaunchRequest({
+      artifactType: definition.type,
+      definition,
+      generationBrief: [
+        `Generate ${definition.title} through the ${agent.title} lens for ${selectedProgram?.intake.programName ?? "the selected program"}.`,
+        `Use the agent mission: ${agent.mission}`,
+        `Inputs to consider: ${agent.receives.join(", ")}.`,
+        `Expected handoff: ${agent.produces.join(", ")}.`,
+        "Use uploaded artifacts, guided plans, delivery board movement, role updates, leadership feedback, risks, decisions, timeline, and program roles."
+      ].join(" "),
+      sourceLabel: `${agent.shortTitle} agent handoff`
+    });
+    setStatus(`${agent.shortTitle} loaded ${definition.title}. Review or edit the brief, then generate the artifact.`);
+    window.requestAnimationFrame(() => {
+      workbenchRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+  }
+
   function requestCustomArtifact() {
     if (!selectedRoleFocus && !customRole) {
       setStatus("Select a role before loading a custom artifact request.");
@@ -418,8 +462,10 @@ export function ArtifactStudioConsole() {
                     disabled={isRoleSelectionDisabled}
                     onChange={(event) => {
                       const nextRole = event.target.value;
+                      const matchingAgent = deliveryAgentDefinitions.find((agent) => agent.roleLens === nextRole);
                       setSelectedRoleFocus(nextRole);
                       setCustomRole(nextRole);
+                      if (matchingAgent) setSelectedAgentId(matchingAgent.id);
                       setLaunchRequest(null);
                     }}
                     className="h-12 w-full appearance-none rounded-md border border-white/10 bg-zinc-950 px-3 pr-10 text-sm text-zinc-100 outline-none transition-colors disabled:cursor-not-allowed disabled:text-zinc-600 focus:border-emerald-300/50 focus:ring-2 focus:ring-emerald-300/15"
@@ -466,6 +512,14 @@ export function ArtifactStudioConsole() {
           <EmptyArtifactState hasPrograms={programs.length > 0} />
         ) : (
           <section className="grid gap-6">
+            <AgentWorkbenchCard
+              artifactDefinitions={roleArtifactDefinitions}
+              selectedAgentId={selectedAgentId}
+              selectedProgramName={selectedProgram?.intake.programName}
+              onSelectAgent={selectAgent}
+              onLaunchArtifact={useAgentArtifact}
+            />
+
             <Card className="bg-zinc-950/75">
               <CardHeader className="border-b border-white/10">
                 <div className="flex flex-wrap items-start justify-between gap-3">

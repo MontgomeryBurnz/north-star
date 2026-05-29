@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 import { ArtifactStudioConsole } from "@/components/artifact-studio-console";
 import { requireSiteAccessPage } from "@/lib/app-page-access";
 

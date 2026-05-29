@@ -1,4 +1,5 @@
-import { cookies } from "next/headers";
+export const dynamic = "force-dynamic";
+
 import { redirect } from "next/navigation";
 import { SiteAccessLoginForm } from "@/components/site-access-login-form";
 import { requiresUserSetup } from "@/lib/admin-user-types";
@@ -28,6 +29,7 @@ export default async function SiteLoginPage({
     redirect(redirectTo);
   }
 
+  const { cookies } = await import("next/headers");
   const cookieStore = await cookies();
   const sessionToken = cookieStore.get(siteAccessSessionCookieName)?.value;
   const hasSupabaseSession = cookieStore

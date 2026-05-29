@@ -85,9 +85,45 @@ test("Studio role filtering is enforced after OpenAI recommendations return", ()
 test("Studio catalog includes starter artifacts for expanded delivery roles", () => {
   const source = readFileSync(new URL("../src/lib/role-artifact-types.ts", import.meta.url), "utf8");
 
-  for (const role of ["Application Development", "Data Engineering", "Change Management", "Scrum Master", "Delivery Lead"]) {
+  for (const role of ["Application Development", "Data Engineering", "Data Analysis", "Change Management", "Scrum Master", "Delivery Lead"]) {
     assert.match(source, new RegExp(`role: "${role}"`));
   }
+});
+
+test("Studio includes a governed delivery agent workbench with UX coverage", () => {
+  const agentSource = readFileSync(new URL("../src/lib/delivery-agent-types.ts", import.meta.url), "utf8");
+  const workbenchSource = readFileSync(new URL("../src/components/agent-workbench-card.tsx", import.meta.url), "utf8");
+  const studioSource = readFileSync(new URL("../src/components/artifact-studio-console.tsx", import.meta.url), "utf8");
+  const catalogSource = readFileSync(new URL("../src/lib/role-artifact-types.ts", import.meta.url), "utf8");
+  const smokeSource = readFileSync(new URL("../scripts/smoke-studio.mjs", import.meta.url), "utf8");
+
+  for (const agentId of [
+    "program-management",
+    "requirements-elicitation",
+    "product-management",
+    "user-experience",
+    "data-analysis",
+    "application-development",
+    "data-engineering"
+  ]) {
+    assert.match(agentSource, new RegExp(`id: "${agentId}"`));
+    assert.match(smokeSource, new RegExp(`"${agentId}"`));
+  }
+
+  assert.match(agentSource, /title: "UX Agent"/);
+  assert.match(agentSource, /roleLens: "User Experience"/);
+  assert.match(agentSource, /handoffTo/);
+  assert.match(agentSource, /suggestedArtifactTypes/);
+  assert.match(workbenchSource, /data-agent-workbench/);
+  assert.match(workbenchSource, /data-agent-card=\{agent\.id\}/);
+  assert.match(workbenchSource, /data-agent-output=\{definition\.type\}/);
+  assert.match(studioSource, /AgentWorkbenchCard/);
+  assert.match(studioSource, /selectedAgentId/);
+  assert.match(studioSource, /getDeliveryAgentRoleLenses/);
+  assert.match(studioSource, /useAgentArtifact/);
+  assert.match(catalogSource, /data-analysis-kpi-definition-matrix/);
+  assert.match(catalogSource, /data-analysis-reporting-requirements/);
+  assert.match(smokeSource, /verifyAgentWorkbench/);
 });
 
 test("Navigation presents Quick Start and keeps Admin as settings access", () => {

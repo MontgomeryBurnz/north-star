@@ -1,4 +1,3 @@
-import { cookies } from "next/headers";
 import type { User } from "@supabase/supabase-js";
 import type { ManagedAppUser } from "@/lib/admin-user-types";
 import { canAccessAdminSurface, canAccessLeadershipSurface } from "@/lib/admin-user-types";
@@ -130,6 +129,7 @@ export async function getLeadershipAccessContext(): Promise<LeadershipAccessCont
   const provider = getConfiguredLeadershipAuthProvider();
 
   if (provider === "env") {
+    const { cookies } = await import("next/headers");
     const cookieStore = await cookies();
     const sessionToken = cookieStore.get(leadershipSessionCookieName)?.value;
 

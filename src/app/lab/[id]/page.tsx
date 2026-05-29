@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 import { notFound } from "next/navigation";
 import { aiProducts } from "@/data";
 import { getAIProductById, getRelatedInitiatives } from "@/lib/content";

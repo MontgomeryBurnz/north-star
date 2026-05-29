@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 import { GuidedPlansConsole } from "@/components/guided-plans-console";
 import { requireSiteAccessPage } from "@/lib/app-page-access";
 

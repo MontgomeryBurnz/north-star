@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 import { ProgramWorkspace } from "@/components/program-workspace";
 import { requireSiteAccessPage } from "@/lib/app-page-access";
 

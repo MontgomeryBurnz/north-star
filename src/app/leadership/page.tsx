@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 import { redirect } from "next/navigation";
 import { LeadershipReviewConsole } from "@/components/leadership-review-console";
 import { getLeadershipAccessContext } from "@/lib/leadership-auth";

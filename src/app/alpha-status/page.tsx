@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 import { SectionHeader } from "@/components/section-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { getConfiguredArtifactStorageProvider } from "@/lib/artifact-storage";

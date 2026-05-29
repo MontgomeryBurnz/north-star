@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 import { AILabSection } from "@/components/ai-lab-section";
 import { requireSiteAccessPage } from "@/lib/app-page-access";
 

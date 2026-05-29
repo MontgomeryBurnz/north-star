@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 import { frameworks } from "@/data";
 import { FrameworkCard } from "@/components/framework-card";
 import { SectionHeader } from "@/components/section-header";

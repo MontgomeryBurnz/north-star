@@ -1,17 +1,21 @@
 import "server-only";
-import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { requiresUserSetup } from "@/lib/admin-user-types";
 import { getCurrentManagedUser } from "@/lib/current-managed-user";
 import { getSiteAccessConfig, isSiteAccessSessionTokenValid, siteAccessSessionCookieName } from "@/lib/site-access";
 
-function hasSupabaseAuthSession(cookieStore: Awaited<ReturnType<typeof cookies>>) {
+async function getCookieStore() {
+  const { cookies } = await import("next/headers");
+  return cookies();
+}
+
+function hasSupabaseAuthSession(cookieStore: Awaited<ReturnType<typeof getCookieStore>>) {
   return cookieStore
     .getAll()
     .some((cookie) => cookie.name.startsWith("sb-") && cookie.name.includes("auth-token"));
 }
 
-async function redirectPendingUserSetup(cookieStore: Awaited<ReturnType<typeof cookies>>) {
+async function redirectPendingUserSetup(cookieStore: Awaited<ReturnType<typeof getCookieStore>>) {
   if (!hasSupabaseAuthSession(cookieStore)) return;
 
   const currentUser = await getCurrentManagedUser();
@@ -24,7 +28,7 @@ export async function requireSiteAccessPage(redirectTo: string) {
   const config = getSiteAccessConfig();
   if (!config.enabled) return;
 
-  const cookieStore = await cookies();
+  const cookieStore = await getCookieStore();
   const sessionToken = cookieStore.get(siteAccessSessionCookieName)?.value;
   if (isSiteAccessSessionTokenValid(sessionToken)) {
     await redirectPendingUserSetup(cookieStore);
@@ -38,7 +42,7 @@ export async function hasSiteAccessPageSession() {
   const config = getSiteAccessConfig();
   if (!config.enabled) return true;
 
-  const cookieStore = await cookies();
+  const cookieStore = await getCookieStore();
   const hasAccess = isSiteAccessSessionTokenValid(cookieStore.get(siteAccessSessionCookieName)?.value);
   if (hasAccess) {
     await redirectPendingUserSetup(cookieStore);
