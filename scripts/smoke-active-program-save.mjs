@@ -481,16 +481,29 @@ async function saveRoleSignal(session, program) {
       setter.call(progress, arguments[0]);
       progress.dispatchEvent(new Event("input", { bubbles: true }));
 
-      const onTrack = document.querySelector('[data-active-role-status="on-track"]');
-      onTrack?.click();
+      const attachmentInput = document.querySelector("[data-active-role-attachments]");
+      if (attachmentInput) {
+        const dataTransfer = new DataTransfer();
+        dataTransfer.items.add(new File([arguments[0]], "north-star-role-update-smoke.txt", { type: "text/plain" }));
+        attachmentInput.files = dataTransfer.files;
+        attachmentInput.dispatchEvent(new Event("change", { bubbles: true }));
+      }
     `,
     [smokeText]
   );
 
+  await session.waitFor("Active Program role attachment control processed", async () => {
+    return session.execute(`
+      const card = document.querySelector("[data-active-role-progress]")?.closest("[data-active-role-signal-card]");
+      const text = card?.textContent ?? "";
+      return text.includes("Attachment uploaded") || text.includes("north-star-role-update-smoke.txt");
+    `);
+  }, 60_000);
+
   await session.waitFor("Active Program save signal enabled", async () => {
     return session.execute(`
       const button = document.querySelector("[data-active-role-save]");
-      return Boolean(button) && !button.disabled && button.textContent.includes("Save signal");
+      return Boolean(button) && !button.disabled && button.textContent.includes("Save role update");
     `);
   });
 
@@ -517,7 +530,9 @@ async function saveRoleSignal(session, program) {
         .then((response) => response.ok ? response.json() : Promise.reject(new Error(String(response.status))))
         .then((payload) => payload.updates.some((update) =>
           (update.review.teamRoleUpdates ?? []).some((roleUpdate) =>
-            roleUpdate.role === arguments[1] && roleUpdate.progressUpdate.includes(arguments[2])
+            roleUpdate.role === arguments[1] &&
+            roleUpdate.progressUpdate.includes(arguments[2]) &&
+            (roleUpdate.attachments ?? []).some((attachment) => attachment.fileName === "north-star-role-update-smoke.txt")
           ) &&
           (update.review.deliveryBoardItems ?? []).some((item) => item.title.includes(arguments[2]))
         ));

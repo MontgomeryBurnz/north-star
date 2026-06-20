@@ -26,6 +26,14 @@ export function GuidedPlanOverviewCard({
   currentPhaseLabel,
   formatDate
 }: GuidedPlanOverviewCardProps) {
+  const programGuide = plan.programGuide ?? {
+    title: "Overall Program Guide",
+    focus: plan.northStar,
+    whyItMatters: plan.summary,
+    nextStep: "Review the next role update, leadership signal, or program input to keep guidance current.",
+    sponsorReadout: plan.summary
+  };
+
   return (
     <Card className="bg-zinc-950/85">
       <CardHeader className="border-b border-white/10">
@@ -47,7 +55,25 @@ export function GuidedPlanOverviewCard({
       </CardHeader>
       <CardContent className="grid gap-4 p-4 sm:p-5">
         <div className="rounded-md border border-emerald-300/20 bg-emerald-300/[0.055] p-4">
-          <p className="text-xs font-medium uppercase tracking-[0.18em] text-emerald-200">North star</p>
+          <p className="text-xs font-medium uppercase tracking-[0.18em] text-emerald-200">{programGuide.title}</p>
+          <p className="mt-2 text-lg font-semibold leading-7 text-zinc-50">{programGuide.sponsorReadout}</p>
+          <div className="mt-4 grid gap-3 md:grid-cols-3">
+            <div className="rounded-md border border-white/10 bg-black/20 p-3">
+              <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-cyan-200">Team focus</p>
+              <p className="mt-2 text-sm leading-6 text-zinc-300">{programGuide.focus}</p>
+            </div>
+            <div className="rounded-md border border-white/10 bg-black/20 p-3">
+              <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-amber-200">Why it matters</p>
+              <p className="mt-2 text-sm leading-6 text-zinc-300">{programGuide.whyItMatters}</p>
+            </div>
+            <div className="rounded-md border border-white/10 bg-black/20 p-3">
+              <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-emerald-200">What comes next</p>
+              <p className="mt-2 text-sm leading-6 text-zinc-300">{programGuide.nextStep}</p>
+            </div>
+          </div>
+        </div>
+        <div className="rounded-md border border-cyan-300/15 bg-cyan-300/[0.04] p-4">
+          <p className="text-xs font-medium uppercase tracking-[0.18em] text-cyan-200">North star</p>
           <p className="mt-2 text-sm leading-6 text-zinc-200">{plan.northStar}</p>
         </div>
         <details className="group rounded-md border border-white/10 bg-white/[0.025] p-4">

@@ -27,10 +27,66 @@ const program: StoredProgram = {
 test("generateLocalGuidedPlan includes custom team roles in Team Action Plans", () => {
   const plan = generateLocalGuidedPlan(program, []);
   assert.ok(plan.rolePlans);
+  assert.ok(plan.programGuide);
+  assert.match(plan.programGuide.sponsorReadout, /team|decision|sponsor|focus/i);
 
   assert.deepEqual(
     plan.rolePlans.roles.map((rolePlan) => rolePlan.role),
     ["Product Management", "Delivery Lead"]
   );
   assert.ok(plan.rolePlans.roles.find((rolePlan) => rolePlan.role === "Delivery Lead")?.actionPlan.length);
+});
+
+test("generateLocalGuidedPlan treats role update attachments as role-level signal", () => {
+  const plan = generateLocalGuidedPlan(program, [
+    {
+      id: "update-1",
+      programId: program.id,
+      programName: program.intake.programName,
+      createdAt: "2026-04-28T11:00:00.000Z",
+      review: {
+        programName: program.intake.programName,
+        originalNorthStar: program.intake.vision,
+        currentPhase: "Execution",
+        progressSinceLastReview: "",
+        planChanges: "",
+        activeRisks: "",
+        stakeholderTemperature: "",
+        decisionsPending: "",
+        deliveryHealth: "",
+        supportNeeded: "",
+        teamRoleUpdates: [
+          {
+            role: "Delivery Lead",
+            updatedBy: "Alex",
+            progressUpdate: "Checkpoint planning notes are attached for sponsor review.",
+            changesObserved: "",
+            activeRisks: "",
+            blockers: "",
+            decisionsNeeded: "",
+            supportNeeded: "",
+            status: "on-track",
+            needsLeadershipAttention: false,
+            attachments: [
+              {
+                id: "artifact-1",
+                fileName: "checkpoint-notes.txt",
+                mimeType: "text/plain",
+                sizeBytes: 128,
+                provider: "supabase",
+                storageKey: "artifacts/artifact-1/checkpoint-notes.txt",
+                createdAt: "2026-04-28T11:00:00.000Z"
+              }
+            ]
+          }
+        ],
+        artifacts: []
+      }
+    }
+  ]);
+
+  const deliveryLeadPlan = plan.rolePlans?.roles.find((rolePlan) => rolePlan.role === "Delivery Lead");
+  assert.ok(deliveryLeadPlan);
+  assert.match(plan.sourceInputs.items.join("\n"), /role submissions/i);
+  assert.match(deliveryLeadPlan.keyFocusAreas.join("\n"), /Operating posture/i);
 });

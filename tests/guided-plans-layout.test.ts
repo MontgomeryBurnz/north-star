@@ -359,14 +359,13 @@ test("Active Program review is split into state, cockpit, and team signal flows"
   assert.match(teamUpdatesSource, /roleFocusStorageKey/);
   assert.match(teamUpdatesSource, /north-star:active-program:role-focus/);
   assert.match(teamUpdatesSource, /persistFocusedRole/);
-  assert.match(teamUpdatesSource, /Primary role lane/);
-  assert.match(teamUpdatesSource, /Adjacent team signals/);
+  assert.match(teamUpdatesSource, /Role update workspace/);
+  assert.match(teamUpdatesSource, /Adjacent role context/);
   assert.match(teamUpdatesSource, /showOwnership/);
-  assert.match(teamUpdatesSource, /openRiskCount/);
-  assert.match(teamUpdatesSource, /openDecisionCount/);
   assert.match(teamUpdatesSource, /No update this cycle/);
   assert.match(teamUpdatesSource, /data-active-role-signal-card/);
   assert.match(teamUpdatesSource, /data-active-role-progress/);
+  assert.match(teamUpdatesSource, /data-active-role-attachments/);
   assert.match(teamUpdatesSource, /data-active-role-save/);
   assert.match(teamUpdatesSource, /data-active-program-save-confirmation/);
   assert.match(meetingInputSource, /Add context/);

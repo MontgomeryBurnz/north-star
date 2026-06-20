@@ -1,44 +1,32 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
 import {
-  AlertTriangle,
   CheckCircle2,
   ChevronDown,
   Clock3,
-  GitPullRequestArrow,
+  FileUp,
+  Paperclip,
   RefreshCw,
   Save,
   Target,
+  Trash2,
   Users2
 } from "lucide-react";
-import type { TeamRoleUpdate, TeamRoleUpdateStatus } from "@/lib/active-program-types";
+import type { TeamRoleUpdate } from "@/lib/active-program-types";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
-const roleStatusOptions: Array<{ value: TeamRoleUpdateStatus; label: string }> = [
-  { value: "on-track", label: "On track" },
-  { value: "at-risk", label: "At risk" },
-  { value: "blocked", label: "Blocked" }
-];
-
 function hasRoleSubmission(roleUpdate: TeamRoleUpdate) {
   return Boolean(
-    roleUpdate.status !== "on-track" ||
-      roleUpdate.needsLeadershipAttention ||
-      roleUpdate.progressUpdate.trim() ||
+    roleUpdate.progressUpdate.trim() ||
       roleUpdate.changesObserved.trim() ||
       roleUpdate.activeRisks.trim() ||
       roleUpdate.blockers.trim() ||
       roleUpdate.decisionsNeeded.trim() ||
-      roleUpdate.supportNeeded.trim()
+      roleUpdate.supportNeeded.trim() ||
+      (roleUpdate.attachments?.length ?? 0) > 0
   );
-}
-
-function roleStatusClassName(status: TeamRoleUpdateStatus) {
-  if (status === "blocked") return "border-rose-300/25 bg-rose-300/10 text-rose-100";
-  if (status === "at-risk") return "border-amber-300/25 bg-amber-300/10 text-amber-100";
-  return "border-emerald-300/25 bg-emerald-300/10 text-emerald-100";
 }
 
 function normalizeRoleKey(role: string) {
@@ -46,22 +34,16 @@ function normalizeRoleKey(role: string) {
 }
 
 function firstRoleSignal(roleUpdate: TeamRoleUpdate) {
+  const attachmentCount = roleUpdate.attachments?.length ?? 0;
   return (
     roleUpdate.progressUpdate.trim() ||
     roleUpdate.activeRisks.trim() ||
     roleUpdate.blockers.trim() ||
     roleUpdate.decisionsNeeded.trim() ||
     roleUpdate.supportNeeded.trim() ||
-    roleUpdate.changesObserved.trim()
+    roleUpdate.changesObserved.trim() ||
+    (attachmentCount ? `${attachmentCount} attached file${attachmentCount === 1 ? "" : "s"} ready for guidance.` : "")
   );
-}
-
-function countSignals(...values: string[]) {
-  return values
-    .join("\n")
-    .split(/\r?\n/)
-    .map((value) => value.trim())
-    .filter(Boolean).length;
 }
 
 type ActiveProgramTeamUpdatesCardProps = {
@@ -82,8 +64,15 @@ type ActiveProgramTeamUpdatesCardProps = {
   selectedProgramId?: string | null;
   ownershipSaveState: "idle" | "dirty" | "saving" | "saved" | "error";
   ownershipSavedAt: string | null;
+  roleAttachmentUploadState: {
+    role: string;
+    status: "idle" | "uploading" | "uploaded" | "error";
+  } | null;
   formatTimestamp: (value: string) => string;
+  formatFileSize: (value: number) => string;
   onUpdateRoleField: (role: string, field: keyof Omit<TeamRoleUpdate, "role">, value: string | boolean) => void;
+  onRoleAttachmentsChange: (role: string, event: ChangeEvent<HTMLInputElement>) => void | Promise<void>;
+  onRemoveRoleAttachment: (role: string, attachmentId: string) => void;
   onSaveOwnership: () => void | Promise<void>;
   onSaveRoleSignal: (role: string) => void | Promise<void>;
 };
@@ -99,8 +88,12 @@ export function ActiveProgramTeamUpdatesCard({
   selectedProgramId,
   ownershipSaveState,
   ownershipSavedAt,
+  roleAttachmentUploadState,
   formatTimestamp,
+  formatFileSize,
   onUpdateRoleField,
+  onRoleAttachmentsChange,
+  onRemoveRoleAttachment,
   onSaveOwnership,
   onSaveRoleSignal
 }: ActiveProgramTeamUpdatesCardProps) {
@@ -142,11 +135,12 @@ export function ActiveProgramTeamUpdatesCard({
           window.localStorage.removeItem(roleFocusStorageKey);
         }
       } catch {
-        // Local storage can be blocked in hardened browsers; role focus still works for the current session.
+        // Hardened browsers can block local storage; focus still works for the current session.
       }
     },
     [roleFocusStorageKey]
   );
+
   const sortedTeamRoleUpdates = useMemo(() => {
     if (!defaultFocusRole) return teamRoleUpdates;
     const focusedRoleUpdates: TeamRoleUpdate[] = [];
@@ -190,6 +184,7 @@ export function ActiveProgramTeamUpdatesCard({
       return null;
     });
   }, [defaultFocusRoleKey, persistFocusedRole, readStoredFocusedRole, roleFocusStorageKey, roleKeysSignature]);
+
   const ownershipStatus =
     ownershipSaveState === "saving"
       ? "Saving..."
@@ -201,7 +196,7 @@ export function ActiveProgramTeamUpdatesCard({
           ? "Save failed"
           : ownershipSaveState === "dirty"
             ? "Unsaved changes"
-          : "Not saved yet";
+            : "Not saved yet";
   const hasAdminAssignedOwners = useMemo(
     () => Object.values(assignedOwnersByRole).some((owners) => owners.length),
     [assignedOwnersByRole]
@@ -227,17 +222,16 @@ export function ActiveProgramTeamUpdatesCard({
   );
 
   const renderRoleLane = (roleUpdate: TeamRoleUpdate, variant: "primary" | "secondary") => {
-    const assignedOwners = assignedOwnersByRole[normalizeRoleKey(roleUpdate.role)] ?? [];
+    const roleKey = normalizeRoleKey(roleUpdate.role);
+    const assignedOwners = assignedOwnersByRole[roleKey] ?? [];
     const ownerDisplay = roleUpdate.updatedBy || assignedOwners.join(", ");
+    const attachmentCount = roleUpdate.attachments?.length ?? 0;
     const hasSaveableSignal = hasRoleSubmission(roleUpdate);
     const isExpanded = expandedRole === roleUpdate.role;
-    const statusLabel = roleStatusOptions.find((option) => option.value === roleUpdate.status)?.label ?? "On track";
     const summary = firstRoleSignal(roleUpdate);
-    const openRiskCount = countSignals(roleUpdate.activeRisks, roleUpdate.blockers);
-    const openDecisionCount = countSignals(roleUpdate.decisionsNeeded, roleUpdate.supportNeeded);
     const lastUpdatedLabel = roleUpdate.lastUpdatedAt ? formatTimestamp(roleUpdate.lastUpdatedAt) : "No update this cycle";
-    const roleKey = normalizeRoleKey(roleUpdate.role);
     const isPrimary = variant === "primary";
+    const uploadState = roleAttachmentUploadState?.role === roleUpdate.role ? roleAttachmentUploadState.status : "idle";
 
     return (
       <div
@@ -267,9 +261,6 @@ export function ActiveProgramTeamUpdatesCard({
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
               <p className="font-medium text-zinc-100">{roleUpdate.role}</p>
-              <span className={`rounded-full border px-2.5 py-1 text-[11px] font-medium uppercase tracking-[0.12em] ${roleStatusClassName(roleUpdate.status)}`}>
-                {statusLabel}
-              </span>
               {isPrimary ? (
                 <span className="rounded-full border border-cyan-300/25 bg-cyan-300/10 px-2.5 py-1 text-[11px] font-medium uppercase tracking-[0.12em] text-cyan-100">
                   Focus role
@@ -282,31 +273,33 @@ export function ActiveProgramTeamUpdatesCard({
                     : "border-white/10 bg-black/20 text-zinc-500"
                 }`}
               >
-                {hasSaveableSignal ? "Signal captured" : "Awaiting input"}
+                {hasSaveableSignal ? "Update captured" : "Awaiting input"}
               </span>
+              {attachmentCount ? (
+                <span className="rounded-full border border-emerald-300/20 bg-emerald-300/[0.06] px-2.5 py-1 text-[11px] font-medium uppercase tracking-[0.12em] text-emerald-100">
+                  {attachmentCount} file{attachmentCount === 1 ? "" : "s"}
+                </span>
+              ) : null}
             </div>
             <div className={`mt-3 grid gap-3 ${isPrimary ? "lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end" : ""}`}>
               <p className={`${isPrimary ? "line-clamp-3" : "line-clamp-1"} min-w-0 text-sm leading-6 text-zinc-400`}>
-                {summary || (isPrimary ? "Capture the signal this role needs to move the program forward." : "No weekly signal captured yet.")}
+                {summary || (isPrimary ? "Write the update this role wants the team to understand this cycle." : "No role update captured yet.")}
               </p>
               <div className={`grid gap-2 ${isPrimary ? "sm:grid-cols-3 lg:min-w-[360px]" : "sm:grid-cols-3"}`}>
                 <span className="inline-flex min-h-9 items-center gap-2 rounded-md border border-white/10 bg-black/20 px-3 py-2 text-xs text-zinc-400">
                   <Clock3 className="h-3.5 w-3.5 text-zinc-500" />
                   <span className="truncate">{lastUpdatedLabel}</span>
                 </span>
-                <span className="inline-flex min-h-9 items-center gap-2 rounded-md border border-amber-300/15 bg-amber-300/[0.055] px-3 py-2 text-xs text-amber-100">
-                  <AlertTriangle className="h-3.5 w-3.5" />
-                  {openRiskCount} risk{openRiskCount === 1 ? "" : "s"}
-                </span>
                 <span className="inline-flex min-h-9 items-center gap-2 rounded-md border border-cyan-300/15 bg-cyan-300/[0.055] px-3 py-2 text-xs text-cyan-100">
-                  <GitPullRequestArrow className="h-3.5 w-3.5" />
-                  {openDecisionCount} decision{openDecisionCount === 1 ? "" : "s"}
+                  <Paperclip className="h-3.5 w-3.5" />
+                  {attachmentCount} attachment{attachmentCount === 1 ? "" : "s"}
+                </span>
+                <span className="inline-flex min-h-9 items-center gap-2 rounded-md border border-white/10 bg-black/20 px-3 py-2 text-xs text-zinc-400">
+                  <Users2 className="h-3.5 w-3.5 text-zinc-500" />
+                  <span className="truncate">{ownerDisplay || "Owner not mapped"}</span>
                 </span>
               </div>
             </div>
-            <p className="mt-2 line-clamp-1 text-xs leading-5 text-zinc-500">
-              {ownerDisplay ? `Owner: ${ownerDisplay}` : "Owner not mapped"}
-            </p>
           </div>
           <div className="flex items-center justify-between gap-3 sm:justify-end">
             <span className="text-xs font-medium text-cyan-200">
@@ -318,93 +311,79 @@ export function ActiveProgramTeamUpdatesCard({
 
         {isExpanded ? (
           <div className="grid gap-4 border-t border-white/10 p-4 pt-3">
-            <div className="grid min-w-0 gap-2">
-              <span className="text-xs font-medium uppercase tracking-[0.18em] text-zinc-300">Status</span>
-              <div className="grid gap-2 sm:grid-cols-3">
-                {roleStatusOptions.map((option) => {
-                  const selected = roleUpdate.status === option.value;
-                  const selectedClassName = roleStatusClassName(option.value);
+            <label className="grid min-w-0 gap-2">
+              <span className="text-xs font-medium uppercase tracking-[0.18em] text-zinc-300">Role update</span>
+              <textarea
+                data-active-role-progress
+                value={roleUpdate.progressUpdate}
+                onChange={(event) => onUpdateRoleField(roleUpdate.role, "progressUpdate", event.target.value)}
+                placeholder="Type the update, concern, dependency, accomplishment, decision need, or context this role wants reflected in guidance."
+                rows={7}
+                className="min-h-[180px] resize-y rounded-md border border-white/10 bg-zinc-950 px-3 py-3 text-sm leading-6 text-zinc-100 outline-none transition-colors placeholder:text-zinc-500 focus:border-cyan-300/50"
+              />
+            </label>
 
-                  return (
-                    <button
-                      key={option.value}
-                      type="button"
-                      data-active-role-status={option.value}
-                      onClick={() => onUpdateRoleField(roleUpdate.role, "status", option.value)}
-                      className={`min-h-11 rounded-md border px-3 py-2 text-sm font-medium transition-colors ${
-                        selected
-                          ? selectedClassName
-                          : "border-white/10 bg-zinc-950 text-zinc-300 hover:border-cyan-300/30 hover:text-zinc-100"
-                      }`}
-                    >
-                      {option.label}
-                    </button>
-                  );
-                })}
+            <div className="grid gap-3 rounded-md border border-cyan-300/15 bg-cyan-300/[0.035] p-3">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <p className="text-sm font-medium text-zinc-100">Artifacts and recordings</p>
+                  <p className="mt-1 text-xs leading-5 text-zinc-500">
+                    Attach evidence that should travel with this role update into guided plans.
+                  </p>
+                </div>
+                <label className="inline-flex min-h-10 cursor-pointer items-center justify-center gap-2 rounded-md border border-cyan-300/25 bg-cyan-300/[0.08] px-3 py-2 text-sm font-medium text-cyan-100 transition-colors hover:border-cyan-200/45 hover:bg-cyan-300/[0.12]">
+                  <FileUp className="h-4 w-4" />
+                  {uploadState === "uploading" ? "Uploading..." : "Attach files"}
+                  <input
+                    type="file"
+                    multiple
+                    className="sr-only"
+                    data-active-role-attachments
+                    onChange={(event) => void onRoleAttachmentsChange(roleUpdate.role, event)}
+                  />
+                </label>
               </div>
-            </div>
-
-            <div className="grid gap-4 lg:grid-cols-2">
-              <label className="grid min-w-0 gap-2">
-                <span className="text-xs font-medium uppercase tracking-[0.18em] text-zinc-300">Progress update</span>
-                <textarea
-                  data-active-role-progress
-                  value={roleUpdate.progressUpdate}
-                  onChange={(event) => onUpdateRoleField(roleUpdate.role, "progressUpdate", event.target.value)}
-                  placeholder="What changed most since the last checkpoint?"
-                  rows={3}
-                  className="min-h-[104px] resize-none rounded-md border border-white/10 bg-zinc-950 px-3 py-3 text-sm leading-6 text-zinc-100 outline-none transition-colors placeholder:text-zinc-500 focus:border-cyan-300/50"
-                />
-              </label>
-
-              <label className="grid min-w-0 gap-2">
-                <span className="text-xs font-medium uppercase tracking-[0.18em] text-zinc-300">Changes observed</span>
-                <textarea
-                  data-active-role-changes
-                  value={roleUpdate.changesObserved}
-                  onChange={(event) => onUpdateRoleField(roleUpdate.role, "changesObserved", event.target.value)}
-                  placeholder="Scope, sequencing, dependency, or stakeholder changes."
-                  rows={3}
-                  className="min-h-[104px] resize-none rounded-md border border-white/10 bg-zinc-950 px-3 py-3 text-sm leading-6 text-zinc-100 outline-none transition-colors placeholder:text-zinc-500 focus:border-cyan-300/50"
-                />
-              </label>
-
-              <label className="grid min-w-0 gap-2">
-                <span className="text-xs font-medium uppercase tracking-[0.18em] text-zinc-300">Risks and blockers</span>
-                <textarea
-                  data-active-role-risks
-                  value={[roleUpdate.activeRisks, roleUpdate.blockers].filter(Boolean).join("\n")}
-                  onChange={(event) => {
-                    const [activeRisks, ...rest] = event.target.value.split("\n");
-                    onUpdateRoleField(roleUpdate.role, "activeRisks", activeRisks ?? "");
-                    onUpdateRoleField(roleUpdate.role, "blockers", rest.join("\n"));
-                  }}
-                  placeholder="Top risk on the first line, blockers beneath it."
-                  rows={4}
-                  className="min-h-[120px] resize-none rounded-md border border-white/10 bg-zinc-950 px-3 py-3 text-sm leading-6 text-zinc-100 outline-none transition-colors placeholder:text-zinc-500 focus:border-cyan-300/50"
-                />
-              </label>
-
-              <label className="grid min-w-0 gap-2">
-                <span className="text-xs font-medium uppercase tracking-[0.18em] text-zinc-300">Decisions and support</span>
-                <textarea
-                  data-active-role-decisions
-                  value={[roleUpdate.decisionsNeeded, roleUpdate.supportNeeded].filter(Boolean).join("\n")}
-                  onChange={(event) => {
-                    const [decisionsNeeded, ...rest] = event.target.value.split("\n");
-                    onUpdateRoleField(roleUpdate.role, "decisionsNeeded", decisionsNeeded ?? "");
-                    onUpdateRoleField(roleUpdate.role, "supportNeeded", rest.join("\n"));
-                  }}
-                  placeholder="Decision needed on the first line, support ask beneath it."
-                  rows={4}
-                  className="min-h-[120px] resize-none rounded-md border border-white/10 bg-zinc-950 px-3 py-3 text-sm leading-6 text-zinc-100 outline-none transition-colors placeholder:text-zinc-500 focus:border-cyan-300/50"
-                />
-              </label>
+              {uploadState === "uploaded" ? (
+                <p className="text-xs leading-5 text-emerald-200">Attachment uploaded. Save this role update to refresh guidance.</p>
+              ) : uploadState === "error" ? (
+                <p className="text-xs leading-5 text-amber-200">Attachment upload failed. Try again or save the text update first.</p>
+              ) : null}
+              {roleUpdate.attachments?.length ? (
+                <div className="grid gap-2">
+                  {roleUpdate.attachments.map((attachment) => (
+                    <div
+                      key={attachment.id}
+                      className="grid gap-3 rounded-md border border-white/10 bg-black/25 p-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center"
+                    >
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-medium text-zinc-100">{attachment.fileName}</p>
+                        <p className="mt-1 text-xs text-zinc-500">
+                          {formatFileSize(attachment.sizeBytes)} / {attachment.mimeType || "unknown type"}
+                        </p>
+                      </div>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="justify-self-start text-zinc-400 hover:text-zinc-100 sm:justify-self-end"
+                        onClick={() => onRemoveRoleAttachment(roleUpdate.role, attachment.id)}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                        Remove
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="rounded-md border border-white/10 bg-black/20 p-3 text-xs leading-5 text-zinc-500">
+                  No attachments for this role update yet.
+                </p>
+              )}
             </div>
 
             <div className="flex flex-wrap items-center justify-between gap-3 border-t border-white/10 pt-3">
               <p className="text-xs leading-5 text-zinc-500">
-                Saving role signal refreshes the program synthesis and can update guided plans.
+                Saving this role update refreshes the overall program guide and role guidance.
               </p>
               <Button
                 type="button"
@@ -415,7 +394,7 @@ export function ActiveProgramTeamUpdatesCard({
                 disabled={saveState === "saving" || !hasSaveableSignal}
               >
                 <Save className="h-4 w-4" />
-                {hasSaveableSignal ? "Save signal" : "Add signal to save"}
+                {hasSaveableSignal ? "Save role update" : "Add update to save"}
               </Button>
             </div>
           </div>
@@ -438,7 +417,7 @@ export function ActiveProgramTeamUpdatesCard({
             <div>
               <p className="text-sm font-medium text-zinc-100">Team ownership</p>
               <p className="mt-1 text-xs leading-5 text-zinc-500">
-                Role assignments come from Admin and stay collapsed unless ownership needs adjustment.
+                Role assignments come from Admin. Open this only when ownership needs review.
               </p>
             </div>
             <div className="flex flex-wrap items-center gap-2">
@@ -481,7 +460,7 @@ export function ActiveProgramTeamUpdatesCard({
               </div>
               <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-white/10 pt-3">
                 <p className="text-xs leading-5 text-zinc-500">
-                  Admin assignments are the default role ownership model; fallback owners are retained only for unmapped roles.
+                  Admin assignments drive default role focus. Fallback owners are retained only for unmapped roles.
                 </p>
                 <Button
                   type="button"
@@ -494,12 +473,12 @@ export function ActiveProgramTeamUpdatesCard({
                   {hasAdminAssignedOwners && ownershipSaveState === "saved"
                     ? "Managed in Admin"
                     : ownershipSaveState === "saving"
-                    ? "Saving..."
-                    : ownershipSaveState === "saved"
-                      ? "Ownership saved"
-                      : ownershipSaveState === "error"
-                        ? "Try again"
-                        : "Save ownership"}
+                      ? "Saving..."
+                      : ownershipSaveState === "saved"
+                        ? "Ownership saved"
+                        : ownershipSaveState === "error"
+                          ? "Try again"
+                          : "Save ownership"}
                 </Button>
               </div>
             </>
@@ -514,7 +493,7 @@ export function ActiveProgramTeamUpdatesCard({
                 Focus role
               </p>
               <p className="mt-1 text-xs leading-5 text-zinc-500">
-                Select the role you are updating. North Star will make that lane primary and keep adjacent roles compact for context.
+                Pick the role you are updating. The workspace stays centered on that role and keeps the rest compact.
               </p>
             </div>
             <label className="grid gap-2">
@@ -576,9 +555,9 @@ export function ActiveProgramTeamUpdatesCard({
             <div className="grid gap-3">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
-                  <p className="text-sm font-medium text-zinc-100">Primary role lane</p>
+                  <p className="text-sm font-medium text-zinc-100">Role update workspace</p>
                   <p className="mt-1 text-xs leading-5 text-zinc-500">
-                    This is the role-centered update path. Open it only when you are ready to capture signal.
+                    One clear update plus any related evidence is enough for North Star to refresh guidance.
                   </p>
                 </div>
               </div>
@@ -586,9 +565,9 @@ export function ActiveProgramTeamUpdatesCard({
             </div>
           ) : (
             <div className="rounded-lg border border-amber-300/20 bg-amber-300/[0.055] p-4">
-              <p className="text-sm font-medium text-amber-100">Select a role to focus the workspace.</p>
+              <p className="text-sm font-medium text-amber-100">Select a role to start.</p>
               <p className="mt-2 text-xs leading-5 text-zinc-300">
-                Role-specific signal, risks, decisions, and updates will move into the primary lane after selection.
+                Role updates and attachments will appear here after a program and role are selected.
               </p>
             </div>
           )}
@@ -596,10 +575,10 @@ export function ActiveProgramTeamUpdatesCard({
           <div className="grid gap-3">
             <div>
               <p className="text-sm font-medium text-zinc-100">
-                {focusedRoleUpdate ? "Adjacent team signals" : "Team roles overview"}
+                {focusedRoleUpdate ? "Adjacent role context" : "Team roles overview"}
               </p>
               <p className="mt-1 text-xs leading-5 text-zinc-500">
-                Use these compact lanes to scan dependencies or switch focus without reading every full role update.
+                Scan the rest of the team without opening every role update.
               </p>
             </div>
             <div className="grid gap-2 xl:grid-cols-2">

@@ -19,6 +19,14 @@ export type GuidedPlanRolePlans = {
   roles: GuidedPlanRolePlan[];
 };
 
+export type GuidedProgramGuide = {
+  title: string;
+  focus: string;
+  whyItMatters: string;
+  nextStep: string;
+  sponsorReadout: string;
+};
+
 export type GuidedPlan = {
   id: string;
   programId: string;
@@ -26,6 +34,7 @@ export type GuidedPlan = {
   createdAt: string;
   northStar: string;
   summary: string;
+  programGuide?: GuidedProgramGuide;
   sourceInputs: GuidedPlanSection;
   assistantDialogue: GuidedPlanSection;
   signalFromNoise: GuidedPlanSection;

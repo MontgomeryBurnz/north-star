@@ -69,6 +69,10 @@ export function useActiveProgramReviewController() {
     itemId: string;
     status: "idle" | "uploading" | "uploaded" | "error";
   } | null>(null);
+  const [roleAttachmentUploadState, setRoleAttachmentUploadState] = useState<{
+    role: string;
+    status: "idle" | "uploading" | "uploaded" | "error";
+  } | null>(null);
 
   const loadServerPrograms = useCallback(async () => {
     const requestId = programsRequest.beginRequest();
@@ -462,6 +466,67 @@ export function useActiveProgramReviewController() {
     [uploadMeetingAttachment]
   );
 
+  const handleRoleAttachments = useCallback(
+    async (role: string, event: ChangeEvent<HTMLInputElement>) => {
+      const files = Array.from(event.target.files ?? []);
+      if (!files.length) return;
+
+      setRoleAttachmentUploadState({ role, status: "uploading" });
+
+      try {
+        const attachments = await Promise.all(files.map((file) => uploadMeetingAttachment(file)));
+        setReview((current) =>
+          normalizeReview(
+            {
+              ...current,
+              teamRoleUpdates: normalizeTeamRoleUpdates(current.teamRoleUpdates, activeTeamRoles).map((roleUpdate) => {
+                if (normalizeProgramLabel(roleUpdate.role) !== normalizeProgramLabel(role)) return roleUpdate;
+
+                const nextAttachments = [...(roleUpdate.attachments ?? []), ...attachments].filter(
+                  (attachment, index, all) => all.findIndex((candidate) => candidate.id === attachment.id) === index
+                );
+
+                return {
+                  ...roleUpdate,
+                  attachments: nextAttachments
+                };
+              })
+            },
+            selectedProgram?.intake
+          )
+        );
+        setRoleAttachmentUploadState({ role, status: "uploaded" });
+      } catch {
+        setRoleAttachmentUploadState({ role, status: "error" });
+      } finally {
+        event.target.value = "";
+      }
+    },
+    [activeTeamRoles, selectedProgram?.intake, uploadMeetingAttachment]
+  );
+
+  const removeRoleAttachment = useCallback(
+    (role: string, attachmentId: string) => {
+      setReview((current) =>
+        normalizeReview(
+          {
+            ...current,
+            teamRoleUpdates: normalizeTeamRoleUpdates(current.teamRoleUpdates, activeTeamRoles).map((roleUpdate) =>
+              normalizeProgramLabel(roleUpdate.role) === normalizeProgramLabel(role)
+                ? {
+                    ...roleUpdate,
+                    attachments: (roleUpdate.attachments ?? []).filter((attachment) => attachment.id !== attachmentId)
+                  }
+                : roleUpdate
+            )
+          },
+          selectedProgram?.intake
+        )
+      );
+    },
+    [activeTeamRoles, selectedProgram?.intake]
+  );
+
   const removeMeetingAttachment = useCallback((id: string) => {
     setMeetingInputDraft((current) => ({
       ...current,
@@ -771,6 +836,7 @@ export function useActiveProgramReviewController() {
     formatFileSize,
     formatTimestamp,
     handleArtifacts,
+    handleRoleAttachments,
     handleMeetingAttachments,
     handleSubmit,
     latestUpdate,
@@ -787,6 +853,7 @@ export function useActiveProgramReviewController() {
     removeArtifact,
     removeDeliveryBoardAttachment,
     removeDeliveryBoardItem,
+    removeRoleAttachment,
     removeMeetingAttachment,
     review,
     saveConfirmation,
@@ -794,6 +861,7 @@ export function useActiveProgramReviewController() {
     saveMeetingInput,
     saveReviewSnapshot,
     saveState,
+    roleAttachmentUploadState,
     selectExistingProgram,
     selectedProgramHistory,
     selectedProgramId,

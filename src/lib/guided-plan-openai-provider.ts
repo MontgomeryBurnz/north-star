@@ -1,7 +1,7 @@
 import { randomUUID } from "crypto";
 import { getGuidanceModelSettings } from "@/lib/guidance-model-settings";
 import { generateLocalGuidedPlan } from "@/lib/guided-plan-generator";
-import type { GuidedPlan, GuidedPlanRolePlan, GuidedPlanSection } from "@/lib/guided-plan-types";
+import type { GuidedPlan, GuidedPlanRolePlan, GuidedPlanSection, GuidedProgramGuide } from "@/lib/guided-plan-types";
 import type { GuidedPlanGenerationContext, GuidedPlanProvider } from "@/lib/guided-plan-service";
 import { getNorthStarPromptCacheKey } from "@/lib/openai-prompt-cache";
 import { buildOpenAIRequestMetadata } from "@/lib/openai-request-metadata";
@@ -11,6 +11,7 @@ import { extractOpenAIUsageMetadata } from "@/lib/openai-usage";
 type OpenAIGuidedPlanPayload = {
   northStar: string;
   summary: string;
+  programGuide: GuidedProgramGuide;
   sourceInputs: GuidedPlanSection;
   assistantDialogue: GuidedPlanSection;
   signalFromNoise: GuidedPlanSection;
@@ -34,11 +35,29 @@ function validateGuidedPlanPayload(value: unknown): OpenAIGuidedPlanPayload | nu
 
   const northStar = asTrimmedString(record.northStar);
   const summary = asTrimmedString(record.summary);
+  const programGuideRecord = asRecord(record.programGuide);
+  const programGuideTitle = programGuideRecord ? asTrimmedString(programGuideRecord.title) : null;
+  const programGuideFocus = programGuideRecord ? asTrimmedString(programGuideRecord.focus) : null;
+  const programGuideWhyItMatters = programGuideRecord ? asTrimmedString(programGuideRecord.whyItMatters) : null;
+  const programGuideNextStep = programGuideRecord ? asTrimmedString(programGuideRecord.nextStep) : null;
+  const programGuideSponsorReadout = programGuideRecord ? asTrimmedString(programGuideRecord.sponsorReadout) : null;
   const followUpQuestions = asStringArray(record.followUpQuestions, { min: 1, max: 4 });
   const rolePlansRecord = asRecord(record.rolePlans);
   const rolePlansTitle = rolePlansRecord ? asTrimmedString(rolePlansRecord.title) : null;
   const rolePlanEntries = rolePlansRecord && Array.isArray(rolePlansRecord.roles) ? rolePlansRecord.roles : null;
-  if (!northStar || !summary || !followUpQuestions || !rolePlansRecord || !rolePlansTitle || !rolePlanEntries) return null;
+  if (
+    !northStar ||
+    !summary ||
+    !programGuideTitle ||
+    !programGuideFocus ||
+    !programGuideWhyItMatters ||
+    !programGuideNextStep ||
+    !programGuideSponsorReadout ||
+    !followUpQuestions ||
+    !rolePlansRecord ||
+    !rolePlansTitle ||
+    !rolePlanEntries
+  ) return null;
 
   const sectionKeys = [
     "sourceInputs",
@@ -83,6 +102,13 @@ function validateGuidedPlanPayload(value: unknown): OpenAIGuidedPlanPayload | nu
   return {
     northStar,
     summary,
+    programGuide: {
+      title: programGuideTitle,
+      focus: programGuideFocus,
+      whyItMatters: programGuideWhyItMatters,
+      nextStep: programGuideNextStep,
+      sponsorReadout: programGuideSponsorReadout
+    },
     sourceInputs: sections.sourceInputs!,
     assistantDialogue: sections.assistantDialogue!,
     signalFromNoise: sections.signalFromNoise!,
@@ -160,6 +186,31 @@ function sanitizeRolePlans(
   };
 }
 
+function sanitizeProgramGuide(
+  programGuide: OpenAIGuidedPlanPayload["programGuide"] | undefined,
+  fallback: GuidedProgramGuide | undefined
+): GuidedProgramGuide | undefined {
+  if (!fallback) return programGuide;
+  if (!programGuide || typeof programGuide !== "object") return fallback;
+
+  return {
+    title: typeof programGuide.title === "string" && programGuide.title.trim() ? programGuide.title.trim() : fallback.title,
+    focus: typeof programGuide.focus === "string" && programGuide.focus.trim() ? programGuide.focus.trim() : fallback.focus,
+    whyItMatters:
+      typeof programGuide.whyItMatters === "string" && programGuide.whyItMatters.trim()
+        ? programGuide.whyItMatters.trim()
+        : fallback.whyItMatters,
+    nextStep:
+      typeof programGuide.nextStep === "string" && programGuide.nextStep.trim()
+        ? programGuide.nextStep.trim()
+        : fallback.nextStep,
+    sponsorReadout:
+      typeof programGuide.sponsorReadout === "string" && programGuide.sponsorReadout.trim()
+        ? programGuide.sponsorReadout.trim()
+        : fallback.sponsorReadout
+  };
+}
+
 function toPromptContext(context: GuidedPlanGenerationContext, baselinePlan: GuidedPlan) {
   const latestUpdate = context.updates[0];
   const latestLeadershipFeedback = context.leadershipFeedbacks[0];
@@ -174,6 +225,7 @@ function toPromptContext(context: GuidedPlanGenerationContext, baselinePlan: Gui
       currentGroundedBaselinePlan: {
         northStar: baselinePlan.northStar,
         summary: baselinePlan.summary,
+        programGuide: baselinePlan.programGuide,
         sourceInputs: baselinePlan.sourceInputs,
         assistantDialogue: baselinePlan.assistantDialogue,
         signalFromNoise: baselinePlan.signalFromNoise,
@@ -200,6 +252,7 @@ function mergeWithBaseline(payload: OpenAIGuidedPlanPayload, baselinePlan: Guide
     createdAt: new Date().toISOString(),
     northStar: typeof payload.northStar === "string" && payload.northStar.trim() ? payload.northStar.trim() : baselinePlan.northStar,
     summary: typeof payload.summary === "string" && payload.summary.trim() ? payload.summary.trim() : baselinePlan.summary,
+    programGuide: sanitizeProgramGuide(payload.programGuide, baselinePlan.programGuide),
     sourceInputs: sanitizeSection(payload.sourceInputs, baselinePlan.sourceInputs),
     assistantDialogue: sanitizeSection(payload.assistantDialogue, baselinePlan.assistantDialogue),
     signalFromNoise: sanitizeSection(payload.signalFromNoise, baselinePlan.signalFromNoise),
@@ -265,6 +318,18 @@ export const openaiGuidedPlanProvider: GuidedPlanProvider = {
               properties: {
                 northStar: { type: "string" },
                 summary: { type: "string" },
+                programGuide: {
+                  type: "object",
+                  additionalProperties: false,
+                  properties: {
+                    title: { type: "string" },
+                    focus: { type: "string" },
+                    whyItMatters: { type: "string" },
+                    nextStep: { type: "string" },
+                    sponsorReadout: { type: "string" }
+                  },
+                  required: ["title", "focus", "whyItMatters", "nextStep", "sponsorReadout"]
+                },
                 sourceInputs: {
                   type: "object",
                   additionalProperties: false,
@@ -386,6 +451,7 @@ export const openaiGuidedPlanProvider: GuidedPlanProvider = {
               required: [
                 "northStar",
                 "summary",
+                "programGuide",
                 "sourceInputs",
                 "assistantDialogue",
                 "signalFromNoise",
@@ -433,6 +499,7 @@ export const openaiGuidedPlanProvider: GuidedPlanProvider = {
 Requirements:
 - Keep the guided plan evergreen and adaptable.
 - Make the direct influence of uploads, active-program updates, Delivery Board cards, role-based team submissions, and leadership feedback visible in the plan.
+- Populate programGuide for executive sponsors with where the team is focusing, why it matters, what should happen next, and a concise sponsor readout.
 - Make role-level status posture explicit when it exists, especially blocked or at-risk roles and any leadership-attention flags.
 - If one of those sources is missing, say so plainly in the relevant section.
 - Keep the plan concise, structured, and operator-level.

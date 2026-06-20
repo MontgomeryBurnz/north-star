@@ -31,6 +31,10 @@ type ActiveProgramTeamSignalFlowProps = {
     itemId: string;
     status: "idle" | "uploading" | "uploaded" | "error";
   } | null;
+  roleAttachmentUploadState: {
+    role: string;
+    status: "idle" | "uploading" | "uploaded" | "error";
+  } | null;
   defaultFocusRole: string | null;
   currentUserId: string | null;
   selectedProgramId: string;
@@ -56,6 +60,8 @@ type ActiveProgramTeamSignalFlowProps = {
   onRemoveDeliveryBoardAttachment: (itemId: string, attachmentId: string) => void;
   onSaveDeliveryBoard: () => void | Promise<void>;
   onUpdateRoleField: (role: string, field: keyof Omit<TeamRoleUpdate, "role">, value: string | boolean) => void;
+  onRoleAttachmentsChange: (role: string, event: ChangeEvent<HTMLInputElement>) => void | Promise<void>;
+  onRemoveRoleAttachment: (role: string, attachmentId: string) => void;
   onSaveOwnership: (lastUpdatedRole?: string) => void | Promise<void>;
   onSaveRoleSignal: (lastUpdatedRole?: string) => void | Promise<void>;
   onMeetingDraftChange: (patch: Partial<typeof emptyMeetingInputDraft>) => void;
@@ -76,6 +82,7 @@ export function ActiveProgramTeamSignalFlow({
   saveState,
   saveConfirmation,
   deliveryBoardUploadState,
+  roleAttachmentUploadState,
   defaultFocusRole,
   currentUserId,
   selectedProgramId,
@@ -99,6 +106,8 @@ export function ActiveProgramTeamSignalFlow({
   onRemoveDeliveryBoardAttachment,
   onSaveDeliveryBoard,
   onUpdateRoleField,
+  onRoleAttachmentsChange,
+  onRemoveRoleAttachment,
   onSaveOwnership,
   onSaveRoleSignal,
   onMeetingDraftChange,
@@ -203,8 +212,12 @@ export function ActiveProgramTeamSignalFlow({
           selectedProgramId={selectedProgramId}
           ownershipSaveState={ownershipSaveState}
           ownershipSavedAt={ownershipSavedAt}
+          roleAttachmentUploadState={roleAttachmentUploadState}
           formatTimestamp={formatTimestamp}
+          formatFileSize={formatFileSize}
           onUpdateRoleField={onUpdateRoleField}
+          onRoleAttachmentsChange={onRoleAttachmentsChange}
+          onRemoveRoleAttachment={onRemoveRoleAttachment}
           onSaveOwnership={onSaveOwnership}
           onSaveRoleSignal={onSaveRoleSignal}
         />

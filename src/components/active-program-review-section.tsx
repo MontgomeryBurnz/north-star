@@ -40,6 +40,7 @@ export function ActiveProgramReviewSection() {
           saveState={controller.saveState}
           saveConfirmation={controller.saveConfirmation}
           deliveryBoardUploadState={controller.deliveryBoardUploadState}
+          roleAttachmentUploadState={controller.roleAttachmentUploadState}
           defaultFocusRole={controller.defaultFocusRole}
           currentUserId={controller.currentUserId}
           selectedProgramId={controller.selectedProgramId}
@@ -63,6 +64,8 @@ export function ActiveProgramReviewSection() {
           onRemoveDeliveryBoardAttachment={controller.removeDeliveryBoardAttachment}
           onSaveDeliveryBoard={() => controller.saveReviewSnapshot("", "Delivery board")}
           onUpdateRoleField={controller.updateRoleField}
+          onRoleAttachmentsChange={controller.handleRoleAttachments}
+          onRemoveRoleAttachment={controller.removeRoleAttachment}
           onSaveOwnership={controller.saveReviewSnapshot}
           onSaveRoleSignal={controller.saveReviewSnapshot}
           onMeetingDraftChange={controller.updateMeetingInputDraft}

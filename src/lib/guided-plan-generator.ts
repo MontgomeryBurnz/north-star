@@ -50,14 +50,14 @@ function getTeamRoleUpdates(update: StoredProgramUpdate | undefined) {
   return update?.review.teamRoleUpdates?.filter(
     (role) =>
       role.role.trim() &&
-      (role.status !== "on-track" ||
-        role.needsLeadershipAttention ||
+      (role.needsLeadershipAttention ||
         role.progressUpdate.trim() ||
         role.changesObserved.trim() ||
         role.activeRisks.trim() ||
         role.blockers.trim() ||
         role.decisionsNeeded.trim() ||
-        role.supportNeeded.trim())
+        role.supportNeeded.trim() ||
+        (role.attachments?.length ?? 0) > 0)
   ) ?? [];
 }
 
@@ -144,6 +144,9 @@ function buildRolePlans(
     const roleAttachmentSignal = roleBoardItems.flatMap((item) => item.attachments).length
       ? `${sourceLabel(roleBoardItems.flatMap((item) => item.attachments).length, "attachment")} attached to ${role}'s delivery board cards.`
       : "";
+    const roleUpdateAttachmentSignal = roleUpdate?.attachments?.length
+      ? `${sourceLabel(roleUpdate.attachments.length, "attachment")} attached directly to ${role}'s role update.`
+      : "";
     const roleProgress = firstAvailable(roleUpdate?.progressUpdate ?? "", roleBoardSignal, progressFocus);
     const roleChange = firstAvailable(roleUpdate?.changesObserved ?? "", mitigationFocus);
     const roleRisk = firstAvailable(
@@ -157,7 +160,7 @@ function buildRolePlans(
       reviewBoardSignal ? `${reviewBoardSignal.title}: ${reviewBoardSignal.latestNote || reviewBoardSignal.description}` : "",
       decisionFocus
     );
-    const roleSupport = firstAvailable(roleUpdate?.supportNeeded ?? "", roleAttachmentSignal, requirementFocus);
+    const roleSupport = firstAvailable(roleUpdate?.supportNeeded ?? "", roleUpdateAttachmentSignal, roleAttachmentSignal, requirementFocus);
     const roleStatusLabel = formatRoleStatus(roleUpdate?.status ?? "on-track");
     const roleEscalation = roleUpdate?.needsLeadershipAttention
       ? "Leadership attention is requested from this role's current signal."
@@ -435,6 +438,40 @@ export function generateLocalGuidedPlan(
         )}`
       : "No meeting-derived program input is on file yet. Upload or link meeting context when recurring delivery discussions should influence guidance."
   ];
+  const currentTeamFocus = firstAvailable(
+    review?.programSynthesisNote ?? "",
+    teamRoleUpdates.length
+      ? `${sourceLabel(teamRoleUpdates.length, "role update")} are shaping the current operating picture.`
+      : "",
+    deliveryBoardItems.length
+      ? `${sourceLabel(deliveryBoardItems.length, "delivery board card")} are driving current execution.`
+      : "",
+    progress,
+    "The team should capture role updates to establish the current operating picture."
+  );
+  const executiveWhy = firstAvailable(
+    activeRisks ? `The current risk posture needs sponsor visibility: ${excerpt(activeRisks, 130)}` : "",
+    decisions ? `The next decision path needs sponsor alignment: ${excerpt(decisions, 130)}` : "",
+    leadershipSignalSummary,
+    "Executive sponsors need a concise view of where the team is focusing and what should move next."
+  );
+  const nextProgramMove = firstAvailable(
+    blockedBoardItems[0] ? `Clear blocker: ${blockedBoardItems[0].role} / ${blockedBoardItems[0].title}.` : "",
+    reviewBoardItems[0] ? `Resolve review item: ${reviewBoardItems[0].role} / ${reviewBoardItems[0].title}.` : "",
+    decisions ? `Resolve decision: ${excerpt(decisions, 130)}` : "",
+    supportNeeded ? `Secure support: ${excerpt(supportNeeded, 130)}` : "",
+    "Capture the next role update, artifact, or leadership input so guidance can keep adapting."
+  );
+  const programGuide = {
+    title: "Overall Program Guide",
+    focus: currentTeamFocus,
+    whyItMatters: executiveWhy,
+    nextStep: nextProgramMove,
+    sponsorReadout: `The team is focused on ${excerpt(currentTeamFocus, 120)} This matters because ${excerpt(
+      executiveWhy,
+      120
+    )} Next, ${excerpt(nextProgramMove, 120)}`
+  };
 
   return {
     id: randomUUID(),
@@ -443,6 +480,7 @@ export function generateLocalGuidedPlan(
     createdAt: now,
     northStar,
     summary: `Guided plan generated from the current intake and refreshed directly by ${sourceSummary}.`,
+    programGuide,
     sourceInputs: {
       title: "Fresh Inputs Driving This Plan",
       items: sourceInputItems

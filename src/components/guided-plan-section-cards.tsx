@@ -133,8 +133,8 @@ function RolePlanSignalGroup({
     <div className="grid gap-2 rounded-md border border-white/10 bg-black/20 p-3">
       <p className={`text-[11px] font-medium uppercase tracking-[0.14em] ${className}`}>{title}</p>
       <div className="grid gap-1.5">
-        {items.map((item) => (
-          <p key={item} className="grid grid-cols-[auto_minmax(0,1fr)] gap-2 text-xs leading-5 text-zinc-300">
+        {items.slice(0, 4).map((item) => (
+          <p key={item} className="grid grid-cols-[auto_minmax(0,1fr)] gap-2 text-sm leading-6 text-zinc-300">
             <ArrowRight className={`mt-0.5 h-3.5 w-3.5 shrink-0 ${iconClassName}`} />
             <span>{item}</span>
           </p>
@@ -640,7 +640,7 @@ export function RolePlansCard({
               </div>
               {isExpanded ? (
                 <div className="mt-3 flex flex-1 flex-col gap-3">
-                  <div className="grid flex-1 gap-3 lg:grid-cols-2">
+                  <div className="grid flex-1 gap-3">
                     {signalGroups.map((group) => (
                       <RolePlanSignalGroup
                         key={group.title}

@@ -16,6 +16,7 @@ export type TeamRoleUpdate = {
   supportNeeded: string;
   status: TeamRoleUpdateStatus;
   needsLeadershipAttention: boolean;
+  attachments?: ProgramMeetingAttachment[];
   lastUpdatedAt?: string;
 };
 

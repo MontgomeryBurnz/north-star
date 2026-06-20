@@ -168,6 +168,7 @@ export function buildTeamRoleUpdate(role: string, existing?: Partial<TeamRoleUpd
     supportNeeded: existing?.supportNeeded ?? "",
     status: existing?.status ?? mapLegacyConfidenceToStatus(legacyConfidence),
     needsLeadershipAttention: existing?.needsLeadershipAttention ?? false,
+    attachments: Array.isArray(existing?.attachments) ? existing.attachments : [],
     lastUpdatedAt: existing?.lastUpdatedAt
   };
 }
@@ -205,6 +206,7 @@ function roleUpdatesMatch(current: TeamRoleUpdate | undefined, next: TeamRoleUpd
       current.supportNeeded === next.supportNeeded &&
       current.status === next.status &&
       current.needsLeadershipAttention === next.needsLeadershipAttention &&
+      JSON.stringify(current.attachments ?? []) === JSON.stringify(next.attachments ?? []) &&
       current.lastUpdatedAt === next.lastUpdatedAt
   );
 }
@@ -280,7 +282,8 @@ export function hasRoleSubmission(roleUpdate: TeamRoleUpdate) {
       roleUpdate.activeRisks.trim() ||
       roleUpdate.blockers.trim() ||
       roleUpdate.decisionsNeeded.trim() ||
-      roleUpdate.supportNeeded.trim()
+      roleUpdate.supportNeeded.trim() ||
+      (roleUpdate.attachments?.length ?? 0) > 0
   );
 }
 
