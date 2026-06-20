@@ -46,6 +46,20 @@ function firstRoleSignal(roleUpdate: TeamRoleUpdate) {
   );
 }
 
+function combinedRiskBlockerText(roleUpdate: TeamRoleUpdate) {
+  return [roleUpdate.activeRisks, roleUpdate.blockers]
+    .map((value) => value.trim())
+    .filter(Boolean)
+    .join("\n");
+}
+
+function combinedDecisionOutcomeText(roleUpdate: TeamRoleUpdate) {
+  return [roleUpdate.decisionsNeeded, roleUpdate.supportNeeded]
+    .map((value) => value.trim())
+    .filter(Boolean)
+    .join("\n");
+}
+
 type ActiveProgramTeamUpdatesCardProps = {
   teamRoleUpdates: TeamRoleUpdate[];
   assignedOwnersByRole: Record<string, string[]>;
@@ -311,24 +325,59 @@ export function ActiveProgramTeamUpdatesCard({
 
         {isExpanded ? (
           <div className="grid gap-4 border-t border-white/10 p-4 pt-3">
-            <label className="grid min-w-0 gap-2">
-              <span className="text-xs font-medium uppercase tracking-[0.18em] text-zinc-300">Role update</span>
-              <textarea
-                data-active-role-progress
-                value={roleUpdate.progressUpdate}
-                onChange={(event) => onUpdateRoleField(roleUpdate.role, "progressUpdate", event.target.value)}
-                placeholder="Type the update, concern, dependency, accomplishment, decision need, or context this role wants reflected in guidance."
-                rows={7}
-                className="min-h-[180px] resize-y rounded-md border border-white/10 bg-zinc-950 px-3 py-3 text-sm leading-6 text-zinc-100 outline-none transition-colors placeholder:text-zinc-500 focus:border-cyan-300/50"
-              />
-            </label>
+            <div className="grid gap-3">
+              <label className="grid min-w-0 gap-2">
+                <span className="text-xs font-medium uppercase tracking-[0.18em] text-zinc-300">General update</span>
+                <textarea
+                  data-active-role-progress
+                  value={roleUpdate.progressUpdate}
+                  onChange={(event) => onUpdateRoleField(roleUpdate.role, "progressUpdate", event.target.value)}
+                  placeholder="What changed, what moved forward, what needs visibility, or what context should shape guidance?"
+                  rows={5}
+                  className="min-h-[140px] resize-y rounded-md border border-white/10 bg-zinc-950 px-3 py-3 text-sm leading-6 text-zinc-100 outline-none transition-colors placeholder:text-zinc-500 focus:border-cyan-300/50"
+                />
+              </label>
+
+              <div className="grid gap-3 lg:grid-cols-2">
+                <label className="grid min-w-0 gap-2">
+                  <span className="text-xs font-medium uppercase tracking-[0.18em] text-zinc-300">Risks or blockers</span>
+                  <textarea
+                    data-active-role-risks
+                    value={combinedRiskBlockerText(roleUpdate)}
+                    onChange={(event) => {
+                      onUpdateRoleField(roleUpdate.role, "activeRisks", event.target.value);
+                      onUpdateRoleField(roleUpdate.role, "blockers", "");
+                    }}
+                    placeholder="Anything creating risk, delay, uncertainty, dependency, or delivery friction?"
+                    rows={4}
+                    className="min-h-[118px] resize-y rounded-md border border-white/10 bg-zinc-950 px-3 py-3 text-sm leading-6 text-zinc-100 outline-none transition-colors placeholder:text-zinc-500 focus:border-cyan-300/50"
+                  />
+                </label>
+                <label className="grid min-w-0 gap-2">
+                  <span className="text-xs font-medium uppercase tracking-[0.18em] text-zinc-300">
+                    Decisions and outcomes
+                  </span>
+                  <textarea
+                    data-active-role-decisions
+                    value={combinedDecisionOutcomeText(roleUpdate)}
+                    onChange={(event) => {
+                      onUpdateRoleField(roleUpdate.role, "decisionsNeeded", event.target.value);
+                      onUpdateRoleField(roleUpdate.role, "supportNeeded", "");
+                    }}
+                    placeholder="What was decided, what outcome matters, or what decision is still pending?"
+                    rows={4}
+                    className="min-h-[118px] resize-y rounded-md border border-white/10 bg-zinc-950 px-3 py-3 text-sm leading-6 text-zinc-100 outline-none transition-colors placeholder:text-zinc-500 focus:border-cyan-300/50"
+                  />
+                </label>
+              </div>
+            </div>
 
             <div className="grid gap-3 rounded-md border border-cyan-300/15 bg-cyan-300/[0.035] p-3">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
                   <p className="text-sm font-medium text-zinc-100">Artifacts and recordings</p>
                   <p className="mt-1 text-xs leading-5 text-zinc-500">
-                    Attach evidence that should travel with this role update into guided plans.
+                    Attach documents, work products, screenshots, notes, or recordings that should shape guidance.
                   </p>
                 </div>
                 <label className="inline-flex min-h-10 cursor-pointer items-center justify-center gap-2 rounded-md border border-cyan-300/25 bg-cyan-300/[0.08] px-3 py-2 text-sm font-medium text-cyan-100 transition-colors hover:border-cyan-200/45 hover:bg-cyan-300/[0.12]">

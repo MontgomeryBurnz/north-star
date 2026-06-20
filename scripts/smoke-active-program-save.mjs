@@ -470,6 +470,8 @@ async function saveRoleSignal(session, program) {
   await session.waitFor("Active Program expanded role signal", async () => {
     return session.execute(`
       return Boolean(document.querySelector("[data-active-role-progress]")) &&
+        Boolean(document.querySelector("[data-active-role-risks]")) &&
+        Boolean(document.querySelector("[data-active-role-decisions]")) &&
         Boolean(document.querySelector("[data-active-role-save]"));
     `);
   });
@@ -477,9 +479,15 @@ async function saveRoleSignal(session, program) {
   await session.execute(
     `
       const progress = document.querySelector("[data-active-role-progress]");
+      const risks = document.querySelector("[data-active-role-risks]");
+      const decisions = document.querySelector("[data-active-role-decisions]");
       const setter = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, "value").set;
       setter.call(progress, arguments[0]);
       progress.dispatchEvent(new Event("input", { bubbles: true }));
+      setter.call(risks, "Risk from smoke: dependency needs visibility before the next checkpoint.");
+      risks.dispatchEvent(new Event("input", { bubbles: true }));
+      setter.call(decisions, "Decision from smoke: confirm owner and next milestone outcome.");
+      decisions.dispatchEvent(new Event("input", { bubbles: true }));
 
       const attachmentInput = document.querySelector("[data-active-role-attachments]");
       if (attachmentInput) {
@@ -532,6 +540,8 @@ async function saveRoleSignal(session, program) {
           (update.review.teamRoleUpdates ?? []).some((roleUpdate) =>
             roleUpdate.role === arguments[1] &&
             roleUpdate.progressUpdate.includes(arguments[2]) &&
+            roleUpdate.activeRisks.includes("Risk from smoke") &&
+            roleUpdate.decisionsNeeded.includes("Decision from smoke") &&
             (roleUpdate.attachments ?? []).some((attachment) => attachment.fileName === "north-star-role-update-smoke.txt")
           ) &&
           (update.review.deliveryBoardItems ?? []).some((item) => item.title.includes(arguments[2]))

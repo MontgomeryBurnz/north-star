@@ -365,6 +365,8 @@ test("Active Program review is split into state, cockpit, and team signal flows"
   assert.match(teamUpdatesSource, /No update this cycle/);
   assert.match(teamUpdatesSource, /data-active-role-signal-card/);
   assert.match(teamUpdatesSource, /data-active-role-progress/);
+  assert.match(teamUpdatesSource, /data-active-role-risks/);
+  assert.match(teamUpdatesSource, /data-active-role-decisions/);
   assert.match(teamUpdatesSource, /data-active-role-attachments/);
   assert.match(teamUpdatesSource, /data-active-role-save/);
   assert.match(teamUpdatesSource, /data-active-program-save-confirmation/);
