@@ -62,3 +62,11 @@ export async function getCurrentManagedUser() {
 
   return syncManagedUserFromAuthUser(authUser);
 }
+
+export async function tryGetCurrentManagedUser() {
+  try {
+    return await getCurrentManagedUser();
+  } catch {
+    return null;
+  }
+}

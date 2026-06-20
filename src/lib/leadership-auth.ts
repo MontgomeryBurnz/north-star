@@ -1,7 +1,7 @@
 import type { User } from "@supabase/supabase-js";
 import type { ManagedAppUser } from "@/lib/admin-user-types";
 import { canAccessAdminSurface, canAccessLeadershipSurface } from "@/lib/admin-user-types";
-import { getCurrentManagedUser } from "@/lib/current-managed-user";
+import { tryGetCurrentManagedUser } from "@/lib/current-managed-user";
 import { createSupabaseServerClient, isSupabaseConfigured } from "@/lib/supabase/server";
 
 export const leadershipSessionCookieName = "leadership_session";
@@ -92,7 +92,7 @@ function userCanAccessSurface(user: ManagedAppUser | null, surface: ManagedAcces
 async function getManagedAccessContext(surface: ManagedAccessSurface): Promise<LeadershipAccessContext | null> {
   if (!isSupabaseConfigured()) return null;
 
-  const user = await getCurrentManagedUser();
+  const user = await tryGetCurrentManagedUser();
   if (!user) {
     return { provider: "managed-user", authorized: false, reason: "No active North Star user session." };
   }

@@ -1,7 +1,7 @@
 import "server-only";
 import { redirect } from "next/navigation";
 import { requiresUserSetup } from "@/lib/admin-user-types";
-import { getCurrentManagedUser } from "@/lib/current-managed-user";
+import { tryGetCurrentManagedUser } from "@/lib/current-managed-user";
 import { getSiteAccessConfig, isSiteAccessSessionTokenValid, siteAccessSessionCookieName } from "@/lib/site-access";
 
 async function getCookieStore() {
@@ -18,7 +18,7 @@ function hasSupabaseAuthSession(cookieStore: Awaited<ReturnType<typeof getCookie
 async function redirectPendingUserSetup(cookieStore: Awaited<ReturnType<typeof getCookieStore>>) {
   if (!hasSupabaseAuthSession(cookieStore)) return;
 
-  const currentUser = await getCurrentManagedUser();
+  const currentUser = await tryGetCurrentManagedUser();
   if (requiresUserSetup(currentUser)) {
     redirect("/auth/setup");
   }

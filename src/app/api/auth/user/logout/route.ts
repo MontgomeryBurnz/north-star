@@ -18,14 +18,26 @@ function expireSessionCookie(response: NextResponse, name: string) {
   });
 }
 
-export async function POST(request: Request) {
+async function handleLogout(request: Request) {
   if (isSupabaseConfigured()) {
-    const supabase = await createSupabaseServerClient();
-    await supabase.auth.signOut({ scope: "local" });
+    try {
+      const supabase = await createSupabaseServerClient();
+      await supabase.auth.signOut({ scope: "local" });
+    } catch {
+      // Still clear North Star cookies so stale auth state cannot trap users on a server error page.
+    }
   }
 
   const response = NextResponse.redirect(new URL(logoutRedirectPath, request.url), { status: 303 });
   response.headers.set("cache-control", "no-store");
   northStarSessionCookies.forEach((cookieName) => expireSessionCookie(response, cookieName));
   return response;
+}
+
+export async function GET(request: Request) {
+  return handleLogout(request);
+}
+
+export async function POST(request: Request) {
+  return handleLogout(request);
 }

@@ -3,7 +3,7 @@ export const dynamic = "force-dynamic";
 import { redirect } from "next/navigation";
 import { SiteAccessLoginForm } from "@/components/site-access-login-form";
 import { requiresUserSetup } from "@/lib/admin-user-types";
-import { getCurrentManagedUser } from "@/lib/current-managed-user";
+import { tryGetCurrentManagedUser } from "@/lib/current-managed-user";
 import { getAdminAccessContext, getLeadershipAccessContext } from "@/lib/leadership-auth";
 import { getSiteAccessConfig, isSiteAccessSessionTokenValid, siteAccessSessionCookieName } from "@/lib/site-access";
 import { isSupabaseConfigured } from "@/lib/supabase/server";
@@ -33,10 +33,10 @@ export default async function SiteLoginPage({
   const cookieStore = await cookies();
   const sessionToken = cookieStore.get(siteAccessSessionCookieName)?.value;
   const hasSupabaseSession = cookieStore
-    .getAll()
-    .some((cookie) => cookie.name.startsWith("sb-") && cookie.name.includes("auth-token"));
+      .getAll()
+      .some((cookie) => cookie.name.startsWith("sb-") && cookie.name.includes("auth-token"));
   if (hasSupabaseSession) {
-    const currentUser = await getCurrentManagedUser();
+    const currentUser = await tryGetCurrentManagedUser();
     if (requiresUserSetup(currentUser)) {
       redirect("/auth/setup");
     }
