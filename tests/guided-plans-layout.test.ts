@@ -37,6 +37,9 @@ test("Client Portal frames executive overview and domain progress", () => {
   assert.match(modelSource, /domainSummaries: ClientPortalDomainSummary\[\]/);
   assert.match(modelSource, /buildDomainSummaries/);
   assert.match(modelSource, /programGuide\?\.sponsorReadout/);
+  assert.match(modelSource, /buildClientExecutiveOverview/);
+  assert.match(modelSource, /buildDomainMovementSignal/);
+  assert.match(modelSource, /buildDeliveryBoardProgressSignal/);
 });
 
 test("Artifact Studio output keeps generated detail compact and export-first", () => {

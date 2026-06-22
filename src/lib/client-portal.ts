@@ -1,4 +1,4 @@
-import type { StoredProgramUpdate, TeamRoleUpdate, TeamRoleUpdateStatus } from "./active-program-types.ts";
+import type { DeliveryBoardItem, DeliveryBoardStatus, StoredProgramUpdate, TeamRoleUpdate, TeamRoleUpdateStatus } from "./active-program-types.ts";
 import type { GuidedPlan } from "./guided-plan-types.ts";
 import type { LeadershipReviewRecord } from "./leadership-feedback-types.ts";
 import type { ClientDecisionRequest } from "./program-intelligence-types.ts";
@@ -93,6 +93,29 @@ function clean(value: string | undefined | null) {
   return normalizeWhitespace(value ?? "");
 }
 
+const weakSignalPatterns = [
+  /^no\s+/i,
+  /not captured/i,
+  /still being/i,
+  /still needs/i,
+  /waiting for/i,
+  /awaiting/i,
+  /guided plan generated/i,
+  /initial intake only/i,
+  /should capture/i,
+  /will sharpen after/i,
+  /is still being developed/i
+];
+
+function isMeaningfulSignal(value: string | undefined | null) {
+  const cleaned = clean(value);
+  return Boolean(cleaned) && !weakSignalPatterns.some((pattern) => pattern.test(cleaned));
+}
+
+function firstMeaningful(...values: Array<string | null | undefined>) {
+  return values.map(clean).find(isMeaningfulSignal) ?? "";
+}
+
 function visibleSignals(value: string | undefined | null, fallback: string, limit = 3) {
   return splitSignals(value ?? "", fallback).map(clean).filter(Boolean).slice(0, limit);
 }
@@ -143,6 +166,15 @@ function roleStatusLabel(status: TeamRoleUpdateStatus | undefined) {
   if (status === "at-risk") return "At risk";
   if (status === "on-track") return "On track";
   return "Awaiting update";
+}
+
+function deliveryBoardStatusLabel(status: DeliveryBoardStatus | undefined) {
+  if (status === "not-started") return "Not started";
+  if (status === "in-progress") return "In progress";
+  if (status === "needs-review") return "Needs review";
+  if (status === "blocked") return "Blocked";
+  if (status === "done") return "Done";
+  return "Unstated";
 }
 
 function normalizeRoleKey(role: string) {
@@ -204,6 +236,123 @@ function buildDomainSummaries(input: {
   });
 }
 
+function buildDomainMovementSignal(domainSummaries: ClientPortalDomainSummary[]) {
+  const movingDomains = domainSummaries
+    .filter((domain) => isMeaningfulSignal(domain.pursuit))
+    .slice(0, 3)
+    .map((domain) => `${domain.role} is pursuing ${domain.pursuit}`);
+
+  return movingDomains.length ? `Domain movement: ${movingDomains.join(" / ")}.` : "";
+}
+
+function buildDeliveryBoardProgressSignal(items: DeliveryBoardItem[] | undefined) {
+  const activeItems = (items ?? [])
+    .filter((item) => item.status !== "done" && isMeaningfulSignal(item.title))
+    .slice(0, 3)
+    .map((item) => {
+      const owner = isMeaningfulSignal(item.owner) ? `, owner ${item.owner}` : "";
+      const dueDate = item.dueDate ? `, due ${item.dueDate}` : "";
+      return `${item.role || "Team"} is ${deliveryBoardStatusLabel(item.status).toLowerCase()} on ${item.title}${owner}${dueDate}`;
+    });
+
+  return activeItems.length ? `Delivery board: ${activeItems.join(" / ")}.` : "";
+}
+
+function buildExecutiveAttentionSignal(risks: string[], decisions: string[]) {
+  const risk = risks.find(isMeaningfulSignal);
+  const decision = decisions.find(isMeaningfulSignal);
+  const parts = [
+    risk ? `risk - ${risk}` : "",
+    decision ? `decision - ${decision}` : ""
+  ].filter(Boolean);
+
+  return parts.length ? `Executive attention: ${parts.join("; ")}.` : "";
+}
+
+function buildNextPathSignal(plan: GuidedPlan | null | undefined, recommendedPath: string[]) {
+  const nextPath = firstMeaningful(plan?.programGuide?.nextStep, ...recommendedPath);
+  return nextPath ? `Next path: ${nextPath}` : "";
+}
+
+function buildProgressUpdates(input: {
+  domainSummaries: ClientPortalDomainSummary[];
+  plan: GuidedPlan | null | undefined;
+  recommendedPath: string[];
+  review: StoredProgramUpdate["review"] | undefined;
+  risks: string[];
+  decisions: string[];
+  intakeStatus: string | undefined;
+}) {
+  const synthesizedSignals = [
+    buildDomainMovementSignal(input.domainSummaries),
+    buildDeliveryBoardProgressSignal(input.review?.deliveryBoardItems),
+    buildExecutiveAttentionSignal(input.risks, input.decisions),
+    buildNextPathSignal(input.plan, input.recommendedPath)
+  ]
+    .map(clean)
+    .filter(isMeaningfulSignal)
+    .slice(0, 4);
+
+  if (synthesizedSignals.length) return synthesizedSignals;
+
+  return visibleSignals(
+    firstNonEmpty(
+      input.review?.progressSinceLastReview,
+      input.plan?.sourceInputs.items.join("\n"),
+      input.intakeStatus,
+      input.plan?.summary
+    ),
+    "No current progress update has been captured yet.",
+    4
+  );
+}
+
+function buildClientExecutiveOverview(input: {
+  phase: string;
+  postureLabel: string;
+  plan: GuidedPlan | null | undefined;
+  review: StoredProgramUpdate["review"] | undefined;
+  domainSummaries: ClientPortalDomainSummary[];
+  risks: string[];
+  decisions: string[];
+  recommendedPath: string[];
+  leadershipSummary: string;
+  intakeSummary: string | undefined;
+}) {
+  const focus = firstMeaningful(
+    input.plan?.programGuide?.focus,
+    input.review?.programSynthesisNote,
+    buildDomainMovementSignal(input.domainSummaries),
+    input.review?.progressSinceLastReview
+  );
+  const why = firstMeaningful(
+    input.plan?.programGuide?.whyItMatters,
+    input.risks[0],
+    input.plan?.keyOutcomes.items[0],
+    input.leadershipSummary
+  );
+  const next = firstMeaningful(input.plan?.programGuide?.nextStep, input.recommendedPath[0], input.decisions[0]);
+  const sponsorReadout = firstMeaningful(input.plan?.programGuide?.sponsorReadout);
+
+  if (focus && why && next) {
+    return clean(
+      `In ${input.phase}, the program is ${input.postureLabel.toLowerCase()}. ${
+        sponsorReadout ? `${sponsorReadout} ` : ""
+      }Current focus: ${focus} Why it matters: ${why} Next: ${next}`
+    );
+  }
+
+  return clean(
+    firstMeaningful(
+      sponsorReadout,
+      input.plan?.summary,
+      input.review?.programSynthesisNote,
+      input.intakeSummary,
+      "The executive update will sharpen after role updates, delivery board movement, or leadership feedback are captured."
+    )
+  );
+}
+
 function buildTimeline(currentPhase: string) {
   const phaseText = currentPhase.toLowerCase();
   const currentIndex = Math.max(
@@ -261,29 +410,39 @@ export function buildClientPortalProgram(input: ClientPortalProgramInput): Clien
     roleUpdates
   });
   const completion = getCompletionMetrics(currentPhase, posture);
-  const progressUpdates = visibleSignals(
-    firstNonEmpty(
-      review?.progressSinceLastReview,
-      input.latestPlan?.sourceInputs.items.join("\n"),
-      intake.currentStatus,
-      input.latestPlan?.summary
-    ),
-    "No current progress update has been captured yet.",
-    4
-  );
-  const executiveOverview = clean(
-    firstNonEmpty(
-      input.latestPlan?.programGuide?.sponsorReadout,
-      input.latestPlan?.summary,
-      review?.programSynthesisNote,
-      intake.sowSummary,
-      "Program overview is still being developed."
-    )
-  );
   const domainSummaries = buildDomainSummaries({
     plan: input.latestPlan,
     roleUpdates,
     teamRoles: intake.teamRoles
+  });
+  const leadershipSignal = clean(
+    firstNonEmpty(
+      input.latestPlan?.leadershipSignal.summary,
+      input.latestLeadership?.interpretation?.summary,
+      input.latestLeadership?.feedback.leadershipGuidance,
+      "No leadership signal has been captured yet."
+    )
+  );
+  const progressUpdates = buildProgressUpdates({
+    domainSummaries,
+    plan: input.latestPlan,
+    recommendedPath,
+    review,
+    risks,
+    decisions,
+    intakeStatus: intake.currentStatus
+  });
+  const executiveOverview = buildClientExecutiveOverview({
+    phase: currentPhase,
+    postureLabel: postureLabel(posture),
+    plan: input.latestPlan,
+    review,
+    domainSummaries,
+    risks,
+    decisions,
+    recommendedPath,
+    leadershipSummary: leadershipSignal,
+    intakeSummary: intake.sowSummary
   });
 
   return {
@@ -307,14 +466,7 @@ export function buildClientPortalProgram(input: ClientPortalProgramInput): Clien
     topRisk: firstSignal(risks.join("\n"), "No active executive risk has been captured yet."),
     primaryOutcome: firstSignal(outcomes.join("\n"), "Outcome detail is still being shaped."),
     northStar: clean(firstNonEmpty(input.latestPlan?.northStar, review?.originalNorthStar, intake.vision, "North star not captured yet.")),
-    leadershipSignal: clean(
-      firstNonEmpty(
-        input.latestPlan?.leadershipSignal.summary,
-        input.latestLeadership?.interpretation?.summary,
-        input.latestLeadership?.feedback.leadershipGuidance,
-        "No leadership signal has been captured yet."
-      )
-    ),
+    leadershipSignal,
     assignedRoles: input.assignedRoles ?? [],
     metrics: {
       decisions: countSignals(decisions),

@@ -68,6 +68,13 @@ const plan: GuidedPlan = {
   createdAt: "2026-04-29T00:00:00.000Z",
   northStar: "Ship a controlled compliance alpha.",
   summary: "Compliance Hub is progressing, with API timing as the executive risk.",
+  programGuide: {
+    title: "Overall Program Guide",
+    focus: "Engineering is clearing the API timing dependency while product validates launch readiness.",
+    whyItMatters: "API timing controls whether the alpha release can safely proceed.",
+    nextStep: "Confirm the launch readiness owner and lock the API timing path.",
+    sponsorReadout: "Engineering is clearing the API dependency so the alpha release can proceed with controlled readiness."
+  },
   sourceInputs: { title: "Inputs", items: [] },
   assistantDialogue: { title: "Guide", items: [] },
   signalFromNoise: { title: "Signal", items: [] },
@@ -102,8 +109,12 @@ test("buildClientPortalProgram creates executive posture from program signals", 
   assert.equal(portalProgram.primaryOutcome, "Alpha workflow ready for sponsor validation");
   assert.equal(portalProgram.metrics.phaseCompletionPercent, 75);
   assert.equal(portalProgram.metrics.programCompletionPercent, 66);
-  assert.equal(portalProgram.progressUpdates[0], "Intake rules are complete.");
-  assert.match(portalProgram.executiveOverview, /Compliance Hub is progressing/);
+  assert.match(portalProgram.progressUpdates[0], /Domain movement/);
+  assert.match(portalProgram.progressUpdates.join(" "), /Engineering is pursuing Dependency remains open/);
+  assert.match(portalProgram.progressUpdates.join(" "), /Executive attention/);
+  assert.match(portalProgram.executiveOverview, /program is at risk/i);
+  assert.match(portalProgram.executiveOverview, /Engineering is clearing/);
+  assert.match(portalProgram.executiveOverview, /Confirm the launch readiness owner/);
   assert.equal(portalProgram.domainSummaries[0]?.role, "Engineering");
   assert.equal(portalProgram.domainSummaries[0]?.pursuit, "Dependency remains open.");
   assert.equal(portalProgram.domainSummaries[0]?.risksOrBlockers, "API timing");

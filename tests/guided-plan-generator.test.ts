@@ -88,5 +88,7 @@ test("generateLocalGuidedPlan treats role update attachments as role-level signa
   const deliveryLeadPlan = plan.rolePlans?.roles.find((rolePlan) => rolePlan.role === "Delivery Lead");
   assert.ok(deliveryLeadPlan);
   assert.match(plan.sourceInputs.items.join("\n"), /role submissions/i);
+  assert.match(plan.programGuide?.sponsorReadout ?? "", /Delivery Lead: Checkpoint planning notes/);
+  assert.doesNotMatch(plan.programGuide?.sponsorReadout ?? "", /role update.*shaping/i);
   assert.match(deliveryLeadPlan.keyFocusAreas.join("\n"), /Operating posture/i);
 });

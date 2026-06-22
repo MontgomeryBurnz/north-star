@@ -499,7 +499,8 @@ export const openaiGuidedPlanProvider: GuidedPlanProvider = {
 Requirements:
 - Keep the guided plan evergreen and adaptable.
 - Make the direct influence of uploads, active-program updates, Delivery Board cards, role-based team submissions, and leadership feedback visible in the plan.
-- Populate programGuide for executive sponsors with where the team is focusing, why it matters, what should happen next, and a concise sponsor readout.
+- Populate programGuide as client/executive-ready synthesis, not system narration. It must summarize what domains or roles are pursuing, why that progress matters, the highest-risk decision or blocker, and the next executive-relevant move.
+- Do not use generic language like "guided plan generated", "inputs are shaping this plan", or "role updates are shaping the operating picture" in programGuide.
 - Make role-level status posture explicit when it exists, especially blocked or at-risk roles and any leadership-attention flags.
 - If one of those sources is missing, say so plainly in the relevant section.
 - Keep the plan concise, structured, and operator-level.

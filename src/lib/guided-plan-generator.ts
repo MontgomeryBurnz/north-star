@@ -112,6 +112,26 @@ function buildRoleStatusSummary(roleUpdates: ReturnType<typeof getTeamRoleUpdate
     .slice(0, 4);
 }
 
+function summarizeRolePursuits(roleUpdates: ReturnType<typeof getTeamRoleUpdates>, limit = 3) {
+  return roleUpdates
+    .map((roleUpdate) => {
+      const signal = firstAvailable(
+        roleUpdate.progressUpdate,
+        roleUpdate.changesObserved,
+        roleUpdate.activeRisks,
+        roleUpdate.blockers,
+        roleUpdate.decisionsNeeded,
+        roleUpdate.supportNeeded
+      );
+      const status = formatRoleStatus(roleUpdate.status);
+      const attachmentSignal = roleUpdate.attachments?.length ? `, ${sourceLabel(roleUpdate.attachments.length, "attachment")}` : "";
+      return signal ? `${roleUpdate.role}: ${excerpt(signal, 92)} (${status}${attachmentSignal})` : "";
+    })
+    .filter(Boolean)
+    .slice(0, limit)
+    .join(" / ");
+}
+
 function buildRolePlans(
   program: StoredProgram,
   latestUpdate: StoredProgramUpdate | undefined,
@@ -438,14 +458,12 @@ export function generateLocalGuidedPlan(
         )}`
       : "No meeting-derived program input is on file yet. Upload or link meeting context when recurring delivery discussions should influence guidance."
   ];
+  const rolePursuitSummary = summarizeRolePursuits(teamRoleUpdates);
+  const boardFocusSummary = deliveryBoardItems.length ? summarizeDeliveryBoardItems(deliveryBoardItems, 3) : "";
   const currentTeamFocus = firstAvailable(
     review?.programSynthesisNote ?? "",
-    teamRoleUpdates.length
-      ? `${sourceLabel(teamRoleUpdates.length, "role update")} are shaping the current operating picture.`
-      : "",
-    deliveryBoardItems.length
-      ? `${sourceLabel(deliveryBoardItems.length, "delivery board card")} are driving current execution.`
-      : "",
+    rolePursuitSummary ? `Role focus: ${rolePursuitSummary}` : "",
+    boardFocusSummary ? `Delivery focus: ${boardFocusSummary}` : "",
     progress,
     "The team should capture role updates to establish the current operating picture."
   );
@@ -467,10 +485,10 @@ export function generateLocalGuidedPlan(
     focus: currentTeamFocus,
     whyItMatters: executiveWhy,
     nextStep: nextProgramMove,
-    sponsorReadout: `The team is focused on ${excerpt(currentTeamFocus, 120)} This matters because ${excerpt(
+    sponsorReadout: `${excerpt(currentTeamFocus, 150)} Sponsor attention should stay on ${excerpt(
       executiveWhy,
-      120
-    )} Next, ${excerpt(nextProgramMove, 120)}`
+      130
+    )} Next move: ${excerpt(nextProgramMove, 130)}`
   };
 
   return {
