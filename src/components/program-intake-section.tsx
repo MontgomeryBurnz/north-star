@@ -743,7 +743,7 @@ export function ProgramIntakeSection() {
 
   return (
     <section id="program-intake" className="border-y border-white/10 bg-white/[0.02]">
-      <div className="mx-auto grid max-w-7xl gap-6 px-4 py-16 sm:px-6 lg:grid-cols-[minmax(0,1fr)_390px] lg:px-8">
+      <div className="northstar-shell grid gap-6 py-16 lg:grid-cols-[minmax(0,1fr)_390px]">
         <div>
           <p className="mb-3 text-xs font-medium uppercase tracking-[0.22em] text-emerald-300">Program intake</p>
           <h2 className="text-3xl font-semibold text-zinc-50 md:text-4xl">Frame the program before the pressure starts.</h2>

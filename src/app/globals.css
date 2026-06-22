@@ -46,6 +46,12 @@ body {
   font-feature-settings: "cv02", "cv03", "cv04", "cv11";
 }
 
+@layer components {
+  .northstar-shell {
+    @apply mx-auto w-full max-w-[100rem] px-4 sm:px-6 lg:px-8;
+  }
+}
+
 ::selection {
   background: rgba(52, 211, 153, 0.28);
   color: #f4f4f5;

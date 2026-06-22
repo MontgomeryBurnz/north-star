@@ -116,6 +116,18 @@ function firstMeaningful(...values: Array<string | null | undefined>) {
   return values.map(clean).find(isMeaningfulSignal) ?? "";
 }
 
+function conciseSignal(value: string | undefined | null, limit = 96) {
+  const cleaned = clean(value)
+    .replace(/^domain movement:\s*/i, "")
+    .replace(/^delivery board:\s*/i, "")
+    .replace(/^executive attention:\s*/i, "")
+    .replace(/^next path:\s*/i, "");
+  if (cleaned.length <= limit) return cleaned;
+
+  const truncated = cleaned.slice(0, limit).replace(/\s+\S*$/, "").trim();
+  return truncated ? `${truncated}...` : cleaned.slice(0, limit).trim();
+}
+
 function visibleSignals(value: string | undefined | null, fallback: string, limit = 3) {
   return splitSignals(value ?? "", fallback).map(clean).filter(Boolean).slice(0, limit);
 }
@@ -240,38 +252,36 @@ function buildDomainMovementSignal(domainSummaries: ClientPortalDomainSummary[])
   const movingDomains = domainSummaries
     .filter((domain) => isMeaningfulSignal(domain.pursuit))
     .slice(0, 3)
-    .map((domain) => `${domain.role} is pursuing ${domain.pursuit}`);
+    .map((domain) => `${domain.role}: ${conciseSignal(domain.pursuit, 64)}`);
 
-  return movingDomains.length ? `Domain movement: ${movingDomains.join(" / ")}.` : "";
+  return movingDomains.length ? `Focus: ${movingDomains.join("; ")}.` : "";
 }
 
 function buildDeliveryBoardProgressSignal(items: DeliveryBoardItem[] | undefined) {
   const activeItems = (items ?? [])
     .filter((item) => item.status !== "done" && isMeaningfulSignal(item.title))
-    .slice(0, 3)
+    .slice(0, 2)
     .map((item) => {
-      const owner = isMeaningfulSignal(item.owner) ? `, owner ${item.owner}` : "";
       const dueDate = item.dueDate ? `, due ${item.dueDate}` : "";
-      return `${item.role || "Team"} is ${deliveryBoardStatusLabel(item.status).toLowerCase()} on ${item.title}${owner}${dueDate}`;
+      return `${item.role || "Team"}: ${conciseSignal(item.title, 58)} (${deliveryBoardStatusLabel(item.status)}${dueDate})`;
     });
 
-  return activeItems.length ? `Delivery board: ${activeItems.join(" / ")}.` : "";
+  return activeItems.length ? `Board: ${activeItems.join("; ")}.` : "";
 }
 
-function buildExecutiveAttentionSignal(risks: string[], decisions: string[]) {
+function buildExecutiveAttentionSignals(risks: string[], decisions: string[]) {
   const risk = risks.find(isMeaningfulSignal);
   const decision = decisions.find(isMeaningfulSignal);
-  const parts = [
-    risk ? `risk - ${risk}` : "",
-    decision ? `decision - ${decision}` : ""
-  ].filter(Boolean);
 
-  return parts.length ? `Executive attention: ${parts.join("; ")}.` : "";
+  return [
+    risk ? `Risk: ${conciseSignal(risk, 92)}.` : "",
+    decision ? `Decision: ${conciseSignal(decision, 92)}.` : ""
+  ].filter(Boolean);
 }
 
 function buildNextPathSignal(plan: GuidedPlan | null | undefined, recommendedPath: string[]) {
   const nextPath = firstMeaningful(plan?.programGuide?.nextStep, ...recommendedPath);
-  return nextPath ? `Next path: ${nextPath}` : "";
+  return nextPath ? `Next: ${conciseSignal(nextPath, 100)}.` : "";
 }
 
 function buildProgressUpdates(input: {
@@ -286,7 +296,7 @@ function buildProgressUpdates(input: {
   const synthesizedSignals = [
     buildDomainMovementSignal(input.domainSummaries),
     buildDeliveryBoardProgressSignal(input.review?.deliveryBoardItems),
-    buildExecutiveAttentionSignal(input.risks, input.decisions),
+    ...buildExecutiveAttentionSignals(input.risks, input.decisions),
     buildNextPathSignal(input.plan, input.recommendedPath)
   ]
     .map(clean)
@@ -332,13 +342,14 @@ function buildClientExecutiveOverview(input: {
     input.leadershipSummary
   );
   const next = firstMeaningful(input.plan?.programGuide?.nextStep, input.recommendedPath[0], input.decisions[0]);
-  const sponsorReadout = firstMeaningful(input.plan?.programGuide?.sponsorReadout);
+  const attention = firstMeaningful(input.risks[0], input.decisions[0], why);
+  const sponsorReadout = conciseSignal(firstMeaningful(input.plan?.programGuide?.sponsorReadout), 180);
 
   if (focus && why && next) {
     return clean(
-      `In ${input.phase}, the program is ${input.postureLabel.toLowerCase()}. ${
-        sponsorReadout ? `${sponsorReadout} ` : ""
-      }Current focus: ${focus} Why it matters: ${why} Next: ${next}`
+      `${input.postureLabel} in ${input.phase}. Focus: ${conciseSignal(focus, 82)}. ${
+        attention ? `Watch: ${conciseSignal(attention, 82)}. ` : ""
+      }Next: ${conciseSignal(next, 82)}.`
     );
   }
 

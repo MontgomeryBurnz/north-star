@@ -448,7 +448,7 @@ export function GuidedPlansConsole() {
   const rolePlans = useMemo(() => (plan ? normalizeRolePlans(plan.rolePlans) : null), [plan]);
 
   return (
-    <main className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
+    <main className="northstar-shell py-16">
       <ProductPageHeader
         eyebrow="Guided plans"
         title="What should we do next?"

@@ -51,7 +51,7 @@ export function ProgramWorkspace({ initialMode = null }: { initialMode?: Program
   return (
     <main>
       <section className="border-b border-white/10 bg-white/[0.015]">
-        <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
+        <div className="northstar-shell py-10">
           <ProductPageHeader
             eyebrow="Program Hub"
             title={workspaceCopy[mode].title}
@@ -79,7 +79,7 @@ function ProgramHubLanding() {
   return (
     <main data-program-hub-landing>
       <section className="border-b border-white/10 bg-white/[0.015]">
-        <div className="mx-auto max-w-7xl px-4 py-14 sm:px-6 lg:px-8">
+        <div className="northstar-shell py-14">
           <ProductPageHeader
             eyebrow="Program Hub"
             title="Choose the right program path."
@@ -88,7 +88,7 @@ function ProgramHubLanding() {
         </div>
       </section>
 
-      <section className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
+      <section className="northstar-shell py-10">
         <div className="grid gap-4 lg:grid-cols-2">
           {programHubEntries.map((entry) => (
             <Link

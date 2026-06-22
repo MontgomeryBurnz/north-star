@@ -40,6 +40,23 @@ test("Client Portal frames executive overview and domain progress", () => {
   assert.match(modelSource, /buildClientExecutiveOverview/);
   assert.match(modelSource, /buildDomainMovementSignal/);
   assert.match(modelSource, /buildDeliveryBoardProgressSignal/);
+  assert.match(modelSource, /conciseSignal/);
+  assert.match(modelSource, /Risk:/);
+  assert.match(modelSource, /Decision:/);
+});
+
+test("Primary app surfaces use the wider North Star shell", () => {
+  const globalSource = readFileSync(new URL("../src/app/globals.css", import.meta.url), "utf8");
+  const clientSource = readFileSync(new URL("../src/components/client-portal-console.tsx", import.meta.url), "utf8");
+  const guidedSource = readFileSync(new URL("../src/components/guided-plans-console.tsx", import.meta.url), "utf8");
+  const activeSource = readFileSync(new URL("../src/components/active-program-review-section.tsx", import.meta.url), "utf8");
+  const navSource = readFileSync(new URL("../src/components/site-nav.tsx", import.meta.url), "utf8");
+
+  assert.match(globalSource, /max-w-\[100rem\]/);
+  assert.match(clientSource, /northstar-shell py-10/);
+  assert.match(guidedSource, /northstar-shell py-16/);
+  assert.match(activeSource, /northstar-shell py-16/);
+  assert.match(navSource, /northstar-shell/);
 });
 
 test("Artifact Studio output keeps generated detail compact and export-first", () => {

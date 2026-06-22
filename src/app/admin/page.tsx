@@ -36,7 +36,7 @@ export default async function AdminPage() {
   const guidanceFlags = guidanceFlagsByProgram.flat();
 
   return (
-    <main className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
+    <main className="northstar-shell py-16">
       <ProductPageHeader
         eyebrow="Admin"
         title="Admin Console"

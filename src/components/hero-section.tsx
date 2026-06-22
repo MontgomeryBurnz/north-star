@@ -58,7 +58,7 @@ export function HeroSection({ metrics }: { metrics: DashboardMetrics }) {
     <section className="relative overflow-hidden border-b border-white/10">
       <div className="absolute inset-0 bg-[linear-gradient(to_right,rgba(255,255,255,0.055)_1px,transparent_1px),linear-gradient(to_bottom,rgba(255,255,255,0.055)_1px,transparent_1px)] bg-[size:64px_64px]" />
       <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,rgba(16,185,129,0.18),transparent_42%),linear-gradient(180deg,rgba(9,9,11,0.4),#09090b_88%)]" />
-      <div className="relative mx-auto grid max-w-7xl items-start gap-8 px-4 py-12 sm:px-6 sm:py-14 lg:min-h-[calc(100vh-4rem)] lg:grid-cols-[1fr_1.05fr] lg:items-center lg:gap-10 lg:px-8 lg:py-16">
+      <div className="northstar-shell relative grid items-start gap-8 py-12 sm:py-14 lg:min-h-[calc(100vh-4rem)] lg:grid-cols-[1fr_1.05fr] lg:items-center lg:gap-10 lg:py-16">
         <MotionDiv
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}

@@ -109,10 +109,13 @@ test("buildClientPortalProgram creates executive posture from program signals", 
   assert.equal(portalProgram.primaryOutcome, "Alpha workflow ready for sponsor validation");
   assert.equal(portalProgram.metrics.phaseCompletionPercent, 75);
   assert.equal(portalProgram.metrics.programCompletionPercent, 66);
-  assert.match(portalProgram.progressUpdates[0], /Domain movement/);
-  assert.match(portalProgram.progressUpdates.join(" "), /Engineering is pursuing Dependency remains open/);
-  assert.match(portalProgram.progressUpdates.join(" "), /Executive attention/);
-  assert.match(portalProgram.executiveOverview, /program is at risk/i);
+  assert.match(portalProgram.progressUpdates[0], /Focus:/);
+  assert.match(portalProgram.progressUpdates.join(" "), /Engineering: Dependency remains open/);
+  assert.match(portalProgram.progressUpdates.join(" "), /Risk:/);
+  assert.match(portalProgram.progressUpdates.join(" "), /Decision:/);
+  assert.ok(portalProgram.progressUpdates.every((signal) => signal.length <= 130));
+  assert.ok(portalProgram.executiveOverview.length <= 260);
+  assert.match(portalProgram.executiveOverview, /At risk in Execute/);
   assert.match(portalProgram.executiveOverview, /Engineering is clearing/);
   assert.match(portalProgram.executiveOverview, /Confirm the launch readiness owner/);
   assert.equal(portalProgram.domainSummaries[0]?.role, "Engineering");

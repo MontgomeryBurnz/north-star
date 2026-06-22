@@ -43,7 +43,7 @@ export type OperatorSignal = {
 export function OperatorSignalStrip({ signals }: { signals: OperatorSignal[] }) {
   return (
     <section aria-label="Operator signal strip" className="border-b border-white/10 bg-zinc-950">
-      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+      <div className="northstar-shell">
         <div className="grid gap-px overflow-hidden rounded-none border-x border-white/10 bg-white/10 md:grid-cols-5">
           {signals.map((signal, index) => (
             <Link

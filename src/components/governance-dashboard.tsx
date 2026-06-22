@@ -614,7 +614,7 @@ export function GovernanceDashboard({
   const Root = embedded ? "section" : "main";
 
   return (
-    <Root className={cn(!embedded && "mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8", embedded && "mt-12")}>
+    <Root className={cn(!embedded && "northstar-shell py-16", embedded && "mt-12")}>
       <SectionHeader
         eyebrow="Governance"
         title="Model Governance"

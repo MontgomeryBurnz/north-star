@@ -351,7 +351,7 @@ function ProgramDetail({ program }: { program: ClientPortalProgram }) {
     <section className="grid min-w-0 gap-6">
       <div className={cn("rounded-md border bg-gradient-to-br p-5", styles.ring, "border-white/10")}>
         <div className="flex flex-wrap items-start justify-between gap-4">
-          <div className="max-w-3xl">
+          <div className="max-w-5xl">
             <div className="flex flex-wrap items-center gap-2">
               <span className={cn("h-2.5 w-2.5 rounded-full", styles.dot)} />
               <p className="text-xs font-medium uppercase tracking-[0.18em] text-zinc-300">{program.postureLabel}</p>
@@ -374,11 +374,11 @@ function ProgramDetail({ program }: { program: ClientPortalProgram }) {
         <div className="grid gap-4 rounded-md border border-white/10 bg-white/[0.03] p-5">
           <div>
             <p className="text-xs font-medium uppercase tracking-[0.16em] text-emerald-200">Executive overview</p>
-            <p className="mt-3 text-base leading-7 text-zinc-200">{program.executiveOverview}</p>
+            <p className="mt-3 max-w-5xl text-base leading-7 text-zinc-200">{program.executiveOverview}</p>
           </div>
           <div className="rounded-md border border-white/10 bg-black/20 p-4">
             <p className="text-xs font-medium uppercase tracking-[0.16em] text-zinc-400">Latest progress signal</p>
-            <div className="mt-3 grid gap-2 sm:grid-cols-2">
+            <div className="mt-3 grid gap-2 md:grid-cols-2 2xl:grid-cols-4">
               {program.progressUpdates.map((update, index) => (
                 <div key={`${update}-${index}`} className="rounded-md border border-white/10 bg-white/[0.035] p-3 text-sm leading-6 text-zinc-300">
                   {update}
@@ -533,7 +533,7 @@ export function ClientPortalConsole({
   return (
     <main className="min-h-screen overflow-x-hidden bg-zinc-950 text-zinc-50">
       <header className="border-b border-white/10 bg-zinc-950/90 backdrop-blur-xl">
-        <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-4 sm:px-6 lg:px-8">
+        <div className="northstar-shell flex items-center justify-between gap-4 py-4">
           <div className="min-w-0">
             <p className="text-xs font-medium uppercase tracking-[0.18em] text-emerald-300">North Star Client Portal</p>
             <p className="mt-1 truncate text-sm text-zinc-400">{viewerLabel}</p>
@@ -553,7 +553,7 @@ export function ClientPortalConsole({
         </div>
       </header>
 
-      <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
+      <div className="northstar-shell py-10">
         <section className="grid min-w-0 gap-8 lg:grid-cols-[minmax(0,1fr)_16rem] lg:items-end">
           <div className="min-w-0">
             <p className="text-xs font-medium uppercase tracking-[0.22em] text-emerald-300">Client portal</p>
@@ -575,7 +575,7 @@ export function ClientPortalConsole({
         </section>
 
         {portfolio.programs.length ? (
-          <div className="mt-10 grid gap-6 lg:grid-cols-[22rem_minmax(0,1fr)]">
+          <div className="mt-10 grid gap-6 lg:grid-cols-[22rem_minmax(0,1fr)] 2xl:grid-cols-[24rem_minmax(0,1fr)]">
             <aside className="grid min-w-0 content-start gap-3">
               <div className="rounded-md border border-white/10 bg-white/[0.035] p-4">
                 <div className="flex items-center justify-between gap-3">

@@ -153,7 +153,7 @@ export function CommandCenterGrid({ metrics }: { metrics: DashboardMetrics }) {
   ];
 
   return (
-    <section id="how-to-use" className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
+    <section id="how-to-use" className="northstar-shell py-16">
       <div className="mb-10 grid gap-6 lg:grid-cols-[minmax(0,0.9fr)_minmax(22rem,0.55fr)] lg:items-end">
         <div className="max-w-3xl">
           <p className="mb-3 text-xs font-medium uppercase tracking-[0.22em] text-emerald-300">How North Star creates value</p>

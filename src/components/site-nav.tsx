@@ -117,7 +117,7 @@ export function SiteNav() {
 
   return (
     <header className="sticky top-0 z-50 border-b border-white/10 bg-zinc-950/80 backdrop-blur-xl">
-      <nav className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+      <nav className="northstar-shell">
         <div className="flex h-16 items-center justify-between">
           <Link href="/" className="flex min-w-0 items-center gap-3">
             <span className="relative block h-12 w-12 shrink-0">

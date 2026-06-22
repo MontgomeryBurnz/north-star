@@ -9,7 +9,7 @@ export function ActiveProgramReviewSection() {
   const controller = useActiveProgramReviewController();
 
   return (
-    <section id="active-program-review" className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
+    <section id="active-program-review" className="northstar-shell py-16">
       <form onSubmit={controller.handleSubmit} className="grid gap-5">
         <ActiveProgramStateFlow
           selectedProgramId={controller.selectedProgramId}
