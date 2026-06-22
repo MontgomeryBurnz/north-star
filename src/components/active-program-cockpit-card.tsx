@@ -8,6 +8,7 @@ import {
   HeartPulse,
   MessageSquareQuote,
   Milestone,
+  Save,
   ShieldAlert,
   Users2
 } from "lucide-react";
@@ -33,6 +34,9 @@ type ActiveProgramCockpitCardProps = {
   meetingInputsCount: number;
   formatTimestamp: (value: string) => string;
   isActive: boolean;
+  saveState: "idle" | "saving" | "saved" | "error";
+  onPhaseChange: (value: string) => void;
+  onSavePhase: () => void | Promise<void>;
 };
 
 function deriveHealth(teamRoleUpdates: TeamRoleUpdate[], deliveryHealth: string) {
@@ -87,6 +91,8 @@ const phaseStops = [
   { label: "Stabilize", keywords: ["stabil", "operate", "run", "steady"], percent: 92 }
 ];
 
+const phaseOptions = ["Intake", "Planning", "Discovery", "Build", "Execute", "Launch", "Stabilize", "Recovery"];
+
 function derivePhaseProgress(currentPhase: string) {
   const normalizedPhase = currentPhase.trim().toLowerCase();
   const matchedPhase = phaseStops.find((phase) => phase.keywords.some((keyword) => normalizedPhase.includes(keyword)));
@@ -114,7 +120,10 @@ export function ActiveProgramCockpitCard({
   leadershipSignal,
   meetingInputsCount,
   formatTimestamp,
-  isActive
+  isActive,
+  saveState,
+  onPhaseChange,
+  onSavePhase
 }: ActiveProgramCockpitCardProps) {
   if (!isActive) {
     return (
@@ -142,6 +151,12 @@ export function ActiveProgramCockpitCard({
 
   const health = deriveHealth(teamRoleUpdates, review.deliveryHealth);
   const phaseProgress = derivePhaseProgress(review.currentPhase);
+  const currentPhaseValue = review.currentPhase.trim();
+  const selectedPhaseOption = currentPhaseValue
+    ? phaseOptions.some((phase) => phase.toLowerCase() === currentPhaseValue.toLowerCase())
+      ? phaseOptions.find((phase) => phase.toLowerCase() === currentPhaseValue.toLowerCase())!
+      : "__custom__"
+    : "";
   const topRisk = firstSignal(review.activeRisks, "No active risk captured yet.");
   const nextDecision = firstSignal(review.decisionsPending || review.supportNeeded, "No decision or support ask captured yet.");
   const currentMilestone = firstSignal(
@@ -260,6 +275,55 @@ export function ActiveProgramCockpitCard({
                 {meetingInputsCount
                   ? `${meetingInputsCount} meeting input${meetingInputsCount === 1 ? "" : "s"} connected`
                   : "Meeting inputs will appear here once added."}
+              </p>
+            </div>
+            <div className="grid gap-3 border-t border-white/10 pt-3">
+              <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">
+                <label className="grid gap-2">
+                  <span className="text-xs font-medium uppercase tracking-[0.16em] text-zinc-500">Update program phase</span>
+                  <select
+                    data-active-program-phase-select
+                    value={selectedPhaseOption}
+                    onChange={(event) => {
+                      const nextPhase = event.target.value;
+                      onPhaseChange(nextPhase === "__custom__" ? currentPhaseValue : nextPhase);
+                    }}
+                    className="min-h-10 rounded-md border border-white/10 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 outline-none transition-colors focus:border-cyan-300/50"
+                  >
+                    <option value="">Select phase...</option>
+                    {phaseOptions.map((phase) => (
+                      <option key={phase} value={phase}>
+                        {phase}
+                      </option>
+                    ))}
+                    <option value="__custom__">Custom phase...</option>
+                  </select>
+                </label>
+                <button
+                  type="button"
+                  data-active-program-phase-save
+                  onClick={() => void onSavePhase()}
+                  disabled={saveState === "saving" || !currentPhaseValue}
+                  className="inline-flex min-h-10 items-center justify-center gap-2 rounded-md border border-cyan-300/25 bg-cyan-300/[0.08] px-3 py-2 text-sm font-medium text-cyan-100 transition-colors hover:border-cyan-200/45 hover:bg-cyan-300/[0.12] disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  <Save className="h-4 w-4" />
+                  {saveState === "saving" ? "Saving..." : "Save phase"}
+                </button>
+              </div>
+              {selectedPhaseOption === "__custom__" ? (
+                <label className="grid gap-2">
+                  <span className="text-xs font-medium uppercase tracking-[0.16em] text-zinc-500">Custom phase</span>
+                  <input
+                    data-active-program-phase-custom
+                    value={currentPhaseValue}
+                    onChange={(event) => onPhaseChange(event.target.value)}
+                    placeholder="Type the current program phase"
+                    className="min-h-10 rounded-md border border-white/10 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 outline-none transition-colors placeholder:text-zinc-500 focus:border-cyan-300/50"
+                  />
+                </label>
+              ) : null}
+              <p className="text-xs leading-5 text-zinc-500">
+                Phase changes update the cockpit, Guided Plans timeline, and client executive view after save.
               </p>
             </div>
           </div>

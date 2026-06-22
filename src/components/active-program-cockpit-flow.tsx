@@ -15,6 +15,9 @@ type ActiveProgramCockpitFlowProps = {
   meetingInputsCount: number;
   formatTimestamp: (value: string) => string;
   isActive: boolean;
+  saveState: "idle" | "saving" | "saved" | "error";
+  onPhaseChange: (value: string) => void;
+  onSavePhase: () => void | Promise<void>;
 };
 
 export function ActiveProgramCockpitFlow({
@@ -27,7 +30,10 @@ export function ActiveProgramCockpitFlow({
   leadershipSignal,
   meetingInputsCount,
   formatTimestamp,
-  isActive
+  isActive,
+  saveState,
+  onPhaseChange,
+  onSavePhase
 }: ActiveProgramCockpitFlowProps) {
   return (
     <ActiveProgramCockpitCard
@@ -41,6 +47,9 @@ export function ActiveProgramCockpitFlow({
       meetingInputsCount={meetingInputsCount}
       formatTimestamp={formatTimestamp}
       isActive={isActive}
+      saveState={saveState}
+      onPhaseChange={onPhaseChange}
+      onSavePhase={onSavePhase}
     />
   );
 }

@@ -216,6 +216,45 @@ function ExecutiveSignalCard({
   );
 }
 
+function DomainSummaryCard({ domain }: { domain: ClientPortalProgram["domainSummaries"][number] }) {
+  return (
+    <div className="grid gap-3 rounded-md border border-white/10 bg-black/20 p-4">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="truncate text-sm font-semibold text-zinc-100">{domain.role}</p>
+          <p className="mt-1 text-xs text-zinc-500">{domain.updatedAt ? `Updated ${formatTimestamp(domain.updatedAt)}` : "Latest domain signal"}</p>
+        </div>
+        <div className="flex flex-wrap justify-end gap-2">
+          <span className="rounded-full border border-cyan-300/20 bg-cyan-300/[0.07] px-2.5 py-1 text-[10px] font-medium uppercase tracking-[0.12em] text-cyan-100">
+            {domain.statusLabel}
+          </span>
+          {domain.attachments ? (
+            <span className="rounded-full border border-emerald-300/20 bg-emerald-300/[0.07] px-2.5 py-1 text-[10px] font-medium uppercase tracking-[0.12em] text-emerald-100">
+              {domain.attachments} file{domain.attachments === 1 ? "" : "s"}
+            </span>
+          ) : null}
+        </div>
+      </div>
+      <div className="grid gap-3">
+        <div>
+          <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-emerald-200">Pursuing</p>
+          <p className="mt-1 text-sm leading-6 text-zinc-300">{domain.pursuit}</p>
+        </div>
+        <div className="grid gap-3 md:grid-cols-2">
+          <div className="rounded-md border border-amber-300/15 bg-amber-300/[0.045] p-3">
+            <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-amber-200">Risk / blocker</p>
+            <p className="mt-1 text-xs leading-5 text-zinc-300">{domain.risksOrBlockers}</p>
+          </div>
+          <div className="rounded-md border border-cyan-300/15 bg-cyan-300/[0.045] p-3">
+            <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-cyan-200">Decision / outcome</p>
+            <p className="mt-1 text-xs leading-5 text-zinc-300">{domain.decisionsOrOutcomes}</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function ClientDecisionPanel({ program }: { program: ClientPortalProgram }) {
   const [decisionText, setDecisionText] = useState("");
   const [clientDecisions, setClientDecisions] = useState<ClientDecisionRequest[]>(program.clientDecisions);
@@ -332,15 +371,20 @@ function ProgramDetail({ program }: { program: ClientPortalProgram }) {
       </div>
 
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_18rem]">
-        <div className="rounded-md border border-white/10 bg-white/[0.03] p-5">
-          <p className="text-xs font-medium uppercase tracking-[0.16em] text-emerald-200">Key progress updates / executive summary</p>
-          <p className="mt-3 text-sm leading-7 text-zinc-300">{program.executiveSummary}</p>
-          <div className="mt-4 grid gap-2 sm:grid-cols-2">
-            {program.progressUpdates.map((update, index) => (
-              <div key={`${update}-${index}`} className="rounded-md border border-white/10 bg-black/20 p-3 text-sm leading-6 text-zinc-300">
-                {update}
-              </div>
-            ))}
+        <div className="grid gap-4 rounded-md border border-white/10 bg-white/[0.03] p-5">
+          <div>
+            <p className="text-xs font-medium uppercase tracking-[0.16em] text-emerald-200">Executive overview</p>
+            <p className="mt-3 text-base leading-7 text-zinc-200">{program.executiveOverview}</p>
+          </div>
+          <div className="rounded-md border border-white/10 bg-black/20 p-4">
+            <p className="text-xs font-medium uppercase tracking-[0.16em] text-zinc-400">Latest progress signal</p>
+            <div className="mt-3 grid gap-2 sm:grid-cols-2">
+              {program.progressUpdates.map((update, index) => (
+                <div key={`${update}-${index}`} className="rounded-md border border-white/10 bg-white/[0.035] p-3 text-sm leading-6 text-zinc-300">
+                  {update}
+                </div>
+              ))}
+            </div>
           </div>
         </div>
         <div className="grid gap-4 rounded-md border border-white/10 bg-white/[0.03] p-5">
@@ -375,6 +419,28 @@ function ProgramDetail({ program }: { program: ClientPortalProgram }) {
         <ExecutiveSignalCard icon={ClipboardCheck} label="Next decision" value={program.nextDecision} tone="border-cyan-300/20 bg-cyan-300/[0.045]" />
         <ExecutiveSignalCard icon={Compass} label="North Star" value={program.northStar} tone="border-emerald-300/20 bg-emerald-300/[0.045]" />
         <ExecutiveSignalCard icon={Sparkles} label="Executive signal" value={program.leadershipSignal} tone="border-white/10 bg-white/[0.035]" />
+      </div>
+
+      <div className="rounded-md border border-white/10 bg-white/[0.03] p-5">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <p className="flex items-center gap-2 text-sm font-medium text-zinc-100">
+              <BriefcaseBusiness className="h-4 w-4 text-emerald-200" />
+              Domain progress
+            </p>
+            <p className="mt-2 max-w-3xl text-sm leading-6 text-zinc-400">
+              What each domain is pursuing to move the program forward.
+            </p>
+          </div>
+          <span className="rounded-full border border-white/10 bg-black/20 px-3 py-1 text-[11px] font-medium uppercase tracking-[0.14em] text-zinc-300">
+            {program.domainSummaries.length} domains
+          </span>
+        </div>
+        <div className="mt-5 grid gap-3 xl:grid-cols-2">
+          {program.domainSummaries.map((domain) => (
+            <DomainSummaryCard key={domain.role} domain={domain} />
+          ))}
+        </div>
       </div>
 
       <div className="rounded-md border border-white/10 bg-white/[0.03] p-5">

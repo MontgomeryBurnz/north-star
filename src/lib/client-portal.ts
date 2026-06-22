@@ -1,4 +1,4 @@
-import type { StoredProgramUpdate, TeamRoleUpdateStatus } from "./active-program-types.ts";
+import type { StoredProgramUpdate, TeamRoleUpdate, TeamRoleUpdateStatus } from "./active-program-types.ts";
 import type { GuidedPlan } from "./guided-plan-types.ts";
 import type { LeadershipReviewRecord } from "./leadership-feedback-types.ts";
 import type { ClientDecisionRequest } from "./program-intelligence-types.ts";
@@ -6,6 +6,16 @@ import type { StoredProgram } from "./program-intake-types.ts";
 import { firstNonEmpty, firstSignal, normalizeWhitespace, splitSignals } from "./text-signals.ts";
 
 export type ClientProgramPosture = "on-track" | "at-risk" | "blocked" | "watch";
+
+export type ClientPortalDomainSummary = {
+  role: string;
+  pursuit: string;
+  risksOrBlockers: string;
+  decisionsOrOutcomes: string;
+  statusLabel: string;
+  attachments: number;
+  updatedAt?: string;
+};
 
 export type ClientPortalProgram = {
   id: string;
@@ -15,6 +25,7 @@ export type ClientPortalProgram = {
   posture: ClientProgramPosture;
   postureLabel: string;
   updatedAt: string;
+  executiveOverview: string;
   executiveSummary: string;
   nextDecision: string;
   topRisk: string;
@@ -33,6 +44,7 @@ export type ClientPortalProgram = {
   };
   outcomes: string[];
   progressUpdates: string[];
+  domainSummaries: ClientPortalDomainSummary[];
   risks: string[];
   decisions: string[];
   clientDecisions: ClientDecisionRequest[];
@@ -126,6 +138,72 @@ function postureLabel(posture: ClientProgramPosture) {
   return "Watch";
 }
 
+function roleStatusLabel(status: TeamRoleUpdateStatus | undefined) {
+  if (status === "blocked") return "Blocked";
+  if (status === "at-risk") return "At risk";
+  if (status === "on-track") return "On track";
+  return "Awaiting update";
+}
+
+function normalizeRoleKey(role: string) {
+  return role.trim().toLowerCase();
+}
+
+function firstRolePlanSignal(values: string[] | undefined) {
+  return values?.map(clean).find(Boolean) ?? "";
+}
+
+function buildDomainSummaries(input: {
+  plan: GuidedPlan | null | undefined;
+  roleUpdates: TeamRoleUpdate[];
+  teamRoles: string[] | undefined;
+}) {
+  const roleUpdatesByRole = new Map(input.roleUpdates.map((roleUpdate) => [normalizeRoleKey(roleUpdate.role), roleUpdate]));
+  const rolePlansByRole = new Map(
+    (input.plan?.rolePlans?.roles ?? []).map((rolePlan) => [normalizeRoleKey(rolePlan.role), rolePlan])
+  );
+  const roleNames = [
+    ...new Set([
+      ...input.roleUpdates.map((roleUpdate) => roleUpdate.role),
+      ...(input.teamRoles ?? []),
+      ...(input.plan?.rolePlans?.roles ?? []).map((rolePlan) => rolePlan.role)
+    ].map(clean).filter(Boolean))
+  ];
+
+  const visibleRoleNames = roleNames.length ? roleNames : ["Program team"];
+
+  return visibleRoleNames.slice(0, 8).map((role) => {
+    const roleUpdate = roleUpdatesByRole.get(normalizeRoleKey(role));
+    const rolePlan = rolePlansByRole.get(normalizeRoleKey(role));
+
+    return {
+      role,
+      pursuit: firstNonEmpty(
+        roleUpdate?.progressUpdate,
+        roleUpdate?.changesObserved,
+        firstRolePlanSignal(rolePlan?.actionPlan),
+        firstRolePlanSignal(rolePlan?.keyFocusAreas),
+        "No current pursuit has been captured for this domain yet."
+      ),
+      risksOrBlockers: firstNonEmpty(
+        roleUpdate?.activeRisks,
+        roleUpdate?.blockers,
+        firstRolePlanSignal(rolePlan?.risksAndMitigations),
+        "No active blocker has been captured for this domain."
+      ),
+      decisionsOrOutcomes: firstNonEmpty(
+        roleUpdate?.decisionsNeeded,
+        roleUpdate?.supportNeeded,
+        firstRolePlanSignal(rolePlan?.keyOutcomes),
+        "No decision or outcome has been captured for this domain."
+      ),
+      statusLabel: roleStatusLabel(roleUpdate?.status),
+      attachments: roleUpdate?.attachments?.length ?? 0,
+      updatedAt: roleUpdate?.lastUpdatedAt
+    };
+  });
+}
+
 function buildTimeline(currentPhase: string) {
   const phaseText = currentPhase.toLowerCase();
   const currentIndex = Math.max(
@@ -193,6 +271,20 @@ export function buildClientPortalProgram(input: ClientPortalProgramInput): Clien
     "No current progress update has been captured yet.",
     4
   );
+  const executiveOverview = clean(
+    firstNonEmpty(
+      input.latestPlan?.programGuide?.sponsorReadout,
+      input.latestPlan?.summary,
+      review?.programSynthesisNote,
+      intake.sowSummary,
+      "Program overview is still being developed."
+    )
+  );
+  const domainSummaries = buildDomainSummaries({
+    plan: input.latestPlan,
+    roleUpdates,
+    teamRoles: intake.teamRoles
+  });
 
   return {
     id: input.program.id,
@@ -202,6 +294,7 @@ export function buildClientPortalProgram(input: ClientPortalProgramInput): Clien
     posture,
     postureLabel: postureLabel(posture),
     updatedAt: input.latestUpdate?.updatedAt ?? input.latestUpdate?.createdAt ?? input.latestPlan?.createdAt ?? input.program.updatedAt,
+    executiveOverview,
     executiveSummary: clean(
       firstNonEmpty(
         input.latestPlan?.summary,
@@ -234,6 +327,7 @@ export function buildClientPortalProgram(input: ClientPortalProgramInput): Clien
     },
     outcomes,
     progressUpdates,
+    domainSummaries,
     risks,
     decisions,
     clientDecisions: input.clientDecisions ?? [],

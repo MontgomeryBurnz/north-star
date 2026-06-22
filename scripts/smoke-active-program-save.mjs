@@ -142,7 +142,7 @@ async function verifyOperatingView(session) {
       const bodyText = document.body.textContent ?? "";
       const roleCards = Array.from(document.querySelectorAll("[data-active-role-signal-card]"));
       return {
-        hasCockpit: bodyText.includes("Program cockpit") && bodyText.includes("Phase progress"),
+        hasCockpit: bodyText.includes("Program cockpit") && bodyText.includes("Phase progress") && Boolean(document.querySelector("[data-active-program-phase-select]")),
         hasRoleLanes: bodyText.includes("Focus role") && roleCards.some((card) => card.textContent.includes("risk") && card.textContent.includes("decision")),
         hasWorkspaceTabs: document.querySelectorAll("[data-active-program-workspace-tab]").length >= 3,
         roleFormOpen: Boolean(document.querySelector("[data-active-role-progress]"))
@@ -552,6 +552,48 @@ async function saveRoleSignal(session, program) {
 
   if (!persisted) {
     throw new Error(`Saved role signal for ${selectedRole} was not returned by the updates API.`);
+  }
+
+  await session.execute(`
+    const select = document.querySelector("[data-active-program-phase-select]");
+    select.value = "Recovery";
+    select.dispatchEvent(new Event("change", { bubbles: true }));
+    document.querySelector("[data-active-program-phase-save]")?.click();
+  `);
+
+  await session.waitFor("Active Program phase save completed", async () => {
+    const state = await session.execute(`
+      const confirmation = document.querySelector("[data-active-program-save-confirmation]");
+      return {
+        found: Boolean(confirmation),
+        text: confirmation?.textContent ?? ""
+      };
+    `);
+
+    if (state.found && state.text.includes("Saved locally only")) {
+      throw new Error(\`Active Program phase save did not complete server-side: \${state.text.trim()}\`);
+    }
+
+    return state.found && state.text.includes("Program phase") && state.text.includes("guidance refreshed");
+  }, 120_000);
+
+  const phasePersisted = await session.execute(
+    `
+      return fetch("/api/programs/" + encodeURIComponent(arguments[0]) + "/updates", { cache: "no-store" })
+        .then((response) => response.ok ? response.json() : Promise.reject(new Error(String(response.status))))
+        .then((payload) => payload.updates.some((update) =>
+          update.review.currentPhase === "Recovery" &&
+          (update.review.teamRoleUpdates ?? []).some((roleUpdate) =>
+            roleUpdate.role === arguments[1] &&
+            roleUpdate.progressUpdate.includes(arguments[2])
+          )
+        ));
+    `,
+    [program.id, selectedRole, smokeText]
+  );
+
+  if (!phasePersisted) {
+    throw new Error("Active Program phase change was not returned by the updates API.");
   }
 
   console.log(`✓ Active Program: saved ${selectedRole} weekly signal for ${program.label}.`);

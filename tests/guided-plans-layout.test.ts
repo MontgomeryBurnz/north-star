@@ -24,6 +24,21 @@ test("Team Action Plan focused roles can still collapse", () => {
   assert.doesNotMatch(source, /const isExpanded = isFocusedRole \|\|/);
 });
 
+test("Client Portal frames executive overview and domain progress", () => {
+  const source = readFileSync(new URL("../src/components/client-portal-console.tsx", import.meta.url), "utf8");
+  const modelSource = readFileSync(new URL("../src/lib/client-portal.ts", import.meta.url), "utf8");
+
+  assert.match(source, /Executive overview/);
+  assert.match(source, /Domain progress/);
+  assert.match(source, /What each domain is pursuing to move the program forward/);
+  assert.match(source, /Pursuing/);
+  assert.match(source, /Risk \/ blocker/);
+  assert.match(source, /Decision \/ outcome/);
+  assert.match(modelSource, /domainSummaries: ClientPortalDomainSummary\[\]/);
+  assert.match(modelSource, /buildDomainSummaries/);
+  assert.match(modelSource, /programGuide\?\.sponsorReadout/);
+});
+
 test("Artifact Studio output keeps generated detail compact and export-first", () => {
   const source = readFileSync(new URL("../src/components/role-artifact-studio-card.tsx", import.meta.url), "utf8");
 
@@ -335,6 +350,10 @@ test("Active Program review is split into state, cockpit, and team signal flows"
   assert.match(cockpitSource, /Program cockpit/);
   assert.match(cockpitSource, /derivePhaseProgress/);
   assert.match(cockpitSource, /Phase progress/);
+  assert.match(cockpitSource, /Update program phase/);
+  assert.match(cockpitSource, /data-active-program-phase-select/);
+  assert.match(cockpitSource, /data-active-program-phase-save/);
+  assert.match(cockpitSource, /Phase changes update the cockpit, Guided Plans timeline, and client executive view after save/);
   assert.match(cockpitSource, /Milestone/);
   assert.match(cockpitSource, /Top risk/);
   assert.match(cockpitSource, /Next decision/);

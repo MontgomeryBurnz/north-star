@@ -103,6 +103,10 @@ test("buildClientPortalProgram creates executive posture from program signals", 
   assert.equal(portalProgram.metrics.phaseCompletionPercent, 75);
   assert.equal(portalProgram.metrics.programCompletionPercent, 66);
   assert.equal(portalProgram.progressUpdates[0], "Intake rules are complete.");
+  assert.match(portalProgram.executiveOverview, /Compliance Hub is progressing/);
+  assert.equal(portalProgram.domainSummaries[0]?.role, "Engineering");
+  assert.equal(portalProgram.domainSummaries[0]?.pursuit, "Dependency remains open.");
+  assert.equal(portalProgram.domainSummaries[0]?.risksOrBlockers, "API timing");
 });
 
 test("buildClientPortalPortfolio rolls program posture into portfolio metrics", () => {

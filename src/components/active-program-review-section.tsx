@@ -30,6 +30,9 @@ export function ActiveProgramReviewSection() {
           meetingInputsCount={controller.meetingInputs.length}
           formatTimestamp={controller.formatTimestamp}
           isActive={Boolean(controller.selectedProgramId || controller.review.programName.trim())}
+          saveState={controller.saveState}
+          onPhaseChange={(value) => controller.updateField("currentPhase", value)}
+          onSavePhase={() => controller.saveReviewSnapshot("", "Program phase")}
         />
 
         <ActiveProgramTeamSignalFlow
