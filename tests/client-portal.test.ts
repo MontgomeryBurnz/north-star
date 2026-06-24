@@ -116,6 +116,11 @@ test("buildClientPortalProgram creates executive posture from program signals", 
   });
 
   assert.equal(portalProgram.posture, "at-risk");
+  assert.equal(portalProgram.statusSignal, "AMBER");
+  assert.equal(portalProgram.completionDelta, "-3%");
+  assert.equal(portalProgram.programLead, "Delivery Lead");
+  assert.equal(portalProgram.executiveSponsor, "Executive sponsor");
+  assert.equal(portalProgram.pmo, "PMO");
   assert.equal(portalProgram.metrics.risks, 1);
   assert.equal(portalProgram.metrics.decisions, 1);
   assert.equal(portalProgram.assignedRoles[0], "Executive Sponsor");
@@ -142,7 +147,9 @@ test("buildClientPortalProgram creates executive posture from program signals", 
   assert.match(portalProgram.leadershipDecisions[0]?.title ?? "", /Confirm launch readiness owner/);
   assert.equal(portalProgram.workstreams[0]?.name, "Engineering");
   assert.equal(portalProgram.workstreams[0]?.percent, 52);
-  assert.equal(portalProgram.milestones[1]?.status, "current");
+  assert.equal(portalProgram.nextMilestone.name, "API readiness review");
+  assert.equal(portalProgram.milestones[2]?.status, "current");
+  assert.equal(portalProgram.milestones.length, 6);
 });
 
 test("buildClientPortalPortfolio rolls program posture into portfolio metrics", () => {
@@ -153,5 +160,10 @@ test("buildClientPortalPortfolio rolls program posture into portfolio metrics", 
 
   assert.equal(portfolio.metrics.totalPrograms, 1);
   assert.equal(portfolio.metrics.atRisk, 1);
+  assert.equal(portfolio.metrics.delayed, 0);
+  assert.equal(portfolio.metrics.averageCompletionPercent, 66);
   assert.equal(portfolio.metrics.healthScore, 46);
+  assert.equal(portfolio.upcomingMilestones[0]?.title, "API readiness review");
+  assert.equal(portfolio.keyRisks[0]?.trend, "Worse");
+  assert.equal(portfolio.roadmap[0]?.segments.length, 5);
 });

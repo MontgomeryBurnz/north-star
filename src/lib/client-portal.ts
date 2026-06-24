@@ -6,6 +6,9 @@ import type { StoredProgram } from "./program-intake-types.ts";
 import { firstNonEmpty, firstSignal, normalizeWhitespace, splitSignals } from "./text-signals.ts";
 
 export type ClientProgramPosture = "on-track" | "at-risk" | "blocked" | "watch";
+export type ClientProgramStatusSignal = "GREEN" | "AMBER" | "RED" | "WATCH";
+export type ClientPortalPriority = "High" | "Medium" | "Low";
+export type ClientPortalRiskTrend = "Worse" | "Stable" | "Better";
 
 export type ClientPortalDomainSummary = {
   owner: string;
@@ -22,12 +25,23 @@ export type ClientPortalProgram = {
   id: string;
   name: string;
   owner: string;
+  executiveSponsor: string;
+  programLead: string;
+  pmo: string;
   phase: string;
   posture: ClientProgramPosture;
   postureLabel: string;
+  statusSignal: ClientProgramStatusSignal;
+  completionDelta: string;
+  statusNote: string;
   updatedAt: string;
   executiveOverview: string;
   executiveSummary: string;
+  nextMilestone: {
+    dateLabel: string;
+    name: string;
+    priority: ClientPortalPriority;
+  };
   nextDecision: string;
   topRisk: string;
   primaryOutcome: string;
@@ -84,6 +98,37 @@ export type ClientPortalProgram = {
   }>;
 };
 
+export type ClientPortalPortfolioMilestone = {
+  dateLabel: string;
+  id: string;
+  priority: ClientPortalPriority;
+  programId: string;
+  programName: string;
+  title: string;
+};
+
+export type ClientPortalPortfolioRisk = {
+  description: string;
+  id: string;
+  mitigationOwner: string;
+  programId: string;
+  programName: string;
+  severity: "High" | "Medium" | "Low" | "Dependency";
+  trend: ClientPortalRiskTrend;
+};
+
+export type ClientPortalRoadmapRow = {
+  markerLabel: string;
+  markerPosition: number;
+  markerTone: ClientProgramPosture;
+  programId: string;
+  programName: string;
+  segments: Array<{
+    label: "Discover" | "Plan" | "Execute" | "Stabilize" | "Value";
+    state: "complete" | "current" | "next";
+  }>;
+};
+
 export type ClientPortalPortfolio = {
   generatedAt: string;
   programs: ClientPortalProgram[];
@@ -93,10 +138,15 @@ export type ClientPortalPortfolio = {
     atRisk: number;
     blocked: number;
     watch: number;
+    delayed: number;
+    averageCompletionPercent: number;
     decisions: number;
     risks: number;
     healthScore: number;
   };
+  upcomingMilestones: ClientPortalPortfolioMilestone[];
+  keyRisks: ClientPortalPortfolioRisk[];
+  roadmap: ClientPortalRoadmapRow[];
 };
 
 export type ClientPortalProgramInput = {
@@ -199,6 +249,32 @@ function postureLabel(posture: ClientProgramPosture) {
   if (posture === "at-risk") return "At risk";
   if (posture === "blocked") return "Blocked";
   return "Watch";
+}
+
+function statusSignal(posture: ClientProgramPosture): ClientProgramStatusSignal {
+  if (posture === "on-track") return "GREEN";
+  if (posture === "at-risk") return "AMBER";
+  if (posture === "blocked") return "RED";
+  return "WATCH";
+}
+
+function completionDelta(posture: ClientProgramPosture) {
+  if (posture === "on-track") return "+6%";
+  if (posture === "watch") return "+2%";
+  if (posture === "at-risk") return "-3%";
+  return "-8%";
+}
+
+function priorityFromPosture(posture: ClientProgramPosture): ClientPortalPriority {
+  if (posture === "blocked" || posture === "at-risk") return "High";
+  if (posture === "watch") return "Medium";
+  return "Low";
+}
+
+function riskTrend(posture: ClientProgramPosture): ClientPortalRiskTrend {
+  if (posture === "blocked" || posture === "at-risk") return "Worse";
+  if (posture === "watch") return "Stable";
+  return "Better";
 }
 
 function roleStatusLabel(status: TeamRoleUpdateStatus | undefined) {
@@ -449,6 +525,13 @@ function formatDateLabel(value: string | undefined | null) {
   return new Intl.DateTimeFormat("en-US", { day: "2-digit", month: "short" }).format(date);
 }
 
+function stakeholderByKeyword(stakeholders: string | undefined, keyword: string, fallback: string) {
+  const signals = splitSignals(stakeholders ?? "", "")
+    .map(clean)
+    .filter(Boolean);
+  return signals.find((signal) => signal.toLowerCase().includes(keyword)) ?? fallback;
+}
+
 function buildExecutiveStatusHighlights(input: {
   completion: { phaseCompletionPercent: number; programCompletionPercent: number };
   phase: string;
@@ -608,26 +691,46 @@ function buildMilestones(input: {
   const nextBoardItem = boardItems[0];
   const createdLabel = formatDateLabel(input.program.createdAt) || "Captured";
   const updatedLabel = formatDateLabel(input.program.updatedAt) || "Current";
+  const checkpointName = nextBoardItem?.title || firstSignal(input.recommendedPath.join("\n"), input.phase || "Current checkpoint");
+  const checkpointNote = nextBoardItem
+    ? `${nextBoardItem.role || "Team"} · ${deliveryBoardStatusLabel(nextBoardItem.status)}`
+    : firstSignal(input.decisions.join("\n"), "Confirm the next decision, milestone, or delivery checkpoint.");
 
   return [
     {
       dateLabel: createdLabel,
-      name: "Program baseline",
+      name: "Planning Complete",
       note: "Intake, intended outcomes, and source context captured.",
       status: "complete" as const
     },
     {
       dateLabel: updatedLabel,
-      name: input.phase || "Current phase",
-      note: `${input.completion.programCompletionPercent}% complete with the current delivery posture reflected.`,
-      status: "current" as const
+      name: "Design Finalized",
+      note: "Current delivery structure, domain ownership, and working plan are established.",
+      status: input.completion.programCompletionPercent > 35 ? "complete" as const : "current" as const
     },
     {
       dateLabel: nextBoardItem ? formatDateLabel(nextBoardItem.dueDate) || "Next" : "Next",
-      name: nextBoardItem?.title || firstSignal(input.recommendedPath.join("\n"), "Next operating checkpoint"),
-      note: nextBoardItem
-        ? `${nextBoardItem.role || "Team"} · ${deliveryBoardStatusLabel(nextBoardItem.status)}`
-        : firstSignal(input.decisions.join("\n"), "Confirm the next decision, milestone, or delivery checkpoint."),
+      name: checkpointName,
+      note: checkpointNote,
+      status: "current" as const
+    },
+    {
+      dateLabel: "Next",
+      name: "Pilot Readiness",
+      note: "Validate readiness, dependencies, and stakeholder acceptance path.",
+      status: "next" as const
+    },
+    {
+      dateLabel: "Next",
+      name: "Cutover Readiness",
+      note: "Confirm execution conditions, operational support, and decision coverage.",
+      status: "next" as const
+    },
+    {
+      dateLabel: "Next",
+      name: "Go-Live",
+      note: "Move from delivery execution into launch, adoption, and value realization.",
       status: "next" as const
     }
   ];
@@ -720,14 +823,37 @@ export function buildClientPortalProgram(input: ClientPortalProgramInput): Clien
     recommendedPath,
     review
   });
+  const nextMilestone = milestones.find((milestone) => milestone.status === "current") ?? milestones.find((milestone) => milestone.status === "next") ?? {
+    dateLabel: "Next",
+    name: "Next checkpoint",
+    note: "Confirm the next meaningful checkpoint.",
+    status: "next" as const
+  };
+  const owner = firstNonEmpty(intake.programOwner, "Owner not set");
+  const statusNote = conciseSignal(
+    firstMeaningful(
+      review?.deliveryHealth,
+      review?.programSynthesisNote,
+      progressUpdates[0],
+      executiveOverview,
+      "Current program posture will sharpen after the next role update."
+    ),
+    138
+  );
 
   return {
     id: input.program.id,
     name: firstNonEmpty(intake.programName, input.latestPlan?.programName, "Untitled program"),
-    owner: firstNonEmpty(intake.programOwner, "Owner not set"),
+    owner,
+    executiveSponsor: stakeholderByKeyword(intake.stakeholders, "sponsor", "Executive sponsor"),
+    programLead: owner,
+    pmo: stakeholderByKeyword(intake.stakeholders, "pmo", "PMO"),
     phase: currentPhase,
     posture,
     postureLabel: postureLabel(posture),
+    statusSignal: statusSignal(posture),
+    completionDelta: completionDelta(posture),
+    statusNote,
     updatedAt: input.latestUpdate?.updatedAt ?? input.latestUpdate?.createdAt ?? input.latestPlan?.createdAt ?? input.program.updatedAt,
     executiveOverview,
     executiveSummary: clean(
@@ -738,6 +864,11 @@ export function buildClientPortalProgram(input: ClientPortalProgramInput): Clien
         "Program summary is still being developed."
       )
     ),
+    nextMilestone: {
+      dateLabel: nextMilestone.dateLabel,
+      name: nextMilestone.name,
+      priority: priorityFromPosture(posture)
+    },
     nextDecision: firstSignal(decisions.join("\n"), "No executive decision is currently pending."),
     topRisk: firstSignal(risks.join("\n"), "No active executive risk has been captured yet."),
     primaryOutcome: firstSignal(outcomes.join("\n"), "Outcome detail is still being shaped."),
@@ -780,6 +911,63 @@ export function buildClientPortalProgram(input: ClientPortalProgramInput): Clien
   };
 }
 
+function roadmapStateForIndex(program: ClientPortalProgram, index: number) {
+  const marker = program.metrics.programCompletionPercent;
+  const thresholds = [15, 35, 68, 86, 100];
+  if (marker >= thresholds[index]) return "complete" as const;
+  if (index === thresholds.findIndex((threshold) => marker < threshold)) return "current" as const;
+  return "next" as const;
+}
+
+function buildPortfolioRoadmap(programs: ClientPortalProgram[]): ClientPortalRoadmapRow[] {
+  const segmentLabels = ["Discover", "Plan", "Execute", "Stabilize", "Value"] as const;
+
+  return programs.map((program) => ({
+    markerLabel: program.nextMilestone.name,
+    markerPosition: Math.max(8, Math.min(94, program.metrics.programCompletionPercent)),
+    markerTone: program.posture,
+    programId: program.id,
+    programName: program.name,
+    segments: segmentLabels.map((label, index) => ({
+      label,
+      state: roadmapStateForIndex(program, index)
+    }))
+  }));
+}
+
+function buildPortfolioMilestones(programs: ClientPortalProgram[]): ClientPortalPortfolioMilestone[] {
+  return programs
+    .map((program) => ({
+      dateLabel: program.nextMilestone.dateLabel,
+      id: `${program.id}-next-milestone`,
+      priority: program.nextMilestone.priority,
+      programId: program.id,
+      programName: program.name,
+      title: program.nextMilestone.name
+    }))
+    .slice(0, 6);
+}
+
+function buildPortfolioRisks(programs: ClientPortalProgram[]): ClientPortalPortfolioRisk[] {
+  return programs
+    .flatMap((program) =>
+      program.executiveRisks.slice(0, 2).map((risk, index) => ({
+        description: risk.description,
+        id: `${program.id}-risk-${index}`,
+        mitigationOwner: risk.owner,
+        programId: program.id,
+        programName: program.name,
+        severity: risk.severity,
+        trend: riskTrend(program.posture)
+      }))
+    )
+    .sort((a, b) => {
+      const severityWeight = { High: 0, Dependency: 1, Medium: 2, Low: 3 };
+      return severityWeight[a.severity] - severityWeight[b.severity];
+    })
+    .slice(0, 6);
+}
+
 export function buildClientPortalPortfolio(input: {
   generatedAt?: string;
   programs: ClientPortalProgramInput[];
@@ -790,6 +978,15 @@ export function buildClientPortalPortfolio(input: {
   const atRisk = programs.filter((program) => program.posture === "at-risk").length;
   const blocked = programs.filter((program) => program.posture === "blocked").length;
   const watch = programs.filter((program) => program.posture === "watch").length;
+  const delayed = programs.filter(
+    (program) =>
+      program.posture === "blocked" ||
+      program.posture === "watch" ||
+      (program.posture === "at-risk" && program.metrics.programCompletionPercent < 60)
+  ).length;
+  const averageCompletionPercent = totalPrograms
+    ? Math.round(programs.reduce((total, program) => total + program.metrics.programCompletionPercent, 0) / totalPrograms)
+    : 0;
   const weightedHealth = programs.reduce((total, program) => {
     if (program.posture === "on-track") return total + 100;
     if (program.posture === "watch") return total + 72;
@@ -806,9 +1003,14 @@ export function buildClientPortalPortfolio(input: {
       atRisk,
       blocked,
       watch,
+      delayed,
+      averageCompletionPercent,
       decisions: programs.reduce((total, program) => total + program.metrics.decisions, 0),
       risks: programs.reduce((total, program) => total + program.metrics.risks, 0),
       healthScore: totalPrograms ? Math.round(weightedHealth / totalPrograms) : 0
-    }
+    },
+    upcomingMilestones: buildPortfolioMilestones(programs),
+    keyRisks: buildPortfolioRisks(programs),
+    roadmap: buildPortfolioRoadmap(programs)
   };
 }
