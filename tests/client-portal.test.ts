@@ -57,6 +57,19 @@ const update: StoredProgramUpdate = {
         needsLeadershipAttention: false
       }
     ],
+    deliveryBoardItems: [
+      {
+        id: "board-1",
+        role: "Engineering",
+        title: "API readiness review",
+        description: "Resolve API launch path.",
+        owner: "Tech Lead",
+        status: "needs-review",
+        dueDate: "2026-05-08",
+        latestNote: "Ready for sponsor confirmation.",
+        attachments: []
+      }
+    ],
     artifacts: []
   }
 };
@@ -121,6 +134,15 @@ test("buildClientPortalProgram creates executive posture from program signals", 
   assert.equal(portalProgram.domainSummaries[0]?.role, "Engineering");
   assert.equal(portalProgram.domainSummaries[0]?.pursuit, "Dependency remains open.");
   assert.equal(portalProgram.domainSummaries[0]?.risksOrBlockers, "API timing");
+  assert.equal(portalProgram.domainSummaries[0]?.owner, "Tech Lead");
+  assert.match(portalProgram.executiveStatusHighlights.join(" "), /Program complete 66%/);
+  assert.match(portalProgram.recentAccomplishments.join(" "), /Intake rules are complete/);
+  assert.match(portalProgram.upcomingWork.join(" "), /Confirm the launch readiness owner/);
+  assert.equal(portalProgram.executiveRisks[0]?.severity, "High");
+  assert.match(portalProgram.leadershipDecisions[0]?.title ?? "", /Confirm launch readiness owner/);
+  assert.equal(portalProgram.workstreams[0]?.name, "Engineering");
+  assert.equal(portalProgram.workstreams[0]?.percent, 52);
+  assert.equal(portalProgram.milestones[1]?.status, "current");
 });
 
 test("buildClientPortalPortfolio rolls program posture into portfolio metrics", () => {

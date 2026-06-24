@@ -10,7 +10,6 @@ import {
   CircleGauge,
   ClipboardCheck,
   Compass,
-  Flag,
   LogOut,
   Plus,
   ShieldAlert,
@@ -169,23 +168,6 @@ function ProgramCard({
   );
 }
 
-function SignalList({ items, numbered = false }: { items: string[]; numbered?: boolean }) {
-  return (
-    <div className="grid gap-2">
-      {items.map((item, index) => (
-        <div key={`${item}-${index}`} className="flex gap-3 rounded-md border border-white/10 bg-black/20 p-3 text-sm leading-6 text-zinc-300">
-          {numbered ? (
-            <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/[0.045] text-xs text-zinc-400">
-              {index + 1}
-            </span>
-          ) : null}
-          {item}
-        </div>
-      ))}
-    </div>
-  );
-}
-
 function ProgressBar({ value }: { value: number }) {
   return (
     <div className="h-2 rounded-full bg-white/10">
@@ -194,62 +176,187 @@ function ProgressBar({ value }: { value: number }) {
   );
 }
 
-function ExecutiveSignalCard({
-  icon: Icon,
+function OnePagerMetric({
   label,
-  tone,
-  value
+  value,
+  note,
+  tone = "border-white/10 bg-white/[0.04]"
 }: {
-  icon: typeof CircleGauge;
   label: string;
-  tone: string;
+  note: string;
+  tone?: string;
   value: string;
 }) {
   return (
-    <div className={cn("grid gap-3 rounded-md border p-4", tone)}>
-      <p className="flex items-center gap-2 text-xs font-medium uppercase tracking-[0.16em] text-zinc-400">
-        <Icon className="h-4 w-4 text-zinc-100" />
-        {label}
-      </p>
-      <p className="line-clamp-4 text-sm leading-6 text-zinc-200">{value}</p>
+    <div className={cn("rounded-md border p-4", tone)}>
+      <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-zinc-400">{label}</p>
+      <p className="mt-3 text-2xl font-semibold text-zinc-50">{value}</p>
+      <p className="mt-2 text-sm leading-6 text-zinc-500">{note}</p>
     </div>
   );
 }
 
-function DomainSummaryCard({ domain }: { domain: ClientPortalProgram["domainSummaries"][number] }) {
+function StatusMovement({ program }: { program: ClientPortalProgram }) {
   return (
     <div className="grid gap-3 rounded-md border border-white/10 bg-black/20 p-4">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="min-w-0">
-          <p className="truncate text-sm font-semibold text-zinc-100">{domain.role}</p>
-          <p className="mt-1 text-xs text-zinc-500">{domain.updatedAt ? `Updated ${formatTimestamp(domain.updatedAt)}` : "Latest domain signal"}</p>
-        </div>
-        <div className="flex flex-wrap justify-end gap-2">
-          <span className="rounded-full border border-cyan-300/20 bg-cyan-300/[0.07] px-2.5 py-1 text-[10px] font-medium uppercase tracking-[0.12em] text-cyan-100">
-            {domain.statusLabel}
-          </span>
-          {domain.attachments ? (
-            <span className="rounded-full border border-emerald-300/20 bg-emerald-300/[0.07] px-2.5 py-1 text-[10px] font-medium uppercase tracking-[0.12em] text-emerald-100">
-              {domain.attachments} file{domain.attachments === 1 ? "" : "s"}
+      <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-zinc-400">Status movement</p>
+      <div className="grid gap-2 lg:grid-cols-3">
+        {program.executiveStatusHighlights.map((highlight, index) => (
+          <div key={`${highlight}-${index}`} className="flex gap-3 rounded-md border border-white/10 bg-white/[0.035] p-3 text-sm leading-6 text-zinc-300">
+            <span className="mt-2 h-2 w-2 shrink-0 rounded-full bg-emerald-300" />
+            {highlight}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function OnePagerList({
+  icon: Icon,
+  items,
+  title
+}: {
+  icon: typeof CircleGauge;
+  items: string[];
+  title: string;
+}) {
+  return (
+    <div className="rounded-md border border-white/10 bg-white/[0.03] p-5">
+      <p className="flex items-center gap-2 text-sm font-medium text-zinc-100">
+        <Icon className="h-4 w-4 text-emerald-200" />
+        {title}
+      </p>
+      <div className="mt-4 grid gap-2">
+        {items.map((item, index) => (
+          <div key={`${item}-${index}`} className="grid grid-cols-[1.75rem_minmax(0,1fr)] gap-3 rounded-md border border-white/10 bg-black/20 p-3">
+            <span className="flex h-7 w-7 items-center justify-center rounded-full border border-white/10 bg-white/[0.04] text-xs font-medium text-zinc-400">
+              {index + 1}
             </span>
-          ) : null}
+            <p className="text-sm leading-6 text-zinc-300">{item}</p>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function MilestoneTimeline({ program }: { program: ClientPortalProgram }) {
+  return (
+    <div className="rounded-md border border-white/10 bg-white/[0.03] p-5">
+      <p className="flex items-center gap-2 text-sm font-medium text-zinc-100">
+        <CalendarDays className="h-4 w-4 text-emerald-200" />
+        Milestone timeline
+      </p>
+      <div className="mt-5 grid gap-3 lg:grid-cols-3">
+        {program.milestones.map((milestone) => (
+          <div key={`${milestone.name}-${milestone.status}`} className="relative rounded-md border border-white/10 bg-black/20 p-4">
+            <div
+              className={cn(
+                "mb-4 h-1.5 rounded-full",
+                milestone.status === "complete" ? "bg-emerald-300" : milestone.status === "current" ? "bg-cyan-300" : "bg-white/10"
+              )}
+            />
+            <p className="text-xs font-medium uppercase tracking-[0.16em] text-zinc-500">{milestone.dateLabel}</p>
+            <p className="mt-2 text-base font-semibold text-zinc-100">{milestone.name}</p>
+            <p className="mt-2 text-sm leading-6 text-zinc-400">{milestone.note}</p>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function RiskDecisionGrid({ program }: { program: ClientPortalProgram }) {
+  return (
+    <div className="grid gap-4 xl:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]">
+      <div className="rounded-md border border-rose-300/15 bg-rose-300/[0.035] p-5">
+        <p className="flex items-center gap-2 text-sm font-medium text-zinc-100">
+          <TriangleAlert className="h-4 w-4 text-rose-200" />
+          Risks, issues, and dependencies
+        </p>
+        <div className="mt-4 overflow-hidden rounded-md border border-white/10">
+          <div className="hidden grid-cols-[7rem_minmax(0,1.3fr)_9rem_minmax(0,1fr)] gap-3 border-b border-white/10 bg-black/30 px-4 py-3 text-[11px] font-medium uppercase tracking-[0.14em] text-zinc-500 lg:grid">
+            <span>Severity</span>
+            <span>Description</span>
+            <span>Owner</span>
+            <span>Mitigation</span>
+          </div>
+          <div className="divide-y divide-white/10">
+            {program.executiveRisks.map((risk, index) => (
+              <div key={`${risk.description}-${index}`} className="grid gap-3 px-4 py-4 text-sm leading-6 text-zinc-300 lg:grid-cols-[7rem_minmax(0,1.3fr)_9rem_minmax(0,1fr)]">
+                <span className="w-fit rounded-full border border-rose-300/20 bg-rose-300/[0.08] px-2.5 py-1 text-[10px] font-medium uppercase tracking-[0.12em] text-rose-100">
+                  {risk.severity}
+                </span>
+                <span>{risk.description}</span>
+                <span className="text-zinc-400">{risk.owner}</span>
+                <span className="text-zinc-400">{risk.mitigation}</span>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
-      <div className="grid gap-3">
+
+      <div className="rounded-md border border-cyan-300/20 bg-cyan-300/[0.04] p-5">
+        <p className="flex items-center gap-2 text-sm font-medium text-zinc-100">
+          <ClipboardCheck className="h-4 w-4 text-cyan-200" />
+          Leadership decisions needed
+        </p>
+        <div className="mt-4 grid gap-3">
+          {program.leadershipDecisions.map((decision, index) => (
+            <div key={`${decision.title}-${index}`} className="grid grid-cols-[2rem_minmax(0,1fr)] gap-3 rounded-md border border-white/10 bg-black/20 p-4">
+              <span className="flex h-8 w-8 items-center justify-center rounded-full bg-cyan-300 text-sm font-semibold text-zinc-950">{index + 1}</span>
+              <span>
+                <span className="block text-sm font-medium leading-6 text-zinc-100">{decision.title}</span>
+                <span className="mt-1 block text-xs leading-5 text-zinc-500">{decision.meta}</span>
+              </span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function WorkstreamStatusGrid({ program }: { program: ClientPortalProgram }) {
+  return (
+    <div className="rounded-md border border-white/10 bg-white/[0.03] p-5">
+      <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-emerald-200">Pursuing</p>
-          <p className="mt-1 text-sm leading-6 text-zinc-300">{domain.pursuit}</p>
+          <p className="flex items-center gap-2 text-sm font-medium text-zinc-100">
+            <BriefcaseBusiness className="h-4 w-4 text-emerald-200" />
+            Domain progress
+          </p>
+          <p className="mt-2 max-w-3xl text-sm leading-6 text-zinc-400">
+            What each domain is pursuing to progress the effort.
+          </p>
         </div>
-        <div className="grid gap-3 md:grid-cols-2">
-          <div className="rounded-md border border-amber-300/15 bg-amber-300/[0.045] p-3">
-            <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-amber-200">Risk / blocker</p>
-            <p className="mt-1 text-xs leading-5 text-zinc-300">{domain.risksOrBlockers}</p>
+        <span className="rounded-full border border-white/10 bg-black/20 px-3 py-1 text-[11px] font-medium uppercase tracking-[0.14em] text-zinc-300">
+          {program.workstreams.length} domains
+        </span>
+      </div>
+      <div className="mt-5 grid gap-3 md:grid-cols-2 2xl:grid-cols-3">
+        {program.workstreams.map((workstream) => (
+          <div key={workstream.name} className="rounded-md border border-white/10 bg-black/20 p-4">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="text-base font-semibold text-zinc-100">{workstream.name}</p>
+                <p className="mt-1 text-xs text-zinc-500">Owner: {workstream.owner}</p>
+              </div>
+              <span className="rounded-full border border-emerald-300/20 bg-emerald-300/[0.07] px-2.5 py-1 text-[10px] font-medium uppercase tracking-[0.12em] text-emerald-100">
+                {workstream.status}
+              </span>
+            </div>
+            <div className="mt-4">
+              <div className="flex items-center justify-between gap-3 text-xs text-zinc-400">
+                <span>Progress signal</span>
+                <span>{workstream.percent}%</span>
+              </div>
+              <div className="mt-2"><ProgressBar value={workstream.percent} /></div>
+            </div>
+            <p className="mt-4 text-sm leading-6 text-zinc-300">{workstream.note}</p>
           </div>
-          <div className="rounded-md border border-cyan-300/15 bg-cyan-300/[0.045] p-3">
-            <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-cyan-200">Decision / outcome</p>
-            <p className="mt-1 text-xs leading-5 text-zinc-300">{domain.decisionsOrOutcomes}</p>
-          </div>
-        </div>
+        ))}
       </div>
     </div>
   );
@@ -349,139 +456,58 @@ function ProgramDetail({ program }: { program: ClientPortalProgram }) {
 
   return (
     <section className="grid min-w-0 gap-6">
-      <div className={cn("rounded-md border bg-gradient-to-br p-5", styles.ring, "border-white/10")}>
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <div className="max-w-5xl">
+      <div className={cn("rounded-md border bg-gradient-to-br p-5 md:p-6", styles.ring, "border-white/10")}>
+        <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_25rem] xl:items-start">
+          <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
               <span className={cn("h-2.5 w-2.5 rounded-full", styles.dot)} />
-              <p className="text-xs font-medium uppercase tracking-[0.18em] text-zinc-300">{program.postureLabel}</p>
+              <p className="text-xs font-medium uppercase tracking-[0.18em] text-zinc-300">Program one-pager</p>
             </div>
-            <h2 className="mt-4 text-2xl font-semibold text-zinc-50 md:text-3xl">{program.name}</h2>
-            <div className="mt-4 flex flex-wrap gap-2 text-xs text-zinc-400">
-              <span className="rounded-full border border-white/10 bg-black/20 px-3 py-1.5">{program.owner}</span>
-              <span className="rounded-full border border-white/10 bg-black/20 px-3 py-1.5">{program.phase}</span>
-              <span className="rounded-full border border-white/10 bg-black/20 px-3 py-1.5">{program.metrics.teamRoles} team roles</span>
+            <h2 className="mt-4 text-3xl font-semibold tracking-normal text-zinc-50 md:text-4xl">{program.name}</h2>
+            <div className="mt-5 flex flex-wrap gap-2 text-xs text-zinc-400">
+              <span className="rounded-full border border-white/10 bg-black/20 px-3 py-1.5">Sponsor / owner: {program.owner}</span>
+              <span className="rounded-full border border-white/10 bg-black/20 px-3 py-1.5">Updated {formatTimestamp(program.updatedAt)}</span>
+              <span className="rounded-full border border-white/10 bg-black/20 px-3 py-1.5">{program.metrics.teamRoles} domains</span>
             </div>
           </div>
-          <div className="rounded-md border border-white/10 bg-zinc-950/70 p-4">
-            <p className="text-xs uppercase tracking-[0.16em] text-zinc-500">Updated</p>
-            <p className="mt-2 text-sm font-medium text-zinc-100">{formatTimestamp(program.updatedAt)}</p>
+          <div className="grid gap-3 sm:grid-cols-3 xl:grid-cols-1">
+            <OnePagerMetric label="Overall status" value={styles.signal} note={program.postureLabel} tone="border-emerald-300/20 bg-emerald-300/[0.055]" />
+            <OnePagerMetric label="% complete" value={`${program.metrics.programCompletionPercent}%`} note="Program-level signal" />
+            <OnePagerMetric label="Current phase" value={program.phase} note={`${program.metrics.phaseCompletionPercent}% phase signal`} />
           </div>
         </div>
-      </div>
-
-      <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_18rem]">
-        <div className="grid gap-4 rounded-md border border-white/10 bg-white/[0.03] p-5">
-          <div>
-            <p className="text-xs font-medium uppercase tracking-[0.16em] text-emerald-200">Executive overview</p>
-            <p className="mt-3 max-w-5xl text-base leading-7 text-zinc-200">{program.executiveOverview}</p>
-          </div>
-          <div className="rounded-md border border-white/10 bg-black/20 p-4">
-            <p className="text-xs font-medium uppercase tracking-[0.16em] text-zinc-400">Latest progress signal</p>
-            <div className="mt-3 grid gap-2 md:grid-cols-2 2xl:grid-cols-4">
-              {program.progressUpdates.map((update, index) => (
-                <div key={`${update}-${index}`} className="rounded-md border border-white/10 bg-white/[0.035] p-3 text-sm leading-6 text-zinc-300">
-                  {update}
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-        <div className="grid gap-4 rounded-md border border-white/10 bg-white/[0.03] p-5">
-          <div>
-            <div className="flex items-center justify-between gap-3">
-              <p className="text-xs font-medium uppercase tracking-[0.16em] text-zinc-400">Program health</p>
-              <span className={cn("rounded-full border px-3 py-1 text-[11px] font-medium uppercase tracking-[0.14em]", styles.badge)}>
-                {styles.signal}
-              </span>
-            </div>
-            <p className="mt-2 text-2xl font-semibold text-zinc-50">{program.postureLabel}</p>
-          </div>
-          <div>
-            <div className="flex items-center justify-between gap-3 text-sm text-zinc-300">
-              <span>Current phase</span>
-              <span>{program.metrics.phaseCompletionPercent}%</span>
-            </div>
-            <div className="mt-2"><ProgressBar value={program.metrics.phaseCompletionPercent} /></div>
-          </div>
-          <div>
-            <div className="flex items-center justify-between gap-3 text-sm text-zinc-300">
-              <span>Program overall</span>
-              <span>{program.metrics.programCompletionPercent}%</span>
-            </div>
-            <div className="mt-2"><ProgressBar value={program.metrics.programCompletionPercent} /></div>
-          </div>
-        </div>
-      </div>
-
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <ExecutiveSignalCard icon={TriangleAlert} label="Top risk" value={program.topRisk} tone="border-rose-300/20 bg-rose-300/[0.045]" />
-        <ExecutiveSignalCard icon={ClipboardCheck} label="Next decision" value={program.nextDecision} tone="border-cyan-300/20 bg-cyan-300/[0.045]" />
-        <ExecutiveSignalCard icon={Compass} label="North Star" value={program.northStar} tone="border-emerald-300/20 bg-emerald-300/[0.045]" />
-        <ExecutiveSignalCard icon={Sparkles} label="Executive signal" value={program.leadershipSignal} tone="border-white/10 bg-white/[0.035]" />
-      </div>
-
-      <div className="rounded-md border border-white/10 bg-white/[0.03] p-5">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <p className="flex items-center gap-2 text-sm font-medium text-zinc-100">
-              <BriefcaseBusiness className="h-4 w-4 text-emerald-200" />
-              Domain progress
-            </p>
-            <p className="mt-2 max-w-3xl text-sm leading-6 text-zinc-400">
-              What each domain is pursuing to move the program forward.
-            </p>
-          </div>
-          <span className="rounded-full border border-white/10 bg-black/20 px-3 py-1 text-[11px] font-medium uppercase tracking-[0.14em] text-zinc-300">
-            {program.domainSummaries.length} domains
-          </span>
-        </div>
-        <div className="mt-5 grid gap-3 xl:grid-cols-2">
-          {program.domainSummaries.map((domain) => (
-            <DomainSummaryCard key={domain.role} domain={domain} />
-          ))}
+        <div className="mt-5">
+          <StatusMovement program={program} />
         </div>
       </div>
 
       <div className="rounded-md border border-white/10 bg-white/[0.03] p-5">
         <p className="flex items-center gap-2 text-sm font-medium text-zinc-100">
-          <CalendarDays className="h-4 w-4 text-emerald-200" />
-          Predictable journey
+          <Compass className="h-4 w-4 text-emerald-200" />
+          Executive overview
         </p>
-        <div className="mt-5 grid gap-3 md:grid-cols-4">
-          {program.timeline.map((step) => (
-            <div key={step.label} className="grid gap-3 rounded-md border border-white/10 bg-black/20 p-3">
-              <div
-                className={cn(
-                  "h-2 rounded-full",
-                  step.status === "complete"
-                    ? "bg-emerald-300"
-                    : step.status === "current"
-                      ? "bg-cyan-300"
-                  : "bg-white/10"
-                )}
-              />
-              <p className={cn("text-sm font-medium", step.status === "next" ? "text-zinc-500" : "text-zinc-100")}>{step.label}</p>
-              <p className="text-xs leading-5 text-zinc-500">{step.detail}</p>
-            </div>
-          ))}
+        <p className="mt-4 max-w-5xl text-base leading-7 text-zinc-200">{program.executiveOverview}</p>
+        <div className="mt-4 grid gap-3 md:grid-cols-2">
+          <div className="rounded-md border border-emerald-300/15 bg-emerald-300/[0.045] p-4">
+            <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-emerald-200">North Star</p>
+            <p className="mt-2 text-sm leading-6 text-zinc-300">{program.northStar}</p>
+          </div>
+          <div className="rounded-md border border-white/10 bg-black/20 p-4">
+            <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-zinc-400">Leadership signal</p>
+            <p className="mt-2 text-sm leading-6 text-zinc-300">{program.leadershipSignal}</p>
+          </div>
         </div>
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
-        <div>
-          <p className="mb-3 flex items-center gap-2 text-xs font-medium uppercase tracking-[0.16em] text-amber-200">
-            <Flag className="h-4 w-4" />
-            Key risk log
-          </p>
-          <SignalList items={program.risks} numbered />
-        </div>
-        <div>
-          <p className="mb-3 text-xs font-medium uppercase tracking-[0.16em] text-emerald-200">Recommended work path</p>
-          <SignalList items={program.recommendedPath} numbered />
-        </div>
+      <MilestoneTimeline program={program} />
+
+      <div className="grid gap-4 xl:grid-cols-2">
+        <OnePagerList icon={CheckCircle2} title="Recent accomplishments" items={program.recentAccomplishments} />
+        <OnePagerList icon={Sparkles} title="Upcoming work" items={program.upcomingWork} />
       </div>
 
+      <RiskDecisionGrid program={program} />
+      <WorkstreamStatusGrid program={program} />
       <ClientDecisionPanel program={program} />
     </section>
   );

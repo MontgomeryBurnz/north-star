@@ -8,6 +8,7 @@ import { firstNonEmpty, firstSignal, normalizeWhitespace, splitSignals } from ".
 export type ClientProgramPosture = "on-track" | "at-risk" | "blocked" | "watch";
 
 export type ClientPortalDomainSummary = {
+  owner: string;
   role: string;
   pursuit: string;
   risksOrBlockers: string;
@@ -45,6 +46,33 @@ export type ClientPortalProgram = {
   outcomes: string[];
   progressUpdates: string[];
   domainSummaries: ClientPortalDomainSummary[];
+  executiveStatusHighlights: string[];
+  recentAccomplishments: string[];
+  upcomingWork: string[];
+  executiveRisks: Array<{
+    severity: "High" | "Medium" | "Low" | "Dependency";
+    description: string;
+    mitigation: string;
+    owner: string;
+    target: string;
+  }>;
+  leadershipDecisions: Array<{
+    title: string;
+    meta: string;
+  }>;
+  workstreams: Array<{
+    name: string;
+    note: string;
+    owner: string;
+    percent: number;
+    status: string;
+  }>;
+  milestones: Array<{
+    dateLabel: string;
+    name: string;
+    note: string;
+    status: "complete" | "current" | "next";
+  }>;
   risks: string[];
   decisions: string[];
   clientDecisions: ClientDecisionRequest[];
@@ -222,6 +250,7 @@ function buildDomainSummaries(input: {
 
     return {
       role,
+      owner: firstNonEmpty(roleUpdate?.updatedBy, `${role} lead`),
       pursuit: firstNonEmpty(
         roleUpdate?.progressUpdate,
         roleUpdate?.changesObserved,
@@ -396,6 +425,214 @@ function getCompletionMetrics(currentPhase: string, posture: ClientProgramPostur
   };
 }
 
+function uniqueMeaningfulSignals(values: Array<string | undefined | null>, fallback: string, limit = 4) {
+  const seen = new Set<string>();
+  const signals = values
+    .flatMap((value) => splitSignals(value ?? "", ""))
+    .map(clean)
+    .filter(isMeaningfulSignal)
+    .filter((value) => {
+      const key = value.toLowerCase();
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    })
+    .slice(0, limit);
+
+  return signals.length ? signals : [fallback];
+}
+
+function formatDateLabel(value: string | undefined | null) {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return new Intl.DateTimeFormat("en-US", { day: "2-digit", month: "short" }).format(date);
+}
+
+function buildExecutiveStatusHighlights(input: {
+  completion: { phaseCompletionPercent: number; programCompletionPercent: number };
+  phase: string;
+  posture: ClientProgramPosture;
+  postureLabel: string;
+  risks: string[];
+}) {
+  const riskSignal = firstMeaningful(...input.risks);
+  const riskMovement =
+    input.posture === "blocked"
+      ? "requires immediate sponsor attention"
+      : input.posture === "at-risk"
+        ? "is elevated and needs active mitigation"
+        : input.posture === "watch"
+          ? "should stay visible through the next checkpoint"
+          : "remains contained this cycle";
+
+  return [
+    `${input.postureLabel} in ${input.phase || "current phase"}`,
+    `Program complete ${input.completion.programCompletionPercent}% · phase ${input.completion.phaseCompletionPercent}%`,
+    riskSignal ? `Risk exposure ${riskMovement}: ${conciseSignal(riskSignal, 86)}` : `Risk exposure ${riskMovement}`
+  ];
+}
+
+function buildRecentAccomplishments(input: {
+  domainSummaries: ClientPortalDomainSummary[];
+  plan: GuidedPlan | null | undefined;
+  review: StoredProgramUpdate["review"] | undefined;
+}) {
+  const completedBoardItems = (input.review?.deliveryBoardItems ?? [])
+    .filter((item) => item.status === "done" || item.status === "needs-review")
+    .map((item) => `${item.role || "Team"} moved ${item.title} to ${deliveryBoardStatusLabel(item.status)}.`);
+  const domainSignals = input.domainSummaries
+    .filter((domain) => isMeaningfulSignal(domain.pursuit))
+    .map((domain) => `${domain.role}: ${conciseSignal(domain.pursuit, 94)}`);
+
+  return uniqueMeaningfulSignals(
+    [
+      input.review?.progressSinceLastReview,
+      input.review?.planChanges,
+      ...completedBoardItems,
+      ...domainSignals,
+      input.plan?.summary
+    ],
+    "Recent accomplishments will populate after the team submits role updates or delivery board movement.",
+    4
+  );
+}
+
+function buildUpcomingWork(input: {
+  decisions: string[];
+  domainSummaries: ClientPortalDomainSummary[];
+  plan: GuidedPlan | null | undefined;
+  recommendedPath: string[];
+  review: StoredProgramUpdate["review"] | undefined;
+}) {
+  const activeBoardItems = (input.review?.deliveryBoardItems ?? [])
+    .filter((item) => item.status !== "done" && isMeaningfulSignal(item.title))
+    .map((item) => `${item.role || "Team"}: ${item.title}`);
+  const domainDecisionSignals = input.domainSummaries
+    .filter((domain) => isMeaningfulSignal(domain.decisionsOrOutcomes))
+    .map((domain) => `${domain.role}: ${conciseSignal(domain.decisionsOrOutcomes, 88)}`);
+
+  return uniqueMeaningfulSignals(
+    [
+      input.plan?.programGuide?.nextStep,
+      ...input.recommendedPath,
+      input.review?.supportNeeded,
+      ...activeBoardItems,
+      ...domainDecisionSignals,
+      ...input.decisions
+    ],
+    "Upcoming work will sharpen after the next team update, delivery board card, or leadership decision is captured.",
+    4
+  );
+}
+
+function buildExecutiveRisks(input: {
+  owner: string;
+  posture: ClientProgramPosture;
+  risks: string[];
+  review: StoredProgramUpdate["review"] | undefined;
+}) {
+  const riskRows = input.risks.filter(isMeaningfulSignal).map((risk, index) => ({
+    severity: (input.posture === "blocked" || (input.posture === "at-risk" && index === 0) ? "High" : "Medium") as "High" | "Medium",
+    description: risk,
+    mitigation: firstMeaningful(input.review?.supportNeeded, input.review?.programSynthesisNote, "Confirm mitigation owner and timing in the next operating review."),
+    owner: input.owner,
+    target: "Next checkpoint"
+  }));
+
+  const blockedBoardRows = (input.review?.deliveryBoardItems ?? [])
+    .filter((item) => item.status === "blocked")
+    .slice(0, 2)
+    .map((item) => ({
+      severity: "Dependency" as const,
+      description: `${item.role || "Team"} blocked on ${item.title}.`,
+      mitigation: firstMeaningful(item.latestNote, item.description, "Resolve blocker and confirm dependency path."),
+      owner: firstNonEmpty(item.owner, input.owner),
+      target: formatDateLabel(item.dueDate) || "Next checkpoint"
+    }));
+
+  return [...riskRows, ...blockedBoardRows].slice(0, 4);
+}
+
+function buildLeadershipDecisions(input: {
+  decisions: string[];
+  owner: string;
+  review: StoredProgramUpdate["review"] | undefined;
+}) {
+  const decisionRows = input.decisions.filter(isMeaningfulSignal).map((decision) => ({
+    title: decision,
+    meta: `Owner: ${input.owner} · Due: next steering cycle`
+  }));
+
+  const boardReviewRows = (input.review?.deliveryBoardItems ?? [])
+    .filter((item) => item.status === "needs-review")
+    .slice(0, 2)
+    .map((item) => ({
+      title: `Review ${item.title}.`,
+      meta: `Owner: ${firstNonEmpty(item.owner, input.owner)} · Due: ${formatDateLabel(item.dueDate) || "next checkpoint"}`
+    }));
+
+  const rows = [...decisionRows, ...boardReviewRows].slice(0, 3);
+  return rows.length ? rows : [{ title: "No executive decision is currently pending.", meta: "Continue monitoring through the next update cycle." }];
+}
+
+function workstreamPercent(statusLabel: string) {
+  const label = statusLabel.toLowerCase();
+  if (label.includes("blocked")) return 25;
+  if (label.includes("risk")) return 52;
+  if (label.includes("track")) return 82;
+  return 38;
+}
+
+function buildWorkstreams(domainSummaries: ClientPortalDomainSummary[]) {
+  return domainSummaries.slice(0, 8).map((domain) => ({
+    name: domain.role,
+    note: conciseSignal(domain.pursuit, 110),
+    owner: domain.owner,
+    percent: workstreamPercent(domain.statusLabel),
+    status: domain.statusLabel
+  }));
+}
+
+function buildMilestones(input: {
+  completion: { phaseCompletionPercent: number; programCompletionPercent: number };
+  decisions: string[];
+  phase: string;
+  program: StoredProgram;
+  recommendedPath: string[];
+  review: StoredProgramUpdate["review"] | undefined;
+}) {
+  const boardItems = (input.review?.deliveryBoardItems ?? [])
+    .filter((item) => item.dueDate && item.status !== "done")
+    .sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime());
+  const nextBoardItem = boardItems[0];
+  const createdLabel = formatDateLabel(input.program.createdAt) || "Captured";
+  const updatedLabel = formatDateLabel(input.program.updatedAt) || "Current";
+
+  return [
+    {
+      dateLabel: createdLabel,
+      name: "Program baseline",
+      note: "Intake, intended outcomes, and source context captured.",
+      status: "complete" as const
+    },
+    {
+      dateLabel: updatedLabel,
+      name: input.phase || "Current phase",
+      note: `${input.completion.programCompletionPercent}% complete with the current delivery posture reflected.`,
+      status: "current" as const
+    },
+    {
+      dateLabel: nextBoardItem ? formatDateLabel(nextBoardItem.dueDate) || "Next" : "Next",
+      name: nextBoardItem?.title || firstSignal(input.recommendedPath.join("\n"), "Next operating checkpoint"),
+      note: nextBoardItem
+        ? `${nextBoardItem.role || "Team"} · ${deliveryBoardStatusLabel(nextBoardItem.status)}`
+        : firstSignal(input.decisions.join("\n"), "Confirm the next decision, milestone, or delivery checkpoint."),
+      status: "next" as const
+    }
+  ];
+}
+
 export function buildClientPortalProgram(input: ClientPortalProgramInput): ClientPortalProgram {
   const review = input.latestUpdate?.review;
   const intake = input.program.intake;
@@ -455,6 +692,34 @@ export function buildClientPortalProgram(input: ClientPortalProgramInput): Clien
     leadershipSummary: leadershipSignal,
     intakeSummary: intake.sowSummary
   });
+  const executiveStatusHighlights = buildExecutiveStatusHighlights({
+    completion,
+    phase: currentPhase,
+    posture,
+    postureLabel: postureLabel(posture),
+    risks
+  });
+  const recentAccomplishments = buildRecentAccomplishments({
+    domainSummaries,
+    plan: input.latestPlan,
+    review
+  });
+  const upcomingWork = buildUpcomingWork({
+    decisions,
+    domainSummaries,
+    plan: input.latestPlan,
+    recommendedPath,
+    review
+  });
+  const workstreams = buildWorkstreams(domainSummaries);
+  const milestones = buildMilestones({
+    completion,
+    decisions,
+    phase: currentPhase,
+    program: input.program,
+    recommendedPath,
+    review
+  });
 
   return {
     id: input.program.id,
@@ -491,6 +756,22 @@ export function buildClientPortalProgram(input: ClientPortalProgramInput): Clien
     outcomes,
     progressUpdates,
     domainSummaries,
+    executiveStatusHighlights,
+    recentAccomplishments,
+    upcomingWork,
+    executiveRisks: buildExecutiveRisks({
+      owner: firstNonEmpty(intake.programOwner, "Program owner"),
+      posture,
+      risks,
+      review
+    }),
+    leadershipDecisions: buildLeadershipDecisions({
+      decisions,
+      owner: firstNonEmpty(intake.programOwner, "Program owner"),
+      review
+    }),
+    workstreams,
+    milestones,
     risks,
     decisions,
     clientDecisions: input.clientDecisions ?? [],

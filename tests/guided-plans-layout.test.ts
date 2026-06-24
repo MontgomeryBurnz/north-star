@@ -29,12 +29,23 @@ test("Client Portal frames executive overview and domain progress", () => {
   const modelSource = readFileSync(new URL("../src/lib/client-portal.ts", import.meta.url), "utf8");
 
   assert.match(source, /Executive overview/);
+  assert.match(source, /Program one-pager/);
+  assert.match(source, /Status movement/);
+  assert.match(source, /Milestone timeline/);
+  assert.match(source, /Recent accomplishments/);
+  assert.match(source, /Upcoming work/);
+  assert.match(source, /Risks, issues, and dependencies/);
+  assert.match(source, /Leadership decisions needed/);
   assert.match(source, /Domain progress/);
-  assert.match(source, /What each domain is pursuing to move the program forward/);
-  assert.match(source, /Pursuing/);
-  assert.match(source, /Risk \/ blocker/);
-  assert.match(source, /Decision \/ outcome/);
+  assert.match(source, /What each domain is pursuing to progress the effort/);
   assert.match(modelSource, /domainSummaries: ClientPortalDomainSummary\[\]/);
+  assert.match(modelSource, /executiveStatusHighlights: string\[\]/);
+  assert.match(modelSource, /recentAccomplishments: string\[\]/);
+  assert.match(modelSource, /upcomingWork: string\[\]/);
+  assert.match(modelSource, /buildRecentAccomplishments/);
+  assert.match(modelSource, /buildLeadershipDecisions/);
+  assert.match(modelSource, /buildWorkstreams/);
+  assert.match(modelSource, /buildMilestones/);
   assert.match(modelSource, /buildDomainSummaries/);
   assert.match(modelSource, /programGuide\?\.sponsorReadout/);
   assert.match(modelSource, /buildClientExecutiveOverview/);
