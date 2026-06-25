@@ -10,8 +10,11 @@ type AdminAuditHistoryPanelProps = {
 };
 
 type AuditCategory = "all" | "access" | "guidance" | "studio" | "client" | "cost" | "system";
+type AuditGroupMode = "time" | "user";
 type AuditVisibility = "important" | "all";
 type DateFilter = "all" | "today" | "last-7-days" | "last-30-days";
+
+const maxEventsPerGroup = 12;
 
 const dateOptions: Array<{ label: string; value: DateFilter }> = [
   { label: "All dates", value: "all" },
@@ -87,6 +90,14 @@ function actorLabel(event: AuditEventRecord) {
   return event.actor?.name || event.actor?.email || event.actor?.userType || "System";
 }
 
+function actorDetail(event: AuditEventRecord) {
+  return event.actor?.email || event.actor?.userType || (event.actor ? "User activity" : "Automated system activity");
+}
+
+function actorKey(event: AuditEventRecord) {
+  return event.actor?.userId || event.actor?.email || event.actor?.name || event.actor?.userType || "system";
+}
+
 function selectOptions(values: string[]) {
   return Array.from(new Set(values.filter(Boolean))).sort((left, right) => left.localeCompare(right));
 }
@@ -122,17 +133,72 @@ function getAuditGroupLabel(createdAt: string) {
   return "Older";
 }
 
-function groupAuditEvents(events: AuditEventRecord[]) {
+type AuditEventGroup = {
+  detail?: string;
+  events: AuditEventRecord[];
+  key: string;
+  label: string;
+};
+
+function sortAuditEvents(events: AuditEventRecord[]) {
+  return [...events].sort((left, right) => new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime());
+}
+
+function groupAuditEventsByTime(events: AuditEventRecord[]): AuditEventGroup[] {
   const groups = new Map<string, AuditEventRecord[]>();
 
-  for (const event of events) {
+  for (const event of sortAuditEvents(events)) {
     const label = getAuditGroupLabel(event.createdAt);
     groups.set(label, [...(groups.get(label) ?? []), event]);
   }
 
   return ["Today", "Yesterday", "Last 7 days", "Older"]
-    .map((label) => ({ events: groups.get(label) ?? [], label }))
+    .map((label) => ({ events: groups.get(label) ?? [], key: label, label }))
     .filter((group) => group.events.length > 0);
+}
+
+function groupAuditEventsByActor(events: AuditEventRecord[]): AuditEventGroup[] {
+  const groups = new Map<string, AuditEventGroup>();
+
+  for (const event of sortAuditEvents(events)) {
+    const key = actorKey(event);
+    const current = groups.get(key);
+
+    if (current) {
+      current.events.push(event);
+    } else {
+      groups.set(key, {
+        detail: actorDetail(event),
+        events: [event],
+        key,
+        label: actorLabel(event)
+      });
+    }
+  }
+
+  return Array.from(groups.values()).sort((left, right) => {
+    const rightLatest = new Date(right.events[0]?.createdAt ?? 0).getTime();
+    const leftLatest = new Date(left.events[0]?.createdAt ?? 0).getTime();
+    return rightLatest - leftLatest;
+  });
+}
+
+function groupAuditEvents(events: AuditEventRecord[], groupMode: AuditGroupMode) {
+  return groupMode === "user" ? groupAuditEventsByActor(events) : groupAuditEventsByTime(events);
+}
+
+function summarizeEventsByCategory(events: AuditEventRecord[]) {
+  const counts = new Map<AuditCategory, number>();
+
+  for (const event of events) {
+    const category = eventCategory(event.eventType);
+    counts.set(category, (counts.get(category) ?? 0) + 1);
+  }
+
+  return categoryOptions
+    .filter((option) => option.value !== "all")
+    .map((option) => ({ count: counts.get(option.value) ?? 0, label: option.label }))
+    .filter((item) => item.count > 0);
 }
 
 function csvValue(value: unknown) {
@@ -267,11 +333,60 @@ function EventRow({ event }: { event: AuditEventRecord }) {
   );
 }
 
+function AuditGroupDetails({
+  group,
+  groupMode
+}: {
+  group: AuditEventGroup;
+  groupMode: AuditGroupMode;
+}) {
+  const previewEvents = group.events.slice(0, maxEventsPerGroup);
+  const hiddenCount = Math.max(0, group.events.length - previewEvents.length);
+  const categorySummary = groupMode === "user" ? summarizeEventsByCategory(group.events) : [];
+  const latestEvent = group.events[0];
+
+  return (
+    <details
+      open={groupMode === "user" ? group.events.length <= maxEventsPerGroup : group.label === "Today"}
+      className="group rounded-md border border-white/10 bg-white/[0.018]"
+      data-admin-audit-group={group.label}
+    >
+      <summary className="flex cursor-pointer list-none flex-wrap items-center justify-between gap-3 px-3 py-2.5 text-xs font-medium uppercase tracking-[0.14em] text-zinc-400 [&::-webkit-details-marker]:hidden">
+        <span className="flex min-w-0 items-center gap-2">
+          <ChevronDown className="h-3.5 w-3.5 shrink-0 transition-transform group-open:rotate-180" />
+          <span className="truncate">{group.label}</span>
+          {group.detail ? <span className="hidden truncate normal-case tracking-normal text-zinc-600 sm:inline">{group.detail}</span> : null}
+        </span>
+        <span className="flex flex-wrap items-center justify-end gap-2">
+          {categorySummary.slice(0, 3).map((item) => (
+            <span key={item.label} className="rounded-full border border-white/10 px-2 py-0.5 text-[10px] text-zinc-500">
+              {item.label}: {item.count}
+            </span>
+          ))}
+          {latestEvent ? <span className="text-zinc-600">Last {formatTimestamp(latestEvent.createdAt)}</span> : null}
+          <span>{group.events.length} events</span>
+        </span>
+      </summary>
+      <div className="grid gap-2 border-t border-white/10 p-2">
+        {previewEvents.map((event) => (
+          <EventRow key={event.id} event={event} />
+        ))}
+        {hiddenCount ? (
+          <div className="rounded-md border border-dashed border-white/10 bg-black/20 px-4 py-3 text-xs leading-5 text-zinc-500">
+            {hiddenCount} additional event{hiddenCount === 1 ? "" : "s"} hidden in this group. Use search, filters, or CSV export for the full filtered audit set.
+          </div>
+        ) : null}
+      </div>
+    </details>
+  );
+}
+
 export function AdminAuditHistoryPanel({ auditEvents }: AdminAuditHistoryPanelProps) {
   const [actorFilter, setActorFilter] = useState("all");
   const [categoryFilter, setCategoryFilter] = useState<AuditCategory>("all");
   const [dateFilter, setDateFilter] = useState<DateFilter>("all");
   const [eventTypeFilter, setEventTypeFilter] = useState("all");
+  const [groupMode, setGroupMode] = useState<AuditGroupMode>("user");
   const [programFilter, setProgramFilter] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [visibility, setVisibility] = useState<AuditVisibility>("important");
@@ -314,7 +429,7 @@ export function AdminAuditHistoryPanel({ auditEvents }: AdminAuditHistoryPanelPr
       );
     });
   }, [actorFilter, auditEvents, categoryFilter, dateFilter, eventTypeFilter, programFilter, searchQuery, visibility]);
-  const groupedEvents = useMemo(() => groupAuditEvents(filteredEvents), [filteredEvents]);
+  const groupedEvents = useMemo(() => groupAuditEvents(filteredEvents, groupMode), [filteredEvents, groupMode]);
 
   return (
     <section className="grid gap-4" data-admin-audit-history>
@@ -325,7 +440,7 @@ export function AdminAuditHistoryPanel({ auditEvents }: AdminAuditHistoryPanelPr
             Audit history
           </p>
           <p className="mt-1 text-xs leading-5 text-zinc-500">
-            Compact trust trail grouped by time. Open a row only when you need full metadata.
+            Compact trust trail grouped by user by default. Open a row only when you need full metadata.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -373,6 +488,31 @@ export function AdminAuditHistoryPanel({ auditEvents }: AdminAuditHistoryPanelPr
           }`}
         >
           All events
+        </button>
+        <span className="mx-1 hidden h-5 w-px bg-white/10 sm:block" />
+        <button
+          type="button"
+          onClick={() => setGroupMode("user")}
+          data-admin-audit-group-mode="user"
+          className={`rounded-full border px-3 py-1.5 text-xs font-medium transition-colors ${
+            groupMode === "user"
+              ? "border-emerald-300/40 bg-emerald-300/15 text-emerald-100"
+              : "border-white/10 text-zinc-400 hover:border-white/20 hover:text-zinc-100"
+          }`}
+        >
+          Group by user
+        </button>
+        <button
+          type="button"
+          onClick={() => setGroupMode("time")}
+          data-admin-audit-group-mode="time"
+          className={`rounded-full border px-3 py-1.5 text-xs font-medium transition-colors ${
+            groupMode === "time"
+              ? "border-emerald-300/40 bg-emerald-300/15 text-emerald-100"
+              : "border-white/10 text-zinc-400 hover:border-white/20 hover:text-zinc-100"
+          }`}
+        >
+          Group by time
         </button>
         <span className="mx-1 hidden h-5 w-px bg-white/10 sm:block" />
         {categoryOptions.map((option) => (
@@ -442,25 +582,7 @@ export function AdminAuditHistoryPanel({ auditEvents }: AdminAuditHistoryPanelPr
       {groupedEvents.length ? (
         <div className="grid gap-3">
           {groupedEvents.map((group) => (
-            <details
-              key={group.label}
-              open={group.label === "Today"}
-              className="group rounded-md border border-white/10 bg-white/[0.018]"
-              data-admin-audit-group={group.label}
-            >
-              <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-3 py-2.5 text-xs font-medium uppercase tracking-[0.14em] text-zinc-400 [&::-webkit-details-marker]:hidden">
-                <span className="flex items-center gap-2">
-                  <ChevronDown className="h-3.5 w-3.5 transition-transform group-open:rotate-180" />
-                  {group.label}
-                </span>
-                <span>{group.events.length} events</span>
-              </summary>
-              <div className="grid gap-2 border-t border-white/10 p-2">
-                {group.events.map((event) => (
-                  <EventRow key={event.id} event={event} />
-                ))}
-              </div>
-            </details>
+            <AuditGroupDetails key={group.key} group={group} groupMode={groupMode} />
           ))}
         </div>
       ) : (
