@@ -286,16 +286,28 @@ async function verifyClientPortal(session, program, smokeText) {
           .find((element) => element.getAttribute("data-client-program-card") === arguments[0]);
         const detail = Array.from(document.querySelectorAll("[data-client-program-detail]"))
           .find((element) => element.getAttribute("data-client-program-detail") === arguments[0]);
+        const roadmapRow = Array.from(document.querySelectorAll("[data-client-roadmap-row]"))
+          .find((element) => element.getAttribute("data-client-roadmap-row") === arguments[0]);
+        const currentRoadmapSegment = roadmapRow?.querySelector("[data-client-roadmap-segment-state='current']");
+        const roadmapMarker = roadmapRow?.querySelector("[data-client-roadmap-marker]");
         const cardText = card?.textContent ?? "";
         const detailText = detail?.textContent ?? "";
+        const currentRoadmapSegmentText = currentRoadmapSegment?.textContent ?? "";
+        const markerPosition = roadmapMarker?.getAttribute("data-client-roadmap-marker-position") ?? "";
 
         return {
           card: Boolean(card),
           detail: Boolean(detail),
+          currentRoadmapSegmentText,
+          markerPosition,
+          roadmap: Boolean(roadmapRow),
           cardText,
           detailText,
           ok: Boolean(card) &&
             Boolean(detail) &&
+            Boolean(roadmapRow) &&
+            currentRoadmapSegmentText.includes("Execute") &&
+            markerPosition === "50" &&
             cardText.includes("67%") &&
             cardText.includes("Client Portal smoke milestone") &&
             detailText.includes("Client Portal Smoke Sponsor") &&

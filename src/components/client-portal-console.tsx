@@ -358,7 +358,12 @@ function PortfolioRoadmap({ roadmap }: { roadmap: ClientPortalRoadmapRow[] }) {
           const markerStyle = postureStyles[row.markerTone];
           const rowIsShortWindow = row.windowMode === "month" || row.windowMode === "week";
           return (
-            <div key={row.programId}>
+            <div
+              key={row.programId}
+              data-client-roadmap-current-index={row.currentWindowIndex}
+              data-client-roadmap-row={row.programId}
+              data-client-roadmap-window-mode={row.windowMode}
+            >
               <div className="mb-4 flex flex-wrap items-end justify-between gap-2">
                 <p className="text-lg font-semibold text-zinc-100">{row.programName}</p>
                 {row.timeframeLabel && row.timeframeLabel !== timeframeLabel ? (
@@ -373,6 +378,8 @@ function PortfolioRoadmap({ roadmap }: { roadmap: ClientPortalRoadmapRow[] }) {
                   {row.segments.map((segment) => (
                     <div
                       key={`${row.programId}-${segment.label}`}
+                      data-client-roadmap-segment={segment.label}
+                      data-client-roadmap-segment-state={segment.state}
                       className={cn(
                         "px-3 text-center font-semibold",
                         rowIsShortWindow ? "py-3 text-xs sm:text-sm" : "py-4 text-sm",
@@ -384,6 +391,8 @@ function PortfolioRoadmap({ roadmap }: { roadmap: ClientPortalRoadmapRow[] }) {
                   ))}
                 </div>
                 <div
+                  data-client-roadmap-marker={row.programId}
+                  data-client-roadmap-marker-position={row.markerPosition}
                   className={cn("absolute -top-2 h-16 w-4 rounded-md shadow-[0_0_24px_rgba(110,231,183,0.28)]", markerStyle.marker)}
                   style={{ left: `calc(${row.markerPosition}% - 0.5rem)` }}
                 />
