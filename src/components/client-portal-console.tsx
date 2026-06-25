@@ -304,14 +304,20 @@ function PortfolioRisksPanel({ risks }: { risks: ClientPortalPortfolioRisk[] }) 
 }
 
 function PortfolioRoadmap({ roadmap }: { roadmap: ClientPortalRoadmapRow[] }) {
+  const activeWindowLabels = roadmap[0]?.windowLabels?.length
+    ? roadmap[0].windowLabels
+    : ["Window 1", "Window 2", "Window 3", "Window 4", "Window 5"];
+  const timeframeLabel = roadmap[0]?.timeframeLabel;
+  const currentWindowIndex = roadmap[0]?.currentWindowIndex ?? 2;
+
   return (
     <section className="rounded-lg border border-white/10 bg-zinc-950/80 p-6 shadow-glow">
-      <SectionLabel>Portfolio Roadmap - FY25</SectionLabel>
+      <SectionLabel>{timeframeLabel ? `Portfolio Roadmap - ${timeframeLabel}` : "Portfolio Roadmap"}</SectionLabel>
       <h2 className="mt-4 text-2xl font-semibold text-zinc-50">Program Timeline</h2>
       <div className="mt-6 flex flex-wrap gap-8 text-xl font-semibold text-zinc-600">
-        {["Q1 FY25", "Q2 FY25", "Q3 FY25", "Q4 FY25", "Q1 FY26"].map((quarter) => (
-          <span key={quarter} className={quarter === "Q3 FY25" ? "text-cyan-100" : undefined}>
-            {quarter}
+        {activeWindowLabels.map((windowLabel, index) => (
+          <span key={windowLabel} className={index === currentWindowIndex ? "text-cyan-100" : undefined}>
+            {windowLabel}
           </span>
         ))}
       </div>
@@ -320,7 +326,12 @@ function PortfolioRoadmap({ roadmap }: { roadmap: ClientPortalRoadmapRow[] }) {
           const markerStyle = postureStyles[row.markerTone];
           return (
             <div key={row.programId}>
-              <p className="mb-4 text-lg font-semibold text-zinc-100">{row.programName}</p>
+              <div className="mb-4 flex flex-wrap items-end justify-between gap-2">
+                <p className="text-lg font-semibold text-zinc-100">{row.programName}</p>
+                {row.timeframeLabel && row.timeframeLabel !== timeframeLabel ? (
+                  <p className="text-xs font-medium uppercase tracking-[0.14em] text-zinc-500">{row.timeframeLabel}</p>
+                ) : null}
+              </div>
               <div className="relative">
                 <div className="grid overflow-hidden rounded-full md:grid-cols-5">
                   {row.segments.map((segment) => (
@@ -422,6 +433,9 @@ function ProgramMilestoneTimeline({ program }: { program: ClientPortalProgram })
     <ExecutiveCard icon={Flag} title="Milestone Timeline">
       {program.milestones.length ? (
         <div className="mt-10 overflow-x-auto pb-3">
+          <p className="-mt-4 mb-8 inline-flex rounded-full border border-cyan-300/20 bg-cyan-300/[0.06] px-4 py-2 text-sm font-semibold text-cyan-100">
+            {program.timelineScaleLabel} view · {program.timelineWindowLabel}
+          </p>
           <div
             className="grid min-w-[58rem] items-start gap-0"
             style={{ gridTemplateColumns: `repeat(${program.milestones.length}, minmax(9rem, 1fr))` }}

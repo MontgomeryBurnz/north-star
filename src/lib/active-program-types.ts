@@ -4,6 +4,17 @@ import type { ProgramMeetingAttachment } from "@/lib/program-intelligence-types"
 export type TeamRoleUpdateStatus = "on-track" | "at-risk" | "blocked";
 
 export type DeliveryBoardStatus = "not-started" | "in-progress" | "needs-review" | "blocked" | "done";
+export type ProgramTimelineScale = "year" | "month" | "week";
+export type ProgramTimelineMilestoneStatus = "complete" | "current" | "next";
+
+export type ProgramTimelineMilestone = {
+  id: string;
+  name: string;
+  date: string;
+  status: ProgramTimelineMilestoneStatus;
+  priority?: "High" | "Medium" | "Low";
+  note: string;
+};
 
 export type TeamRoleUpdate = {
   role: string;
@@ -55,6 +66,11 @@ export type ActiveProgramReview = {
   deliveryHealth: string;
   supportNeeded: string;
   updateCadence?: "weekly" | "biweekly";
+  timelineScale?: ProgramTimelineScale;
+  timelineYear?: string;
+  timelineMonth?: string;
+  timelineWeek?: string;
+  programMilestones?: ProgramTimelineMilestone[];
   cycleLabel?: string;
   cycleStartedAt?: string;
   programSynthesisNote?: string;

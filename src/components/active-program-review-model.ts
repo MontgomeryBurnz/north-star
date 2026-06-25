@@ -3,6 +3,9 @@ import type {
   ActiveProgramUpdate,
   DeliveryBoardItem,
   DeliveryBoardStatus,
+  ProgramTimelineMilestone,
+  ProgramTimelineMilestoneStatus,
+  ProgramTimelineScale,
   TeamRoleUpdate,
   TeamRoleUpdateStatus
 } from "@/lib/active-program-types";
@@ -31,6 +34,11 @@ export const emptyReview: ActiveProgramReview = {
   deliveryHealth: "",
   supportNeeded: "",
   updateCadence: "weekly",
+  timelineScale: "year",
+  timelineYear: "",
+  timelineMonth: "",
+  timelineWeek: "",
+  programMilestones: [],
   cycleLabel: "",
   cycleStartedAt: "",
   programSynthesisNote: "",
@@ -75,6 +83,8 @@ function mapLegacyConfidenceToStatus(confidence?: string): TeamRoleUpdateStatus 
 }
 
 const deliveryBoardStatusSet = new Set<DeliveryBoardStatus>(["not-started", "in-progress", "needs-review", "blocked", "done"]);
+const timelineScaleSet = new Set<ProgramTimelineScale>(["year", "month", "week"]);
+const timelineMilestoneStatusSet = new Set<ProgramTimelineMilestoneStatus>(["complete", "current", "next"]);
 
 export function formatFileSize(size: number) {
   if (size < 1024) return `${size} B`;
@@ -200,6 +210,28 @@ export function buildDeliveryBoardItem(existing: Partial<DeliveryBoardItem>, fal
     createdAt,
     updatedAt: existing.updatedAt || createdAt
   };
+}
+
+export function buildProgramTimelineMilestone(existing: Partial<ProgramTimelineMilestone>): ProgramTimelineMilestone {
+  const createdAt = new Date().toISOString();
+  const name = existing.name?.trim() ?? "";
+
+  return {
+    id: existing.id || `timeline-${createdAt}-${name || "milestone"}`.replace(/[^a-zA-Z0-9-]+/g, "-").toLowerCase(),
+    name,
+    date: existing.date ?? "",
+    status: timelineMilestoneStatusSet.has(existing.status as ProgramTimelineMilestoneStatus)
+      ? (existing.status as ProgramTimelineMilestoneStatus)
+      : "next",
+    priority: existing.priority === "High" || existing.priority === "Medium" || existing.priority === "Low" ? existing.priority : undefined,
+    note: existing.note ?? ""
+  };
+}
+
+export function normalizeProgramMilestones(programMilestones: ProgramTimelineMilestone[] | undefined) {
+  return (programMilestones ?? [])
+    .map((milestone) => buildProgramTimelineMilestone(milestone))
+    .filter((milestone) => milestone.name || milestone.date || milestone.note);
 }
 
 function roleUpdatesMatch(current: TeamRoleUpdate | undefined, next: TeamRoleUpdate) {
@@ -332,6 +364,11 @@ export function clearCycleReview(review: ActiveProgramReview, intake?: ProgramIn
       stakeholderTemperature: review.stakeholderTemperature,
       deliveryHealth: review.deliveryHealth,
       updateCadence: review.updateCadence ?? "weekly",
+      timelineScale: review.timelineScale ?? "year",
+      timelineYear: review.timelineYear,
+      timelineMonth: review.timelineMonth,
+      timelineWeek: review.timelineWeek,
+      programMilestones: normalizeProgramMilestones(review.programMilestones),
       teamRoleUpdates: preservedOwners,
       deliveryBoardItems: normalizeDeliveryBoardItems(review.deliveryBoardItems, roles),
       artifacts: review.artifacts
@@ -343,6 +380,7 @@ export function clearCycleReview(review: ActiveProgramReview, intake?: ProgramIn
 export function buildSynthesizedReview(review: ActiveProgramReview, roles: string[], lastUpdatedRole = ""): ActiveProgramReview {
   const normalizedRoleUpdates = normalizeTeamRoleUpdates(review.teamRoleUpdates, roles);
   const deliveryBoardItems = normalizeDeliveryBoardItems(review.deliveryBoardItems, roles);
+  const programMilestones = normalizeProgramMilestones(review.programMilestones);
   const touchedRoles = normalizedRoleUpdates.filter(hasRoleSubmission);
   const activeBoardItems = deliveryBoardItems.filter((item) => item.status !== "done");
   const cycleMetadata = buildCycleMetadata(review.updateCadence === "biweekly" ? "biweekly" : "weekly");
@@ -366,6 +404,7 @@ export function buildSynthesizedReview(review: ActiveProgramReview, roles: strin
     lastUpdatedRole: lastUpdatedRole || review.lastUpdatedRole || "",
     teamRoleUpdates: normalizedRoleUpdates,
     deliveryBoardItems,
+    programMilestones,
     progressSinceLastReview: joinRoleSignals(
       normalizedRoleUpdates,
       (role) => role.progressUpdate,
@@ -400,6 +439,7 @@ export function normalizeReview(review: ActiveProgramReview, intake?: ProgramInt
       ...emptyReview,
       ...review,
       stakeholderTemperature: normalizeStakeholderTemperature(review.stakeholderTemperature, intake),
+      timelineScale: timelineScaleSet.has(review.timelineScale as ProgramTimelineScale) ? (review.timelineScale as ProgramTimelineScale) : "year",
       updateCadence: (review.updateCadence === "biweekly" ? "biweekly" : review.updateCadence ?? "weekly") as
         | "weekly"
         | "biweekly"

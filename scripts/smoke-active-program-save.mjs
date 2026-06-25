@@ -355,7 +355,77 @@ async function populateExecutiveClientPortalFields(session, smokeText) {
     throw new Error("Active Program smoke could not populate Client Portal executive fields.");
   }
 
-  console.log("✓ Active Program: populated fields that feed Client Portal.");
+  const timelinePopulated = await session.execute(
+    `
+      const setValue = (field, value) => {
+        if (!field) return false;
+        const prototype = field instanceof HTMLTextAreaElement
+          ? HTMLTextAreaElement.prototype
+          : field instanceof HTMLSelectElement
+            ? HTMLSelectElement.prototype
+            : HTMLInputElement.prototype;
+        const setter = Object.getOwnPropertyDescriptor(prototype, "value")?.set;
+        if (!setter) return false;
+        setter.call(field, value);
+        field.dispatchEvent(new Event(field.tagName === "SELECT" ? "change" : "input", { bubbles: true }));
+        return true;
+      };
+
+      const scale = document.querySelector("[data-active-timeline-scale]");
+      const year = document.querySelector("[data-active-timeline-year]");
+      return setValue(scale, "year") && setValue(year, "FY99");
+    `
+  );
+
+  if (!timelinePopulated) {
+    throw new Error("Active Program smoke could not populate timeline planning fields.");
+  }
+
+  await session.execute('document.querySelector("[data-active-program-add-milestone]")?.click();');
+  await session.waitFor("Active Program custom milestone row", async () => {
+    return session.execute(`
+      return Boolean(document.querySelector("[data-active-program-milestone-row]")) &&
+        Boolean(document.querySelector("[data-active-program-milestone-name]"));
+    `);
+  });
+
+  const milestonePopulated = await session.execute(
+    `
+      const rows = Array.from(document.querySelectorAll("[data-active-program-milestone-row]"));
+      const row = rows[rows.length - 1];
+      if (!row) return false;
+
+      const setValue = (selector, value) => {
+        const field = row.querySelector(selector);
+        if (!field) return false;
+        const prototype = field instanceof HTMLTextAreaElement
+          ? HTMLTextAreaElement.prototype
+          : field instanceof HTMLSelectElement
+            ? HTMLSelectElement.prototype
+            : HTMLInputElement.prototype;
+        const setter = Object.getOwnPropertyDescriptor(prototype, "value")?.set;
+        if (!setter) return false;
+        setter.call(field, value);
+        field.dispatchEvent(new Event(field.tagName === "SELECT" ? "change" : "input", { bubbles: true }));
+        return true;
+      };
+
+      return [
+        setValue("[data-active-program-milestone-name]", "Smoke custom timeline milestone"),
+        setValue("[data-active-program-milestone-date]", "2026-05-15"),
+        setValue("[data-active-program-milestone-status]", "current"),
+        setValue("[data-active-program-milestone-priority]", "Medium"),
+        setValue("[data-active-program-milestone-note]", "Smoke custom timeline milestone note: " + arguments[0])
+      ].every(Boolean);
+    `,
+    [smokeText]
+  );
+
+  if (!milestonePopulated) {
+    throw new Error("Active Program smoke could not populate a custom timeline milestone.");
+  }
+
+  console.log("✓ Active Program: populated fields that feed Client Portal, including timeline and milestones.");
 }
 
 async function saveRoleSignal(session, program, smokeText) {
@@ -600,6 +670,15 @@ async function saveRoleSignal(session, program, smokeText) {
           update.review.nextMilestonePriority === "High" &&
           update.review.nextMilestoneName === "Smoke executive milestone" &&
           update.review.nextMilestoneDate === "2026-05-08" &&
+          update.review.timelineScale === "year" &&
+          update.review.timelineYear === "FY99" &&
+          (update.review.programMilestones ?? []).some((milestone) =>
+            milestone.name === "Smoke custom timeline milestone" &&
+            milestone.date === "2026-05-15" &&
+            milestone.status === "current" &&
+            milestone.priority === "Medium" &&
+            milestone.note.includes(arguments[2])
+          ) &&
           update.review.clientStatusNote.includes(arguments[2]) &&
           (update.review.teamRoleUpdates ?? []).some((roleUpdate) =>
             roleUpdate.role === arguments[1] &&
@@ -706,7 +785,8 @@ async function verifyClientPortalExecutiveFields(session, program, smokeText) {
           detailText.includes("Smoke PMO") &&
           detailText.includes("64%") &&
           detailText.includes("+4%") &&
-          detailText.includes("Smoke executive milestone") &&
+          detailText.includes("FY99") &&
+          detailText.includes("Smoke custom timeline milestone") &&
           detailText.includes(arguments[1]);
       `,
       [program.id, smokeText]

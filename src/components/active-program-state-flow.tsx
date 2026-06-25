@@ -1,22 +1,45 @@
 "use client";
 
-import type { ActiveProgramReview } from "@/lib/active-program-types";
+import type { ActiveProgramReview, ProgramTimelineMilestone } from "@/lib/active-program-types";
 import { ActiveProgramStateCard } from "@/components/active-program-state-card";
+
+type ActiveProgramScalarField = keyof Omit<
+  ActiveProgramReview,
+  "artifacts" | "deliveryBoardItems" | "programMilestones" | "teamRoleUpdates"
+>;
+
+type SaveConfirmation = {
+  savedAt?: string;
+  scope: string;
+  status: "saving" | "saved" | "error";
+} | null;
 
 type ActiveProgramStateFlowProps = {
   selectedProgramId: string;
   programOptions: Array<{ id: string; label: string }>;
   review: ActiveProgramReview;
-  onFieldChange: (field: keyof Omit<ActiveProgramReview, "artifacts" | "deliveryBoardItems" | "teamRoleUpdates">, value: string) => void;
+  onAddTimelineMilestone: () => void;
+  onFieldChange: (field: ActiveProgramScalarField, value: string) => void;
+  onRemoveTimelineMilestone: (milestoneId: string) => void;
+  onSaveProfile: () => void;
   onSelectProgram: (programId: string) => void;
+  onTimelineMilestoneChange: (milestoneId: string, field: keyof Omit<ProgramTimelineMilestone, "id">, value: string) => void;
+  saveConfirmation: SaveConfirmation;
+  saveState: "idle" | "saving" | "saved" | "error";
 };
 
 export function ActiveProgramStateFlow({
   selectedProgramId,
   programOptions,
   review,
+  onAddTimelineMilestone,
   onFieldChange,
-  onSelectProgram
+  onRemoveTimelineMilestone,
+  onSaveProfile,
+  onSelectProgram,
+  onTimelineMilestoneChange,
+  saveConfirmation,
+  saveState
 }: ActiveProgramStateFlowProps) {
   return (
     <>
@@ -34,6 +57,12 @@ export function ActiveProgramStateFlow({
         review={review}
         onSelectProgram={onSelectProgram}
         onFieldChange={onFieldChange}
+        onAddTimelineMilestone={onAddTimelineMilestone}
+        onRemoveTimelineMilestone={onRemoveTimelineMilestone}
+        onSaveProfile={onSaveProfile}
+        onTimelineMilestoneChange={onTimelineMilestoneChange}
+        saveConfirmation={saveConfirmation}
+        saveState={saveState}
       />
     </>
   );

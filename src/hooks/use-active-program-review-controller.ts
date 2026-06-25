@@ -1,7 +1,13 @@
 "use client";
 
 import { ChangeEvent, FormEvent, useCallback, useEffect, useMemo, useState } from "react";
-import type { ActiveProgramReview, ActiveProgramUpdate, DeliveryBoardItem, TeamRoleUpdate } from "@/lib/active-program-types";
+import type {
+  ActiveProgramReview,
+  ActiveProgramUpdate,
+  DeliveryBoardItem,
+  ProgramTimelineMilestone,
+  TeamRoleUpdate
+} from "@/lib/active-program-types";
 import { useCurrentUserAssignments } from "@/hooks/use-current-user-assignments";
 import { useForegroundRefresh } from "@/hooks/use-foreground-refresh";
 import { useRequestSequence } from "@/hooks/use-request-sequence";
@@ -14,6 +20,7 @@ import {
   buildCycleMetadata,
   buildDeliveryBoardItem,
   buildFallbackOwnershipSignature,
+  buildProgramTimelineMilestone,
   clearCycleReview,
   emptyMeetingInputDraft,
   emptyReview,
@@ -27,6 +34,7 @@ import {
   isTextLikeMeetingFile,
   normalizeProgramLabel,
   normalizeDeliveryBoardItems,
+  normalizeProgramMilestones,
   normalizeReview,
   normalizeTeamRoleUpdates,
   optionFromSavedIntake,
@@ -41,6 +49,11 @@ type SaveConfirmation = {
   scope: string;
   status: "saving" | "saved" | "error";
 } | null;
+
+type ActiveProgramScalarField = keyof Omit<
+  ActiveProgramReview,
+  "artifacts" | "deliveryBoardItems" | "programMilestones" | "teamRoleUpdates"
+>;
 
 type OwnershipSaveState = "idle" | "dirty" | "saving" | "saved" | "error";
 
@@ -304,12 +317,70 @@ export function useActiveProgramReviewController() {
   }, [fallbackOwnershipHasEntries, ownerCoverage.configured, ownershipSignature, saveState, savedOwnershipSignature]);
 
   const updateField = useCallback(
-    (field: keyof Omit<ActiveProgramReview, "artifacts" | "deliveryBoardItems" | "teamRoleUpdates">, value: string) => {
+    (field: ActiveProgramScalarField, value: string) => {
       setReview((current) =>
         normalizeReview(
           {
             ...current,
             [field]: value
+          },
+          selectedProgram?.intake
+        )
+      );
+    },
+    [selectedProgram?.intake]
+  );
+
+  const addTimelineMilestone = useCallback(() => {
+    setReview((current) =>
+      normalizeReview(
+        {
+          ...current,
+          programMilestones: [
+            ...normalizeProgramMilestones(current.programMilestones),
+            buildProgramTimelineMilestone({
+              id: `milestone-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+              name: "New milestone",
+              status: "next"
+            })
+          ]
+        },
+        selectedProgram?.intake
+      )
+    );
+  }, [selectedProgram?.intake]);
+
+  const updateTimelineMilestone = useCallback(
+    (milestoneId: string, field: keyof Omit<ProgramTimelineMilestone, "id">, value: string) => {
+      setReview((current) =>
+        normalizeReview(
+          {
+            ...current,
+            programMilestones: normalizeProgramMilestones(current.programMilestones).map((milestone) =>
+              milestone.id === milestoneId
+                ? buildProgramTimelineMilestone({
+                    ...milestone,
+                    [field]: value
+                  })
+                : milestone
+            )
+          },
+          selectedProgram?.intake
+        )
+      );
+    },
+    [selectedProgram?.intake]
+  );
+
+  const removeTimelineMilestone = useCallback(
+    (milestoneId: string) => {
+      setReview((current) =>
+        normalizeReview(
+          {
+            ...current,
+            programMilestones: normalizeProgramMilestones(current.programMilestones).filter(
+              (milestone) => milestone.id !== milestoneId
+            )
           },
           selectedProgram?.intake
         )
@@ -827,6 +898,7 @@ export function useActiveProgramReviewController() {
 
   return {
     activeCycleMetadata,
+    addTimelineMilestone,
     assignedOwnersByRole,
     clearCycle,
     currentUserId: currentUser?.id ?? null,
@@ -855,6 +927,7 @@ export function useActiveProgramReviewController() {
     removeDeliveryBoardItem,
     removeRoleAttachment,
     removeMeetingAttachment,
+    removeTimelineMilestone,
     review,
     saveConfirmation,
     savedAt,
@@ -871,6 +944,7 @@ export function useActiveProgramReviewController() {
     updateDeliveryBoardItem,
     handleDeliveryBoardAttachments,
     updateMeetingInputDraft,
+    updateTimelineMilestone,
     updateRoleField
   };
 }

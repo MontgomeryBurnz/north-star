@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Activity, ArrowUpRight, ChevronDown, Compass, SlidersHorizontal } from "lucide-react";
-import type { ActiveProgramReview } from "@/lib/active-program-types";
+import { Activity, ArrowUpRight, CalendarClock, ChevronDown, Compass, Plus, SlidersHorizontal, Trash2 } from "lucide-react";
+import type { ActiveProgramReview, ProgramTimelineMilestone } from "@/lib/active-program-types";
 import { ProgramSlicer } from "@/components/program-slicer";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
@@ -11,20 +11,45 @@ type ProgramOption = {
   label: string;
 };
 
+type ActiveProgramScalarField = keyof Omit<ActiveProgramReview, "artifacts" | "deliveryBoardItems" | "programMilestones" | "teamRoleUpdates">;
+type SaveConfirmation = {
+  savedAt?: string;
+  scope: string;
+  status: "saving" | "saved" | "error";
+} | null;
+
 type ActiveProgramStateCardProps = {
   selectedProgramId: string;
   programOptions: ProgramOption[];
   review: ActiveProgramReview;
   onSelectProgram: (programId: string) => void;
-  onFieldChange: (field: keyof Omit<ActiveProgramReview, "artifacts" | "deliveryBoardItems" | "teamRoleUpdates">, value: string) => void;
+  onFieldChange: (field: ActiveProgramScalarField, value: string) => void;
+  onAddTimelineMilestone: () => void;
+  onRemoveTimelineMilestone: (milestoneId: string) => void;
+  onSaveProfile: () => void;
+  onTimelineMilestoneChange: (milestoneId: string, field: keyof Omit<ProgramTimelineMilestone, "id">, value: string) => void;
+  saveConfirmation: SaveConfirmation;
+  saveState: "idle" | "saving" | "saved" | "error";
 };
+
+function timelineWindowLabel(review: ActiveProgramReview) {
+  if (review.timelineScale === "week") return review.timelineWeek ? `Week of ${review.timelineWeek}` : "Week view";
+  if (review.timelineScale === "month") return review.timelineMonth || "Month view";
+  return review.timelineYear || "Year view";
+}
 
 export function ActiveProgramStateCard({
   selectedProgramId,
   programOptions,
   review,
   onSelectProgram,
-  onFieldChange
+  onFieldChange,
+  onAddTimelineMilestone,
+  onRemoveTimelineMilestone,
+  onSaveProfile,
+  onTimelineMilestoneChange,
+  saveConfirmation,
+  saveState
 }: ActiveProgramStateCardProps) {
   const [isSetupOpen, setIsSetupOpen] = useState(false);
   const slicerOptions = useMemo(
@@ -32,6 +57,9 @@ export function ActiveProgramStateCard({
     [programOptions]
   );
   const hasSelectedProgram = Boolean(selectedProgramId);
+  const timelineScale = review.timelineScale ?? "year";
+  const programMilestones = review.programMilestones ?? [];
+  const profileConfirmationVisible = saveConfirmation?.scope === "Program profile";
 
   useEffect(() => {
     setIsSetupOpen(false);
@@ -85,7 +113,7 @@ export function ActiveProgramStateCard({
         ) : null}
 
         {hasSelectedProgram ? (
-          <div className="grid gap-3 rounded-lg border border-cyan-300/15 bg-cyan-300/[0.035] p-4 md:grid-cols-5">
+          <div className="grid gap-3 rounded-lg border border-cyan-300/15 bg-cyan-300/[0.035] p-4 md:grid-cols-6">
             <div className="min-w-0">
               <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-cyan-100">Program</p>
               <p className="mt-2 truncate text-sm font-semibold text-zinc-50">{review.programName || "Selected program"}</p>
@@ -109,6 +137,10 @@ export function ActiveProgramStateCard({
             <div className="min-w-0">
               <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-zinc-500">Milestone</p>
               <p className="mt-2 truncate text-sm text-zinc-300">{review.nextMilestoneName || "Not set"}</p>
+            </div>
+            <div className="min-w-0">
+              <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-zinc-500">Timeline</p>
+              <p className="mt-2 truncate text-sm text-zinc-300">{timelineWindowLabel(review)}</p>
             </div>
           </div>
         ) : null}
@@ -278,6 +310,183 @@ export function ActiveProgramStateCard({
                 </div>
               </div>
 
+              <div data-active-program-timeline-fields className="grid gap-4 rounded-lg border border-emerald-300/15 bg-emerald-300/[0.035] p-3 md:col-span-2">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <p className="flex items-center gap-2 text-xs font-medium uppercase tracking-[0.18em] text-emerald-100">
+                      <CalendarClock className="h-4 w-4 text-emerald-200" />
+                      Timeline planning
+                    </p>
+                    <p className="mt-2 max-w-3xl text-xs leading-5 text-zinc-500">
+                      Set the planning window and key checkpoints that should shape the Client Portal roadmap and milestone timeline.
+                    </p>
+                  </div>
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-300/20 bg-emerald-300/[0.08] px-3 py-1 text-[11px] font-medium uppercase tracking-[0.14em] text-emerald-100">
+                    <ArrowUpRight className="h-3.5 w-3.5" />
+                    Feeds Client Portal
+                  </span>
+                </div>
+
+                <div className="grid gap-3 md:grid-cols-3">
+                  <label className="grid gap-2">
+                    <span className="text-xs font-medium uppercase tracking-[0.18em] text-zinc-300">Timeline view</span>
+                    <select
+                      data-active-timeline-scale
+                      value={timelineScale}
+                      onChange={(event) => onFieldChange("timelineScale", event.target.value)}
+                      className="min-h-11 rounded-md border border-white/10 bg-zinc-950 px-3 py-3 text-sm text-zinc-100 outline-none transition-colors focus:border-cyan-300/50"
+                    >
+                      <option value="year">Year</option>
+                      <option value="month">Month</option>
+                      <option value="week">Week</option>
+                    </select>
+                  </label>
+
+                  {timelineScale === "year" ? (
+                    <label className="grid gap-2 md:col-span-2">
+                      <span className="text-xs font-medium uppercase tracking-[0.18em] text-zinc-300">Program year</span>
+                      <input
+                        data-active-timeline-year
+                        value={review.timelineYear ?? ""}
+                        onChange={(event) => onFieldChange("timelineYear", event.target.value)}
+                        placeholder="FY25, 2026, or client planning year"
+                        className="min-h-11 rounded-md border border-white/10 bg-zinc-950 px-3 py-3 text-sm text-zinc-100 outline-none transition-colors placeholder:text-zinc-300 focus:border-cyan-300/50"
+                      />
+                    </label>
+                  ) : null}
+
+                  {timelineScale === "month" ? (
+                    <label className="grid gap-2 md:col-span-2">
+                      <span className="text-xs font-medium uppercase tracking-[0.18em] text-zinc-300">Program month</span>
+                      <input
+                        data-active-timeline-month
+                        type="month"
+                        value={review.timelineMonth ?? ""}
+                        onChange={(event) => onFieldChange("timelineMonth", event.target.value)}
+                        className="min-h-11 rounded-md border border-white/10 bg-zinc-950 px-3 py-3 text-sm text-zinc-100 outline-none transition-colors focus:border-cyan-300/50"
+                      />
+                    </label>
+                  ) : null}
+
+                  {timelineScale === "week" ? (
+                    <label className="grid gap-2 md:col-span-2">
+                      <span className="text-xs font-medium uppercase tracking-[0.18em] text-zinc-300">Week starting</span>
+                      <input
+                        data-active-timeline-week
+                        type="date"
+                        value={review.timelineWeek ?? ""}
+                        onChange={(event) => onFieldChange("timelineWeek", event.target.value)}
+                        className="min-h-11 rounded-md border border-white/10 bg-zinc-950 px-3 py-3 text-sm text-zinc-100 outline-none transition-colors focus:border-cyan-300/50"
+                      />
+                    </label>
+                  ) : null}
+                </div>
+
+                <div data-active-program-milestones className="grid gap-3">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                      <p className="text-xs font-medium uppercase tracking-[0.18em] text-zinc-300">Key milestones</p>
+                      <p className="mt-1 text-xs leading-5 text-zinc-500">Create the checkpoints the team and client should track.</p>
+                    </div>
+                    <button
+                      type="button"
+                      data-active-program-add-milestone
+                      onClick={onAddTimelineMilestone}
+                      className="inline-flex min-h-10 items-center gap-2 rounded-md border border-emerald-300/25 bg-emerald-300/[0.08] px-3 text-sm font-semibold text-emerald-100 transition-colors hover:border-emerald-200/45"
+                    >
+                      <Plus className="h-4 w-4" />
+                      Add milestone
+                    </button>
+                  </div>
+
+                  {programMilestones.length ? (
+                    <div className="grid gap-3">
+                      {programMilestones.map((milestone) => (
+                        <div
+                          key={milestone.id}
+                          data-active-program-milestone-row
+                          className="grid gap-3 rounded-md border border-white/10 bg-zinc-950/70 p-3"
+                        >
+                          <div className="grid gap-3 lg:grid-cols-[minmax(0,1.35fr)_10rem_10rem_9rem_auto]">
+                            <label className="grid gap-2">
+                              <span className="text-[11px] font-medium uppercase tracking-[0.16em] text-zinc-500">Milestone</span>
+                              <input
+                                data-active-program-milestone-name
+                                value={milestone.name}
+                                onChange={(event) => onTimelineMilestoneChange(milestone.id, "name", event.target.value)}
+                                placeholder="Scope baseline, pilot readiness, go-live..."
+                                className="min-h-10 rounded-md border border-white/10 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 outline-none transition-colors placeholder:text-zinc-400 focus:border-cyan-300/50"
+                              />
+                            </label>
+                            <label className="grid gap-2">
+                              <span className="text-[11px] font-medium uppercase tracking-[0.16em] text-zinc-500">Date</span>
+                              <input
+                                data-active-program-milestone-date
+                                type="date"
+                                value={milestone.date}
+                                onChange={(event) => onTimelineMilestoneChange(milestone.id, "date", event.target.value)}
+                                className="min-h-10 rounded-md border border-white/10 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 outline-none transition-colors focus:border-cyan-300/50"
+                              />
+                            </label>
+                            <label className="grid gap-2">
+                              <span className="text-[11px] font-medium uppercase tracking-[0.16em] text-zinc-500">Status</span>
+                              <select
+                                data-active-program-milestone-status
+                                value={milestone.status}
+                                onChange={(event) => onTimelineMilestoneChange(milestone.id, "status", event.target.value)}
+                                className="min-h-10 rounded-md border border-white/10 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 outline-none transition-colors focus:border-cyan-300/50"
+                              >
+                                <option value="complete">Complete</option>
+                                <option value="current">Current</option>
+                                <option value="next">Next</option>
+                              </select>
+                            </label>
+                            <label className="grid gap-2">
+                              <span className="text-[11px] font-medium uppercase tracking-[0.16em] text-zinc-500">Priority</span>
+                              <select
+                                data-active-program-milestone-priority
+                                value={milestone.priority ?? ""}
+                                onChange={(event) => onTimelineMilestoneChange(milestone.id, "priority", event.target.value)}
+                                className="min-h-10 rounded-md border border-white/10 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 outline-none transition-colors focus:border-cyan-300/50"
+                              >
+                                <option value="">Auto</option>
+                                <option value="High">High</option>
+                                <option value="Medium">Medium</option>
+                                <option value="Low">Low</option>
+                              </select>
+                            </label>
+                            <button
+                              type="button"
+                              data-active-program-remove-milestone
+                              onClick={() => onRemoveTimelineMilestone(milestone.id)}
+                              className="mt-6 inline-flex h-10 w-10 items-center justify-center rounded-md border border-white/10 text-zinc-400 transition-colors hover:border-rose-300/40 hover:text-rose-200"
+                              aria-label={`Remove ${milestone.name || "milestone"}`}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+                          </div>
+                          <label className="grid gap-2">
+                            <span className="text-[11px] font-medium uppercase tracking-[0.16em] text-zinc-500">Milestone note</span>
+                            <textarea
+                              data-active-program-milestone-note
+                              value={milestone.note}
+                              onChange={(event) => onTimelineMilestoneChange(milestone.id, "note", event.target.value)}
+                              placeholder="What this checkpoint proves, unlocks, or requires."
+                              rows={2}
+                              className="min-h-[76px] resize-none rounded-md border border-white/10 bg-zinc-950 px-3 py-2 text-sm leading-6 text-zinc-100 outline-none transition-colors placeholder:text-zinc-400 focus:border-cyan-300/50"
+                            />
+                          </label>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="rounded-md border border-dashed border-white/10 bg-zinc-950/50 p-4 text-sm leading-6 text-zinc-500">
+                      No custom milestones yet. Add the checkpoints that should appear in the Client Portal timeline.
+                    </div>
+                  )}
+                </div>
+              </div>
+
               <label className="grid gap-2 md:col-span-2">
                 <span className="text-xs font-medium uppercase tracking-[0.18em] text-zinc-300">Original north star</span>
                 <textarea
@@ -321,6 +530,30 @@ export function ActiveProgramStateCard({
                   className="min-h-[112px] resize-none rounded-md border border-white/10 bg-zinc-950 px-3 py-3 text-sm leading-6 text-zinc-100 outline-none transition-colors placeholder:text-zinc-300 focus:border-cyan-300/50"
                 />
               </label>
+            </div>
+
+            <div className="flex flex-wrap items-center justify-between gap-3 border-t border-white/10 pt-4">
+              <p className="max-w-2xl text-xs leading-5 text-zinc-500">
+                Saving the profile refreshes the active program record, guided plan inputs, and Client Portal timeline source.
+              </p>
+              <button
+                type="button"
+                data-active-program-profile-save
+                onClick={onSaveProfile}
+                disabled={saveState === "saving"}
+                className="inline-flex min-h-11 items-center justify-center rounded-md bg-emerald-300 px-4 text-sm font-semibold text-zinc-950 transition-colors hover:bg-emerald-200 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {saveState === "saving" && profileConfirmationVisible ? "Saving profile..." : "Save profile"}
+              </button>
+              {profileConfirmationVisible ? (
+                <p data-active-program-profile-save-confirmation className="w-full text-sm font-medium text-emerald-100">
+                  {saveConfirmation?.status === "saved"
+                    ? "Program profile saved and guidance refresh started."
+                    : saveConfirmation?.status === "error"
+                      ? "Profile save failed. Try again."
+                      : "Saving program profile..."}
+                </p>
+              ) : null}
             </div>
           </div>
         ) : null}

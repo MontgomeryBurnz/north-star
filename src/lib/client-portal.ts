@@ -1,4 +1,12 @@
-import type { DeliveryBoardItem, DeliveryBoardStatus, StoredProgramUpdate, TeamRoleUpdate, TeamRoleUpdateStatus } from "./active-program-types.ts";
+import type {
+  DeliveryBoardItem,
+  DeliveryBoardStatus,
+  ProgramTimelineMilestone,
+  ProgramTimelineScale,
+  StoredProgramUpdate,
+  TeamRoleUpdate,
+  TeamRoleUpdateStatus
+} from "./active-program-types.ts";
 import type { GuidedPlan } from "./guided-plan-types.ts";
 import type { LeadershipReviewRecord } from "./leadership-feedback-types.ts";
 import type { ClientDecisionRequest } from "./program-intelligence-types.ts";
@@ -85,8 +93,13 @@ export type ClientPortalProgram = {
     dateLabel: string;
     name: string;
     note: string;
+    priority?: ClientPortalPriority;
     status: "complete" | "current" | "next";
   }>;
+  timelineScaleLabel: string;
+  timelineWindowLabel: string;
+  roadmapWindowLabels: string[];
+  roadmapCurrentWindowIndex: number;
   risks: string[];
   decisions: string[];
   clientDecisions: ClientDecisionRequest[];
@@ -121,6 +134,9 @@ export type ClientPortalRoadmapRow = {
   markerLabel: string;
   markerPosition: number;
   markerTone: ClientProgramPosture;
+  timeframeLabel: string;
+  windowLabels: string[];
+  currentWindowIndex: number;
   programId: string;
   programName: string;
   segments: Array<{
@@ -539,6 +555,108 @@ function formatDateLabel(value: string | undefined | null) {
   return new Intl.DateTimeFormat("en-US", { day: "2-digit", month: "short" }).format(date);
 }
 
+function formatMonthLabel(value: string | undefined | null) {
+  if (!value) return "";
+  const monthMatch = value.match(/^(\d{4})-(\d{2})$/);
+  if (!monthMatch) return value;
+  const date = new Date(Number(monthMatch[1]), Number(monthMatch[2]) - 1, 1);
+  return new Intl.DateTimeFormat("en-US", { month: "long", year: "numeric" }).format(date);
+}
+
+function formatShortDateLabel(date: Date) {
+  return new Intl.DateTimeFormat("en-US", { day: "numeric", month: "short" }).format(date);
+}
+
+function fiscalYearSuffix(value: string) {
+  const match = value.trim().match(/^FY\s*(\d{2,4})$/i);
+  if (!match) return null;
+  return match[1].length === 2 ? Number(match[1]) : Number(match[1].slice(-2));
+}
+
+function nextYearLabel(value: string) {
+  const trimmed = value.trim();
+  const fiscalSuffix = fiscalYearSuffix(trimmed);
+  if (fiscalSuffix !== null && Number.isFinite(fiscalSuffix)) {
+    return `FY${String(fiscalSuffix + 1).padStart(2, "0")}`;
+  }
+
+  const numericYear = Number(trimmed);
+  if (Number.isInteger(numericYear) && numericYear > 1900) return String(numericYear + 1);
+  return `${trimmed} +1`;
+}
+
+function deriveYearWindowLabels(year: string) {
+  const base = year.trim() || "Program Year";
+  return [`Q1 ${base}`, `Q2 ${base}`, `Q3 ${base}`, `Q4 ${base}`, `Q1 ${nextYearLabel(base)}`];
+}
+
+function deriveMonthWindowLabels(month: string) {
+  const label = formatMonthLabel(month);
+  if (!label) return ["Week 1", "Week 2", "Week 3", "Week 4", "Week 5"];
+  return ["Week 1", "Week 2", "Week 3", "Week 4", "Week 5"].map((week) => `${week}`);
+}
+
+function deriveWeekWindowLabels(weekStart: string) {
+  if (!weekStart) return ["Mon", "Tue", "Wed", "Thu", "Fri"];
+  const dateOnlyMatch = weekStart.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  const start = dateOnlyMatch
+    ? new Date(Number(dateOnlyMatch[1]), Number(dateOnlyMatch[2]) - 1, Number(dateOnlyMatch[3]))
+    : new Date(weekStart);
+  if (Number.isNaN(start.getTime())) return ["Mon", "Tue", "Wed", "Thu", "Fri"];
+
+  return Array.from({ length: 5 }, (_, index) => {
+    const day = new Date(start);
+    day.setDate(start.getDate() + index);
+    return formatShortDateLabel(day);
+  });
+}
+
+function currentWindowIndexFromDate(dateValue: string | undefined, scale: ProgramTimelineScale, fallback = 2) {
+  if (!dateValue) return fallback;
+  const dateOnlyMatch = dateValue.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  const date = dateOnlyMatch
+    ? new Date(Number(dateOnlyMatch[1]), Number(dateOnlyMatch[2]) - 1, Number(dateOnlyMatch[3]))
+    : new Date(dateValue);
+  if (Number.isNaN(date.getTime())) return fallback;
+
+  if (scale === "year") return Math.max(0, Math.min(4, Math.floor(date.getMonth() / 3)));
+  if (scale === "month") return Math.max(0, Math.min(4, Math.floor((date.getDate() - 1) / 7)));
+  return Math.max(0, Math.min(4, Math.max(0, date.getDay() - 1)));
+}
+
+function buildRoadmapWindow(review: StoredProgramUpdate["review"] | undefined, currentMilestoneDate?: string) {
+  const scale: ProgramTimelineScale =
+    review?.timelineScale === "month" || review?.timelineScale === "week" ? review.timelineScale : "year";
+
+  if (scale === "week") {
+    const timeframeLabel = review?.timelineWeek ? `Week of ${formatDateLabel(review.timelineWeek)}` : "Program Week";
+    return {
+      currentWindowIndex: currentWindowIndexFromDate(currentMilestoneDate || review?.timelineWeek, scale),
+      scaleLabel: "Week",
+      timeframeLabel,
+      windowLabels: deriveWeekWindowLabels(review?.timelineWeek ?? "")
+    };
+  }
+
+  if (scale === "month") {
+    const timeframeLabel = formatMonthLabel(review?.timelineMonth) || "Program Month";
+    return {
+      currentWindowIndex: currentWindowIndexFromDate(currentMilestoneDate, scale),
+      scaleLabel: "Month",
+      timeframeLabel,
+      windowLabels: deriveMonthWindowLabels(review?.timelineMonth ?? "")
+    };
+  }
+
+  const timeframeLabel = review?.timelineYear?.trim() || "Program Year";
+  return {
+    currentWindowIndex: currentWindowIndexFromDate(currentMilestoneDate, scale),
+    scaleLabel: "Year",
+    timeframeLabel,
+    windowLabels: deriveYearWindowLabels(timeframeLabel)
+  };
+}
+
 function stakeholderByKeyword(stakeholders: string | undefined, keyword: string, fallback: string) {
   const signals = splitSignals(stakeholders ?? "", "")
     .map(clean)
@@ -698,6 +816,9 @@ function buildMilestones(input: {
   review: StoredProgramUpdate["review"] | undefined;
   updateTimestamp: string | undefined;
 }) {
+  const reviewMilestones = buildReviewMilestones(input.review?.programMilestones);
+  if (reviewMilestones.length) return reviewMilestones;
+
   const boardMilestones = (input.review?.deliveryBoardItems ?? [])
     .filter((item) => item.dueDate && isMeaningfulSignal(item.title))
     .sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime())
@@ -706,6 +827,7 @@ function buildMilestones(input: {
       dateLabel: formatDateLabel(item.dueDate) || "Due date",
       name: item.title,
       note: `${item.role || "Team"} · ${deliveryBoardStatusLabel(item.status)}`,
+      priority: undefined,
       status: item.status === "done" ? "complete" as const : item.status === "in-progress" || item.status === "needs-review" ? "current" as const : "next" as const
     }));
   const createdLabel = formatDateLabel(input.program.createdAt) || "Captured";
@@ -718,6 +840,7 @@ function buildMilestones(input: {
       dateLabel: createdLabel,
       name: "Program intake captured",
       note: firstSignal(input.program.intake.outcomes, input.program.intake.sowSummary || "Initial program setup saved."),
+      priority: undefined,
       status: "complete" as const
     }
   ];
@@ -727,6 +850,7 @@ function buildMilestones(input: {
       dateLabel: updatedLabel,
       name: input.phase && input.phase !== "Phase not set" ? `${input.phase} update` : "Latest program update",
       note: firstMeaningful(input.review?.clientStatusNote, input.review?.programSynthesisNote, input.review?.progressSinceLastReview),
+      priority: undefined,
       status: "current" as const
     });
   }
@@ -736,6 +860,7 @@ function buildMilestones(input: {
       dateLabel: explicitMilestoneDate || "Date not captured",
       name: explicitMilestoneName,
       note: `${explicitMilestonePriority ?? "Priority not set"} priority checkpoint`,
+      priority: explicitMilestonePriority ?? undefined,
       status: "current" as const
     });
   }
@@ -750,6 +875,19 @@ function buildMilestones(input: {
       seen.add(key);
       return true;
     })
+    .slice(0, 6);
+}
+
+function buildReviewMilestones(programMilestones: ProgramTimelineMilestone[] | undefined): ClientPortalProgram["milestones"] {
+  return (programMilestones ?? [])
+    .map((milestone) => ({
+      dateLabel: formatDateLabel(milestone.date) || "Date not captured",
+      name: clean(milestone.name),
+      note: clean(milestone.note) || `${milestone.priority ?? "Program"} checkpoint`,
+      priority: priorityFromReview(milestone.priority) ?? undefined,
+      status: milestone.status
+    }))
+    .filter((milestone) => milestone.name || milestone.note)
     .slice(0, 6);
 }
 
@@ -873,6 +1011,11 @@ export function buildClientPortalProgram(input: ClientPortalProgramInput): Clien
   };
   const owner = firstNonEmpty(intake.programOwner, "Owner not set");
   const explicitMilestonePriority = priorityFromReview(review?.nextMilestonePriority);
+  const currentMilestoneDate =
+    review?.programMilestones?.find((milestone) => milestone.status === "current" && milestone.date)?.date ??
+    review?.programMilestones?.find((milestone) => milestone.status === "next" && milestone.date)?.date ??
+    review?.nextMilestoneDate;
+  const roadmapWindow = buildRoadmapWindow(review, currentMilestoneDate);
 
   return {
     id: input.program.id,
@@ -902,7 +1045,7 @@ export function buildClientPortalProgram(input: ClientPortalProgramInput): Clien
     nextMilestone: {
       dateLabel: nextMilestone.dateLabel,
       name: nextMilestone.name,
-      priority: explicitMilestonePriority ?? priorityFromPosture(posture)
+      priority: nextMilestone.priority ?? explicitMilestonePriority ?? priorityFromPosture(posture)
     },
     nextDecision: firstSignal(decisions.join("\n"), "No executive decision is currently pending."),
     topRisk: firstSignal(risks.join("\n"), "No active executive risk has been captured yet."),
@@ -938,6 +1081,10 @@ export function buildClientPortalProgram(input: ClientPortalProgramInput): Clien
     }),
     workstreams,
     milestones,
+    timelineScaleLabel: roadmapWindow.scaleLabel,
+    timelineWindowLabel: roadmapWindow.timeframeLabel,
+    roadmapWindowLabels: roadmapWindow.windowLabels,
+    roadmapCurrentWindowIndex: roadmapWindow.currentWindowIndex,
     risks,
     decisions,
     clientDecisions: input.clientDecisions ?? [],
@@ -961,6 +1108,9 @@ function buildPortfolioRoadmap(programs: ClientPortalProgram[]): ClientPortalRoa
     markerLabel: program.nextMilestone.name,
     markerPosition: Math.max(8, Math.min(94, program.metrics.programCompletionPercent)),
     markerTone: program.posture,
+    timeframeLabel: program.timelineWindowLabel,
+    windowLabels: program.roadmapWindowLabels,
+    currentWindowIndex: program.roadmapCurrentWindowIndex,
     programId: program.id,
     programName: program.name,
     segments: segmentLabels.map((label, index) => ({

@@ -33,7 +33,12 @@ test("Client Portal frames executive overview and domain progress", () => {
   assert.match(source, /Portfolio Program Grid/);
   assert.match(source, /Upcoming Milestones/);
   assert.match(source, /Key Risks Across Portfolio/);
-  assert.match(source, /Portfolio Roadmap - FY25/);
+  assert.match(source, /Portfolio Roadmap -/);
+  assert.doesNotMatch(source, /Portfolio Roadmap - FY25/);
+  assert.match(source, /windowLabels/);
+  assert.match(source, /currentWindowIndex/);
+  assert.match(source, /timelineScaleLabel/);
+  assert.match(source, /timelineWindowLabel/);
   assert.match(source, /Program Timeline/);
   assert.match(source, /Executive Summary/);
   assert.match(source, /Milestone Timeline/);
@@ -61,11 +66,42 @@ test("Client Portal frames executive overview and domain progress", () => {
   assert.match(modelSource, /buildPortfolioMilestones/);
   assert.match(modelSource, /buildPortfolioRisks/);
   assert.match(modelSource, /buildPortfolioRoadmap/);
+  assert.match(modelSource, /buildRoadmapWindow/);
+  assert.match(modelSource, /buildReviewMilestones/);
+  assert.match(modelSource, /ProgramTimelineMilestone/);
   assert.match(modelSource, /buildDomainMovementSignal/);
   assert.match(modelSource, /buildDeliveryBoardProgressSignal/);
   assert.match(modelSource, /conciseSignal/);
   assert.match(modelSource, /Risk:/);
   assert.match(modelSource, /Decision:/);
+});
+
+test("Active Program captures configurable timeline windows and milestones for Client Portal", () => {
+  const stateSource = readFileSync(new URL("../src/components/active-program-state-card.tsx", import.meta.url), "utf8");
+  const flowSource = readFileSync(new URL("../src/components/active-program-state-flow.tsx", import.meta.url), "utf8");
+  const controllerSource = readFileSync(new URL("../src/hooks/use-active-program-review-controller.ts", import.meta.url), "utf8");
+  const typeSource = readFileSync(new URL("../src/lib/active-program-types.ts", import.meta.url), "utf8");
+  const activeSmokeSource = readFileSync(new URL("../scripts/smoke-active-program-save.mjs", import.meta.url), "utf8");
+  const clientSmokeSource = readFileSync(new URL("../scripts/smoke-client-portal.mjs", import.meta.url), "utf8");
+
+  assert.match(typeSource, /ProgramTimelineScale/);
+  assert.match(typeSource, /ProgramTimelineMilestone/);
+  assert.match(stateSource, /data-active-program-timeline-fields/);
+  assert.match(stateSource, /data-active-timeline-scale/);
+  assert.match(stateSource, /data-active-timeline-year/);
+  assert.match(stateSource, /data-active-timeline-month/);
+  assert.match(stateSource, /data-active-timeline-week/);
+  assert.match(stateSource, /data-active-program-add-milestone/);
+  assert.match(stateSource, /data-active-program-milestone-row/);
+  assert.match(stateSource, /data-active-program-profile-save/);
+  assert.match(flowSource, /onTimelineMilestoneChange/);
+  assert.match(controllerSource, /addTimelineMilestone/);
+  assert.match(controllerSource, /updateTimelineMilestone/);
+  assert.match(controllerSource, /removeTimelineMilestone/);
+  assert.match(activeSmokeSource, /Smoke custom timeline milestone/);
+  assert.match(activeSmokeSource, /timelineYear === "FY99"/);
+  assert.match(clientSmokeSource, /Client Portal smoke value gate/);
+  assert.match(clientSmokeSource, /timelineYear: "FY99"/);
 });
 
 test("Primary app surfaces use the wider North Star shell", () => {

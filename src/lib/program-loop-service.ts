@@ -49,6 +49,28 @@ function normalizeReview(review: Partial<ActiveProgramReview>): MutationResult<A
       deliveryHealth: review.deliveryHealth ?? "",
       supportNeeded: review.supportNeeded ?? "",
       updateCadence: review.updateCadence === "biweekly" ? "biweekly" : "weekly",
+      timelineScale: review.timelineScale === "month" || review.timelineScale === "week" ? review.timelineScale : "year",
+      timelineYear: review.timelineYear ?? "",
+      timelineMonth: review.timelineMonth ?? "",
+      timelineWeek: review.timelineWeek ?? "",
+      programMilestones: Array.isArray(review.programMilestones)
+        ? review.programMilestones
+            .map((milestone, index) => ({
+              id: milestone.id || `milestone-${index}`,
+              name: milestone.name?.trim() ?? "",
+              date: milestone.date ?? "",
+              status:
+                milestone.status === "complete" || milestone.status === "current" || milestone.status === "next"
+                  ? milestone.status
+                  : "next",
+              priority:
+                milestone.priority === "High" || milestone.priority === "Medium" || milestone.priority === "Low"
+                  ? milestone.priority
+                  : undefined,
+              note: milestone.note ?? ""
+            }))
+            .filter((milestone) => milestone.name || milestone.date || milestone.note)
+        : [],
       cycleLabel: review.cycleLabel ?? "",
       cycleStartedAt: review.cycleStartedAt ?? "",
       programSynthesisNote: review.programSynthesisNote ?? "",

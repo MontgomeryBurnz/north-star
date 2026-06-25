@@ -17,6 +17,12 @@ export function ActiveProgramReviewSection() {
           review={controller.review}
           onSelectProgram={controller.selectExistingProgram}
           onFieldChange={controller.updateField}
+          onAddTimelineMilestone={controller.addTimelineMilestone}
+          onRemoveTimelineMilestone={controller.removeTimelineMilestone}
+          onSaveProfile={() => controller.saveReviewSnapshot("", "Program profile")}
+          onTimelineMilestoneChange={controller.updateTimelineMilestone}
+          saveConfirmation={controller.saveConfirmation}
+          saveState={controller.saveState}
         />
 
         <ActiveProgramCockpitFlow

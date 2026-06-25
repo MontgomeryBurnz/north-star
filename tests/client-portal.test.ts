@@ -52,6 +52,36 @@ const update: StoredProgramUpdate = {
     decisionsPending: "Confirm launch readiness owner.",
     deliveryHealth: "At risk",
     supportNeeded: "",
+    timelineScale: "year",
+    timelineYear: "FY25",
+    timelineMonth: "",
+    timelineWeek: "",
+    programMilestones: [
+      {
+        id: "program-intake",
+        name: "Program intake captured",
+        date: "2026-04-01",
+        status: "complete",
+        priority: "Low",
+        note: "Initial program setup saved."
+      },
+      {
+        id: "scope-baseline",
+        name: "Scope baseline",
+        date: "2026-05-08",
+        status: "current",
+        priority: "High",
+        note: "Sponsor checkpoint for launch readiness."
+      },
+      {
+        id: "pilot-readiness",
+        name: "Pilot readiness",
+        date: "2026-05-22",
+        status: "next",
+        priority: "Medium",
+        note: "Validate rollout readiness."
+      }
+    ],
     teamRoleUpdates: [
       {
         role: "Engineering",
@@ -161,9 +191,13 @@ test("buildClientPortalProgram creates executive posture from program signals", 
   assert.equal(portalProgram.nextMilestone.name, "Scope baseline");
   assert.equal(portalProgram.nextMilestone.dateLabel, "May 08");
   assert.equal(portalProgram.nextMilestone.priority, "High");
-  assert.equal(portalProgram.milestones[2]?.name, "Scope baseline");
-  assert.equal(portalProgram.milestones[2]?.status, "current");
-  assert.equal(portalProgram.milestones.length, 4);
+  assert.equal(portalProgram.milestones[1]?.name, "Scope baseline");
+  assert.equal(portalProgram.milestones[1]?.status, "current");
+  assert.equal(portalProgram.milestones.length, 3);
+  assert.equal(portalProgram.timelineScaleLabel, "Year");
+  assert.equal(portalProgram.timelineWindowLabel, "FY25");
+  assert.deepEqual(portalProgram.roadmapWindowLabels, ["Q1 FY25", "Q2 FY25", "Q3 FY25", "Q4 FY25", "Q1 FY26"]);
+  assert.equal(portalProgram.roadmapCurrentWindowIndex, 1);
 });
 
 test("buildClientPortalPortfolio rolls program posture into portfolio metrics", () => {
@@ -180,6 +214,8 @@ test("buildClientPortalPortfolio rolls program posture into portfolio metrics", 
   assert.equal(portfolio.upcomingMilestones[0]?.title, "Scope baseline");
   assert.equal(portfolio.keyRisks[0]?.trend, "Worse");
   assert.equal(portfolio.roadmap[0]?.segments.length, 5);
+  assert.equal(portfolio.roadmap[0]?.timeframeLabel, "FY25");
+  assert.deepEqual(portfolio.roadmap[0]?.windowLabels, ["Q1 FY25", "Q2 FY25", "Q3 FY25", "Q4 FY25", "Q1 FY26"]);
 });
 
 test("buildClientPortalProgram avoids fabricated client content without saved updates or guidance", () => {

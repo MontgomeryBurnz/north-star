@@ -169,6 +169,36 @@ function buildSeededReview(program, smokeText) {
     progressSinceLastReview: `Client Portal smoke progress ${smokeText}: role updates are feeding the executive view.`,
     stakeholderTemperature: `Client Portal smoke stakeholder signal ${smokeText}: sponsors are aligned but watching risk.`,
     supportNeeded: `Client Portal smoke support ${smokeText}: keep leadership decision path clear.`,
+    timelineScale: "year",
+    timelineYear: "FY99",
+    timelineMonth: "",
+    timelineWeek: "",
+    programMilestones: [
+      {
+        id: `client-portal-smoke-intake-${Date.now()}`,
+        name: `Client Portal smoke intake gate ${smokeText}`,
+        date: "2026-05-01",
+        status: "complete",
+        priority: "Low",
+        note: `Client Portal smoke intake note ${smokeText}.`
+      },
+      {
+        id: `client-portal-smoke-current-${Date.now()}`,
+        name: `Client Portal smoke milestone ${smokeText}`,
+        date: "2026-05-08",
+        status: "current",
+        priority: "High",
+        note: `Client Portal smoke current checkpoint ${smokeText}.`
+      },
+      {
+        id: `client-portal-smoke-value-${Date.now()}`,
+        name: `Client Portal smoke value gate ${smokeText}`,
+        date: "2026-05-22",
+        status: "next",
+        priority: "Medium",
+        note: `Client Portal smoke value checkpoint ${smokeText}.`
+      }
+    ],
     teamRoleUpdates: [
       {
         activeRisks: `Client Portal smoke role risk ${smokeText}.`,
@@ -274,7 +304,9 @@ async function verifyClientPortal(session, program, smokeText) {
             detailText.includes("67%") &&
             detailText.includes("+5%") &&
             detailText.includes("Execute") &&
+            detailText.includes("FY99") &&
             detailText.includes("Client Portal smoke milestone") &&
+            detailText.includes("Client Portal smoke value gate") &&
             detailText.includes(arguments[1]) &&
             detailText.includes("approve milestone protection path")
         };
