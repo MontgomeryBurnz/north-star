@@ -22,6 +22,27 @@ function requireCredential(value, label) {
   throw new Error(`Missing ${label}. Set ${label} before running the logged-in Client Portal smoke test.`);
 }
 
+function formatDateInput(date) {
+  const year = date.getUTCFullYear();
+  const month = String(date.getUTCMonth() + 1).padStart(2, "0");
+  const day = String(date.getUTCDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function buildScheduleWindow() {
+  const today = new Date();
+  const utcToday = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate()));
+  const start = new Date(utcToday);
+  start.setUTCDate(utcToday.getUTCDate() - 1);
+  const finish = new Date(utcToday);
+  finish.setUTCDate(utcToday.getUTCDate() + 1);
+  return {
+    expectedPercent: 50,
+    finishDate: formatDateInput(finish),
+    startDate: formatDateInput(start)
+  };
+}
+
 async function authenticate(session) {
   const email = requireCredential(testUserEmail, "NORTHSTAR_TEST_USER_EMAIL");
   const password = requireCredential(testUserPassword, "NORTHSTAR_TEST_USER_PASSWORD");
@@ -131,6 +152,7 @@ async function cleanupStaleClientPortalUpdates(session, program) {
 function buildSeededReview(program, smokeText) {
   const primaryRole = program.intake.teamRoles?.[0] ?? "Delivery Lead";
   const now = new Date().toISOString();
+  const schedule = buildScheduleWindow();
 
   return {
     activeRisks: `Client Portal smoke top risk ${smokeText}: dependency pressure requires executive visibility.`,
@@ -164,7 +186,9 @@ function buildSeededReview(program, smokeText) {
     nextMilestonePriority: "High",
     originalNorthStar: program.intake.vision || `Client Portal smoke north star ${smokeText}.`,
     pmo: "Client Portal Smoke PMO",
-    programCompletionPercent: "67",
+    programCompletionPercent: "",
+    programStartDate: schedule.startDate,
+    programTargetFinishDate: schedule.finishDate,
     programLead: "Client Portal Smoke Lead",
     programName: program.intake.programName,
     programSynthesisNote: `Client Portal smoke synthesis ${smokeText}: program signal was generated from a saved update.`,
@@ -258,6 +282,7 @@ async function seedProgramUpdate(session, program, smokeText) {
 
 async function verifyClientPortal(session, program, smokeText) {
   const primaryRole = program.intake.teamRoles?.[0] ?? "Delivery Lead";
+  const expectedProgramPercent = `${buildScheduleWindow().expectedPercent}%`;
 
   await session.navigate(`${baseUrl}/client?smoke=client-portal-seeded-update`);
   await session.waitFor("Client Portal portfolio loaded", async () => {
@@ -319,13 +344,14 @@ async function verifyClientPortal(session, program, smokeText) {
             Boolean(workstreamCard) &&
             currentRoadmapSegmentText.includes("Execute") &&
             markerPosition === "50" &&
-            cardText.includes("67%") &&
+            cardText.includes(arguments[3]) &&
             cardText.includes("Client Portal smoke milestone") &&
             detailText.includes("Client Portal Smoke Sponsor") &&
             detailText.includes("Client Portal Smoke Lead") &&
             detailText.includes("Client Portal Smoke PMO") &&
-            detailText.includes("67%") &&
+            detailText.includes(arguments[3]) &&
             detailText.includes("+5%") &&
+            detailText.includes("Schedule") &&
             detailText.includes("Execute") &&
             detailText.includes("FY99") &&
             detailText.includes("Client Portal smoke milestone") &&
@@ -337,7 +363,7 @@ async function verifyClientPortal(session, program, smokeText) {
             workstreamText.includes("May 01 -> May 08")
         };
       `,
-      [program.id, smokeText, primaryRole]
+      [program.id, smokeText, primaryRole, expectedProgramPercent]
     );
 
     return state.ok ? state : false;

@@ -168,9 +168,13 @@ export function ActiveProgramStateCard({
               </p>
             </div>
             <div className="min-w-0">
-              <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-zinc-500">Complete</p>
+              <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-zinc-500">Schedule</p>
               <p className="mt-2 truncate text-sm text-zinc-300">
-                {review.programCompletionPercent ? `${review.programCompletionPercent.replace(/%$/, "")}%` : "Not set"}
+                {review.programStartDate && review.programTargetFinishDate
+                  ? `${review.programStartDate} -> ${review.programTargetFinishDate}`
+                  : review.programCompletionPercent
+                    ? `${review.programCompletionPercent.replace(/%$/, "")}% manual`
+                    : "Not set"}
               </p>
             </div>
             <div className="min-w-0">
@@ -274,7 +278,29 @@ export function ActiveProgramStateCard({
                   </label>
 
                   <label className="grid gap-2">
-                    <span className="text-xs font-medium uppercase tracking-[0.18em] text-zinc-300">Program % complete</span>
+                    <span className="text-xs font-medium uppercase tracking-[0.18em] text-zinc-300">Program start</span>
+                    <input
+                      data-active-program-start-date
+                      type="date"
+                      value={review.programStartDate ?? ""}
+                      onChange={(event) => onFieldChange("programStartDate", event.target.value)}
+                      className="min-h-11 rounded-md border border-white/10 bg-zinc-950 px-3 py-3 text-sm text-zinc-100 outline-none transition-colors focus:border-cyan-300/50"
+                    />
+                  </label>
+
+                  <label className="grid gap-2">
+                    <span className="text-xs font-medium uppercase tracking-[0.18em] text-zinc-300">Expected finish</span>
+                    <input
+                      data-active-program-target-finish-date
+                      type="date"
+                      value={review.programTargetFinishDate ?? ""}
+                      onChange={(event) => onFieldChange("programTargetFinishDate", event.target.value)}
+                      className="min-h-11 rounded-md border border-white/10 bg-zinc-950 px-3 py-3 text-sm text-zinc-100 outline-none transition-colors focus:border-cyan-300/50"
+                    />
+                  </label>
+
+                  <label className="grid gap-2">
+                    <span className="text-xs font-medium uppercase tracking-[0.18em] text-zinc-300">Manual % override</span>
                     <input
                       data-active-program-completion
                       type="number"
@@ -282,9 +308,10 @@ export function ActiveProgramStateCard({
                       max="100"
                       value={review.programCompletionPercent ?? ""}
                       onChange={(event) => onFieldChange("programCompletionPercent", event.target.value)}
-                      placeholder="78"
+                      placeholder="Optional"
                       className="min-h-11 rounded-md border border-white/10 bg-zinc-950 px-3 py-3 text-sm text-zinc-100 outline-none transition-colors placeholder:text-zinc-300 focus:border-cyan-300/50"
                     />
+                    <span className="text-xs leading-5 text-zinc-500">Used only when program dates are not set.</span>
                   </label>
 
                   <label className="grid gap-2">

@@ -57,6 +57,8 @@ export type ClientPortalProgram = {
   leadershipSignal: string;
   assignedRoles: string[];
   metrics: {
+    completionBasis: string;
+    completionScheduleLabel: string;
     decisions: number;
     risks: number;
     blockedRoles: number;
@@ -175,6 +177,7 @@ export type ClientPortalPortfolio = {
 export type ClientPortalProgramInput = {
   assignedRoles?: string[];
   clientDecisions?: ClientDecisionRequest[];
+  generatedAt?: string;
   latestLeadership?: LeadershipReviewRecord | null;
   latestPlan?: GuidedPlan | null;
   latestUpdate?: StoredProgramUpdate | null;
@@ -281,9 +284,26 @@ function statusSignal(posture: ClientProgramPosture): ClientProgramStatusSignal 
 }
 
 function parsePercent(value: string | undefined | null) {
-  const parsed = Number(clean(value).replace(/%$/, ""));
+  const normalized = clean(value).replace(/%$/, "");
+  if (!normalized) return null;
+  const parsed = Number(normalized);
   if (!Number.isFinite(parsed)) return null;
   return Math.max(0, Math.min(100, Math.round(parsed)));
+}
+
+function parseClientDate(value: string | undefined | null) {
+  if (!value) return null;
+  const dateOnlyMatch = value.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  const date = dateOnlyMatch
+    ? new Date(Date.UTC(Number(dateOnlyMatch[1]), Number(dateOnlyMatch[2]) - 1, Number(dateOnlyMatch[3])))
+    : new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+  date.setUTCHours(0, 0, 0, 0);
+  return date;
+}
+
+function formatClientDate(date: Date) {
+  return new Intl.DateTimeFormat("en-US", { day: "2-digit", month: "short", timeZone: "UTC" }).format(date);
 }
 
 function priorityFromPosture(posture: ClientProgramPosture): ClientPortalPriority {
@@ -516,9 +536,11 @@ function buildTimeline(currentPhase: string) {
 }
 
 function getCurrentPhaseIndex(currentPhase: string) {
+  if (!clean(currentPhase) || currentPhase === "Phase not set") return -1;
   const phaseText = currentPhase.toLowerCase();
   const matchedIndex = timelinePhases.findIndex((phase) => phaseText.includes(phase.toLowerCase()));
-  return matchedIndex >= 0 ? matchedIndex : -1;
+  if (matchedIndex >= 0) return matchedIndex;
+  return Math.min(timelinePhases.length - 1, roadmapPhaseIndex(currentPhase));
 }
 
 function roadmapPhaseIndex(currentPhase: string) {
@@ -531,15 +553,81 @@ function roadmapPhaseIndex(currentPhase: string) {
   return 0;
 }
 
-function getCompletionMetrics(currentPhase: string, posture: ClientProgramPosture) {
+function getScheduleCompletionPercent(input: {
+  generatedAt?: string;
+  programStartDate?: string | null;
+  programTargetFinishDate?: string | null;
+  updateTimestamp?: string;
+}) {
+  const startDate = parseClientDate(input.programStartDate);
+  const finishDate = parseClientDate(input.programTargetFinishDate);
+  if (!startDate || !finishDate || finishDate.getTime() <= startDate.getTime()) return null;
+
+  const basisDate = parseClientDate(input.generatedAt) ?? parseClientDate(input.updateTimestamp) ?? new Date();
+  if (basisDate.getTime() <= startDate.getTime()) {
+    return {
+      basis: "Schedule",
+      percent: 0,
+      scheduleLabel: `${formatClientDate(startDate)} -> ${formatClientDate(finishDate)}`
+    };
+  }
+  if (basisDate.getTime() >= finishDate.getTime()) {
+    return {
+      basis: "Schedule",
+      percent: 100,
+      scheduleLabel: `${formatClientDate(startDate)} -> ${formatClientDate(finishDate)}`
+    };
+  }
+
+  const elapsed = basisDate.getTime() - startDate.getTime();
+  const duration = finishDate.getTime() - startDate.getTime();
+  return {
+    basis: "Schedule",
+    percent: Math.max(1, Math.min(99, Math.round((elapsed / duration) * 100))),
+    scheduleLabel: `${formatClientDate(startDate)} -> ${formatClientDate(finishDate)}`
+  };
+}
+
+function getCompletionMetrics(input: {
+  currentPhase: string;
+  generatedAt?: string;
+  manualCompletionPercent?: string | null;
+  posture: ClientProgramPosture;
+  programStartDate?: string | null;
+  programTargetFinishDate?: string | null;
+  updateTimestamp?: string;
+}) {
+  const { currentPhase, posture } = input;
   const phaseIndex = getCurrentPhaseIndex(currentPhase);
   const phaseCompletionPercent = phaseIndex >= 0 ? Math.round(((phaseIndex + 1) / timelinePhases.length) * 100) : 0;
+  const scheduleCompletion = getScheduleCompletionPercent(input);
+  if (scheduleCompletion) {
+    return {
+      completionBasis: scheduleCompletion.basis,
+      completionScheduleLabel: scheduleCompletion.scheduleLabel,
+      phaseCompletionPercent,
+      programCompletionPercent: scheduleCompletion.percent
+    };
+  }
+
+  const manualCompletionPercent = parsePercent(input.manualCompletionPercent);
+  if (manualCompletionPercent !== null) {
+    return {
+      completionBasis: "Manual override",
+      completionScheduleLabel: "Program dates not used",
+      phaseCompletionPercent,
+      programCompletionPercent: manualCompletionPercent
+    };
+  }
+
   const postureAdjustment = posture === "on-track" ? 0 : posture === "watch" ? -4 : posture === "at-risk" ? -9 : -15;
   const programCompletionPercent = phaseCompletionPercent
     ? Math.max(5, Math.min(98, phaseCompletionPercent + postureAdjustment))
     : 0;
 
   return {
+    completionBasis: phaseCompletionPercent ? "Phase estimate" : "Not set",
+    completionScheduleLabel: "Add start and target finish dates",
     phaseCompletionPercent,
     programCompletionPercent
   };
@@ -817,21 +905,6 @@ function buildLeadershipDecisions(input: {
   return rows;
 }
 
-function parseClientDate(value: string | undefined | null) {
-  if (!value) return null;
-  const dateOnlyMatch = value.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-  const date = dateOnlyMatch
-    ? new Date(Number(dateOnlyMatch[1]), Number(dateOnlyMatch[2]) - 1, Number(dateOnlyMatch[3]))
-    : new Date(value);
-  if (Number.isNaN(date.getTime())) return null;
-  date.setHours(0, 0, 0, 0);
-  return date;
-}
-
-function formatClientDate(date: Date) {
-  return new Intl.DateTimeFormat("en-US", { day: "2-digit", month: "short" }).format(date);
-}
-
 function deliveryTaskDateProgress(item: DeliveryBoardItem, basisDate: Date) {
   const startDate = parseClientDate(item.startDate);
   const finishDate = parseClientDate(item.dueDate);
@@ -1054,11 +1127,16 @@ export function buildClientPortalProgram(input: ClientPortalProgramInput): Clien
     riskText: risks.join(" "),
     roleUpdates
   });
-  const computedCompletion = getCompletionMetrics(currentPhase, posture);
-  const completion = {
-    ...computedCompletion,
-    programCompletionPercent: parsePercent(review?.programCompletionPercent) ?? 0
-  };
+  const updateTimestamp = input.latestUpdate?.updatedAt ?? input.latestUpdate?.createdAt;
+  const completion = getCompletionMetrics({
+    currentPhase,
+    generatedAt: input.generatedAt,
+    manualCompletionPercent: review?.programCompletionPercent,
+    posture,
+    programStartDate: review?.programStartDate,
+    programTargetFinishDate: review?.programTargetFinishDate,
+    updateTimestamp
+  });
   const domainSummaries = buildDomainSummaries({
     plan: input.latestPlan,
     roleUpdates,
@@ -1127,7 +1205,6 @@ export function buildClientPortalProgram(input: ClientPortalProgramInput): Clien
     recommendedPath,
     review
   });
-  const updateTimestamp = input.latestUpdate?.updatedAt ?? input.latestUpdate?.createdAt;
   const workstreams = buildWorkstreams(domainSummaries, review?.deliveryBoardItems, updateTimestamp);
   const milestones = buildMilestones({
     completion,
@@ -1198,6 +1275,8 @@ export function buildClientPortalProgram(input: ClientPortalProgramInput): Clien
     leadershipSignal,
     assignedRoles: input.assignedRoles ?? [],
     metrics: {
+      completionBasis: completion.completionBasis,
+      completionScheduleLabel: completion.completionScheduleLabel,
       decisions: countSignals(decisions),
       risks: countSignals(risks),
       blockedRoles,
@@ -1316,7 +1395,8 @@ export function buildClientPortalPortfolio(input: {
   generatedAt?: string;
   programs: ClientPortalProgramInput[];
 }): ClientPortalPortfolio {
-  const programs = input.programs.map(buildClientPortalProgram);
+  const generatedAt = input.generatedAt ?? new Date().toISOString();
+  const programs = input.programs.map((programInput) => buildClientPortalProgram({ ...programInput, generatedAt }));
   const totalPrograms = programs.length;
   const onTrack = programs.filter((program) => program.posture === "on-track").length;
   const atRisk = programs.filter((program) => program.posture === "at-risk").length;
@@ -1339,7 +1419,7 @@ export function buildClientPortalPortfolio(input: {
   }, 0);
 
   return {
-    generatedAt: input.generatedAt ?? new Date().toISOString(),
+    generatedAt,
     programs,
     metrics: {
       totalPrograms,

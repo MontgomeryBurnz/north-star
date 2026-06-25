@@ -442,7 +442,9 @@ test("Active Program review is split into state, cockpit, and team signal flows"
   assert.match(stateCardSource, /Profile fields should change only when the program baseline changes/);
   assert.match(stateCardSource, /Client \/ executive update fields/);
   assert.match(stateCardSource, /These fields feed the Client Portal portfolio and program one-pager after save/);
-  assert.match(stateCardSource, /Program % complete/);
+  assert.match(stateCardSource, /Program start/);
+  assert.match(stateCardSource, /Expected finish/);
+  assert.match(stateCardSource, /Manual % override/);
   assert.match(stateCardSource, /Client status note/);
   assert.match(stateCardSource, /const hasSelectedProgram = Boolean\(selectedProgramId\)/);
   assert.doesNotMatch(stateCardSource, /setIsSetupOpen\(!hasSelectedProgram\)/);

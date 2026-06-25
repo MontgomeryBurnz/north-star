@@ -341,6 +341,8 @@ async function populateExecutiveClientPortalFields(session, smokeText) {
         setValue("[data-active-executive-sponsor]", "Smoke Sponsor"),
         setValue("[data-active-program-lead]", "Smoke Program Lead"),
         setValue("[data-active-pmo]", "Smoke PMO"),
+        setValue("[data-active-program-start-date]", "2026-05-01"),
+        setValue("[data-active-program-target-finish-date]", "2026-05-31"),
         setValue("[data-active-program-completion]", "64"),
         setValue("[data-active-completion-delta]", "+4%"),
         setValue("[data-active-next-milestone-priority]", "High"),
@@ -695,6 +697,8 @@ async function saveRoleSignal(session, program, smokeText) {
           update.review.executiveSponsor === "Smoke Sponsor" &&
           update.review.programLead === "Smoke Program Lead" &&
           update.review.pmo === "Smoke PMO" &&
+          update.review.programStartDate === "2026-05-01" &&
+          update.review.programTargetFinishDate === "2026-05-31" &&
           update.review.programCompletionPercent === "64" &&
           update.review.completionDelta === "+4%" &&
           update.review.nextMilestonePriority === "High" &&
@@ -817,11 +821,12 @@ async function verifyClientPortalExecutiveFields(session, program, smokeText) {
             cardFound: Boolean(card),
             detailFound: Boolean(detail),
             cardHasMilestone: cardText.includes("Smoke executive milestone"),
-            cardHasPercent: cardText.includes("64%"),
+            cardHasPercent: cardText.includes("100%"),
             detailHasSponsor: detailText.includes("Smoke Sponsor"),
             detailHasLead: detailText.includes("Smoke Program Lead"),
             detailHasPmo: detailText.includes("Smoke PMO"),
-            detailHasPercent: detailText.includes("64%"),
+            detailHasPercent: detailText.includes("100%"),
+            detailHasScheduleBasis: detailText.includes("Schedule") && detailText.includes("May 01 -> May 31"),
             detailHasDelta: detailText.includes("+4%"),
             detailHasTimeline: detailText.includes("FY99"),
             detailHasMilestone: detailText.includes("Smoke custom timeline milestone"),

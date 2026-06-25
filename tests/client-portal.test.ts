@@ -234,6 +234,54 @@ test("buildClientPortalPortfolio rolls program posture into portfolio metrics", 
   ]);
 });
 
+test("Client Portal completion prefers program schedule over manual percent", () => {
+  const scheduledUpdate: StoredProgramUpdate = {
+    ...update,
+    updatedAt: "2026-04-11T00:00:00.000Z",
+    review: {
+      ...update.review,
+      programCompletionPercent: "99",
+      programStartDate: "2026-04-01",
+      programTargetFinishDate: "2026-04-21"
+    }
+  };
+
+  const portalProgram = buildClientPortalProgram({
+    generatedAt: "2026-04-11T00:00:00.000Z",
+    latestPlan: plan,
+    latestUpdate: scheduledUpdate,
+    program
+  });
+  const portfolio = buildClientPortalPortfolio({
+    generatedAt: "2026-04-11T00:00:00.000Z",
+    programs: [{ latestPlan: plan, latestUpdate: scheduledUpdate, program }]
+  });
+
+  assert.equal(portalProgram.metrics.programCompletionPercent, 50);
+  assert.equal(portalProgram.metrics.completionBasis, "Schedule");
+  assert.equal(portalProgram.metrics.completionScheduleLabel, "Apr 01 -> Apr 21");
+  assert.equal(portfolio.metrics.averageCompletionPercent, 50);
+});
+
+test("Client Portal completion falls back to phase estimate when schedule and manual percent are missing", () => {
+  const phaseOnlyUpdate: StoredProgramUpdate = {
+    ...update,
+    review: {
+      ...update.review,
+      currentPhase: "Build update",
+      programCompletionPercent: "",
+      programStartDate: "",
+      programTargetFinishDate: ""
+    }
+  };
+
+  const portalProgram = buildClientPortalProgram({ latestPlan: plan, latestUpdate: phaseOnlyUpdate, program });
+
+  assert.equal(portalProgram.metrics.completionBasis, "Phase estimate");
+  assert.equal(portalProgram.metrics.programCompletionPercent, 66);
+  assert.equal(portalProgram.metrics.completionScheduleLabel, "Add start and target finish dates");
+});
+
 test("Client Portal year roadmap marker follows the saved phase instead of stale completion percent", () => {
   const buildUpdate: StoredProgramUpdate = {
     ...update,

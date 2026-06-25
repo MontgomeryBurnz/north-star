@@ -135,11 +135,12 @@ function PortfolioLogoutForm() {
   );
 }
 
-function MetricTile({ label, value }: { label: string; value: string }) {
+function MetricTile({ helper, label, value }: { helper?: string; label: string; value: string }) {
   return (
     <div className="min-h-32 rounded-lg border border-white/10 bg-zinc-950/80 p-6 shadow-glow">
       <p className="text-xs font-medium uppercase tracking-[0.16em] text-zinc-500">{label}</p>
       <p className="mt-8 text-4xl font-semibold tracking-normal text-zinc-50">{value}</p>
+      {helper ? <p className="mt-3 text-xs font-medium leading-5 text-zinc-500">{helper}</p> : null}
     </div>
   );
 }
@@ -222,6 +223,9 @@ function ProgramGridRow({
           <span className="mt-2 block text-2xl font-semibold text-zinc-50">
             {program.metrics.programCompletionPercent}%{" "}
             {program.completionDelta ? <span className={styles.text}>{program.completionDelta}</span> : null}
+          </span>
+          <span className="mt-1 block text-xs font-medium text-zinc-500">
+            {program.metrics.completionBasis} · {program.metrics.completionScheduleLabel}
           </span>
         </span>
       </div>
@@ -426,7 +430,12 @@ function ProgramHero({ program }: { program: ClientPortalProgram }) {
         </div>
         <div className="grid gap-4 sm:grid-cols-3 xl:grid-cols-3">
           <HeroMetric label="Overall Status" value={program.statusSignal} dot={styles.heroDot} />
-          <HeroMetric label="% Complete" value={`${program.metrics.programCompletionPercent}%`} delta={program.completionDelta} />
+          <HeroMetric
+            label="% Complete"
+            value={`${program.metrics.programCompletionPercent}%`}
+            delta={program.completionDelta}
+            helper={`${program.metrics.completionBasis} · ${program.metrics.completionScheduleLabel}`}
+          />
           <HeroMetric label="Current Phase" value={program.phase} />
         </div>
       </div>
@@ -446,7 +455,7 @@ function ProgramHero({ program }: { program: ClientPortalProgram }) {
   );
 }
 
-function HeroMetric({ dot, label, value, delta }: { delta?: string; dot?: string; label: string; value: string }) {
+function HeroMetric({ dot, helper, label, value, delta }: { delta?: string; dot?: string; helper?: string; label: string; value: string }) {
   return (
     <div>
       <p className="text-sm font-medium uppercase tracking-[0.12em] text-zinc-500">{label}</p>
@@ -455,6 +464,7 @@ function HeroMetric({ dot, label, value, delta }: { delta?: string; dot?: string
         {value}
         {delta ? <span className="text-lg text-emerald-200">{delta}</span> : null}
       </p>
+      {helper ? <p className="mt-1 text-xs font-medium leading-5 text-zinc-500">{helper}</p> : null}
     </div>
   );
 }
@@ -876,7 +886,7 @@ export function ClientPortalConsole({
           <MetricTile label="Total Programs" value={String(visibleMetrics.totalPrograms)} />
           <MetricTile label="At Risk" value={String(visibleMetrics.atRisk)} />
           <MetricTile label="Delayed" value={String(visibleMetrics.delayed)} />
-          <MetricTile label="Avg % Complete" value={`${visibleMetrics.averageCompletionPercent}%`} />
+          <MetricTile label="Avg % Complete" value={`${visibleMetrics.averageCompletionPercent}%`} helper="Averaged from each program completion basis." />
           <MetricTile label="Decisions Pending" value={String(visibleMetrics.decisions)} />
         </section>
 

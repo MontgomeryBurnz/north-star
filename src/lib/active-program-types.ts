@@ -59,6 +59,8 @@ export type ActiveProgramReview = {
   nextMilestoneName?: string;
   nextMilestoneDate?: string;
   nextMilestonePriority?: string;
+  programStartDate?: string;
+  programTargetFinishDate?: string;
   clientStatusNote?: string;
   progressSinceLastReview: string;
   planChanges: string;
