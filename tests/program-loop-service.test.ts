@@ -73,6 +73,39 @@ test("saveActiveProgramReview normalizes input and regenerates the plan when the
   assert.equal(createGuidedPlanCalls, 1);
 });
 
+test("saveActiveProgramReview keeps the update saved when guided plan refresh fails", async () => {
+  const result = await saveActiveProgramReview(
+    {
+      async createProgramUpdate(programId, review) {
+        return {
+          id: "update-1",
+          programId,
+          programName: review.programName,
+          createdAt: "2026-04-28T10:00:00.000Z",
+          review
+        } satisfies ActiveProgramUpdate;
+      },
+      async getLatestGuidedPlan() {
+        return buildPlan(["older-source"]);
+      },
+      async createGuidedPlan() {
+        throw new Error("OpenAI refresh unavailable");
+      }
+    },
+    "program-1",
+    {
+      programName: "Compass Compliance Hub Alpha"
+    }
+  );
+
+  assert.equal(result.ok, true);
+  if (!result.ok) return;
+  assert.equal(result.record.id, "update-1");
+  assert.equal(result.planRefresh?.status, "failed");
+  assert.equal(result.planRefresh?.error, "OpenAI refresh unavailable");
+  assert.deepEqual(result.plan?.sourceRecordIds, ["older-source"]);
+});
+
 test("saveLeadershipReview reuses the latest guided plan when the new feedback is already present", async () => {
   let createGuidedPlanCalls = 0;
 

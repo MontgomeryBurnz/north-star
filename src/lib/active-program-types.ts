@@ -95,3 +95,10 @@ export type ActiveProgramUpdate = {
 export type StoredProgramUpdate = ActiveProgramUpdate & {
   updatedAt?: string;
 };
+
+export type ActiveProgramSaveConfirmation = {
+  detail?: string;
+  savedAt?: string;
+  scope: string;
+  status: "error" | "saved" | "saving" | "warning";
+} | null;

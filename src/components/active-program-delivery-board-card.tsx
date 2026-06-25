@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState, type ChangeEvent, type DragEvent } from "react";
 import { CalendarClock, FileUp, KanbanSquare, Paperclip, Plus, Save, Trash2, X } from "lucide-react";
-import type { DeliveryBoardItem, DeliveryBoardStatus, TeamRoleUpdate } from "@/lib/active-program-types";
+import type { ActiveProgramSaveConfirmation, DeliveryBoardItem, DeliveryBoardStatus, TeamRoleUpdate } from "@/lib/active-program-types";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
@@ -30,11 +30,7 @@ type ActiveProgramDeliveryBoardCardProps = {
   teamRoleUpdates: TeamRoleUpdate[];
   assignedOwnersByRole: Record<string, string[]>;
   saveState: "idle" | "saving" | "saved" | "error";
-  saveConfirmation: {
-    savedAt?: string;
-    scope: string;
-    status: "saving" | "saved" | "error";
-  } | null;
+  saveConfirmation: ActiveProgramSaveConfirmation;
   formatFileSize: (size: number) => string;
   onAddDeliveryBoardItem: (input: DeliveryBoardDraft) => void;
   onUpdateDeliveryBoardItem: (itemId: string, patch: Partial<Omit<DeliveryBoardItem, "attachments" | "createdAt" | "id">>) => void;

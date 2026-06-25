@@ -2,7 +2,7 @@
 
 import { useMemo, useState, type ChangeEvent } from "react";
 import { FileUp, KanbanSquare, Save, Users2 } from "lucide-react";
-import type { ActiveProgramUpdate, DeliveryBoardItem, TeamRoleUpdate } from "@/lib/active-program-types";
+import type { ActiveProgramSaveConfirmation, ActiveProgramUpdate, DeliveryBoardItem, TeamRoleUpdate } from "@/lib/active-program-types";
 import type { DeliveryLeadershipSignal } from "@/lib/leadership-feedback-types";
 import type { ProgramMeetingInput } from "@/lib/program-intelligence-types";
 import type { ProgramArtifact } from "@/lib/program-intake-types";
@@ -14,11 +14,7 @@ import { ActiveProgramTeamUpdatesCard } from "@/components/active-program-team-u
 import { Button } from "@/components/ui/button";
 import type { emptyMeetingInputDraft } from "@/components/active-program-review-model";
 
-type SaveConfirmation = {
-  savedAt?: string;
-  scope: string;
-  status: "saving" | "saved" | "error";
-} | null;
+type SaveConfirmation = ActiveProgramSaveConfirmation;
 
 type ActiveProgramTeamSignalFlowProps = {
   teamRoleUpdates: TeamRoleUpdate[];

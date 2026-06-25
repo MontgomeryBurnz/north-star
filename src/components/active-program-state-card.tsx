@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState, type DragEvent } from "react";
 import { Activity, ArrowUpRight, CalendarClock, ChevronDown, Compass, Plus, SlidersHorizontal, Trash2 } from "lucide-react";
-import type { ActiveProgramReview, ProgramTimelineMilestone } from "@/lib/active-program-types";
+import type { ActiveProgramReview, ActiveProgramSaveConfirmation, ProgramTimelineMilestone } from "@/lib/active-program-types";
 import { ProgramSlicer } from "@/components/program-slicer";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
@@ -13,11 +13,7 @@ type ProgramOption = {
 };
 
 type ActiveProgramScalarField = keyof Omit<ActiveProgramReview, "artifacts" | "deliveryBoardItems" | "programMilestones" | "teamRoleUpdates">;
-type SaveConfirmation = {
-  savedAt?: string;
-  scope: string;
-  status: "saving" | "saved" | "error";
-} | null;
+type SaveConfirmation = ActiveProgramSaveConfirmation;
 
 type ActiveProgramStateCardProps = {
   selectedProgramId: string;
@@ -595,6 +591,8 @@ export function ActiveProgramStateCard({
                     <p data-active-program-timeline-save-confirmation className="w-full text-sm font-medium text-emerald-100">
                       {saveConfirmation?.status === "saved"
                         ? "Timeline saved and Client Portal refresh started."
+                        : saveConfirmation?.status === "warning"
+                          ? `Timeline saved. ${saveConfirmation.detail ?? "Guidance refresh needs attention."}`
                         : saveConfirmation?.status === "error"
                           ? "Timeline save failed. Try again."
                           : "Saving program timeline..."}
@@ -665,6 +663,8 @@ export function ActiveProgramStateCard({
                 <p data-active-program-profile-save-confirmation className="w-full text-sm font-medium text-emerald-100">
                   {saveConfirmation?.status === "saved"
                     ? "Program profile saved and guidance refresh started."
+                    : saveConfirmation?.status === "warning"
+                      ? `Program profile saved. ${saveConfirmation.detail ?? "Guidance refresh needs attention."}`
                     : saveConfirmation?.status === "error"
                       ? "Profile save failed. Try again."
                       : "Saving program profile..."}

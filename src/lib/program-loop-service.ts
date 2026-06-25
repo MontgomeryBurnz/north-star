@@ -5,7 +5,12 @@ import type { LeadershipReviewInput, LeadershipReviewRecord } from "@/lib/leader
 
 type MutationResult<TRecord> =
   | { ok: false; error: string }
-  | { ok: true; record: TRecord; plan?: GuidedPlan | null };
+  | { ok: true; record: TRecord; plan?: GuidedPlan | null; planRefresh?: PlanRefreshResult };
+
+export type PlanRefreshResult = {
+  error?: string;
+  status: "current" | "failed" | "refreshed";
+};
 
 type ProgramLoopStore = {
   createProgramUpdate: (programId: string, review: ActiveProgramReview) => Promise<ActiveProgramUpdate>;
@@ -148,6 +153,65 @@ function shouldCreateGuidedPlan(latestPlan: GuidedPlan | null, sourceRecordId: s
   return !latestPlan?.sourceRecordIds.includes(sourceRecordId);
 }
 
+function getErrorMessage(error: unknown) {
+  return error instanceof Error ? error.message : "Guided plan refresh failed.";
+}
+
+async function refreshGuidedPlanAfterMutation(
+  store: Pick<ProgramLoopStore, "getLatestGuidedPlan" | "createGuidedPlan">,
+  programId: string,
+  sourceRecordId: string
+): Promise<{ plan: GuidedPlan | null; planRefresh: PlanRefreshResult }> {
+  let latestPlan: GuidedPlan | null = null;
+
+  try {
+    latestPlan = await store.getLatestGuidedPlan(programId);
+  } catch (error) {
+    return {
+      plan: null,
+      planRefresh: {
+        error: getErrorMessage(error),
+        status: "failed"
+      }
+    };
+  }
+
+  if (!shouldCreateGuidedPlan(latestPlan, sourceRecordId)) {
+    return {
+      plan: latestPlan,
+      planRefresh: { status: "current" }
+    };
+  }
+
+  try {
+    const plan = await store.createGuidedPlan(programId);
+    if (!plan) {
+      return {
+        plan: null,
+        planRefresh: {
+          error: "Guided plan was not created.",
+          status: "failed"
+        }
+      };
+    }
+
+    return {
+      plan,
+      planRefresh: {
+        status: plan.sourceRecordIds.includes(sourceRecordId) ? "refreshed" : "current"
+      }
+    };
+  } catch (error) {
+    return {
+      plan: latestPlan,
+      planRefresh: {
+        error: getErrorMessage(error),
+        status: "failed"
+      }
+    };
+  }
+}
+
 export async function saveActiveProgramReview(
   store: Pick<ProgramLoopStore, "createProgramUpdate" | "getLatestGuidedPlan" | "createGuidedPlan">,
   programId: string,
@@ -157,10 +221,9 @@ export async function saveActiveProgramReview(
   if (!normalized.ok) return normalized;
 
   const record = await store.createProgramUpdate(programId, normalized.record);
-  const latestPlan = await store.getLatestGuidedPlan(programId);
-  const plan = shouldCreateGuidedPlan(latestPlan, record.id) ? await store.createGuidedPlan(programId) : latestPlan;
+  const { plan, planRefresh } = await refreshGuidedPlanAfterMutation(store, programId, record.id);
 
-  return { ok: true, record, plan };
+  return { ok: true, record, plan, planRefresh };
 }
 
 export async function saveLeadershipReview(
@@ -172,10 +235,9 @@ export async function saveLeadershipReview(
   if (!normalized.ok) return normalized;
 
   const record = await store.createLeadershipFeedback(programId, normalized.record);
-  const latestPlan = await store.getLatestGuidedPlan(programId);
-  const plan = shouldCreateGuidedPlan(latestPlan, record.id) ? await store.createGuidedPlan(programId) : latestPlan;
+  const { plan, planRefresh } = await refreshGuidedPlanAfterMutation(store, programId, record.id);
 
-  return { ok: true, record, plan };
+  return { ok: true, record, plan, planRefresh };
 }
 
 export async function createGovernanceFlag(

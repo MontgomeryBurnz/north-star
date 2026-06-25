@@ -2,6 +2,7 @@
 
 import { ChangeEvent, FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import type {
+  ActiveProgramSaveConfirmation,
   ActiveProgramReview,
   ActiveProgramUpdate,
   DeliveryBoardItem,
@@ -44,11 +45,16 @@ import {
   type ExistingProgramOption
 } from "@/components/active-program-review-model";
 
-type SaveConfirmation = {
-  savedAt?: string;
-  scope: string;
-  status: "saving" | "saved" | "error";
-} | null;
+type SaveConfirmation = ActiveProgramSaveConfirmation;
+
+type ProgramUpdateSaveResponse = {
+  auditErrors?: string[];
+  planRefresh?: {
+    error?: string;
+    status: "current" | "failed" | "refreshed";
+  };
+  update: ActiveProgramUpdate;
+};
 
 type ActiveProgramScalarField = keyof Omit<
   ActiveProgramReview,
@@ -824,13 +830,20 @@ export function useActiveProgramReviewController() {
         });
 
         if (!response.ok) throw new Error("Review save failed.");
+        const payload = (await response.json()) as ProgramUpdateSaveResponse;
+        const guidanceRefreshFailed = payload.planRefresh?.status === "failed";
         setSaveState("saved");
         const savedTime = timestamp.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
         setSavedAt(savedTime);
         setSaveConfirmation({
+          detail: guidanceRefreshFailed
+            ? (payload.planRefresh?.error ?? "Guidance refresh did not complete.")
+            : payload.auditErrors?.length
+              ? "Saved, but audit logging needs attention."
+              : undefined,
           savedAt: savedTime,
           scope: saveScope,
-          status: "saved"
+          status: guidanceRefreshFailed || payload.auditErrors?.length ? "warning" : "saved"
         });
         setSavedOwnershipSignature(buildFallbackOwnershipSignature(nextReview.teamRoleUpdates, activeTeamRoles, assignedOwnersByRole));
         setOwnershipSavedAt(savedTime);

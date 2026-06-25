@@ -233,7 +233,7 @@ async function captureMobileRoleFocusScreenshot(session, program) {
       `
         const roleCards = Array.from(document.querySelectorAll("[data-active-role-signal-card]"));
         const focusedCard = roleCards.find((card) => card.getAttribute("data-active-role-signal-card") === arguments[0]);
-        return Boolean(focusedCard) && document.body.textContent.includes("Primary role lane");
+        return Boolean(focusedCard) && focusedCard.textContent.includes("Focus role");
       `,
       [selectedFocus.roleKey]
     );
@@ -274,7 +274,7 @@ async function captureMobileRoleFocusScreenshot(session, program) {
           width: window.innerWidth,
           scrollY: window.scrollY,
           documentScrollTop: (document.scrollingElement ?? document.documentElement).scrollTop,
-          hasPrimaryLabel: document.body.textContent.includes("Primary role lane")
+          hasPrimaryLabel: focusedCard?.textContent.includes("Focus role") ?? false
         };
       `,
       [selectedFocus.roleKey]

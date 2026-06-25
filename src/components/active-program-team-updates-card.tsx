@@ -13,7 +13,7 @@ import {
   Trash2,
   Users2
 } from "lucide-react";
-import type { TeamRoleUpdate } from "@/lib/active-program-types";
+import type { ActiveProgramSaveConfirmation, TeamRoleUpdate } from "@/lib/active-program-types";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
@@ -75,11 +75,7 @@ type ActiveProgramTeamUpdatesCardProps = {
     total: number;
   };
   saveState: "idle" | "saving" | "saved" | "error";
-  saveConfirmation: {
-    savedAt?: string;
-    scope: string;
-    status: "saving" | "saved" | "error";
-  } | null;
+  saveConfirmation: ActiveProgramSaveConfirmation;
   defaultFocusRole?: string | null;
   currentUserId?: string | null;
   selectedProgramId?: string | null;
@@ -610,6 +606,18 @@ export function ActiveProgramTeamUpdatesCard({
                   {saveConfirmation.scope} was saved and guidance refreshed
                   {saveConfirmation.savedAt ? ` at ${saveConfirmation.savedAt}` : ""}.
                 </p>
+              </div>
+            ) : saveConfirmation?.status === "warning" ? (
+              <div data-active-program-save-confirmation className="rounded-md border border-amber-300/25 bg-amber-300/[0.065] p-3">
+                <p className="flex items-center gap-2 text-sm font-medium text-amber-100">
+                  <CheckCircle2 className="h-4 w-4" />
+                  Update saved
+                </p>
+                <p className="mt-1 text-xs leading-5 text-zinc-300">
+                  {saveConfirmation.scope} was saved
+                  {saveConfirmation.savedAt ? ` at ${saveConfirmation.savedAt}` : ""}. Guidance refresh needs attention.
+                </p>
+                {saveConfirmation.detail ? <p className="mt-1 text-xs leading-5 text-amber-100">{saveConfirmation.detail}</p> : null}
               </div>
             ) : saveConfirmation?.status === "error" ? (
               <div data-active-program-save-confirmation className="rounded-md border border-amber-300/25 bg-amber-300/[0.065] p-3">

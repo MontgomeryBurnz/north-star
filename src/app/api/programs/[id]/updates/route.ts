@@ -12,6 +12,10 @@ import {
 import type { ActiveProgramReview } from "@/lib/active-program-types";
 import { saveActiveProgramReview } from "@/lib/program-loop-service";
 
+function getErrorMessage(error: unknown) {
+  return error instanceof Error ? error.message : "Audit event failed.";
+}
+
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const { response } = await requireProgramRouteAccess(request, id);
@@ -41,41 +45,61 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     return NextResponse.json({ error: result.error }, { status: 400 });
   }
 
-  await createAuditEvent({
-    actor: buildSystemAuditActor(),
-    entityId: result.record.id,
-    entityLabel: result.record.programName,
-    entityType: "program-update",
-    eventType: "program.update",
-    metadata: {
-      guidedPlanId: result.plan?.id,
-      roleUpdateCount: result.record.review.teamRoleUpdates?.length ?? 0
-    },
-    programId: id,
-    programName: result.record.programName,
-    summary: `${result.record.programName} active update saved.`,
-    surface: "Program Hub"
-  });
+  const auditErrors: string[] = [];
 
-  if (result.plan?.sourceRecordIds.includes(result.record.id)) {
+  try {
     await createAuditEvent({
       actor: buildSystemAuditActor(),
-      entityId: result.plan.id,
-      entityLabel: result.plan.programName,
-      entityType: "guided-plan",
-      eventType: "guidance.refresh",
+      entityId: result.record.id,
+      entityLabel: result.record.programName,
+      entityType: "program-update",
+      eventType: "program.update",
       metadata: {
-        trigger: "program-update",
-        sourceRecordId: result.record.id
+        guidedPlanId: result.plan?.id,
+        guidanceRefreshStatus: result.planRefresh?.status ?? "unknown",
+        roleUpdateCount: result.record.review.teamRoleUpdates?.length ?? 0
       },
       programId: id,
-      programName: result.plan.programName,
-      summary: `${result.plan.programName} guidance refreshed from active update.`,
-      surface: "Guided Plans"
+      programName: result.record.programName,
+      summary: `${result.record.programName} active update saved.`,
+      surface: "Program Hub"
     });
+  } catch (error) {
+    const message = getErrorMessage(error);
+    auditErrors.push(message);
+    console.error("Active Program update audit failed", { error: message, programId: id, updateId: result.record.id });
   }
 
-  return NextResponse.json({ update: result.record, plan: result.plan });
+  if (result.planRefresh?.status === "refreshed" && result.plan?.sourceRecordIds.includes(result.record.id)) {
+    try {
+      await createAuditEvent({
+        actor: buildSystemAuditActor(),
+        entityId: result.plan.id,
+        entityLabel: result.plan.programName,
+        entityType: "guided-plan",
+        eventType: "guidance.refresh",
+        metadata: {
+          trigger: "program-update",
+          sourceRecordId: result.record.id
+        },
+        programId: id,
+        programName: result.plan.programName,
+        summary: `${result.plan.programName} guidance refreshed from active update.`,
+        surface: "Guided Plans"
+      });
+    } catch (error) {
+      const message = getErrorMessage(error);
+      auditErrors.push(message);
+      console.error("Active Program guidance audit failed", { error: message, programId: id, planId: result.plan.id });
+    }
+  }
+
+  return NextResponse.json({
+    auditErrors,
+    plan: result.plan,
+    planRefresh: result.planRefresh,
+    update: result.record
+  });
 }
 
 export async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {

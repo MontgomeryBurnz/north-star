@@ -1,6 +1,6 @@
 "use client";
 
-import type { ActiveProgramReview, ProgramTimelineMilestone } from "@/lib/active-program-types";
+import type { ActiveProgramReview, ActiveProgramSaveConfirmation, ProgramTimelineMilestone } from "@/lib/active-program-types";
 import { ActiveProgramStateCard } from "@/components/active-program-state-card";
 
 type ActiveProgramScalarField = keyof Omit<
@@ -8,11 +8,7 @@ type ActiveProgramScalarField = keyof Omit<
   "artifacts" | "deliveryBoardItems" | "programMilestones" | "teamRoleUpdates"
 >;
 
-type SaveConfirmation = {
-  savedAt?: string;
-  scope: string;
-  status: "saving" | "saved" | "error";
-} | null;
+type SaveConfirmation = ActiveProgramSaveConfirmation;
 
 type ActiveProgramStateFlowProps = {
   selectedProgramId: string;
