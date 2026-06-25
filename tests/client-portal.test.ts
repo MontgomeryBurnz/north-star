@@ -272,12 +272,17 @@ test("Client Portal roadmap adapts to month and week timeline windows", () => {
   assert.equal(monthProgram.timelineWindowLabel, "May 2026");
   assert.deepEqual(monthProgram.roadmapWindowLabels, ["May 1", "May 8", "May 15", "May 22", "May 29"]);
   assert.equal(monthProgram.roadmapCurrentWindowIndex, 2);
+  assert.equal(monthProgram.nextMilestone.name, "Scope baseline");
+  assert.equal(monthProgram.nextMilestone.dateLabel, "May 15");
+  assert.equal(monthProgram.milestones.some((milestone) => milestone.name === "Scope baseline"), true);
 
   assert.equal(weekProgram.timelineScale, "week");
   assert.equal(weekProgram.timelineScaleLabel, "Week");
   assert.equal(weekProgram.timelineWindowLabel, "Week of May 11");
   assert.deepEqual(weekProgram.roadmapWindowLabels, ["May 11", "May 12", "May 13", "May 14", "May 15"]);
   assert.equal(weekProgram.roadmapCurrentWindowIndex, 2);
+  assert.equal(weekProgram.nextMilestone.name, "Scope baseline");
+  assert.equal(weekProgram.nextMilestone.dateLabel, "May 13");
 
   const monthPortfolio = buildClientPortalPortfolio({
     generatedAt: "2026-04-30T00:00:00.000Z",

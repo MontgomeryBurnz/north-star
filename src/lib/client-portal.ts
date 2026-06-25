@@ -830,7 +830,29 @@ function buildMilestones(input: {
   updateTimestamp: string | undefined;
 }) {
   const reviewMilestones = buildReviewMilestones(input.review?.programMilestones);
-  if (reviewMilestones.length) return reviewMilestones;
+  const explicitMilestoneName = clean(input.review?.nextMilestoneName);
+  const explicitMilestoneDate = formatDateLabel(input.review?.nextMilestoneDate);
+  const explicitMilestonePriority = priorityFromReview(input.review?.nextMilestonePriority);
+  const explicitMilestone = explicitMilestoneName
+    ? {
+        dateLabel: explicitMilestoneDate || "Date not captured",
+        name: explicitMilestoneName,
+        note: `${explicitMilestonePriority ?? "Priority not set"} priority checkpoint`,
+        priority: explicitMilestonePriority ?? undefined,
+        status: "current" as const
+      }
+    : null;
+
+  if (reviewMilestones.length) {
+    const hasExplicitMilestone = explicitMilestone
+      ? reviewMilestones.some(
+          (milestone) =>
+            milestone.name.toLowerCase() === explicitMilestone.name.toLowerCase() &&
+            milestone.dateLabel.toLowerCase() === explicitMilestone.dateLabel.toLowerCase()
+        )
+      : true;
+    return (explicitMilestone && !hasExplicitMilestone ? [...reviewMilestones, explicitMilestone] : reviewMilestones).slice(0, 6);
+  }
 
   const boardMilestones = (input.review?.deliveryBoardItems ?? [])
     .filter((item) => item.dueDate && isMeaningfulSignal(item.title))
@@ -845,9 +867,6 @@ function buildMilestones(input: {
     }));
   const createdLabel = formatDateLabel(input.program.createdAt) || "Captured";
   const updatedLabel = formatDateLabel(input.updateTimestamp) || "";
-  const explicitMilestoneName = clean(input.review?.nextMilestoneName);
-  const explicitMilestoneDate = formatDateLabel(input.review?.nextMilestoneDate);
-  const explicitMilestonePriority = priorityFromReview(input.review?.nextMilestonePriority);
   const milestones: ClientPortalProgram["milestones"] = [
     {
       dateLabel: createdLabel,
@@ -868,14 +887,8 @@ function buildMilestones(input: {
     });
   }
 
-  if (explicitMilestoneName) {
-    milestones.push({
-      dateLabel: explicitMilestoneDate || "Date not captured",
-      name: explicitMilestoneName,
-      note: `${explicitMilestonePriority ?? "Priority not set"} priority checkpoint`,
-      priority: explicitMilestonePriority ?? undefined,
-      status: "current" as const
-    });
+  if (explicitMilestone) {
+    milestones.push(explicitMilestone);
   }
 
   milestones.push(...boardMilestones);
