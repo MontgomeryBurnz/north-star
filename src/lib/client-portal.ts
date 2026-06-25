@@ -516,6 +516,16 @@ function getCurrentPhaseIndex(currentPhase: string) {
   return matchedIndex >= 0 ? matchedIndex : -1;
 }
 
+function roadmapPhaseIndex(currentPhase: string) {
+  const phaseText = currentPhase.toLowerCase();
+  if (hasKeyword(phaseText, ["value", "benefit", "realization", "operate", "steady state"])) return 4;
+  if (hasKeyword(phaseText, ["stabil", "launch", "readiness", "pilot", "recovery"])) return 3;
+  if (hasKeyword(phaseText, ["execute", "execution", "build", "develop", "delivery", "implement"])) return 2;
+  if (hasKeyword(phaseText, ["plan", "design", "requirement", "scope"])) return 1;
+  if (hasKeyword(phaseText, ["discover", "discovery", "intake", "capture", "newly"])) return 0;
+  return 0;
+}
+
 function getCompletionMetrics(currentPhase: string, posture: ClientProgramPosture) {
   const phaseIndex = getCurrentPhaseIndex(currentPhase);
   const phaseCompletionPercent = phaseIndex >= 0 ? Math.round(((phaseIndex + 1) / timelinePhases.length) * 100) : 0;
@@ -1042,6 +1052,8 @@ export function buildClientPortalProgram(input: ClientPortalProgramInput): Clien
     review?.programMilestones?.find((milestone) => milestone.status === "next" && milestone.date)?.date ??
     review?.nextMilestoneDate;
   const roadmapWindow = buildRoadmapWindow(review, currentMilestoneDate);
+  const roadmapCurrentWindowIndex =
+    roadmapWindow.scale === "year" ? roadmapPhaseIndex(currentPhase) : roadmapWindow.currentWindowIndex;
 
   return {
     id: input.program.id,
@@ -1111,7 +1123,7 @@ export function buildClientPortalProgram(input: ClientPortalProgramInput): Clien
     timelineScaleLabel: roadmapWindow.scaleLabel,
     timelineWindowLabel: roadmapWindow.timeframeLabel,
     roadmapWindowLabels: roadmapWindow.windowLabels,
-    roadmapCurrentWindowIndex: roadmapWindow.currentWindowIndex,
+    roadmapCurrentWindowIndex,
     risks,
     decisions,
     clientDecisions: input.clientDecisions ?? [],
@@ -1120,11 +1132,18 @@ export function buildClientPortalProgram(input: ClientPortalProgramInput): Clien
   };
 }
 
-function roadmapStateForIndex(program: ClientPortalProgram, index: number) {
-  const marker = program.metrics.programCompletionPercent;
-  const thresholds = [15, 35, 68, 86, 100];
-  if (marker >= thresholds[index]) return "complete" as const;
-  if (index === thresholds.findIndex((threshold) => marker < threshold)) return "current" as const;
+function clampRoadmapIndex(index: number, segmentCount: number) {
+  return Math.max(0, Math.min(Math.max(0, segmentCount - 1), index));
+}
+
+function roadmapMarkerPosition(currentIndex: number, segmentCount: number) {
+  if (!segmentCount) return 50;
+  return ((currentIndex + 0.5) / segmentCount) * 100;
+}
+
+function roadmapStateForIndex(currentIndex: number, index: number) {
+  if (index < currentIndex) return "complete" as const;
+  if (index === currentIndex) return "current" as const;
   return "next" as const;
 }
 
@@ -1133,20 +1152,21 @@ function buildPortfolioRoadmap(programs: ClientPortalProgram[]): ClientPortalRoa
 
   return programs.map((program) => {
     const segmentLabels = program.timelineScale === "year" ? [...phaseSegmentLabels] : program.roadmapWindowLabels;
+    const currentWindowIndex = clampRoadmapIndex(program.roadmapCurrentWindowIndex, segmentLabels.length);
 
     return {
       markerLabel: program.nextMilestone.name,
-      markerPosition: Math.max(8, Math.min(94, program.metrics.programCompletionPercent)),
+      markerPosition: roadmapMarkerPosition(currentWindowIndex, segmentLabels.length),
       markerTone: program.posture,
       windowMode: program.timelineScale,
       timeframeLabel: program.timelineWindowLabel,
       windowLabels: program.roadmapWindowLabels,
-      currentWindowIndex: program.roadmapCurrentWindowIndex,
+      currentWindowIndex,
       programId: program.id,
       programName: program.name,
       segments: segmentLabels.map((label, index) => ({
         label,
-        state: roadmapStateForIndex(program, index)
+        state: roadmapStateForIndex(currentWindowIndex, index)
       }))
     };
   });

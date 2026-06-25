@@ -198,7 +198,7 @@ test("buildClientPortalProgram creates executive posture from program signals", 
   assert.equal(portalProgram.timelineScaleLabel, "Year");
   assert.equal(portalProgram.timelineWindowLabel, "FY25");
   assert.deepEqual(portalProgram.roadmapWindowLabels, ["Q1 FY25", "Q2 FY25", "Q3 FY25", "Q4 FY25", "Q1 FY26"]);
-  assert.equal(portalProgram.roadmapCurrentWindowIndex, 1);
+  assert.equal(portalProgram.roadmapCurrentWindowIndex, 2);
 });
 
 test("buildClientPortalPortfolio rolls program posture into portfolio metrics", () => {
@@ -218,6 +218,48 @@ test("buildClientPortalPortfolio rolls program posture into portfolio metrics", 
   assert.equal(portfolio.roadmap[0]?.windowMode, "year");
   assert.equal(portfolio.roadmap[0]?.timeframeLabel, "FY25");
   assert.deepEqual(portfolio.roadmap[0]?.windowLabels, ["Q1 FY25", "Q2 FY25", "Q3 FY25", "Q4 FY25", "Q1 FY26"]);
+  assert.equal(portfolio.roadmap[0]?.currentWindowIndex, 2);
+  assert.equal(portfolio.roadmap[0]?.markerPosition, 50);
+  assert.deepEqual(portfolio.roadmap[0]?.segments.map((segment) => segment.state), [
+    "complete",
+    "complete",
+    "current",
+    "next",
+    "next"
+  ]);
+});
+
+test("Client Portal year roadmap marker follows the saved phase instead of stale completion percent", () => {
+  const buildUpdate: StoredProgramUpdate = {
+    ...update,
+    review: {
+      ...update.review,
+      currentPhase: "Build update",
+      programCompletionPercent: "8",
+      programMilestones: [
+        {
+          id: "build-update",
+          name: "Build update",
+          date: "2026-06-24",
+          status: "current",
+          priority: "High",
+          note: "Current execution checkpoint."
+        }
+      ],
+      timelineScale: "year",
+      timelineYear: ""
+    }
+  };
+  const portfolio = buildClientPortalPortfolio({
+    generatedAt: "2026-04-30T00:00:00.000Z",
+    programs: [{ latestPlan: plan, latestUpdate: buildUpdate, program }]
+  });
+
+  assert.equal(portfolio.roadmap[0]?.timeframeLabel, "Program Year");
+  assert.equal(portfolio.roadmap[0]?.currentWindowIndex, 2);
+  assert.equal(portfolio.roadmap[0]?.markerPosition, 50);
+  assert.equal(portfolio.roadmap[0]?.segments[2]?.label, "Execute");
+  assert.equal(portfolio.roadmap[0]?.segments[2]?.state, "current");
 });
 
 test("Client Portal roadmap adapts to month and week timeline windows", () => {

@@ -84,20 +84,18 @@ const priorityStyles = {
   Low: "border border-rose-300/25 bg-rose-300/[0.08] text-rose-100"
 } as const;
 
-const roadmapPhaseSegmentStyles: Record<string, string> = {
-  Discover: "border-r border-white/10 bg-cyan-300/[0.12] text-cyan-100",
-  Plan: "border-r border-white/10 bg-emerald-300/[0.12] text-emerald-100",
-  Execute: "border-r border-white/10 bg-emerald-300/35 text-zinc-950",
-  Stabilize: "border-r border-white/10 bg-cyan-300/[0.08] text-cyan-100",
-  Value: "bg-white/[0.06] text-zinc-500"
-} as const;
-
 type RoadmapSegmentState = ClientPortalRoadmapRow["segments"][number]["state"];
 type RoadmapWindowMode = ClientPortalRoadmapRow["windowMode"];
 
+const roadmapPhaseSegmentStyles: Record<RoadmapSegmentState, string> = {
+  complete: "border-r border-white/10 bg-emerald-300/[0.12] text-emerald-100",
+  current: "border-r border-white/10 bg-emerald-300/35 text-zinc-950",
+  next: "border-r border-white/10 bg-white/[0.06] text-zinc-500"
+} as const;
+
 function roadmapSegmentClass(label: string, state: RoadmapSegmentState, windowMode: RoadmapWindowMode) {
   if (windowMode === "year") {
-    return roadmapPhaseSegmentStyles[label] ?? "border-r border-white/10 bg-white/[0.06] text-zinc-500";
+    return cn(roadmapPhaseSegmentStyles[state], label === "Value" ? "border-r-0" : "");
   }
 
   if (state === "complete") return "border-r border-white/10 bg-emerald-300/[0.16] text-emerald-100";
