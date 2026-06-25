@@ -355,6 +355,7 @@ test("Active Program review is split into state, cockpit, and team signal flows"
   const artifactServiceSource = readFileSync(new URL("../src/lib/role-artifact-service.ts", import.meta.url), "utf8");
   const packageSource = readFileSync(new URL("../package.json", import.meta.url), "utf8");
   const activeProgramSaveSmokeSource = readFileSync(new URL("../scripts/smoke-active-program-save.mjs", import.meta.url), "utf8");
+  const productionSmokeSource = readFileSync(new URL("../scripts/smoke-production.mjs", import.meta.url), "utf8");
   const browserWebdriverSource = readFileSync(new URL("../scripts/browser-webdriver.mjs", import.meta.url), "utf8");
 
   assert.match(reviewSectionSource, /useActiveProgramReviewController/);
@@ -507,8 +508,16 @@ test("Active Program review is split into state, cockpit, and team signal flows"
   assert.doesNotMatch(sidebarSource, /Review readiness/);
   assert.doesNotMatch(sidebarSource, /Update impact/);
   assert.match(packageSource, /smoke:active-program-save/);
+  assert.match(packageSource, /smoke:client-portal/);
   assert.match(activeProgramSaveSmokeSource, /data-active-role-signal-card/);
   assert.match(activeProgramSaveSmokeSource, /data-active-program-save-confirmation/);
+  assert.match(activeProgramSaveSmokeSource, /populateExecutiveClientPortalFields/);
+  assert.match(activeProgramSaveSmokeSource, /verifyClientPortalExecutiveFields/);
+  assert.match(activeProgramSaveSmokeSource, /data-active-executive-sponsor/);
+  assert.match(activeProgramSaveSmokeSource, /data-active-client-status-note/);
+  assert.match(activeProgramSaveSmokeSource, /smoke=client-portal-executive-fields/);
+  assert.match(activeProgramSaveSmokeSource, /data-client-program-card/);
+  assert.match(activeProgramSaveSmokeSource, /data-client-program-detail/);
   assert.match(activeProgramSaveSmokeSource, /verifyOperatingView/);
   assert.match(activeProgramSaveSmokeSource, /Program cockpit/);
   assert.match(activeProgramSaveSmokeSource, /Focus role/);
@@ -544,6 +553,7 @@ test("Active Program review is split into state, cockpit, and team signal flows"
   assert.match(browserWebdriverSource, /async setWindowRect/);
   assert.match(browserWebdriverSource, /async screenshot/);
   assert.match(browserWebdriverSource, /"\/screenshot"/);
+  assert.match(productionSmokeSource, /active program save \+ client portal/);
 });
 
 test("chat guidance is disabled and client decisions still write audit events", () => {

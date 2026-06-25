@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Activity, ChevronDown, Compass, SlidersHorizontal } from "lucide-react";
+import { Activity, ArrowUpRight, ChevronDown, Compass, SlidersHorizontal } from "lucide-react";
 import type { ActiveProgramReview } from "@/lib/active-program-types";
 import { ProgramSlicer } from "@/components/program-slicer";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -49,6 +49,7 @@ export function ActiveProgramStateCard({
             <button
               type="button"
               onClick={() => setIsSetupOpen((current) => !current)}
+              data-active-program-profile-toggle
               className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.035] px-3 py-1.5 text-xs font-medium text-zinc-300 transition-colors hover:border-cyan-300/30 hover:text-cyan-100"
             >
               <SlidersHorizontal className="h-3.5 w-3.5" />
@@ -153,18 +154,25 @@ export function ActiveProgramStateCard({
                 />
               </label>
 
-              <div className="grid gap-3 rounded-lg border border-cyan-300/15 bg-cyan-300/[0.035] p-3 md:col-span-2">
-                <div>
-                  <p className="text-xs font-medium uppercase tracking-[0.18em] text-cyan-100">Client / executive update fields</p>
-                  <p className="mt-2 text-xs leading-5 text-zinc-500">
-                    These fields feed the Client Portal portfolio and program one-pager after save.
-                  </p>
+              <div data-active-program-client-portal-fields className="grid gap-3 rounded-lg border border-cyan-300/15 bg-cyan-300/[0.035] p-3 md:col-span-2">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <p className="text-xs font-medium uppercase tracking-[0.18em] text-cyan-100">Client / executive update fields</p>
+                    <p className="mt-2 text-xs leading-5 text-zinc-500">
+                      These fields feed the Client Portal portfolio and program one-pager after save.
+                    </p>
+                  </div>
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-300/20 bg-emerald-300/[0.08] px-3 py-1 text-[11px] font-medium uppercase tracking-[0.14em] text-emerald-100">
+                    <ArrowUpRight className="h-3.5 w-3.5" />
+                    Feeds Client Portal
+                  </span>
                 </div>
 
                 <div className="grid gap-3 md:grid-cols-3">
                   <label className="grid gap-2">
                     <span className="text-xs font-medium uppercase tracking-[0.18em] text-zinc-300">Executive sponsor</span>
                     <input
+                      data-active-executive-sponsor
                       value={review.executiveSponsor ?? ""}
                       onChange={(event) => onFieldChange("executiveSponsor", event.target.value)}
                       placeholder="Sponsor name"
@@ -175,6 +183,7 @@ export function ActiveProgramStateCard({
                   <label className="grid gap-2">
                     <span className="text-xs font-medium uppercase tracking-[0.18em] text-zinc-300">Program lead</span>
                     <input
+                      data-active-program-lead
                       value={review.programLead ?? ""}
                       onChange={(event) => onFieldChange("programLead", event.target.value)}
                       placeholder="Delivery or program lead"
@@ -185,6 +194,7 @@ export function ActiveProgramStateCard({
                   <label className="grid gap-2">
                     <span className="text-xs font-medium uppercase tracking-[0.18em] text-zinc-300">PMO</span>
                     <input
+                      data-active-pmo
                       value={review.pmo ?? ""}
                       onChange={(event) => onFieldChange("pmo", event.target.value)}
                       placeholder="PMO or operating owner"
@@ -195,6 +205,7 @@ export function ActiveProgramStateCard({
                   <label className="grid gap-2">
                     <span className="text-xs font-medium uppercase tracking-[0.18em] text-zinc-300">Program % complete</span>
                     <input
+                      data-active-program-completion
                       type="number"
                       min="0"
                       max="100"
@@ -208,6 +219,7 @@ export function ActiveProgramStateCard({
                   <label className="grid gap-2">
                     <span className="text-xs font-medium uppercase tracking-[0.18em] text-zinc-300">Completion delta</span>
                     <input
+                      data-active-completion-delta
                       value={review.completionDelta ?? ""}
                       onChange={(event) => onFieldChange("completionDelta", event.target.value)}
                       placeholder="+6%"
@@ -218,6 +230,7 @@ export function ActiveProgramStateCard({
                   <label className="grid gap-2">
                     <span className="text-xs font-medium uppercase tracking-[0.18em] text-zinc-300">Next milestone priority</span>
                     <select
+                      data-active-next-milestone-priority
                       value={review.nextMilestonePriority ?? ""}
                       onChange={(event) => onFieldChange("nextMilestonePriority", event.target.value)}
                       className="min-h-11 rounded-md border border-white/10 bg-zinc-950 px-3 py-3 text-sm text-zinc-100 outline-none transition-colors focus:border-cyan-300/50"
@@ -232,6 +245,7 @@ export function ActiveProgramStateCard({
                   <label className="grid gap-2 md:col-span-2">
                     <span className="text-xs font-medium uppercase tracking-[0.18em] text-zinc-300">Next milestone</span>
                     <input
+                      data-active-next-milestone
                       value={review.nextMilestoneName ?? ""}
                       onChange={(event) => onFieldChange("nextMilestoneName", event.target.value)}
                       placeholder="Scope baseline, pilot readiness, go-live, or next steering checkpoint"
@@ -242,6 +256,7 @@ export function ActiveProgramStateCard({
                   <label className="grid gap-2">
                     <span className="text-xs font-medium uppercase tracking-[0.18em] text-zinc-300">Milestone date</span>
                     <input
+                      data-active-next-milestone-date
                       type="date"
                       value={review.nextMilestoneDate ?? ""}
                       onChange={(event) => onFieldChange("nextMilestoneDate", event.target.value)}
@@ -252,6 +267,7 @@ export function ActiveProgramStateCard({
                   <label className="grid gap-2 md:col-span-3">
                     <span className="text-xs font-medium uppercase tracking-[0.18em] text-zinc-300">Client status note</span>
                     <textarea
+                      data-active-client-status-note
                       value={review.clientStatusNote ?? ""}
                       onChange={(event) => onFieldChange("clientStatusNote", event.target.value)}
                       placeholder="One concise executive-facing status note for the Client Portal."

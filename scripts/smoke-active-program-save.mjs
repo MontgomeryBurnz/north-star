@@ -302,8 +302,63 @@ async function captureMobileRoleFocusScreenshot(session, program) {
   return selectedFocus;
 }
 
-async function saveRoleSignal(session, program) {
-  const smokeText = `North Star active-program save smoke ${new Date().toISOString()}`;
+async function populateExecutiveClientPortalFields(session, smokeText) {
+  const profileVisible = await session.execute(`
+    return Boolean(document.querySelector("[data-active-program-client-portal-fields]"));
+  `);
+
+  if (!profileVisible) {
+    await session.execute('document.querySelector("[data-active-program-profile-toggle]")?.click();');
+  }
+
+  await session.waitFor("Active Program Client Portal profile fields", async () => {
+    return session.execute(`
+      return Boolean(document.querySelector("[data-active-program-client-portal-fields]")) &&
+        Boolean(document.querySelector("[data-active-executive-sponsor]")) &&
+        Boolean(document.querySelector("[data-active-client-status-note]"));
+    `);
+  });
+
+  const populated = await session.execute(
+    `
+      const setValue = (selector, value) => {
+        const field = document.querySelector(selector);
+        if (!field) return false;
+        const prototype = field instanceof HTMLTextAreaElement
+          ? HTMLTextAreaElement.prototype
+          : field instanceof HTMLSelectElement
+            ? HTMLSelectElement.prototype
+            : HTMLInputElement.prototype;
+        const setter = Object.getOwnPropertyDescriptor(prototype, "value")?.set;
+        if (!setter) return false;
+        setter.call(field, value);
+        field.dispatchEvent(new Event(field.tagName === "SELECT" ? "change" : "input", { bubbles: true }));
+        return true;
+      };
+
+      return [
+        setValue("[data-active-executive-sponsor]", "Smoke Sponsor"),
+        setValue("[data-active-program-lead]", "Smoke Program Lead"),
+        setValue("[data-active-pmo]", "Smoke PMO"),
+        setValue("[data-active-program-completion]", "64"),
+        setValue("[data-active-completion-delta]", "+4%"),
+        setValue("[data-active-next-milestone-priority]", "High"),
+        setValue("[data-active-next-milestone]", "Smoke executive milestone"),
+        setValue("[data-active-next-milestone-date]", "2026-05-08"),
+        setValue("[data-active-client-status-note]", "Client portal smoke status: " + arguments[0])
+      ].every(Boolean);
+    `,
+    [smokeText]
+  );
+
+  if (!populated) {
+    throw new Error("Active Program smoke could not populate Client Portal executive fields.");
+  }
+
+  console.log("✓ Active Program: populated fields that feed Client Portal.");
+}
+
+async function saveRoleSignal(session, program, smokeText) {
   await session.execute('document.querySelector("[data-active-program-workspace-tab=\\"board\\"]")?.click();');
   await session.waitFor("Active Program Delivery Board visible for save", async () => {
     return session.execute(`
@@ -537,6 +592,15 @@ async function saveRoleSignal(session, program) {
       return fetch("/api/programs/" + encodeURIComponent(arguments[0]) + "/updates", { cache: "no-store" })
         .then((response) => response.ok ? response.json() : Promise.reject(new Error(String(response.status))))
         .then((payload) => payload.updates.some((update) =>
+          update.review.executiveSponsor === "Smoke Sponsor" &&
+          update.review.programLead === "Smoke Program Lead" &&
+          update.review.pmo === "Smoke PMO" &&
+          update.review.programCompletionPercent === "64" &&
+          update.review.completionDelta === "+4%" &&
+          update.review.nextMilestonePriority === "High" &&
+          update.review.nextMilestoneName === "Smoke executive milestone" &&
+          update.review.nextMilestoneDate === "2026-05-08" &&
+          update.review.clientStatusNote.includes(arguments[2]) &&
           (update.review.teamRoleUpdates ?? []).some((roleUpdate) =>
             roleUpdate.role === arguments[1] &&
             roleUpdate.progressUpdate.includes(arguments[2]) &&
@@ -571,7 +635,7 @@ async function saveRoleSignal(session, program) {
     `);
 
     if (state.found && state.text.includes("Saved locally only")) {
-      throw new Error(\`Active Program phase save did not complete server-side: \${state.text.trim()}\`);
+      throw new Error(`Active Program phase save did not complete server-side: ${state.text.trim()}`);
     }
 
     return state.found && state.text.includes("Program phase") && state.text.includes("guidance refreshed");
@@ -598,6 +662,58 @@ async function saveRoleSignal(session, program) {
 
   console.log(`✓ Active Program: saved ${selectedRole} weekly signal for ${program.label}.`);
   return { role: selectedRole, tag: smokeText };
+}
+
+async function verifyClientPortalExecutiveFields(session, program, smokeText) {
+  await session.navigate(`${baseUrl}/client?smoke=client-portal-executive-fields`);
+  await session.waitFor("Client Portal portfolio loaded", async () => {
+    return session.execute(`
+      const bodyText = document.body.textContent ?? "";
+      return bodyText.includes("North Star Client Portal") &&
+        Boolean(document.querySelector("[data-client-program-card]"));
+    `);
+  }, 20_000);
+
+  const selected = await session.execute(
+    `
+      const cards = Array.from(document.querySelectorAll("[data-client-program-card]"));
+      const card = cards.find((element) => element.getAttribute("data-client-program-card") === arguments[0]);
+      card?.click();
+      return Boolean(card);
+    `,
+    [program.id]
+  );
+
+  if (!selected) {
+    throw new Error(`Client Portal smoke could not find program card for ${program.label}.`);
+  }
+
+  await session.waitFor("Client Portal executive fields rendered", async () => {
+    return session.execute(
+      `
+        const cards = Array.from(document.querySelectorAll("[data-client-program-card]"));
+        const details = Array.from(document.querySelectorAll("[data-client-program-detail]"));
+        const card = cards.find((element) => element.getAttribute("data-client-program-card") === arguments[0]);
+        const detail = details.find((element) => element.getAttribute("data-client-program-detail") === arguments[0]);
+        const cardText = card?.textContent ?? "";
+        const detailText = detail?.textContent ?? "";
+        return Boolean(card) &&
+          Boolean(detail) &&
+          cardText.includes("Smoke executive milestone") &&
+          cardText.includes("64%") &&
+          detailText.includes("Smoke Sponsor") &&
+          detailText.includes("Smoke Program Lead") &&
+          detailText.includes("Smoke PMO") &&
+          detailText.includes("64%") &&
+          detailText.includes("+4%") &&
+          detailText.includes("Smoke executive milestone") &&
+          detailText.includes(arguments[1]);
+      `,
+      [program.id, smokeText]
+    );
+  }, 20_000);
+
+  console.log("✓ Client Portal: executive fields rendered in portfolio card and program detail view.");
 }
 
 async function cleanupRoleSignal(session, program, savedSignal) {
@@ -652,15 +768,18 @@ async function cleanupRoleSignal(session, program, savedSignal) {
 
 async function main() {
   await withSafariBrowser(async (session) => {
+    const smokeText = `North Star active-program save smoke ${new Date().toISOString()}`;
     await authenticate(session);
     const program = await selectProgram(session);
+    await populateExecutiveClientPortalFields(session, smokeText);
     await verifyOperatingView(session);
     await captureMobileRoleFocusScreenshot(session, program);
-    const savedSignal = await saveRoleSignal(session, program);
+    const savedSignal = await saveRoleSignal(session, program, smokeText);
+    await verifyClientPortalExecutiveFields(session, program, smokeText);
     await cleanupRoleSignal(session, program, savedSignal);
   });
 
-  console.log("Active Program save browser smoke test passed.");
+  console.log("Active Program save and Client Portal browser smoke test passed.");
 }
 
 main().catch((error) => {

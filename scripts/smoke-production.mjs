@@ -14,7 +14,7 @@ const smokeSteps = [
     env: {
       NORTHSTAR_SMOKE_CLEANUP: process.env.NORTHSTAR_SMOKE_CLEANUP ?? "prune"
     },
-    name: "active program save",
+    name: "active program save + client portal",
     script: "smoke-active-program-save.mjs"
   }
 ];
