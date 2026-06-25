@@ -52,7 +52,10 @@ type ActiveProgramTeamSignalFlowProps = {
   formatTimestamp: (value: string) => string;
   formatFileSize: (size: number) => string;
   onAddDeliveryBoardItem: (
-    input: Pick<DeliveryBoardItem, "description" | "dueDate" | "latestNote" | "owner" | "role" | "status" | "title">
+    input: Pick<
+      DeliveryBoardItem,
+      "description" | "dueDate" | "latestNote" | "owner" | "role" | "sharedRoles" | "startDate" | "status" | "title"
+    >
   ) => void;
   onUpdateDeliveryBoardItem: (itemId: string, patch: Partial<Omit<DeliveryBoardItem, "attachments" | "createdAt" | "id">>) => void;
   onRemoveDeliveryBoardItem: (itemId: string) => void;

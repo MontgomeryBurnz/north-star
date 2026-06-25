@@ -34,10 +34,12 @@ export type TeamRoleUpdate = {
 export type DeliveryBoardItem = {
   id: string;
   role: string;
+  sharedRoles: string[];
   title: string;
   description: string;
   owner: string;
   status: DeliveryBoardStatus;
+  startDate: string;
   dueDate: string;
   latestNote: string;
   attachments: ProgramMeetingAttachment[];

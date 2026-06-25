@@ -149,6 +149,8 @@ function buildSeededReview(program, smokeText) {
         latestNote: `Client Portal smoke board note ${smokeText}.`,
         owner: "Client Portal Smoke",
         role: primaryRole,
+        sharedRoles: [],
+        startDate: "2026-05-01",
         status: "needs-review",
         title: `Client Portal smoke board item ${smokeText}`,
         updatedAt: now
@@ -255,6 +257,8 @@ async function seedProgramUpdate(session, program, smokeText) {
 }
 
 async function verifyClientPortal(session, program, smokeText) {
+  const primaryRole = program.intake.teamRoles?.[0] ?? "Delivery Lead";
+
   await session.navigate(`${baseUrl}/client?smoke=client-portal-seeded-update`);
   await session.waitFor("Client Portal portfolio loaded", async () => {
     return session.execute(`
@@ -290,8 +294,12 @@ async function verifyClientPortal(session, program, smokeText) {
           .find((element) => element.getAttribute("data-client-roadmap-row") === arguments[0]);
         const currentRoadmapSegment = roadmapRow?.querySelector("[data-client-roadmap-segment-state='current']");
         const roadmapMarker = roadmapRow?.querySelector("[data-client-roadmap-marker]");
+        const workstreamCard = Array.from(detail?.querySelectorAll("[data-client-workstream-card]") ?? [])
+          .find((element) => (element.textContent ?? "").includes(arguments[2]));
         const cardText = card?.textContent ?? "";
         const detailText = detail?.textContent ?? "";
+        const workstreamText = workstreamCard?.textContent ?? "";
+        const workstreamPercent = workstreamCard?.getAttribute("data-client-workstream-percent") ?? "";
         const currentRoadmapSegmentText = currentRoadmapSegment?.textContent ?? "";
         const markerPosition = roadmapMarker?.getAttribute("data-client-roadmap-marker-position") ?? "";
 
@@ -301,11 +309,14 @@ async function verifyClientPortal(session, program, smokeText) {
           currentRoadmapSegmentText,
           markerPosition,
           roadmap: Boolean(roadmapRow),
+          workstreamPercent,
+          workstreamText,
           cardText,
           detailText,
           ok: Boolean(card) &&
             Boolean(detail) &&
             Boolean(roadmapRow) &&
+            Boolean(workstreamCard) &&
             currentRoadmapSegmentText.includes("Execute") &&
             markerPosition === "50" &&
             cardText.includes("67%") &&
@@ -320,10 +331,13 @@ async function verifyClientPortal(session, program, smokeText) {
             detailText.includes("Client Portal smoke milestone") &&
             detailText.includes("Client Portal smoke value gate") &&
             detailText.includes(arguments[1]) &&
-            detailText.includes("approve milestone protection path")
+            detailText.includes("approve milestone protection path") &&
+            workstreamPercent === "90" &&
+            workstreamText.includes("0/1 tasks done") &&
+            workstreamText.includes("May 01 -> May 08")
         };
       `,
-      [program.id, smokeText]
+      [program.id, smokeText, primaryRole]
     );
 
     return state.ok ? state : false;

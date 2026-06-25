@@ -632,7 +632,12 @@ export function useActiveProgramReviewController() {
   }, []);
 
   const addDeliveryBoardItem = useCallback(
-    (input: Pick<DeliveryBoardItem, "description" | "dueDate" | "latestNote" | "owner" | "role" | "status" | "title">) => {
+    (
+      input: Pick<
+        DeliveryBoardItem,
+        "description" | "dueDate" | "latestNote" | "owner" | "role" | "sharedRoles" | "startDate" | "status" | "title"
+      >
+    ) => {
       const now = new Date().toISOString();
       const item = buildDeliveryBoardItem({
         ...input,

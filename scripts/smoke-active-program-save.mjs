@@ -468,11 +468,23 @@ async function saveRoleSignal(session, program, smokeText) {
   const deliveryCardAdded = await session.execute(
     `
       const title = document.querySelector("[data-delivery-board-title]");
+      const startDate = document.querySelector("[data-delivery-board-start-date]");
+      const finishDate = document.querySelector("[data-delivery-board-finish-date]");
       const addButton = document.querySelector("[data-delivery-board-add]");
       if (!title || !addButton) return false;
       const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value").set;
       setter.call(title, arguments[0]);
       title.dispatchEvent(new Event("input", { bubbles: true }));
+      if (startDate) {
+        setter.call(startDate, "2026-05-01");
+        startDate.dispatchEvent(new Event("input", { bubbles: true }));
+        startDate.dispatchEvent(new Event("change", { bubbles: true }));
+      }
+      if (finishDate) {
+        setter.call(finishDate, "2026-05-08");
+        finishDate.dispatchEvent(new Event("input", { bubbles: true }));
+        finishDate.dispatchEvent(new Event("change", { bubbles: true }));
+      }
       addButton.click();
       return true;
     `,
@@ -705,7 +717,11 @@ async function saveRoleSignal(session, program, smokeText) {
             roleUpdate.decisionsNeeded.includes("Decision from smoke") &&
             (roleUpdate.attachments ?? []).some((attachment) => attachment.fileName === "north-star-role-update-smoke.txt")
           ) &&
-          (update.review.deliveryBoardItems ?? []).some((item) => item.title.includes(arguments[2]))
+          (update.review.deliveryBoardItems ?? []).some((item) =>
+            item.title.includes(arguments[2]) &&
+            item.startDate === "2026-05-01" &&
+            item.dueDate === "2026-05-08"
+          )
         ));
     `,
     [program.id, selectedRole, smokeText]

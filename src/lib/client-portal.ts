@@ -87,6 +87,11 @@ export type ClientPortalProgram = {
     note: string;
     owner: string;
     percent: number;
+    percentBasis: string;
+    scheduleLabel: string;
+    taskCount: number;
+    completedTaskCount: number;
+    blockedTaskCount: number;
     status: string;
   }>;
   milestones: Array<{
@@ -812,22 +817,122 @@ function buildLeadershipDecisions(input: {
   return rows;
 }
 
-function workstreamPercent(statusLabel: string) {
-  const label = statusLabel.toLowerCase();
-  if (label.includes("blocked")) return 25;
-  if (label.includes("risk")) return 52;
-  if (label.includes("track")) return 82;
+function parseClientDate(value: string | undefined | null) {
+  if (!value) return null;
+  const dateOnlyMatch = value.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  const date = dateOnlyMatch
+    ? new Date(Number(dateOnlyMatch[1]), Number(dateOnlyMatch[2]) - 1, Number(dateOnlyMatch[3]))
+    : new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+  date.setHours(0, 0, 0, 0);
+  return date;
+}
+
+function formatClientDate(date: Date) {
+  return new Intl.DateTimeFormat("en-US", { day: "2-digit", month: "short" }).format(date);
+}
+
+function deliveryTaskDateProgress(item: DeliveryBoardItem, basisDate: Date) {
+  const startDate = parseClientDate(item.startDate);
+  const finishDate = parseClientDate(item.dueDate);
+  if (!startDate || !finishDate || finishDate.getTime() <= startDate.getTime()) return null;
+
+  if (basisDate.getTime() <= startDate.getTime()) return 0;
+  if (basisDate.getTime() >= finishDate.getTime()) return item.status === "done" ? 100 : 95;
+
+  const elapsed = basisDate.getTime() - startDate.getTime();
+  const duration = finishDate.getTime() - startDate.getTime();
+  return Math.max(5, Math.min(95, Math.round((elapsed / duration) * 100)));
+}
+
+function deliveryTaskProgress(item: DeliveryBoardItem, basisDate: Date) {
+  if (item.status === "done") return 100;
+  if (item.status === "needs-review") return 90;
+  if (item.status === "not-started") return 0;
+
+  const dateProgress = deliveryTaskDateProgress(item, basisDate);
+  if (typeof dateProgress === "number") {
+    return item.status === "blocked" ? Math.min(60, Math.max(10, dateProgress)) : dateProgress;
+  }
+
+  if (item.status === "blocked") return 35;
+  if (item.status === "in-progress") return 50;
   return 0;
 }
 
-function buildWorkstreams(domainSummaries: ClientPortalDomainSummary[]) {
-  return domainSummaries.slice(0, 8).map((domain) => ({
-    name: domain.role,
-    note: conciseSignal(domain.pursuit, 110),
-    owner: domain.owner,
-    percent: workstreamPercent(domain.statusLabel),
-    status: domain.statusLabel
-  }));
+function deliveryTaskAppliesToRole(item: DeliveryBoardItem, role: string) {
+  const roleKey = normalizeRoleKey(role);
+  return normalizeRoleKey(item.role) === roleKey || (item.sharedRoles ?? []).some((sharedRole) => normalizeRoleKey(sharedRole) === roleKey);
+}
+
+function workstreamStatusFromTasks(tasks: DeliveryBoardItem[]) {
+  if (!tasks.length) return "No linked tasks";
+  if (tasks.some((item) => item.status === "blocked")) return "Blocked";
+  if (tasks.some((item) => item.status === "needs-review")) return "Needs review";
+  if (tasks.every((item) => item.status === "done")) return "Done";
+  if (tasks.some((item) => item.status === "in-progress")) return "In progress";
+  return "Not started";
+}
+
+function workstreamScheduleLabel(tasks: DeliveryBoardItem[]) {
+  const startDates = tasks.map((item) => parseClientDate(item.startDate)).filter((date): date is Date => Boolean(date));
+  const finishDates = tasks.map((item) => parseClientDate(item.dueDate)).filter((date): date is Date => Boolean(date));
+  const earliestStart = startDates.sort((first, second) => first.getTime() - second.getTime())[0];
+  const latestFinish = finishDates.sort((first, second) => second.getTime() - first.getTime())[0];
+
+  if (earliestStart && latestFinish) return `${formatClientDate(earliestStart)} -> ${formatClientDate(latestFinish)}`;
+  if (earliestStart) return `Starts ${formatClientDate(earliestStart)}`;
+  if (latestFinish) return `Finish ${formatClientDate(latestFinish)}`;
+  return "No task dates captured";
+}
+
+function buildWorkstreams(
+  domainSummaries: ClientPortalDomainSummary[],
+  deliveryBoardItems: DeliveryBoardItem[] | undefined,
+  updateTimestamp: string | undefined
+) {
+  const basisDate = parseClientDate(updateTimestamp) ?? new Date();
+
+  return domainSummaries.slice(0, 8).map((domain) => {
+    const roleTasks = (deliveryBoardItems ?? []).filter((item) => deliveryTaskAppliesToRole(item, domain.role));
+    if (!roleTasks.length) {
+      return {
+        name: domain.role,
+        note: conciseSignal(domain.pursuit, 110),
+        owner: domain.owner,
+        percent: 0,
+        percentBasis: "No delivery board tasks linked",
+        scheduleLabel: "No task dates captured",
+        taskCount: 0,
+        completedTaskCount: 0,
+        blockedTaskCount: 0,
+        status: "No linked tasks"
+      };
+    }
+
+    const completedTaskCount = roleTasks.filter((item) => item.status === "done").length;
+    const blockedTaskCount = roleTasks.filter((item) => item.status === "blocked").length;
+    const totalProgress = roleTasks.reduce((sum, item) => sum + deliveryTaskProgress(item, basisDate), 0);
+    const percent = Math.round(totalProgress / roleTasks.length);
+    const priorityTask =
+      roleTasks.find((item) => item.status === "blocked") ??
+      roleTasks.find((item) => item.status === "needs-review") ??
+      roleTasks.find((item) => item.status === "in-progress") ??
+      roleTasks[0];
+
+    return {
+      name: domain.role,
+      note: conciseSignal(firstMeaningful(priorityTask.latestNote, priorityTask.description, priorityTask.title, domain.pursuit), 110),
+      owner: firstNonEmpty(priorityTask.owner, domain.owner),
+      percent,
+      percentBasis: `${completedTaskCount}/${roleTasks.length} tasks done`,
+      scheduleLabel: workstreamScheduleLabel(roleTasks),
+      taskCount: roleTasks.length,
+      completedTaskCount,
+      blockedTaskCount,
+      status: workstreamStatusFromTasks(roleTasks)
+    };
+  });
 }
 
 function buildMilestones(input: {
@@ -1022,7 +1127,8 @@ export function buildClientPortalProgram(input: ClientPortalProgramInput): Clien
     recommendedPath,
     review
   });
-  const workstreams = buildWorkstreams(domainSummaries);
+  const updateTimestamp = input.latestUpdate?.updatedAt ?? input.latestUpdate?.createdAt;
+  const workstreams = buildWorkstreams(domainSummaries, review?.deliveryBoardItems, updateTimestamp);
   const milestones = buildMilestones({
     completion,
     decisions,
@@ -1030,7 +1136,7 @@ export function buildClientPortalProgram(input: ClientPortalProgramInput): Clien
     program: input.program,
     recommendedPath,
     review,
-    updateTimestamp: input.latestUpdate?.updatedAt ?? input.latestUpdate?.createdAt
+    updateTimestamp
   });
   const explicitMilestoneName = clean(review?.nextMilestoneName);
   const nextMilestone = (explicitMilestoneName

@@ -632,12 +632,21 @@ function WorkstreamStatus({ program }: { program: ClientPortalProgram }) {
     <ExecutiveCard icon={BriefcaseBusiness} title="Workstream Status">
       <div className="mt-6 grid gap-5 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-5">
         {program.workstreams.slice(0, 5).map((workstream) => {
-          const riskStyle =
-            workstream.status.toLowerCase().includes("risk") || workstream.status.toLowerCase().includes("blocked")
+          const normalizedStatus = workstream.status.toLowerCase();
+          const riskStyle = normalizedStatus.includes("blocked")
+            ? "bg-rose-300"
+            : normalizedStatus.includes("review")
               ? "bg-amber-300"
-              : "bg-emerald-300";
+              : normalizedStatus.includes("no linked") || normalizedStatus.includes("not started")
+                ? "bg-zinc-500"
+                : "bg-emerald-300";
           return (
-            <div key={workstream.name} className="rounded-lg border border-white/10 bg-white/[0.025] p-5">
+            <div
+              key={workstream.name}
+              data-client-workstream-card={workstream.name}
+              data-client-workstream-percent={workstream.percent}
+              className="rounded-lg border border-white/10 bg-white/[0.025] p-5"
+            >
               <div className="flex items-start justify-between gap-3">
                 <h4 className="text-lg font-semibold leading-7 text-zinc-50">{workstream.name}</h4>
                 <span className={cn("mt-1 h-4 w-4 rounded-full", riskStyle)} />
@@ -648,8 +657,19 @@ function WorkstreamStatus({ program }: { program: ClientPortalProgram }) {
                 </div>
                 <p className="mt-2 text-right text-lg font-semibold text-zinc-400">{workstream.percent}%</p>
               </div>
+              <div className="mt-4 flex flex-wrap gap-2">
+                <span className="rounded-full border border-white/10 bg-black/20 px-2.5 py-1 text-[10px] font-medium uppercase tracking-[0.12em] text-zinc-400">
+                  {workstream.taskCount ? workstream.percentBasis : "No tasks linked"}
+                </span>
+                <span className="rounded-full border border-cyan-300/15 bg-cyan-300/[0.045] px-2.5 py-1 text-[10px] font-medium uppercase tracking-[0.12em] text-cyan-100">
+                  {workstream.scheduleLabel}
+                </span>
+              </div>
               <p className="mt-4 text-base font-medium leading-7 text-zinc-400">{workstream.note}</p>
-              <p className="mt-4 text-sm font-medium text-zinc-500">Owner: {workstream.owner}</p>
+              <p className="mt-4 text-sm font-medium text-zinc-500">
+                Owner: {workstream.owner}
+                {workstream.blockedTaskCount ? ` · ${workstream.blockedTaskCount} blocked` : ""}
+              </p>
             </div>
           );
         })}

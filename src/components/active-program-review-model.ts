@@ -200,10 +200,16 @@ export function buildDeliveryBoardItem(existing: Partial<DeliveryBoardItem>, fal
   return {
     id: existing.id || `delivery-${createdAt}-${title || role}`.replace(/[^a-zA-Z0-9-]+/g, "-").toLowerCase(),
     role,
+    sharedRoles: Array.isArray(existing.sharedRoles)
+      ? existing.sharedRoles
+          .map((sharedRole) => sharedRole.trim())
+          .filter((sharedRole) => sharedRole && normalizeProgramLabel(sharedRole) !== normalizeProgramLabel(role))
+      : [],
     title,
     description: existing.description ?? "",
     owner: existing.owner ?? "",
     status: deliveryBoardStatusSet.has(existing.status as DeliveryBoardStatus) ? (existing.status as DeliveryBoardStatus) : "not-started",
+    startDate: existing.startDate ?? "",
     dueDate: existing.dueDate ?? "",
     latestNote: existing.latestNote ?? "",
     attachments: Array.isArray(existing.attachments) ? existing.attachments : [],

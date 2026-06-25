@@ -19,7 +19,10 @@ type DeliveryBoardUploadState = {
   status: "idle" | "uploading" | "uploaded" | "error";
 } | null;
 
-type DeliveryBoardDraft = Pick<DeliveryBoardItem, "description" | "dueDate" | "latestNote" | "owner" | "role" | "status" | "title">;
+type DeliveryBoardDraft = Pick<
+  DeliveryBoardItem,
+  "description" | "dueDate" | "latestNote" | "owner" | "role" | "sharedRoles" | "startDate" | "status" | "title"
+>;
 
 type ActiveProgramDeliveryBoardCardProps = {
   deliveryBoardItems: DeliveryBoardItem[];
@@ -56,10 +59,12 @@ function deliveryBoardStatusTone(status: DeliveryBoardStatus) {
 function emptyDraft(role = ""): DeliveryBoardDraft {
   return {
     role,
+    sharedRoles: [],
     title: "",
     description: "",
     owner: "",
     status: "not-started",
+    startDate: "",
     dueDate: "",
     latestNote: ""
   };
@@ -71,6 +76,24 @@ function roleOwnerPlaceholder(role: string, assignedOwnersByRole: Record<string,
 
 function sortDeliveryBoardItemsByCreatedAt(items: DeliveryBoardItem[]) {
   return [...items].sort((first, second) => (second.createdAt ?? "").localeCompare(first.createdAt ?? ""));
+}
+
+function deliveryBoardDateRange(item: Pick<DeliveryBoardItem, "dueDate" | "startDate">) {
+  if (item.startDate && item.dueDate) return `${item.startDate} -> ${item.dueDate}`;
+  if (item.startDate) return `Starts ${item.startDate}`;
+  if (item.dueDate) return `Finish ${item.dueDate}`;
+  return "No timeline";
+}
+
+function deliveryBoardItemAppliesToRole(item: DeliveryBoardItem, role: string) {
+  const roleKey = normalizeRoleKey(role);
+  return normalizeRoleKey(item.role) === roleKey || (item.sharedRoles ?? []).some((sharedRole) => normalizeRoleKey(sharedRole) === roleKey);
+}
+
+function toggleSharedRole(sharedRoles: string[], role: string) {
+  const roleKey = normalizeRoleKey(role);
+  const exists = sharedRoles.some((sharedRole) => normalizeRoleKey(sharedRole) === roleKey);
+  return exists ? sharedRoles.filter((sharedRole) => normalizeRoleKey(sharedRole) !== roleKey) : [...sharedRoles, role];
 }
 
 export function ActiveProgramDeliveryBoardCard({
@@ -95,6 +118,9 @@ export function ActiveProgramDeliveryBoardCard({
     }
     for (const item of deliveryBoardItems) {
       if (item.role.trim()) byKey.set(normalizeRoleKey(item.role), item.role);
+      for (const sharedRole of item.sharedRoles ?? []) {
+        if (sharedRole.trim()) byKey.set(normalizeRoleKey(sharedRole), sharedRole);
+      }
     }
     return Array.from(byKey.values());
   }, [deliveryBoardItems, teamRoleUpdates]);
@@ -278,7 +304,13 @@ export function ActiveProgramDeliveryBoardCard({
                     <select
                       data-delivery-board-role
                       value={draft.role}
-                      onChange={(event) => setDraft((current) => ({ ...current, role: event.target.value }))}
+                      onChange={(event) =>
+                        setDraft((current) => ({
+                          ...current,
+                          role: event.target.value,
+                          sharedRoles: current.sharedRoles.filter((sharedRole) => normalizeRoleKey(sharedRole) !== normalizeRoleKey(event.target.value))
+                        }))
+                      }
                       className="min-h-11 rounded-md border border-white/10 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 outline-none transition-colors focus:border-cyan-300/50"
                     >
                       <option value="">Select role...</option>
@@ -301,7 +333,38 @@ export function ActiveProgramDeliveryBoardCard({
                   </label>
                 </div>
 
-                <div className="grid gap-3 md:grid-cols-3">
+                {roleLanes.filter((role) => normalizeRoleKey(role) !== normalizeRoleKey(draft.role)).length ? (
+                  <div className="grid gap-2 rounded-lg border border-white/10 bg-black/20 p-3">
+                    <span className="text-[11px] font-medium uppercase tracking-[0.16em] text-zinc-500">Shared with</span>
+                    <div className="flex flex-wrap gap-2">
+                      {roleLanes
+                        .filter((role) => normalizeRoleKey(role) !== normalizeRoleKey(draft.role))
+                        .map((role) => {
+                          const checked = draft.sharedRoles.some((sharedRole) => normalizeRoleKey(sharedRole) === normalizeRoleKey(role));
+                          return (
+                            <button
+                              key={role}
+                              type="button"
+                              aria-pressed={checked}
+                              onClick={() => setDraft((current) => ({ ...current, sharedRoles: toggleSharedRole(current.sharedRoles, role) }))}
+                              className={`min-h-9 rounded-full border px-3 text-[10px] font-medium uppercase tracking-[0.12em] transition-colors ${
+                                checked
+                                  ? "border-cyan-300/30 bg-cyan-300/[0.08] text-cyan-100"
+                                  : "border-white/10 bg-white/[0.025] text-zinc-500 hover:border-cyan-300/30 hover:text-cyan-100"
+                              }`}
+                            >
+                              {role}
+                            </button>
+                          );
+                        })}
+                    </div>
+                    <p className="text-xs leading-5 text-zinc-500">
+                      Use this when a task contributes to more than one workstream status in the Client Portal.
+                    </p>
+                  </div>
+                ) : null}
+
+                <div className="grid gap-3 md:grid-cols-4">
                   <label className="grid gap-2">
                     <span className="text-[11px] font-medium uppercase tracking-[0.16em] text-zinc-500">Owner</span>
                     <input
@@ -312,8 +375,19 @@ export function ActiveProgramDeliveryBoardCard({
                     />
                   </label>
                   <label className="grid gap-2">
-                    <span className="text-[11px] font-medium uppercase tracking-[0.16em] text-zinc-500">Due</span>
+                    <span className="text-[11px] font-medium uppercase tracking-[0.16em] text-zinc-500">Start estimate</span>
                     <input
+                      data-delivery-board-start-date
+                      type="date"
+                      value={draft.startDate}
+                      onChange={(event) => setDraft((current) => ({ ...current, startDate: event.target.value }))}
+                      className="min-h-11 rounded-md border border-white/10 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 outline-none transition-colors focus:border-cyan-300/50"
+                    />
+                  </label>
+                  <label className="grid gap-2">
+                    <span className="text-[11px] font-medium uppercase tracking-[0.16em] text-zinc-500">Finish estimate</span>
+                    <input
+                      data-delivery-board-finish-date
                       type="date"
                       value={draft.dueDate}
                       onChange={(event) => setDraft((current) => ({ ...current, dueDate: event.target.value }))}
@@ -364,7 +438,7 @@ export function ActiveProgramDeliveryBoardCard({
         <div className="grid gap-5">
           {roleLanes.length ? (
             roleLanes.map((role) => {
-              const roleItems = deliveryBoardItems.filter((item) => normalizeRoleKey(item.role) === normalizeRoleKey(role));
+              const roleItems = deliveryBoardItems.filter((item) => deliveryBoardItemAppliesToRole(item, role));
               const roleAttachments = roleItems.reduce((total, item) => total + item.attachments.length, 0);
               const roleStatusCounts = Object.fromEntries(
                 deliveryBoardStatuses.map((status) => [
@@ -475,9 +549,18 @@ export function ActiveProgramDeliveryBoardCard({
                                         <span className="truncate">{item.owner || roleOwnerPlaceholder(item.role, assignedOwnersByRole)}</span>
                                         <span className="inline-flex items-center gap-2">
                                           <CalendarClock className="h-3.5 w-3.5 shrink-0 text-cyan-200" />
-                                          <span>{item.dueDate || "No due date"}</span>
+                                          <span>{deliveryBoardDateRange(item)}</span>
                                         </span>
                                       </span>
+                                      {normalizeRoleKey(item.role) !== normalizeRoleKey(role) ? (
+                                        <span className="w-fit rounded-full border border-cyan-300/20 bg-cyan-300/[0.055] px-2.5 py-1 text-[10px] font-medium uppercase tracking-[0.12em] text-cyan-100">
+                                          Shared from {item.role}
+                                        </span>
+                                      ) : (item.sharedRoles ?? []).length ? (
+                                        <span className="w-fit rounded-full border border-white/10 bg-white/[0.025] px-2.5 py-1 text-[10px] font-medium uppercase tracking-[0.12em] text-zinc-500">
+                                          Shared with {(item.sharedRoles ?? []).length}
+                                        </span>
+                                      ) : null}
                                       <span className="inline-flex items-center gap-2 text-[11px] text-zinc-500">
                                         <Paperclip className="h-3.5 w-3.5 shrink-0 text-cyan-200" />
                                         {item.attachments.length} attachment{item.attachments.length === 1 ? "" : "s"}
@@ -639,7 +722,16 @@ export function ActiveProgramDeliveryBoardCard({
                       />
                     </label>
                     <label className="grid gap-2 rounded-lg border border-white/10 bg-zinc-950/70 p-3">
-                      <span className="text-[11px] font-medium uppercase tracking-[0.16em] text-zinc-500">Due date</span>
+                      <span className="text-[11px] font-medium uppercase tracking-[0.16em] text-zinc-500">Start estimate</span>
+                      <input
+                        type="date"
+                        value={selectedItem.startDate}
+                        onChange={(event) => onUpdateDeliveryBoardItem(selectedItem.id, { startDate: event.target.value })}
+                        className="min-h-11 rounded-md border border-white/10 bg-black/30 px-3 py-2 text-sm text-zinc-100 outline-none transition-colors focus:border-cyan-300/50"
+                      />
+                    </label>
+                    <label className="grid gap-2 rounded-lg border border-white/10 bg-zinc-950/70 p-3">
+                      <span className="text-[11px] font-medium uppercase tracking-[0.16em] text-zinc-500">Finish estimate</span>
                       <input
                         type="date"
                         value={selectedItem.dueDate}
@@ -648,6 +740,37 @@ export function ActiveProgramDeliveryBoardCard({
                       />
                     </label>
                   </div>
+
+                  {roleLanes.filter((role) => normalizeRoleKey(role) !== normalizeRoleKey(selectedItem.role)).length ? (
+                    <div className="grid gap-3 rounded-lg border border-white/10 bg-zinc-950/70 p-3">
+                      <div>
+                        <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-zinc-500">Shared workstreams</p>
+                        <p className="mt-1 text-xs leading-5 text-zinc-500">Count this task toward additional role progress when work is shared.</p>
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        {roleLanes
+                          .filter((role) => normalizeRoleKey(role) !== normalizeRoleKey(selectedItem.role))
+                          .map((role) => {
+                            const checked = (selectedItem.sharedRoles ?? []).some((sharedRole) => normalizeRoleKey(sharedRole) === normalizeRoleKey(role));
+                            return (
+                              <button
+                                key={role}
+                                type="button"
+                                aria-pressed={checked}
+                                onClick={() => onUpdateDeliveryBoardItem(selectedItem.id, { sharedRoles: toggleSharedRole(selectedItem.sharedRoles ?? [], role) })}
+                                className={`min-h-9 rounded-full border px-3 text-[10px] font-medium uppercase tracking-[0.12em] transition-colors ${
+                                  checked
+                                    ? "border-cyan-300/30 bg-cyan-300/[0.08] text-cyan-100"
+                                    : "border-white/10 bg-white/[0.025] text-zinc-500 hover:border-cyan-300/30 hover:text-cyan-100"
+                                }`}
+                              >
+                                {role}
+                              </button>
+                            );
+                          })}
+                      </div>
+                    </div>
+                  ) : null}
 
                   <div className="grid gap-3 rounded-lg border border-cyan-300/15 bg-cyan-300/[0.035] p-3">
                     <div>

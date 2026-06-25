@@ -100,10 +100,12 @@ const update: StoredProgramUpdate = {
       {
         id: "board-1",
         role: "Engineering",
+        sharedRoles: ["Business Analysis"],
         title: "API readiness review",
         description: "Resolve API launch path.",
         owner: "Tech Lead",
         status: "needs-review",
+        startDate: "2026-04-29",
         dueDate: "2026-05-08",
         latestNote: "Ready for sponsor confirmation.",
         attachments: []
@@ -187,7 +189,10 @@ test("buildClientPortalProgram creates executive posture from program signals", 
   assert.equal(portalProgram.executiveRisks[0]?.severity, "High");
   assert.match(portalProgram.leadershipDecisions[0]?.title ?? "", /Confirm launch readiness owner/);
   assert.equal(portalProgram.workstreams[0]?.name, "Engineering");
-  assert.equal(portalProgram.workstreams[0]?.percent, 52);
+  assert.equal(portalProgram.workstreams[0]?.percent, 90);
+  assert.equal(portalProgram.workstreams[0]?.percentBasis, "0/1 tasks done");
+  assert.equal(portalProgram.workstreams[0]?.scheduleLabel, "Apr 29 -> May 08");
+  assert.equal(portalProgram.workstreams[0]?.taskCount, 1);
   assert.equal(portalProgram.nextMilestone.name, "Scope baseline");
   assert.equal(portalProgram.nextMilestone.dateLabel, "May 08");
   assert.equal(portalProgram.nextMilestone.priority, "High");
