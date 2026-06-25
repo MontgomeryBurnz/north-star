@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useMemo, useState } from "react";
+import { Fragment, useEffect, useId, useMemo, useState } from "react";
 import { ChevronDown } from "lucide-react";
 import { getProgramSlicerButtonLabel, type ProgramSlicerOption } from "@/lib/program-slicer";
 import { cn } from "@/lib/utils";
@@ -53,6 +53,7 @@ export function ProgramSlicer({
     () => getProgramSlicerButtonLabel({ emptyLabel, options, placeholder, selectedProgramId }),
     [emptyLabel, options, placeholder, selectedProgramId]
   );
+  const clientGroupCount = useMemo(() => new Set(options.map((option) => option.clientName).filter(Boolean)).size, [options]);
 
   useEffect(() => {
     setOpen(false);
@@ -98,28 +99,39 @@ export function ProgramSlicer({
           aria-label={listboxLabel}
           className="absolute left-0 right-0 top-full z-40 mt-2 max-h-80 overflow-y-auto rounded-md border border-white/10 bg-zinc-950 p-2 shadow-2xl shadow-black/40"
         >
-          {options.map((option) => {
+          {options.map((option, index) => {
             const selected = option.id === selectedProgramId;
+            const showClientHeading =
+              clientGroupCount > 0 && option.clientName && (index === 0 || option.clientName !== options[index - 1]?.clientName);
 
             return (
-              <button
-                key={option.id}
-                type="button"
-                role="option"
-                aria-selected={selected}
-                onMouseDown={(event) => event.preventDefault()}
-                onClick={() => {
-                  onSelectProgram(option.id);
-                  setOpen(false);
-                }}
-                className={cn(
-                  "w-full rounded-md px-3 py-3 text-left transition-colors",
-                  selected ? toneClassName.selected : "border border-transparent hover:bg-white/[0.055]"
-                )}
-              >
-                <span className="block truncate text-sm font-medium leading-6 text-zinc-100">{option.label}</span>
-                {option.detail ? <span className="mt-1 block truncate text-xs leading-5 text-zinc-500">{option.detail}</span> : null}
-              </button>
+              <Fragment key={option.id}>
+                {showClientHeading ? (
+                  <div
+                    role="presentation"
+                    className="px-3 pb-1 pt-3 text-[10px] font-semibold uppercase tracking-[0.18em] text-cyan-200/80 first:pt-1"
+                  >
+                    {option.clientName}
+                  </div>
+                ) : null}
+                <button
+                  type="button"
+                  role="option"
+                  aria-selected={selected}
+                  onMouseDown={(event) => event.preventDefault()}
+                  onClick={() => {
+                    onSelectProgram(option.id);
+                    setOpen(false);
+                  }}
+                  className={cn(
+                    "w-full rounded-md px-3 py-3 text-left transition-colors",
+                    selected ? toneClassName.selected : "border border-transparent hover:bg-white/[0.055]"
+                  )}
+                >
+                  <span className="block truncate text-sm font-medium leading-6 text-zinc-100">{option.label}</span>
+                  {option.detail ? <span className="mt-1 block truncate text-xs leading-5 text-zinc-500">{option.detail}</span> : null}
+                </button>
+              </Fragment>
             );
           })}
         </div>

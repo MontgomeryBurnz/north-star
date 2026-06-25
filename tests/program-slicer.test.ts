@@ -9,6 +9,7 @@ const programs: StoredProgram[] = [
     createdAt: "2026-04-28T10:00:00.000Z",
     updatedAt: "2026-04-28T10:00:00.000Z",
     intake: {
+      clientName: "North Star Client",
       programName: "Compass Compliance Hub Alpha",
       programOwner: "Alex",
       vision: "Align compliance operations.",
@@ -30,13 +31,14 @@ test("programsToSlicerOptions keeps dropdown values compact", () => {
     {
       id: "program-1",
       label: "Compass Compliance Hub Alpha",
-      detail: "Lead: Alex"
+      clientName: "North Star Client",
+      detail: "Client: North Star Client · Lead: Alex"
     }
   ]);
 });
 
 test("programsToSlicerOptions can use program signal as secondary detail", () => {
-  assert.equal(programsToSlicerOptions(programs, "signal")[0]?.detail, "Align compliance operations.");
+  assert.equal(programsToSlicerOptions(programs, "signal")[0]?.detail, "Client: North Star Client · Align compliance operations.");
 });
 
 test("getProgramSlicerButtonLabel handles empty, unselected, and selected states", () => {

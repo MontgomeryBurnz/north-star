@@ -15,7 +15,9 @@ import { useRequestSequence } from "@/hooks/use-request-sequence";
 import type { DeliveryLeadershipSignal } from "@/lib/leadership-feedback-types";
 import type { ProgramTeamAssignmentSummary } from "@/lib/program-team-assignments";
 import type { ProgramMeetingAttachment, ProgramMeetingInput } from "@/lib/program-intelligence-types";
-import type { ProgramArtifact, ProgramIntake } from "@/lib/program-intake-types";
+import type { ProgramArtifact, ProgramIntake, StoredProgram } from "@/lib/program-intake-types";
+import { getProgramClientName } from "@/lib/client-portfolio";
+import { programsToSlicerOptions } from "@/lib/program-slicer";
 import { splitLines } from "@/lib/text-signals";
 import {
   buildCycleMetadata,
@@ -99,9 +101,10 @@ export function useActiveProgramReviewController() {
       const response = await fetch("/api/programs", { cache: "no-store" });
       if (!response.ok) return;
       const payload = (await response.json()) as {
-        programs: Array<{ id: string; intake: ProgramIntake }>;
+        programs: StoredProgram[];
       };
       const serverPrograms: ExistingProgramOption[] = payload.programs.map((program) => ({
+        clientName: getProgramClientName(program),
         id: program.id,
         label: program.intake.programName,
         source: "local",
@@ -936,7 +939,21 @@ export function useActiveProgramReviewController() {
   }, []);
 
   const programOptions = useMemo(
-    () => existingPrograms.map((program) => ({ id: program.id, label: program.label })),
+    () =>
+      programsToSlicerOptions(
+        existingPrograms
+          .filter((program) => program.intake)
+          .map((program) => ({
+            id: program.id,
+            createdAt: "",
+            updatedAt: "",
+            intake: {
+              ...program.intake,
+              clientName: program.clientName,
+              programName: program.label
+            } as ProgramIntake
+          }))
+      ),
     [existingPrograms]
   );
 

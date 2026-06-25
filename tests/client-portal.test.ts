@@ -10,6 +10,7 @@ const program: StoredProgram = {
   createdAt: "2026-04-01T00:00:00.000Z",
   updatedAt: "2026-04-28T00:00:00.000Z",
   intake: {
+    clientName: "Impower",
     programName: "Compliance Hub",
     programOwner: "Delivery Lead",
     vision: "Make compliance review faster and safer.",
@@ -157,6 +158,7 @@ test("buildClientPortalProgram creates executive posture from program signals", 
   });
 
   assert.equal(portalProgram.posture, "at-risk");
+  assert.equal(portalProgram.clientName, "Impower");
   assert.equal(portalProgram.statusSignal, "AMBER");
   assert.equal(portalProgram.completionDelta, "+6%");
   assert.equal(portalProgram.programLead, "A. Miller");
@@ -217,6 +219,10 @@ test("buildClientPortalPortfolio rolls program posture into portfolio metrics", 
   assert.equal(portfolio.metrics.delayed, 0);
   assert.equal(portfolio.metrics.averageCompletionPercent, 78);
   assert.equal(portfolio.metrics.healthScore, 46);
+  assert.equal(portfolio.clients.length, 1);
+  assert.equal(portfolio.clients[0]?.clientName, "Impower");
+  assert.deepEqual(portfolio.clients[0]?.programIds, ["compliance-hub"]);
+  assert.equal(portfolio.clients[0]?.metrics.totalPrograms, 1);
   assert.equal(portfolio.upcomingMilestones[0]?.title, "Scope baseline");
   assert.equal(portfolio.keyRisks[0]?.trend, "Worse");
   assert.equal(portfolio.roadmap[0]?.segments.length, 5);
@@ -232,6 +238,47 @@ test("buildClientPortalPortfolio rolls program posture into portfolio metrics", 
     "next",
     "next"
   ]);
+});
+
+test("buildClientPortalPortfolio separates programs into client portfolios", () => {
+  const secondProgram: StoredProgram = {
+    ...program,
+    id: "data-platform",
+    intake: {
+      ...program.intake,
+      clientName: "Acme",
+      programName: "Data Platform",
+      programOwner: "Data Lead"
+    }
+  };
+  const secondUpdate: StoredProgramUpdate = {
+    ...update,
+    id: "update-2",
+    programId: "data-platform",
+    programName: "Data Platform",
+    review: {
+      ...update.review,
+      programName: "Data Platform",
+      deliveryHealth: "On track",
+      activeRisks: "",
+      decisionsPending: "",
+      programCompletionPercent: "40"
+    }
+  };
+
+  const portfolio = buildClientPortalPortfolio({
+    generatedAt: "2026-04-30T00:00:00.000Z",
+    programs: [
+      { latestPlan: plan, latestUpdate: update, program },
+      { latestPlan: plan, latestUpdate: secondUpdate, program: secondProgram }
+    ]
+  });
+
+  assert.deepEqual(portfolio.clients.map((client) => client.clientName), ["Acme", "Impower"]);
+  assert.deepEqual(portfolio.clients.find((client) => client.clientName === "Acme")?.programIds, ["data-platform"]);
+  assert.deepEqual(portfolio.clients.find((client) => client.clientName === "Impower")?.programIds, ["compliance-hub"]);
+  assert.equal(portfolio.clients.find((client) => client.clientName === "Acme")?.metrics.totalPrograms, 1);
+  assert.equal(portfolio.clients.find((client) => client.clientName === "Impower")?.metrics.atRisk, 1);
 });
 
 test("Client Portal completion prefers program schedule over manual percent", () => {

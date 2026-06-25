@@ -1,6 +1,8 @@
 import type { StoredProgram } from "@/lib/program-intake-types";
+import { compareClientNames, getProgramClientName } from "./client-portfolio.ts";
 
 export type ProgramSlicerOption = {
+  clientName?: string;
   detail?: string;
   id: string;
   label: string;
@@ -16,16 +18,20 @@ export function programToSlicerOption(program: StoredProgram, detailMode: Progra
   const label = firstText(program.intake.programName, "Untitled program");
   const owner = firstText(program.intake.programOwner);
   const signal = firstText(program.intake.vision, program.intake.outcomes, "No north star captured yet.");
+  const clientName = getProgramClientName(program);
 
   return {
+    clientName,
     id: program.id,
     label,
-    detail: detailMode === "owner" ? `Lead: ${owner || "Owner not set"}` : signal
+    detail: detailMode === "owner" ? `Client: ${clientName} · Lead: ${owner || "Owner not set"}` : `Client: ${clientName} · ${signal}`
   };
 }
 
 export function programsToSlicerOptions(programs: StoredProgram[], detailMode: ProgramSlicerDetailMode = "owner") {
-  return programs.map((program) => programToSlicerOption(program, detailMode));
+  return programs
+    .map((program) => programToSlicerOption(program, detailMode))
+    .sort((a, b) => compareClientNames(a.clientName ?? "", b.clientName ?? "") || a.label.localeCompare(b.label));
 }
 
 export function getProgramSlicerButtonLabel(input: {

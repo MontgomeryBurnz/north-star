@@ -213,7 +213,8 @@ function ProgramGridRow({
     >
       <div className="grid gap-4 lg:grid-cols-[minmax(15rem,1.15fr)_10rem_12rem] lg:items-center">
         <span className="rounded-md border border-emerald-300/20 bg-emerald-300/[0.08] px-8 py-4 text-center text-base font-semibold text-emerald-100 shadow-sm">
-          {program.name}
+          <span className="block">{program.name}</span>
+          <span className="mt-1 block text-xs font-medium uppercase tracking-[0.14em] text-emerald-100/60">{program.clientName}</span>
         </span>
         <span>
           <span className="block text-xs font-medium uppercase tracking-[0.16em] text-zinc-500">RAG</span>
@@ -422,6 +423,7 @@ function ProgramHero({ program }: { program: ClientPortalProgram }) {
       <div className="grid gap-8 xl:grid-cols-[minmax(0,1fr)_minmax(22rem,0.5fr)] xl:items-start">
         <div>
           <h2 className="text-4xl font-semibold tracking-normal">{program.name}</h2>
+          <p className="mt-3 text-sm font-semibold uppercase tracking-[0.16em] text-cyan-200">{program.clientName}</p>
           <p className="mt-4 text-lg font-medium text-cyan-100">{program.primaryOutcome}</p>
           <div className="mt-8 flex flex-wrap gap-x-10 gap-y-3 text-base text-zinc-400">
             <span data-client-executive-sponsor>Executive Sponsor: <strong className="text-zinc-50">{program.executiveSponsor}</strong></span>
@@ -805,12 +807,24 @@ export function ClientPortalConsole({
   portfolio: ClientPortalPortfolio;
   viewerLabel: string;
 }) {
-  const [selectedProgramId, setSelectedProgramId] = useState(portfolio.programs[0]?.id ?? "");
-  const [visibleProgramIds, setVisibleProgramIds] = useState(() => new Set(portfolio.programs.map((program) => program.id)));
+  const [selectedClientName, setSelectedClientName] = useState(portfolio.clients[0]?.clientName ?? "");
+  const initialClientProgramIds = portfolio.clients[0]?.programIds ?? portfolio.programs.map((program) => program.id);
+  const [selectedProgramId, setSelectedProgramId] = useState(initialClientProgramIds[0] ?? "");
+  const [visibleProgramIds, setVisibleProgramIds] = useState(() => new Set(initialClientProgramIds));
   const detailRef = useRef<HTMLDivElement>(null);
+  const selectedClient = useMemo(
+    () => portfolio.clients.find((client) => client.clientName === selectedClientName) ?? portfolio.clients[0] ?? null,
+    [portfolio.clients, selectedClientName]
+  );
+  const selectedClientProgramIds = useMemo(() => selectedClient?.programIds ?? [], [selectedClient]);
+  const selectedClientProgramIdsKey = selectedClientProgramIds.join("|");
+  const clientPrograms = useMemo(
+    () => portfolio.programs.filter((program) => selectedClientProgramIds.includes(program.id)),
+    [portfolio.programs, selectedClientProgramIds]
+  );
   const visiblePrograms = useMemo(
-    () => portfolio.programs.filter((program) => visibleProgramIds.has(program.id)),
-    [portfolio.programs, visibleProgramIds]
+    () => clientPrograms.filter((program) => visibleProgramIds.has(program.id)),
+    [clientPrograms, visibleProgramIds]
   );
   const visibleMetrics = useMemo(() => deriveVisibleMetrics(visiblePrograms), [visiblePrograms]);
   const selectedProgram = useMemo(
@@ -821,6 +835,17 @@ export function ClientPortalConsole({
   const visibleMilestones = portfolio.upcomingMilestones.filter((milestone) => visibleIds.has(milestone.programId));
   const visibleRisks = portfolio.keyRisks.filter((risk) => visibleIds.has(risk.programId));
   const visibleRoadmap = portfolio.roadmap.filter((row) => visibleIds.has(row.programId));
+
+  useEffect(() => {
+    if (!portfolio.clients.length) return;
+    if (portfolio.clients.some((client) => client.clientName === selectedClientName)) return;
+    setSelectedClientName(portfolio.clients[0]?.clientName ?? "");
+  }, [portfolio.clients, selectedClientName]);
+
+  useEffect(() => {
+    setVisibleProgramIds(new Set(selectedClientProgramIds));
+    setSelectedProgramId(selectedClientProgramIds[0] ?? "");
+  }, [selectedClientName, selectedClientProgramIdsKey, selectedClientProgramIds]);
 
   useEffect(() => {
     if (!selectedProgram && visiblePrograms[0]) {
@@ -841,6 +866,13 @@ export function ClientPortalConsole({
         next.add(programId);
       }
       return next;
+    });
+  }
+
+  function selectClient(clientName: string) {
+    setSelectedClientName(clientName);
+    window.requestAnimationFrame(() => {
+      window.scrollTo({ behavior: "smooth", top: 0 });
     });
   }
 
@@ -893,22 +925,59 @@ export function ClientPortalConsole({
 
         {portfolio.programs.length ? (
           <>
+            <section className="mt-8 rounded-lg border border-cyan-300/15 bg-cyan-300/[0.045] p-5 shadow-glow" data-client-portfolio-selector>
+              <div className="flex flex-wrap items-start justify-between gap-4">
+                <div>
+                  <p className="text-xs font-medium uppercase tracking-[0.16em] text-cyan-200">Client portfolio</p>
+                  <p className="mt-1 text-sm font-medium leading-6 text-zinc-500">
+                    Select the client first, then inspect the programs inside that portfolio.
+                  </p>
+                </div>
+                {selectedClient ? (
+                  <span className="rounded-full border border-emerald-300/20 bg-emerald-300/[0.08] px-4 py-2 text-sm font-semibold text-emerald-100">
+                    {selectedClient.metrics.totalPrograms} program{selectedClient.metrics.totalPrograms === 1 ? "" : "s"}
+                  </span>
+                ) : null}
+              </div>
+              <div className="mt-4 flex flex-wrap gap-2">
+                {portfolio.clients.map((client) => (
+                  <button
+                    key={client.clientName}
+                    type="button"
+                    aria-pressed={client.clientName === selectedClientName}
+                    data-client-portfolio-option={client.clientName}
+                    onClick={() => selectClient(client.clientName)}
+                    className={cn(
+                      "rounded-full border px-4 py-2 text-sm font-medium transition-colors",
+                      client.clientName === selectedClientName
+                        ? "border-cyan-300/30 bg-cyan-300/[0.14] text-cyan-100"
+                        : "border-white/10 bg-white/[0.025] text-zinc-500 hover:border-cyan-300/25 hover:text-zinc-200"
+                    )}
+                  >
+                    {client.clientName}
+                  </button>
+                ))}
+              </div>
+            </section>
+
             <section className="mt-8 rounded-lg border border-white/10 bg-zinc-950/70 p-5 shadow-glow">
               <div className="flex flex-wrap items-center justify-between gap-4">
                 <div>
                   <p className="text-xs font-medium uppercase tracking-[0.16em] text-cyan-200">Portfolio scope</p>
-                  <p className="mt-1 text-sm font-medium text-zinc-500">Toggle which programs appear in the executive view.</p>
+                  <p className="mt-1 text-sm font-medium text-zinc-500">
+                    Toggle which {selectedClient?.clientName ?? "client"} programs appear in the executive view.
+                  </p>
                 </div>
                 <button
                   type="button"
-                  onClick={() => setVisibleProgramIds(new Set(portfolio.programs.map((program) => program.id)))}
+                  onClick={() => setVisibleProgramIds(new Set(selectedClientProgramIds))}
                   className="rounded-full border border-white/10 bg-white/[0.035] px-4 py-2 text-sm font-medium text-cyan-100 transition-colors hover:border-cyan-300/30 hover:bg-cyan-300/[0.06]"
                 >
-                  All programs
+                  All {selectedClient?.clientName ?? "client"} programs
                 </button>
               </div>
               <div className="mt-4 flex flex-wrap gap-2">
-                {portfolio.programs.map((program) => (
+                {clientPrograms.map((program) => (
                   <button
                     key={program.id}
                     type="button"

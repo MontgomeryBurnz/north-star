@@ -4,20 +4,16 @@ import { useEffect, useMemo, useState, type DragEvent } from "react";
 import { Activity, ArrowUpRight, CalendarClock, ChevronDown, Compass, Plus, SlidersHorizontal, Trash2 } from "lucide-react";
 import type { ActiveProgramReview, ActiveProgramSaveConfirmation, ProgramTimelineMilestone } from "@/lib/active-program-types";
 import { ProgramSlicer } from "@/components/program-slicer";
+import type { ProgramSlicerOption } from "@/lib/program-slicer";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
-
-type ProgramOption = {
-  id: string;
-  label: string;
-};
 
 type ActiveProgramScalarField = keyof Omit<ActiveProgramReview, "artifacts" | "deliveryBoardItems" | "programMilestones" | "teamRoleUpdates">;
 type SaveConfirmation = ActiveProgramSaveConfirmation;
 
 type ActiveProgramStateCardProps = {
   selectedProgramId: string;
-  programOptions: ProgramOption[];
+  programOptions: ProgramSlicerOption[];
   review: ActiveProgramReview;
   onSelectProgram: (programId: string) => void;
   onFieldChange: (field: ActiveProgramScalarField, value: string) => void;
@@ -55,9 +51,10 @@ export function ActiveProgramStateCard({
   const [isSetupOpen, setIsSetupOpen] = useState(false);
   const [draggingMilestoneId, setDraggingMilestoneId] = useState<string | null>(null);
   const [dragOverMilestoneId, setDragOverMilestoneId] = useState<string | null>(null);
-  const slicerOptions = useMemo(
-    () => programOptions.map((program) => ({ id: program.id, label: program.label })),
-    [programOptions]
+  const slicerOptions = useMemo(() => programOptions, [programOptions]);
+  const selectedClientName = useMemo(
+    () => slicerOptions.find((program) => program.id === selectedProgramId)?.clientName ?? "Unassigned client",
+    [selectedProgramId, slicerOptions]
   );
   const hasSelectedProgram = Boolean(selectedProgramId);
   const timelineScale = review.timelineScale ?? "year";
@@ -148,10 +145,14 @@ export function ActiveProgramStateCard({
         ) : null}
 
         {hasSelectedProgram ? (
-          <div className="grid gap-3 rounded-lg border border-cyan-300/15 bg-cyan-300/[0.035] p-4 md:grid-cols-6">
+          <div className="grid gap-3 rounded-lg border border-cyan-300/15 bg-cyan-300/[0.035] p-4 md:grid-cols-4 xl:grid-cols-7">
             <div className="min-w-0">
-              <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-cyan-100">Program</p>
-              <p className="mt-2 truncate text-sm font-semibold text-zinc-50">{review.programName || "Selected program"}</p>
+              <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-cyan-100">Client</p>
+              <p className="mt-2 truncate text-sm font-semibold text-zinc-50">{selectedClientName}</p>
+            </div>
+            <div className="min-w-0">
+              <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-zinc-500">Program</p>
+              <p className="mt-2 truncate text-sm text-zinc-300">{review.programName || "Selected program"}</p>
             </div>
             <div className="min-w-0">
               <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-zinc-500">Phase</p>

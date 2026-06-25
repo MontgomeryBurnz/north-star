@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 const emptyIntake: ProgramIntake = {
+  clientName: "",
   programName: "",
   programOwner: "",
   vision: "",
@@ -44,6 +45,7 @@ Decision needed: confirm the minimum viable planning output and the owner for sp
 Key outputs: recommended work path, planning approach, critical requirements, risk view, stakeholder checkpoint plan, and next-step owner map.`;
 
 const sampleIntake: ProgramIntake = {
+  clientName: "North Star Demo Client",
   programName: "Customer Onboarding Modernization",
   programOwner: "Delivery lead",
   vision: "Create a clear delivery path that reduces onboarding ambiguity and gives leaders a reliable view of decisions, risks, and next outputs.",
@@ -600,7 +602,7 @@ export function ProgramIntakeSection() {
     const populated = Object.entries(prefill).filter(([field, value]) => {
       const intakeField = field as PrefillField;
       const nextValue = typeof value === "string" ? value : "";
-      return !intake[intakeField].trim() && Boolean(nextValue.trim());
+      return !(intake[intakeField] ?? "").trim() && Boolean(nextValue.trim());
     }).length;
 
     setIntake((current) => {
@@ -608,7 +610,7 @@ export function ProgramIntakeSection() {
       Object.entries(prefill).forEach(([field, value]) => {
         const intakeField = field as PrefillField;
         const nextValue = typeof value === "string" ? value : "";
-        if (!next[intakeField].trim() && nextValue.trim()) {
+        if (!(next[intakeField] ?? "").trim() && nextValue.trim()) {
           next[intakeField] = nextValue;
         }
       });
@@ -637,7 +639,7 @@ export function ProgramIntakeSection() {
     const populated = Object.entries(prefill).filter(([field, value]) => {
       const intakeField = field as PrefillField;
       const nextValue = typeof value === "string" ? value : "";
-      return !intake[intakeField].trim() && Boolean(nextValue.trim());
+      return !(intake[intakeField] ?? "").trim() && Boolean(nextValue.trim());
     }).length;
 
     setIntake((current) => {
@@ -645,7 +647,7 @@ export function ProgramIntakeSection() {
       Object.entries(prefill).forEach(([field, value]) => {
         const intakeField = field as PrefillField;
         const nextValue = typeof value === "string" ? value : "";
-        if (!next[intakeField].trim() && nextValue.trim()) {
+        if (!(next[intakeField] ?? "").trim() && nextValue.trim()) {
           next[intakeField] = nextValue;
         }
       });
@@ -787,11 +789,23 @@ export function ProgramIntakeSection() {
               </CardHeader>
               <CardContent className="grid gap-4 p-5">
                 <label className="grid gap-2">
+                  <span className="text-xs font-medium uppercase tracking-[0.18em] text-cyan-200">Client / portfolio</span>
+                  <input
+                    value={intake.clientName ?? ""}
+                    onChange={(event) => updateField("clientName", event.target.value)}
+                    placeholder="Client, account, or portfolio name"
+                    className="min-h-11 rounded-md border border-cyan-300/15 bg-zinc-950 px-3 py-3 text-sm text-zinc-100 outline-none transition-colors placeholder:text-zinc-300 focus:border-cyan-300/50"
+                  />
+                  <span className="text-xs leading-5 text-zinc-400">
+                    Use this to keep programs grouped by client portfolio across Program Hub, Studio, Guided Plans, and the Client Portal.
+                  </span>
+                </label>
+                <label className="grid gap-2">
                   <span className="text-xs font-medium uppercase tracking-[0.18em] text-zinc-300">Program name</span>
                   <input
                     value={intake.programName}
                     onChange={(event) => updateField("programName", event.target.value)}
-                    placeholder="Program, client, initiative, or workstream name"
+                    placeholder="Program, initiative, or workstream name"
                     className="min-h-11 rounded-md border border-white/10 bg-zinc-950 px-3 py-3 text-sm text-zinc-100 outline-none transition-colors placeholder:text-zinc-300 focus:border-emerald-300/50"
                   />
                   <span className="text-xs leading-5 text-zinc-400">

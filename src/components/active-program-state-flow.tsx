@@ -1,6 +1,7 @@
 "use client";
 
 import type { ActiveProgramReview, ActiveProgramSaveConfirmation, ProgramTimelineMilestone } from "@/lib/active-program-types";
+import type { ProgramSlicerOption } from "@/lib/program-slicer";
 import { ActiveProgramStateCard } from "@/components/active-program-state-card";
 
 type ActiveProgramScalarField = keyof Omit<
@@ -12,7 +13,7 @@ type SaveConfirmation = ActiveProgramSaveConfirmation;
 
 type ActiveProgramStateFlowProps = {
   selectedProgramId: string;
-  programOptions: Array<{ id: string; label: string }>;
+  programOptions: ProgramSlicerOption[];
   review: ActiveProgramReview;
   onAddTimelineMilestone: () => void;
   onFieldChange: (field: ActiveProgramScalarField, value: string) => void;

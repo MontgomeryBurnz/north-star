@@ -11,6 +11,7 @@ import type { GuidedPlan } from "./guided-plan-types.ts";
 import type { LeadershipReviewRecord } from "./leadership-feedback-types.ts";
 import type { ClientDecisionRequest } from "./program-intelligence-types.ts";
 import type { StoredProgram } from "./program-intake-types.ts";
+import { compareClientNames, getProgramClientName } from "./client-portfolio.ts";
 import { firstNonEmpty, firstSignal, normalizeWhitespace, splitSignals } from "./text-signals.ts";
 
 export type ClientProgramPosture = "on-track" | "at-risk" | "blocked" | "watch";
@@ -32,6 +33,7 @@ export type ClientPortalDomainSummary = {
 export type ClientPortalProgram = {
   id: string;
   name: string;
+  clientName: string;
   owner: string;
   executiveSponsor: string;
   programLead: string;
@@ -120,6 +122,7 @@ export type ClientPortalProgram = {
 };
 
 export type ClientPortalPortfolioMilestone = {
+  clientName: string;
   dateLabel: string;
   id: string;
   priority: ClientPortalPriority;
@@ -129,6 +132,7 @@ export type ClientPortalPortfolioMilestone = {
 };
 
 export type ClientPortalPortfolioRisk = {
+  clientName: string;
   description: string;
   id: string;
   mitigationOwner: string;
@@ -139,6 +143,7 @@ export type ClientPortalPortfolioRisk = {
 };
 
 export type ClientPortalRoadmapRow = {
+  clientName: string;
   markerLabel: string;
   markerPosition: number;
   markerTone: ClientProgramPosture;
@@ -154,21 +159,33 @@ export type ClientPortalRoadmapRow = {
   }>;
 };
 
+export type ClientPortalPortfolioMetrics = {
+  totalPrograms: number;
+  onTrack: number;
+  atRisk: number;
+  blocked: number;
+  watch: number;
+  delayed: number;
+  averageCompletionPercent: number;
+  decisions: number;
+  risks: number;
+  healthScore: number;
+};
+
+export type ClientPortalClientPortfolio = {
+  clientName: string;
+  programIds: string[];
+  metrics: ClientPortalPortfolioMetrics;
+  upcomingMilestones: ClientPortalPortfolioMilestone[];
+  keyRisks: ClientPortalPortfolioRisk[];
+  roadmap: ClientPortalRoadmapRow[];
+};
+
 export type ClientPortalPortfolio = {
   generatedAt: string;
   programs: ClientPortalProgram[];
-  metrics: {
-    totalPrograms: number;
-    onTrack: number;
-    atRisk: number;
-    blocked: number;
-    watch: number;
-    delayed: number;
-    averageCompletionPercent: number;
-    decisions: number;
-    risks: number;
-    healthScore: number;
-  };
+  clients: ClientPortalClientPortfolio[];
+  metrics: ClientPortalPortfolioMetrics;
   upcomingMilestones: ClientPortalPortfolioMilestone[];
   keyRisks: ClientPortalPortfolioRisk[];
   roadmap: ClientPortalRoadmapRow[];
@@ -1241,6 +1258,7 @@ export function buildClientPortalProgram(input: ClientPortalProgramInput): Clien
   return {
     id: input.program.id,
     name: firstNonEmpty(intake.programName, input.latestPlan?.programName, "Untitled program"),
+    clientName: getProgramClientName(input.program),
     owner,
     executiveSponsor: firstNonEmpty(review?.executiveSponsor, stakeholderByKeyword(intake.stakeholders, "sponsor", "Executive sponsor")),
     programLead: firstNonEmpty(review?.programLead, owner),
@@ -1340,6 +1358,7 @@ function buildPortfolioRoadmap(programs: ClientPortalProgram[]): ClientPortalRoa
     const currentWindowIndex = clampRoadmapIndex(program.roadmapCurrentWindowIndex, segmentLabels.length);
 
     return {
+      clientName: program.clientName,
       markerLabel: program.nextMilestone.name,
       markerPosition: roadmapMarkerPosition(currentWindowIndex, segmentLabels.length),
       markerTone: program.posture,
@@ -1361,6 +1380,7 @@ function buildPortfolioMilestones(programs: ClientPortalProgram[]): ClientPortal
   return programs
     .filter((program) => program.nextMilestone.name !== "No milestone captured")
     .map((program) => ({
+      clientName: program.clientName,
       dateLabel: program.nextMilestone.dateLabel,
       id: `${program.id}-next-milestone`,
       priority: program.nextMilestone.priority,
@@ -1375,6 +1395,7 @@ function buildPortfolioRisks(programs: ClientPortalProgram[]): ClientPortalPortf
   return programs
     .flatMap((program) =>
       program.executiveRisks.slice(0, 2).map((risk, index) => ({
+        clientName: program.clientName,
         description: risk.description,
         id: `${program.id}-risk-${index}`,
         mitigationOwner: risk.owner,
@@ -1391,12 +1412,7 @@ function buildPortfolioRisks(programs: ClientPortalProgram[]): ClientPortalPortf
     .slice(0, 6);
 }
 
-export function buildClientPortalPortfolio(input: {
-  generatedAt?: string;
-  programs: ClientPortalProgramInput[];
-}): ClientPortalPortfolio {
-  const generatedAt = input.generatedAt ?? new Date().toISOString();
-  const programs = input.programs.map((programInput) => buildClientPortalProgram({ ...programInput, generatedAt }));
+function buildPortfolioMetrics(programs: ClientPortalProgram[]): ClientPortalPortfolioMetrics {
   const totalPrograms = programs.length;
   const onTrack = programs.filter((program) => program.posture === "on-track").length;
   const atRisk = programs.filter((program) => program.posture === "at-risk").length;
@@ -1419,20 +1435,48 @@ export function buildClientPortalPortfolio(input: {
   }, 0);
 
   return {
+    totalPrograms,
+    onTrack,
+    atRisk,
+    blocked,
+    watch,
+    delayed,
+    averageCompletionPercent,
+    decisions: programs.reduce((total, program) => total + program.metrics.decisions, 0),
+    risks: programs.reduce((total, program) => total + program.metrics.risks, 0),
+    healthScore: totalPrograms ? Math.round(weightedHealth / totalPrograms) : 0
+  };
+}
+
+function buildClientPortfolioGroups(programs: ClientPortalProgram[]): ClientPortalClientPortfolio[] {
+  const clientNames = Array.from(new Set(programs.map((program) => program.clientName))).sort(compareClientNames);
+
+  return clientNames.map((clientName) => {
+    const clientPrograms = programs.filter((program) => program.clientName === clientName);
+
+    return {
+      clientName,
+      programIds: clientPrograms.map((program) => program.id),
+      metrics: buildPortfolioMetrics(clientPrograms),
+      upcomingMilestones: buildPortfolioMilestones(clientPrograms),
+      keyRisks: buildPortfolioRisks(clientPrograms),
+      roadmap: buildPortfolioRoadmap(clientPrograms)
+    };
+  });
+}
+
+export function buildClientPortalPortfolio(input: {
+  generatedAt?: string;
+  programs: ClientPortalProgramInput[];
+}): ClientPortalPortfolio {
+  const generatedAt = input.generatedAt ?? new Date().toISOString();
+  const programs = input.programs.map((programInput) => buildClientPortalProgram({ ...programInput, generatedAt }));
+
+  return {
     generatedAt,
     programs,
-    metrics: {
-      totalPrograms,
-      onTrack,
-      atRisk,
-      blocked,
-      watch,
-      delayed,
-      averageCompletionPercent,
-      decisions: programs.reduce((total, program) => total + program.metrics.decisions, 0),
-      risks: programs.reduce((total, program) => total + program.metrics.risks, 0),
-      healthScore: totalPrograms ? Math.round(weightedHealth / totalPrograms) : 0
-    },
+    clients: buildClientPortfolioGroups(programs),
+    metrics: buildPortfolioMetrics(programs),
     upcomingMilestones: buildPortfolioMilestones(programs),
     keyRisks: buildPortfolioRisks(programs),
     roadmap: buildPortfolioRoadmap(programs)

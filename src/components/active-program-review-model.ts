@@ -63,6 +63,7 @@ export const emptyMeetingInputDraft = {
 };
 
 export type ExistingProgramOption = {
+  clientName?: string;
   id: string;
   label: string;
   source: "local";

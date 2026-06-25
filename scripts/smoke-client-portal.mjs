@@ -283,6 +283,7 @@ async function seedProgramUpdate(session, program, smokeText) {
 async function verifyClientPortal(session, program, smokeText) {
   const primaryRole = program.intake.teamRoles?.[0] ?? "Delivery Lead";
   const expectedProgramPercent = `${buildScheduleWindow().expectedPercent}%`;
+  const expectedClientName = program.intake.clientName?.trim() || "Unassigned client";
 
   await session.navigate(`${baseUrl}/client?smoke=client-portal-seeded-update`);
   await session.waitFor("Client Portal portfolio loaded", async () => {
@@ -290,9 +291,34 @@ async function verifyClientPortal(session, program, smokeText) {
       const bodyText = document.body.textContent ?? "";
       return bodyText.includes("North Star Client Portal") &&
         bodyText.includes("Portfolio Dashboard") &&
+        Boolean(document.querySelector("[data-client-portfolio-selector]")) &&
         Boolean(document.querySelector("[data-client-program-card]"));
     `);
   }, 20_000);
+
+  const clientSelected = await session.execute(
+    `
+      const options = Array.from(document.querySelectorAll("[data-client-portfolio-option]"));
+      const option = options.find((element) => (element.textContent ?? "").trim() === arguments[0]);
+      option?.click();
+      return Boolean(option);
+    `,
+    [expectedClientName]
+  );
+
+  if (!clientSelected) {
+    throw new Error(`Client Portal smoke could not find client portfolio option ${expectedClientName}.`);
+  }
+
+  await session.waitFor("Client Portal selected client program visible", () =>
+    session.execute(
+      `
+        return Array.from(document.querySelectorAll("[data-client-program-card]"))
+          .some((element) => element.getAttribute("data-client-program-card") === arguments[0]);
+      `,
+      [program.id]
+    )
+  );
 
   const selected = await session.execute(
     `

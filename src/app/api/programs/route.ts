@@ -23,6 +23,7 @@ export async function POST(request: Request) {
   }
 
   const program = await upsertProgram({
+    clientName: body.clientName ?? "",
     programName: body.programName,
     programOwner: body.programOwner ?? "",
     vision: body.vision ?? "",
@@ -53,6 +54,7 @@ export async function POST(request: Request) {
     eventType: "program.create_or_update",
     metadata: {
       artifactCount: program.intake.artifacts.length,
+      clientName: program.intake.clientName ?? "",
       roleCount: program.intake.teamRoles?.length ?? 0
     },
     programId: program.id,
