@@ -42,56 +42,56 @@ const postureStyles: Record<
   }
 > = {
   "on-track": {
-    badge: "border border-emerald-300/25 bg-emerald-300/[0.08] text-emerald-100",
-    dot: "bg-emerald-300",
-    heroDot: "bg-emerald-300",
-    marker: "bg-emerald-300",
-    pill: "border-emerald-300/25 bg-emerald-300/[0.08] text-emerald-100",
-    progress: "bg-emerald-300",
-    text: "text-emerald-200"
+    badge: "border border-emerald-200 bg-emerald-50 text-emerald-800",
+    dot: "bg-emerald-500",
+    heroDot: "bg-emerald-400",
+    marker: "bg-emerald-500",
+    pill: "border-emerald-200 bg-emerald-50 text-emerald-800",
+    progress: "bg-emerald-500",
+    text: "text-emerald-700"
   },
   "at-risk": {
-    badge: "border border-amber-300/25 bg-amber-300/[0.08] text-amber-100",
-    dot: "bg-amber-300",
-    heroDot: "bg-amber-300",
-    marker: "bg-amber-300",
-    pill: "border-amber-300/25 bg-amber-300/[0.08] text-amber-100",
-    progress: "bg-amber-300",
-    text: "text-amber-200"
+    badge: "border border-amber-200 bg-amber-50 text-amber-800",
+    dot: "bg-amber-500",
+    heroDot: "bg-amber-400",
+    marker: "bg-amber-500",
+    pill: "border-amber-200 bg-amber-50 text-amber-800",
+    progress: "bg-amber-500",
+    text: "text-amber-700"
   },
   blocked: {
-    badge: "border border-rose-300/25 bg-rose-300/[0.08] text-rose-100",
-    dot: "bg-rose-300",
-    heroDot: "bg-rose-300",
-    marker: "bg-rose-300",
-    pill: "border-rose-300/25 bg-rose-300/[0.08] text-rose-100",
-    progress: "bg-rose-300",
-    text: "text-rose-200"
+    badge: "border border-rose-200 bg-rose-50 text-rose-800",
+    dot: "bg-rose-500",
+    heroDot: "bg-rose-400",
+    marker: "bg-rose-500",
+    pill: "border-rose-200 bg-rose-50 text-rose-800",
+    progress: "bg-rose-500",
+    text: "text-rose-700"
   },
   watch: {
-    badge: "border border-cyan-300/25 bg-cyan-300/[0.08] text-cyan-100",
-    dot: "bg-cyan-300",
-    heroDot: "bg-cyan-300",
-    marker: "bg-cyan-300",
-    pill: "border-cyan-300/25 bg-cyan-300/[0.08] text-cyan-100",
-    progress: "bg-cyan-300",
-    text: "text-cyan-200"
+    badge: "border border-sky-200 bg-sky-50 text-sky-800",
+    dot: "bg-sky-500",
+    heroDot: "bg-sky-400",
+    marker: "bg-sky-500",
+    pill: "border-sky-200 bg-sky-50 text-sky-800",
+    progress: "bg-sky-500",
+    text: "text-sky-700"
   }
 };
 
 const priorityStyles = {
-  High: "border border-emerald-300/25 bg-emerald-300/[0.08] text-emerald-100",
-  Medium: "border border-amber-300/25 bg-amber-300/[0.08] text-amber-100",
-  Low: "border border-rose-300/25 bg-rose-300/[0.08] text-rose-100"
+  High: "border border-rose-200 bg-rose-50 text-rose-800",
+  Medium: "border border-amber-200 bg-amber-50 text-amber-800",
+  Low: "border border-emerald-200 bg-emerald-50 text-emerald-800"
 } as const;
 
 type RoadmapSegmentState = ClientPortalRoadmapRow["segments"][number]["state"];
 type RoadmapWindowMode = ClientPortalRoadmapRow["windowMode"];
 
 const roadmapPhaseSegmentStyles: Record<RoadmapSegmentState, string> = {
-  complete: "border-r border-white/10 bg-emerald-300/[0.12] text-emerald-100",
-  current: "border-r border-white/10 bg-emerald-300/35 text-zinc-950",
-  next: "border-r border-white/10 bg-white/[0.06] text-zinc-500"
+  complete: "border-r border-white/30 bg-emerald-100 text-emerald-900",
+  current: "border-r border-white/30 bg-emerald-500 text-white",
+  next: "border-r border-slate-200 bg-slate-100 text-slate-500"
 } as const;
 
 function roadmapSegmentClass(label: string, state: RoadmapSegmentState, windowMode: RoadmapWindowMode) {
@@ -99,9 +99,9 @@ function roadmapSegmentClass(label: string, state: RoadmapSegmentState, windowMo
     return cn(roadmapPhaseSegmentStyles[state], label === "Value" ? "border-r-0" : "");
   }
 
-  if (state === "complete") return "border-r border-white/10 bg-emerald-300/[0.16] text-emerald-100";
-  if (state === "current") return "border-r border-white/10 bg-cyan-300/[0.18] text-cyan-100";
-  return "border-r border-white/10 bg-white/[0.04] text-zinc-500";
+  if (state === "complete") return "border-r border-white/30 bg-emerald-100 text-emerald-900";
+  if (state === "current") return "border-r border-white/30 bg-sky-600 text-white";
+  return "border-r border-slate-200 bg-slate-100 text-slate-500";
 }
 
 function formatDate(value: string) {
@@ -128,7 +128,7 @@ function formatRefreshTime(value: string) {
 function PortfolioLogoutForm() {
   return (
     <form action="/api/auth/user/logout" method="post">
-      <Button type="submit" variant="outline" size="sm" className="border-white/10 bg-white/[0.035] text-zinc-300 hover:bg-white/[0.055] hover:text-zinc-50">
+      <Button type="submit" variant="outline" size="sm" className="border-slate-300 bg-white text-slate-700 hover:bg-slate-50 hover:text-slate-950">
         <LogOut className="h-4 w-4" />
         Log out
       </Button>
@@ -138,10 +138,10 @@ function PortfolioLogoutForm() {
 
 function MetricTile({ helper, label, value }: { helper?: string; label: string; value: string }) {
   return (
-    <div className="min-h-32 rounded-lg border border-white/10 bg-zinc-950/80 p-6 shadow-glow">
-      <p className="text-xs font-medium uppercase tracking-[0.16em] text-zinc-500">{label}</p>
-      <p className="mt-8 text-4xl font-semibold tracking-normal text-zinc-50">{value}</p>
-      {helper ? <MetricBasisLabel className="mt-3">{helper}</MetricBasisLabel> : null}
+    <div className="min-h-32 rounded-lg border border-slate-200 bg-white p-6 shadow-[0_18px_45px_rgba(15,23,42,0.08)]">
+      <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">{label}</p>
+      <p className="mt-8 text-4xl font-semibold tracking-normal text-slate-950">{value}</p>
+      {helper ? <MetricBasisLabel className="mt-3 text-slate-600">{helper}</MetricBasisLabel> : null}
     </div>
   );
 }
@@ -180,12 +180,12 @@ function TrendIcon({ trend }: { trend: ClientPortalPortfolioRisk["trend"] }) {
 
 function riskTone(risk: ClientPortalPortfolioRisk) {
   if (risk.trend === "Worse") {
-    return "border-rose-300/25 bg-rose-300/[0.06] text-rose-100";
+    return "border-rose-200 bg-rose-50 text-rose-900";
   }
   if (risk.trend === "Better") {
-    return "border-emerald-300/25 bg-emerald-300/[0.06] text-emerald-100";
+    return "border-emerald-200 bg-emerald-50 text-emerald-900";
   }
-  return "border-white/10 bg-white/[0.035] text-zinc-300";
+  return "border-slate-200 bg-white text-slate-800";
 }
 
 function ProgramGridRow({
@@ -205,82 +205,82 @@ function ProgramGridRow({
       data-client-program-card={program.id}
       onClick={onSelect}
       className={cn(
-        "grid w-full gap-5 rounded-lg border p-5 text-left transition-colors",
+        "grid w-full gap-5 rounded-lg border p-5 text-left shadow-[0_12px_32px_rgba(15,23,42,0.06)] transition-colors",
         selected
-          ? "border-cyan-300/35 bg-cyan-300/[0.07] shadow-[0_0_30px_rgba(103,232,249,0.08)]"
-          : "border-white/10 bg-zinc-950/70 hover:border-cyan-300/25 hover:bg-cyan-300/[0.035]"
+          ? "border-sky-300 bg-sky-50 ring-2 ring-sky-100"
+          : "border-slate-200 bg-white hover:border-sky-300 hover:bg-sky-50/60"
       )}
     >
       <div className="grid gap-4 lg:grid-cols-[minmax(15rem,1.15fr)_10rem_12rem] lg:items-center">
-        <span className="rounded-md border border-emerald-300/20 bg-emerald-300/[0.08] px-8 py-4 text-center text-base font-semibold text-emerald-100 shadow-sm">
+        <span className="rounded-md border border-sky-200 bg-sky-600 px-8 py-4 text-center text-base font-semibold text-white shadow-sm">
           <span className="block">{program.name}</span>
-          <span className="mt-1 block text-xs font-medium uppercase tracking-[0.14em] text-emerald-100/60">{program.clientName}</span>
+          <span className="mt-1 block text-xs font-medium uppercase tracking-[0.14em] text-sky-100">{program.clientName}</span>
         </span>
         <span>
-          <span className="block text-xs font-medium uppercase tracking-[0.16em] text-zinc-500">RAG</span>
+          <span className="block text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">RAG</span>
           <span className={cn("mt-2 inline-flex rounded-full px-3 py-1 text-sm font-medium", styles.badge)}>{program.postureLabel}</span>
         </span>
         <span>
-          <span className="block text-xs font-medium uppercase tracking-[0.16em] text-zinc-500">% Complete</span>
-          <span className="mt-2 block text-2xl font-semibold text-zinc-50">
+          <span className="block text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">% Complete</span>
+          <span className="mt-2 block text-2xl font-semibold text-slate-950">
             {program.metrics.programCompletionPercent}%{" "}
             {program.completionDelta ? <span className={styles.text}>{program.completionDelta}</span> : null}
           </span>
-          <span className="mt-1 block text-xs font-medium text-zinc-500">
+          <span className="mt-1 block text-xs font-medium text-slate-600">
             Basis: {program.metrics.completionBasis} · {program.metrics.completionScheduleLabel}
           </span>
         </span>
       </div>
-      <div className="grid gap-4 text-zinc-400 md:grid-cols-3">
+      <div className="grid gap-4 text-slate-700 md:grid-cols-3">
         <span>
-          <span className="block text-xs font-medium uppercase tracking-[0.16em] text-zinc-500">Owner</span>
+          <span className="block text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Owner</span>
           <span className="mt-2 block font-medium">{program.owner}</span>
         </span>
         <span>
-          <span className="block text-xs font-medium uppercase tracking-[0.16em] text-zinc-500">Phase</span>
+          <span className="block text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Phase</span>
           <span className="mt-2 block font-medium">{program.phase}</span>
         </span>
         <span>
-          <span className="block text-xs font-medium uppercase tracking-[0.16em] text-zinc-500">Next Milestone</span>
-          <span className="mt-2 block font-medium text-zinc-100">{program.nextMilestone.name}</span>
+          <span className="block text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Next Milestone</span>
+          <span className="mt-2 block font-semibold text-slate-950">{program.nextMilestone.name}</span>
           <span className="text-sm">{program.nextMilestone.dateLabel}</span>
         </span>
       </div>
       <div>
-        <p className="text-xs font-medium uppercase tracking-[0.16em] text-zinc-500">Status Note</p>
-        <p className="mt-2 text-base leading-7 text-zinc-400">{program.statusNote}</p>
+        <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Status Note</p>
+        <p className="mt-2 text-base leading-7 text-slate-700">{program.statusNote}</p>
       </div>
     </button>
   );
 }
 
 function SectionLabel({ children }: { children: ReactNode }) {
-  return <p className="text-sm font-medium uppercase tracking-[0.18em] text-cyan-200">{children}</p>;
+  return <p className="text-sm font-semibold uppercase tracking-[0.18em] text-sky-700">{children}</p>;
 }
 
 function UpcomingMilestonesPanel({ milestones }: { milestones: ClientPortalPortfolioMilestone[] }) {
   return (
-    <section className="rounded-lg border border-white/10 bg-zinc-950/80 p-6 shadow-glow">
-      <div className="rounded-md border border-cyan-300/20 bg-cyan-300/[0.08] px-6 py-5 text-center text-lg font-semibold text-cyan-100">
+    <section className="rounded-lg border border-slate-200 bg-white p-6 shadow-[0_18px_45px_rgba(15,23,42,0.08)]">
+      <div className="rounded-md bg-sky-600 px-6 py-5 text-center text-lg font-semibold text-white">
         Upcoming Milestones
       </div>
       <div className="mt-5 grid gap-4">
         {milestones.length ? milestones.map((milestone) => (
-          <div key={milestone.id} className="grid grid-cols-[4rem_minmax(0,1fr)_auto] gap-4 rounded-lg border border-white/10 bg-white/[0.025] p-4">
-            <div className="rounded-md border border-white/10 bg-black/20 px-2 py-3 text-center text-zinc-100">
+          <div key={milestone.id} className="grid grid-cols-[4rem_minmax(0,1fr)_auto] gap-4 rounded-lg border border-slate-200 bg-slate-50 p-4">
+            <div className="rounded-md border border-slate-200 bg-white px-2 py-3 text-center text-slate-950">
               <span className="block text-lg font-semibold">{milestone.dateLabel.split(" ")[0] ?? "Next"}</span>
-              <span className="block text-xs font-medium uppercase tracking-[0.08em] text-zinc-500">{milestone.dateLabel.split(" ")[1] ?? ""}</span>
+              <span className="block text-xs font-semibold uppercase tracking-[0.08em] text-slate-500">{milestone.dateLabel.split(" ")[1] ?? ""}</span>
             </div>
             <div className="min-w-0">
-              <p className="text-base font-semibold text-zinc-50">{milestone.title}</p>
-              <p className="mt-1 truncate text-sm font-medium text-zinc-500">{milestone.programName}</p>
+              <p className="text-base font-semibold text-slate-950">{milestone.title}</p>
+              <p className="mt-1 truncate text-sm font-medium text-slate-600">{milestone.programName}</p>
             </div>
             <span className={cn("h-fit rounded-full px-3 py-1 text-sm font-medium", priorityStyles[milestone.priority])}>
               {milestone.priority}
             </span>
           </div>
         )) : (
-          <p className="rounded-lg border border-white/10 bg-white/[0.025] p-5 text-base font-medium leading-7 text-zinc-500">
+          <p className="rounded-lg border border-slate-200 bg-slate-50 p-5 text-base font-medium leading-7 text-slate-600">
             Upcoming milestones will appear after programs capture delivery checkpoints or board due dates.
           </p>
         )}
@@ -291,27 +291,27 @@ function UpcomingMilestonesPanel({ milestones }: { milestones: ClientPortalPortf
 
 function PortfolioRisksPanel({ risks }: { risks: ClientPortalPortfolioRisk[] }) {
   return (
-    <section className="rounded-lg border border-white/10 bg-zinc-950/80 p-6 shadow-glow">
-      <div className="rounded-md border border-emerald-300/20 bg-emerald-300/[0.08] px-6 py-5 text-center text-lg font-semibold text-emerald-100">
+    <section className="rounded-lg border border-slate-200 bg-white p-6 shadow-[0_18px_45px_rgba(15,23,42,0.08)]">
+      <div className="rounded-md bg-slate-900 px-6 py-5 text-center text-lg font-semibold text-white">
         Key Risks Across Portfolio
       </div>
       <div className="mt-5 grid gap-4">
         {risks.length ? risks.map((risk) => (
           <div key={risk.id} className={cn("rounded-lg border p-5", riskTone(risk))}>
             <div className="flex items-start justify-between gap-4">
-              <p className="text-lg font-semibold leading-8 text-zinc-50">{risk.description}</p>
+              <p className="text-lg font-semibold leading-8 text-slate-950">{risk.description}</p>
               <span className="flex shrink-0 items-center gap-1 text-sm font-semibold">
                 <TrendIcon trend={risk.trend} />
                 {risk.trend}
               </span>
             </div>
-            <p className="mt-4 text-sm font-medium text-zinc-400">
+            <p className="mt-4 text-sm font-medium text-slate-700">
               {risk.programName} <span className="mx-2">Severity: {risk.severity}</span>
             </p>
-            <p className="mt-3 text-sm font-medium text-zinc-400">Mitigation: {risk.mitigationOwner}</p>
+            <p className="mt-3 text-sm font-medium text-slate-700">Mitigation: {risk.mitigationOwner}</p>
           </div>
         )) : (
-          <p className="rounded-lg border border-white/10 bg-white/[0.025] p-5 text-base font-medium leading-7 text-zinc-500">
+          <p className="rounded-lg border border-slate-200 bg-slate-50 p-5 text-base font-medium leading-7 text-slate-600">
             No executive risks are currently visible across the selected portfolio.
           </p>
         )}
@@ -330,17 +330,17 @@ function PortfolioRoadmap({ roadmap }: { roadmap: ClientPortalRoadmapRow[] }) {
   const isShortWindow = windowMode === "month" || windowMode === "week";
 
   return (
-    <section className="rounded-lg border border-white/10 bg-zinc-950/80 p-6 shadow-glow">
+    <section className="rounded-lg border border-slate-200 bg-white p-6 shadow-[0_18px_45px_rgba(15,23,42,0.08)]">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <SectionLabel>{timeframeLabel ? `Portfolio Roadmap - ${timeframeLabel}` : "Portfolio Roadmap"}</SectionLabel>
-          <h2 className="mt-4 text-2xl font-semibold text-zinc-50">Program Timeline</h2>
+          <h2 className="mt-4 text-2xl font-semibold text-slate-950">Program Timeline</h2>
         </div>
-        <span className="inline-flex rounded-full border border-cyan-300/20 bg-cyan-300/[0.06] px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.14em] text-cyan-100">
+        <span className="inline-flex rounded-full border border-sky-200 bg-sky-50 px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.14em] text-sky-800">
           {windowMode} view
         </span>
       </div>
-      <div className={cn("mt-6 flex flex-wrap font-semibold", isShortWindow ? "gap-2 text-sm" : "gap-8 text-xl text-zinc-600")}>
+      <div className={cn("mt-6 flex flex-wrap font-semibold", isShortWindow ? "gap-2 text-sm" : "gap-8 text-xl text-slate-400")}>
         {activeWindowLabels.map((windowLabel, index) => (
           <span
             key={windowLabel}
@@ -348,10 +348,10 @@ function PortfolioRoadmap({ roadmap }: { roadmap: ClientPortalRoadmapRow[] }) {
               isShortWindow ? "rounded-full border px-3 py-1.5" : "",
               index === currentWindowIndex
                 ? isShortWindow
-                  ? "border-cyan-300/30 bg-cyan-300/[0.1] text-cyan-100"
-                  : "text-cyan-100"
+                  ? "border-sky-200 bg-sky-50 text-sky-800"
+                  : "text-sky-800"
                 : isShortWindow
-                  ? "border-white/10 bg-white/[0.025] text-zinc-500"
+                  ? "border-slate-200 bg-slate-50 text-slate-500"
                   : undefined
             )}
           >
@@ -371,14 +371,14 @@ function PortfolioRoadmap({ roadmap }: { roadmap: ClientPortalRoadmapRow[] }) {
               data-client-roadmap-window-mode={row.windowMode}
             >
               <div className="mb-4 flex flex-wrap items-end justify-between gap-2">
-                <p className="text-lg font-semibold text-zinc-100">{row.programName}</p>
+                <p className="text-lg font-semibold text-slate-950">{row.programName}</p>
                 {row.timeframeLabel && row.timeframeLabel !== timeframeLabel ? (
-                  <p className="text-xs font-medium uppercase tracking-[0.14em] text-zinc-500">{row.timeframeLabel}</p>
+                  <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">{row.timeframeLabel}</p>
                 ) : null}
               </div>
               <div className="relative">
                 <div
-                  className={cn("grid overflow-hidden rounded-full", rowIsShortWindow ? "border border-white/10" : "")}
+                  className={cn("grid overflow-hidden rounded-full border border-slate-200", rowIsShortWindow ? "" : "bg-slate-100")}
                   style={{ gridTemplateColumns: `repeat(${row.segments.length}, minmax(0, 1fr))` }}
                 >
                   {row.segments.map((segment) => (
@@ -399,7 +399,7 @@ function PortfolioRoadmap({ roadmap }: { roadmap: ClientPortalRoadmapRow[] }) {
                 <div
                   data-client-roadmap-marker={row.programId}
                   data-client-roadmap-marker-position={row.markerPosition}
-                  className={cn("absolute -top-2 h-16 w-4 rounded-md shadow-[0_0_24px_rgba(110,231,183,0.28)]", markerStyle.marker)}
+                  className={cn("absolute -top-2 h-16 w-4 rounded-md shadow-[0_12px_24px_rgba(15,23,42,0.18)]", markerStyle.marker)}
                   style={{ left: `calc(${row.markerPosition}% - 0.5rem)` }}
                 />
                 <p className={cn("mt-4 text-sm font-semibold", markerStyle.text)} style={{ marginLeft: `max(0rem, calc(${row.markerPosition}% - 5rem))` }}>
@@ -419,16 +419,16 @@ function ProgramHero({ program }: { program: ClientPortalProgram }) {
   const highlights = program.executiveStatusHighlights.slice(0, 3);
 
   return (
-    <section className="rounded-lg border border-emerald-300/15 bg-zinc-950/90 px-6 py-8 text-zinc-50 shadow-glow md:px-9">
+    <section className="rounded-lg border border-slate-800 bg-slate-950 px-6 py-8 text-white shadow-[0_22px_60px_rgba(15,23,42,0.28)] md:px-9">
       <div className="grid gap-8 xl:grid-cols-[minmax(0,1fr)_minmax(22rem,0.5fr)] xl:items-start">
         <div>
           <h2 className="text-4xl font-semibold tracking-normal">{program.name}</h2>
-          <p className="mt-3 text-sm font-semibold uppercase tracking-[0.16em] text-cyan-200">{program.clientName}</p>
-          <p className="mt-4 text-lg font-medium text-cyan-100">{program.primaryOutcome}</p>
-          <div className="mt-8 flex flex-wrap gap-x-10 gap-y-3 text-base text-zinc-400">
-            <span data-client-executive-sponsor>Executive Sponsor: <strong className="text-zinc-50">{program.executiveSponsor}</strong></span>
-            <span data-client-program-lead>Program Lead: <strong className="text-zinc-50">{program.programLead}</strong></span>
-            <span data-client-pmo>PMO: <strong className="text-zinc-50">{program.pmo}</strong></span>
+          <p className="mt-3 text-sm font-semibold uppercase tracking-[0.16em] text-sky-200">{program.clientName}</p>
+          <p className="mt-4 text-lg font-medium text-sky-100">{program.primaryOutcome}</p>
+          <div className="mt-8 flex flex-wrap gap-x-10 gap-y-3 text-base text-slate-300">
+            <span data-client-executive-sponsor>Executive Sponsor: <strong className="text-white">{program.executiveSponsor}</strong></span>
+            <span data-client-program-lead>Program Lead: <strong className="text-white">{program.programLead}</strong></span>
+            <span data-client-pmo>PMO: <strong className="text-white">{program.pmo}</strong></span>
           </div>
         </div>
         <div className="grid gap-4 sm:grid-cols-3 xl:grid-cols-3">
@@ -442,8 +442,8 @@ function ProgramHero({ program }: { program: ClientPortalProgram }) {
           <HeroMetric label="Current Phase" value={program.phase} />
         </div>
       </div>
-      <div className="mt-8 border-t border-white/10 pt-6">
-        <div className="grid gap-5 text-base font-medium text-zinc-300 md:grid-cols-2">
+      <div className="mt-8 border-t border-white/15 pt-6">
+        <div className="grid gap-5 text-base font-medium text-slate-200 md:grid-cols-2">
           {highlights.map((highlight, index) => (
             <StatusBullet
               key={`${highlight}-${index}`}
@@ -461,13 +461,13 @@ function ProgramHero({ program }: { program: ClientPortalProgram }) {
 function HeroMetric({ dot, helper, label, value, delta }: { delta?: string; dot?: string; helper?: string; label: string; value: string }) {
   return (
     <div>
-      <p className="text-sm font-medium uppercase tracking-[0.12em] text-zinc-500">{label}</p>
-      <p className="mt-2 flex items-center gap-3 text-2xl font-semibold text-zinc-50">
+      <p className="text-sm font-semibold uppercase tracking-[0.12em] text-slate-400">{label}</p>
+      <p className="mt-2 flex items-center gap-3 text-2xl font-semibold text-white">
         {dot ? <span className={cn("h-4 w-4 rounded-full", dot)} /> : null}
         {value}
-        {delta ? <span className="text-lg text-emerald-200">{delta}</span> : null}
+        {delta ? <span className="text-lg text-emerald-300">{delta}</span> : null}
       </p>
-      {helper ? <MetricBasisLabel className="mt-1">{helper}</MetricBasisLabel> : null}
+      {helper ? <MetricBasisLabel className="mt-1 text-slate-300">{helper}</MetricBasisLabel> : null}
     </div>
   );
 }
@@ -475,7 +475,7 @@ function HeroMetric({ dot, helper, label, value, delta }: { delta?: string; dot?
 function StatusBullet({ children, tone }: { children: ReactNode; tone: "neutral" | "good" | "risk" }) {
   return (
     <p className="flex gap-3 leading-7">
-      <span className={cn("mt-2.5 h-2.5 w-2.5 shrink-0 rounded-full", tone === "good" ? "bg-emerald-300" : tone === "risk" ? "bg-rose-300" : "bg-zinc-500")} />
+      <span className={cn("mt-2.5 h-2.5 w-2.5 shrink-0 rounded-full", tone === "good" ? "bg-emerald-300" : tone === "risk" ? "bg-rose-300" : "bg-slate-400")} />
       <span>{children}</span>
     </p>
   );
@@ -483,9 +483,9 @@ function StatusBullet({ children, tone }: { children: ReactNode; tone: "neutral"
 
 function ExecutiveCard({ children, icon: Icon, title }: { children: ReactNode; icon: LucideIcon; title: string }) {
   return (
-    <section className="rounded-lg border border-white/10 bg-zinc-950/80 p-7 shadow-glow">
-      <h3 className="flex items-center gap-3 text-xl font-semibold text-zinc-50">
-        <Icon className="h-5 w-5 text-cyan-200" />
+    <section className="rounded-lg border border-slate-200 bg-white p-7 shadow-[0_18px_45px_rgba(15,23,42,0.08)]">
+      <h3 className="flex items-center gap-3 text-xl font-semibold text-slate-950">
+        <Icon className="h-5 w-5 text-sky-700" />
         {title}
       </h3>
       {children}
@@ -500,7 +500,7 @@ function ProgramMilestoneTimeline({ program }: { program: ClientPortalProgram })
     <ExecutiveCard icon={Flag} title="Milestone Timeline">
       {program.milestones.length ? (
         <div className={cn("overflow-x-auto pb-3", compactTimeline ? "mt-8" : "mt-10")}>
-          <p className="-mt-4 mb-8 inline-flex rounded-full border border-cyan-300/20 bg-cyan-300/[0.06] px-4 py-2 text-sm font-semibold text-cyan-100">
+          <p className="-mt-4 mb-8 inline-flex rounded-full border border-sky-200 bg-sky-50 px-4 py-2 text-sm font-semibold text-sky-800">
             {program.timelineScaleLabel} view · {program.timelineWindowLabel}
           </p>
           <div
@@ -517,26 +517,26 @@ function ProgramMilestoneTimeline({ program }: { program: ClientPortalProgram })
                       "absolute left-0 right-0 top-7 h-2",
                       index === 0 ? "left-1/2" : "",
                       index === program.milestones.length - 1 ? "right-1/2" : "",
-                      isComplete || isCurrent ? "bg-emerald-300" : "bg-white/10"
+                      isComplete || isCurrent ? "bg-emerald-500" : "bg-slate-200"
                     )}
                   />
                   <div
                     className={cn(
                       "relative mx-auto flex h-14 w-14 items-center justify-center rounded-full border-4 text-xl font-semibold shadow-sm",
                       isComplete
-                        ? "border-emerald-300/20 bg-emerald-300/[0.16] text-emerald-100"
+                        ? "border-emerald-100 bg-emerald-500 text-white"
                         : isCurrent
-                          ? "border-amber-300/20 bg-amber-300/[0.16] text-amber-100"
-                          : "border-white/10 bg-white/[0.035] text-zinc-500"
+                          ? "border-amber-100 bg-amber-500 text-white"
+                          : "border-slate-200 bg-slate-100 text-slate-500"
                     )}
                   >
                     {isComplete ? <CheckCircle2 className="h-7 w-7" /> : isCurrent ? <Compass className="h-7 w-7" /> : <Flag className="h-6 w-6" />}
                   </div>
-                  <p className={cn("mt-4 text-base font-semibold", isComplete ? "text-emerald-100" : isCurrent ? "text-amber-100" : "text-zinc-500")}>
+                  <p className={cn("mt-4 text-base font-semibold", isComplete ? "text-emerald-700" : isCurrent ? "text-amber-700" : "text-slate-500")}>
                     {milestone.name}
                   </p>
-                  <p className="mt-5 text-sm font-medium text-zinc-500">{milestone.dateLabel}</p>
-                  <p className={cn("mt-2 text-sm font-semibold", isComplete ? "text-emerald-200" : isCurrent ? "text-emerald-200" : "text-zinc-600")}>
+                  <p className="mt-5 text-sm font-medium text-slate-600">{milestone.dateLabel}</p>
+                  <p className={cn("mt-2 text-sm font-semibold", isComplete ? "text-emerald-700" : isCurrent ? "text-emerald-700" : "text-slate-500")}>
                     {isComplete ? "On time" : isCurrent ? "Current checkpoint" : "On track"}
                   </p>
                 </div>
@@ -545,7 +545,7 @@ function ProgramMilestoneTimeline({ program }: { program: ClientPortalProgram })
           </div>
         </div>
       ) : (
-        <p className="mt-6 rounded-lg border border-white/10 bg-white/[0.025] p-5 text-base font-medium leading-7 text-zinc-500">
+        <p className="mt-6 rounded-lg border border-slate-200 bg-slate-50 p-5 text-base font-medium leading-7 text-slate-600">
           Milestones will appear after the team saves a next milestone or delivery board due date in Program Hub.
         </p>
       )}
@@ -556,10 +556,10 @@ function ProgramMilestoneTimeline({ program }: { program: ClientPortalProgram })
 function ExecutiveListCard({ icon, items, title }: { icon: LucideIcon; items: string[]; title: string }) {
   return (
     <ExecutiveCard icon={icon} title={title}>
-      <ul className="mt-6 grid gap-4 text-lg leading-8 text-zinc-400">
+      <ul className="mt-6 grid gap-4 text-lg leading-8 text-slate-700">
         {items.map((item, index) => (
           <li key={`${title}-${index}`} className="flex gap-4">
-            <span className="mt-3 h-2 w-2 shrink-0 rounded-full bg-emerald-300" />
+            <span className="mt-3 h-2 w-2 shrink-0 rounded-full bg-emerald-500" />
             <span>{item}</span>
           </li>
         ))}
@@ -576,7 +576,7 @@ function RiskDecisionSection({ program }: { program: ClientPortalProgram }) {
           <div className="mt-7 overflow-x-auto">
             <table className="w-full min-w-[42rem] text-left">
               <thead>
-                <tr className="border-b border-white/10 text-xs font-semibold uppercase tracking-[0.1em] text-zinc-500">
+                <tr className="border-b border-slate-200 text-xs font-semibold uppercase tracking-[0.1em] text-slate-500">
                   <th className="py-3 pr-5">Severity</th>
                   <th className="py-3 pr-5">Description</th>
                   <th className="py-3 pr-5">Owner</th>
@@ -584,13 +584,13 @@ function RiskDecisionSection({ program }: { program: ClientPortalProgram }) {
                   <th className="py-3">Target Date</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-white/10 text-sm font-medium leading-6 text-zinc-400">
+              <tbody className="divide-y divide-slate-200 text-sm font-medium leading-6 text-slate-700">
                 {program.executiveRisks.map((risk, index) => (
                   <tr key={`${risk.description}-${index}`}>
                     <td
                       className={cn(
                         "py-4 pr-5 font-semibold",
-                        risk.severity === "High" ? "text-rose-200" : risk.severity === "Medium" ? "text-amber-200" : "text-emerald-200"
+                        risk.severity === "High" ? "text-rose-700" : risk.severity === "Medium" ? "text-amber-700" : "text-emerald-700"
                       )}
                     >
                       {risk.severity}
@@ -605,32 +605,32 @@ function RiskDecisionSection({ program }: { program: ClientPortalProgram }) {
             </table>
           </div>
         ) : (
-          <p className="mt-6 rounded-lg border border-white/10 bg-white/[0.025] p-5 text-base font-medium leading-7 text-zinc-500">
+          <p className="mt-6 rounded-lg border border-slate-200 bg-slate-50 p-5 text-base font-medium leading-7 text-slate-600">
             No executive risks, issues, or dependencies are currently captured for this program.
           </p>
         )}
       </ExecutiveCard>
 
-      <section className="rounded-lg border border-cyan-300/15 bg-cyan-300/[0.045] p-7 shadow-glow">
-        <h3 className="flex items-center gap-3 text-xl font-semibold text-zinc-50">
-          <ClipboardCheck className="h-5 w-5 text-cyan-200" />
+      <section className="rounded-lg border border-sky-200 bg-sky-50 p-7 shadow-[0_18px_45px_rgba(15,23,42,0.08)]">
+        <h3 className="flex items-center gap-3 text-xl font-semibold text-slate-950">
+          <ClipboardCheck className="h-5 w-5 text-sky-700" />
           Leadership Decisions Needed
         </h3>
         <div className="mt-6 grid gap-4">
           {program.leadershipDecisions.length ? (
             program.leadershipDecisions.map((decision, index) => (
-              <div key={`${decision.title}-${index}`} className="grid grid-cols-[3rem_minmax(0,1fr)] gap-4 rounded-lg border border-white/10 bg-zinc-950/70 p-5">
-                <span className={cn("flex h-10 w-10 items-center justify-center rounded-full text-lg font-semibold text-zinc-950", index === 0 ? "bg-rose-300" : "bg-amber-300")}>
+              <div key={`${decision.title}-${index}`} className="grid grid-cols-[3rem_minmax(0,1fr)] gap-4 rounded-lg border border-slate-200 bg-white p-5">
+                <span className={cn("flex h-10 w-10 items-center justify-center rounded-full text-lg font-semibold text-white", index === 0 ? "bg-rose-500" : "bg-amber-500")}>
                   {index + 1}
                 </span>
                 <span>
-                  <span className="block text-lg font-semibold leading-7 text-zinc-50">{decision.title}</span>
-                  <span className="mt-1 block text-sm font-medium text-zinc-500">{decision.meta}</span>
+                  <span className="block text-lg font-semibold leading-7 text-slate-950">{decision.title}</span>
+                  <span className="mt-1 block text-sm font-medium text-slate-600">{decision.meta}</span>
                 </span>
               </div>
             ))
           ) : (
-            <p className="rounded-lg border border-white/10 bg-zinc-950/70 p-5 text-base font-medium leading-7 text-zinc-500">
+            <p className="rounded-lg border border-slate-200 bg-white p-5 text-base font-medium leading-7 text-slate-600">
               No executive decision is currently pending from saved program updates or client requests.
             </p>
           )}
@@ -647,39 +647,39 @@ function WorkstreamStatus({ program }: { program: ClientPortalProgram }) {
         {program.workstreams.slice(0, 5).map((workstream) => {
           const normalizedStatus = workstream.status.toLowerCase();
           const riskStyle = normalizedStatus.includes("blocked")
-            ? "bg-rose-300"
+            ? "bg-rose-500"
             : normalizedStatus.includes("review")
-              ? "bg-amber-300"
+              ? "bg-amber-500"
               : normalizedStatus.includes("no linked") || normalizedStatus.includes("not started")
-                ? "bg-zinc-500"
-                : "bg-emerald-300";
+                ? "bg-slate-400"
+                : "bg-emerald-500";
           return (
             <div
               key={workstream.name}
               data-client-workstream-card={workstream.name}
               data-client-workstream-percent={workstream.percent}
-              className="rounded-lg border border-white/10 bg-white/[0.025] p-5"
+              className="rounded-lg border border-slate-200 bg-slate-50 p-5"
             >
               <div className="flex items-start justify-between gap-3">
-                <h4 className="text-lg font-semibold leading-7 text-zinc-50">{workstream.name}</h4>
+                <h4 className="text-lg font-semibold leading-7 text-slate-950">{workstream.name}</h4>
                 <span className={cn("mt-1 h-4 w-4 rounded-full", riskStyle)} />
               </div>
               <div className="mt-5">
-                <div className="h-3 rounded-full bg-white/10">
+                <div className="h-3 rounded-full bg-slate-200">
                   <div className={cn("h-full rounded-full", riskStyle)} style={{ width: `${workstream.percent}%` }} />
                 </div>
-                <p className="mt-2 text-right text-lg font-semibold text-zinc-400">{workstream.percent}%</p>
+                <p className="mt-2 text-right text-lg font-semibold text-slate-700">{workstream.percent}%</p>
               </div>
               <div className="mt-4 flex flex-wrap gap-2">
-                <span className="rounded-full border border-white/10 bg-black/20 px-2.5 py-1 text-[10px] font-medium uppercase tracking-[0.12em] text-zinc-400">
+                <span className="rounded-full border border-slate-200 bg-white px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-700">
                   Task basis: {workstream.taskCount ? workstream.percentBasis : "No tasks linked"}
                 </span>
-                <span className="rounded-full border border-cyan-300/15 bg-cyan-300/[0.045] px-2.5 py-1 text-[10px] font-medium uppercase tracking-[0.12em] text-cyan-100">
+                <span className="rounded-full border border-sky-200 bg-sky-50 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-sky-800">
                   Schedule: {workstream.scheduleLabel}
                 </span>
               </div>
-              <p className="mt-4 text-base font-medium leading-7 text-zinc-400">{workstream.note}</p>
-              <p className="mt-4 text-sm font-medium text-zinc-500">
+              <p className="mt-4 text-base font-medium leading-7 text-slate-700">{workstream.note}</p>
+              <p className="mt-4 text-sm font-medium text-slate-600">
                 Owner: {workstream.owner}
                 {workstream.blockedTaskCount ? ` · ${workstream.blockedTaskCount} blocked` : ""}
               </p>
@@ -737,13 +737,13 @@ function ClientDecisionPanel({ program }: { program: ClientPortalProgram }) {
   }
 
   return (
-    <section className="rounded-lg border border-emerald-300/15 bg-emerald-300/[0.045] p-7 shadow-glow">
+    <section className="rounded-lg border border-emerald-200 bg-emerald-50 p-7 shadow-[0_18px_45px_rgba(15,23,42,0.08)]">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h3 className="text-xl font-semibold text-zinc-50">Client Decisions / Approvals</h3>
-          <p className="mt-2 text-base leading-7 text-zinc-400">Capture executive decisions that should be tracked against this program.</p>
+          <h3 className="text-xl font-semibold text-slate-950">Client Decisions / Approvals</h3>
+          <p className="mt-2 text-base leading-7 text-slate-700">Capture executive decisions that should be tracked against this program.</p>
         </div>
-        <span className="rounded-full border border-emerald-300/20 bg-emerald-300/[0.08] px-4 py-2 text-sm font-semibold text-emerald-100">{decisions.length} open</span>
+        <span className="rounded-full border border-emerald-200 bg-white px-4 py-2 text-sm font-semibold text-emerald-800">{decisions.length} open</span>
       </div>
 
       <div className="mt-5 grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto]">
@@ -754,20 +754,20 @@ function ClientDecisionPanel({ program }: { program: ClientPortalProgram }) {
             if (event.key === "Enter") void addDecision();
           }}
           placeholder="Add a client decision or approval needed"
-          className="h-12 rounded-md border border-white/10 bg-zinc-950 px-4 text-base text-zinc-100 outline-none transition-colors placeholder:text-zinc-500 focus:border-cyan-300/50"
+          className="h-12 rounded-md border border-slate-300 bg-white px-4 text-base text-slate-950 outline-none transition-colors placeholder:text-slate-400 focus:border-sky-500 focus:ring-2 focus:ring-sky-100"
         />
-        <Button type="button" onClick={() => void addDecision()} className="h-12 rounded-md bg-emerald-300 px-6 text-zinc-950 hover:bg-emerald-200">
+        <Button type="button" onClick={() => void addDecision()} className="h-12 rounded-md bg-emerald-600 px-6 text-white hover:bg-emerald-700">
           <Plus className="h-4 w-4" />
           Add
         </Button>
       </div>
-      {saveStatus ? <p className="mt-2 text-sm font-medium text-zinc-400">{saveStatus}</p> : null}
+      {saveStatus ? <p className="mt-2 text-sm font-medium text-slate-700">{saveStatus}</p> : null}
 
       <div className="mt-5 grid gap-3">
         {decisions.map((decision) => (
-          <div key={decision.id} className="rounded-lg border border-white/10 bg-zinc-950/70 p-4 text-base leading-7 text-zinc-400">
-            <p className="font-semibold text-zinc-50">{decision.label}</p>
-            <p className="mt-1 text-sm font-medium text-zinc-500">{decision.source}</p>
+          <div key={decision.id} className="rounded-lg border border-emerald-200 bg-white p-4 text-base leading-7 text-slate-700">
+            <p className="font-semibold text-slate-950">{decision.label}</p>
+            <p className="mt-1 text-sm font-medium text-slate-600">{decision.source}</p>
           </div>
         ))}
       </div>
@@ -781,7 +781,7 @@ function ProgramOnePager({ program }: { program: ClientPortalProgram }) {
       <ProgramHero program={program} />
 
       <ExecutiveCard icon={Compass} title="Executive Summary">
-        <p className="mt-6 text-lg leading-9 text-zinc-400">{program.executiveOverview}</p>
+        <p className="mt-6 text-lg leading-9 text-slate-700">{program.executiveOverview}</p>
       </ExecutiveCard>
 
       <ProgramMilestoneTimeline program={program} />
@@ -884,16 +884,16 @@ export function ClientPortalConsole({
   }
 
   return (
-    <main className="min-h-screen overflow-x-hidden bg-[radial-gradient(circle_at_top_left,rgba(103,232,249,0.12),transparent_34rem),#050505] text-zinc-100">
-      <header className="border-b border-white/10 bg-zinc-950/85 backdrop-blur-xl">
+    <main className="min-h-screen overflow-x-hidden bg-slate-100 text-slate-950">
+      <header className="border-b border-slate-200 bg-white/95 shadow-sm backdrop-blur-xl">
         <div className="northstar-shell flex items-center justify-between gap-4 py-4">
           <div className="min-w-0">
-            <p className="text-xs font-medium uppercase tracking-[0.18em] text-cyan-200">North Star Client Portal</p>
-            <p className="mt-1 truncate text-sm font-medium text-zinc-500">{viewerLabel}</p>
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-sky-700">North Star Client Portal</p>
+            <p className="mt-1 truncate text-sm font-medium text-slate-600">{viewerLabel}</p>
           </div>
           <div className="flex items-center gap-2">
             {canReturnToInternal ? (
-              <Button asChild variant="outline" size="sm" className="border-white/10 bg-white/[0.035] text-zinc-300 hover:bg-white/[0.055] hover:text-zinc-50">
+              <Button asChild variant="outline" size="sm" className="border-slate-300 bg-white text-slate-700 hover:bg-slate-50 hover:text-slate-950">
                 <Link href="/">
                   <span className="hidden sm:inline">Internal console</span>
                   <span className="sm:hidden">Console</span>
@@ -908,10 +908,10 @@ export function ClientPortalConsole({
 
       <div className="northstar-shell py-10">
         <section>
-          <h1 className="text-4xl font-semibold tracking-normal text-zinc-50 md:text-5xl">Portfolio Dashboard</h1>
-          <div className="mt-6 flex flex-wrap items-center gap-3 text-lg font-medium text-zinc-500">
+          <h1 className="text-4xl font-semibold tracking-normal text-slate-950 md:text-5xl">Portfolio Dashboard</h1>
+          <div className="mt-6 flex flex-wrap items-center gap-3 text-lg font-medium text-slate-600">
             <span>Week Ending {formatDate(portfolio.generatedAt)}</span>
-            <span className="rounded-full border border-emerald-300/20 bg-emerald-300/[0.08] px-4 py-2 text-base text-emerald-100">Refreshed {formatRefreshTime(portfolio.generatedAt)}</span>
+            <span className="rounded-full border border-emerald-200 bg-emerald-50 px-4 py-2 text-base font-semibold text-emerald-800">Refreshed {formatRefreshTime(portfolio.generatedAt)}</span>
           </div>
         </section>
 
@@ -925,16 +925,16 @@ export function ClientPortalConsole({
 
         {portfolio.programs.length ? (
           <>
-            <section className="mt-8 rounded-lg border border-cyan-300/15 bg-cyan-300/[0.045] p-5 shadow-glow" data-client-portfolio-selector>
+            <section className="mt-8 rounded-lg border border-sky-200 bg-sky-50 p-5 shadow-[0_18px_45px_rgba(15,23,42,0.08)]" data-client-portfolio-selector>
               <div className="flex flex-wrap items-start justify-between gap-4">
                 <div>
-                  <p className="text-xs font-medium uppercase tracking-[0.16em] text-cyan-200">Client portfolio</p>
-                  <p className="mt-1 text-sm font-medium leading-6 text-zinc-500">
+                  <p className="text-xs font-semibold uppercase tracking-[0.16em] text-sky-800">Client portfolio</p>
+                  <p className="mt-1 text-sm font-medium leading-6 text-slate-700">
                     Select the client first, then inspect the programs inside that portfolio.
                   </p>
                 </div>
                 {selectedClient ? (
-                  <span className="rounded-full border border-emerald-300/20 bg-emerald-300/[0.08] px-4 py-2 text-sm font-semibold text-emerald-100">
+                  <span className="rounded-full border border-emerald-200 bg-white px-4 py-2 text-sm font-semibold text-emerald-800">
                     {selectedClient.metrics.totalPrograms} program{selectedClient.metrics.totalPrograms === 1 ? "" : "s"}
                   </span>
                 ) : null}
@@ -950,8 +950,8 @@ export function ClientPortalConsole({
                     className={cn(
                       "rounded-full border px-4 py-2 text-sm font-medium transition-colors",
                       client.clientName === selectedClientName
-                        ? "border-cyan-300/30 bg-cyan-300/[0.14] text-cyan-100"
-                        : "border-white/10 bg-white/[0.025] text-zinc-500 hover:border-cyan-300/25 hover:text-zinc-200"
+                        ? "border-sky-600 bg-sky-600 text-white"
+                        : "border-slate-300 bg-white text-slate-700 hover:border-sky-400 hover:text-sky-800"
                     )}
                   >
                     {client.clientName}
@@ -960,18 +960,18 @@ export function ClientPortalConsole({
               </div>
             </section>
 
-            <section className="mt-8 rounded-lg border border-white/10 bg-zinc-950/70 p-5 shadow-glow">
+            <section className="mt-8 rounded-lg border border-slate-200 bg-white p-5 shadow-[0_18px_45px_rgba(15,23,42,0.08)]">
               <div className="flex flex-wrap items-center justify-between gap-4">
                 <div>
-                  <p className="text-xs font-medium uppercase tracking-[0.16em] text-cyan-200">Portfolio scope</p>
-                  <p className="mt-1 text-sm font-medium text-zinc-500">
+                  <p className="text-xs font-semibold uppercase tracking-[0.16em] text-sky-700">Portfolio scope</p>
+                  <p className="mt-1 text-sm font-medium text-slate-600">
                     Toggle which {selectedClient?.clientName ?? "client"} programs appear in the executive view.
                   </p>
                 </div>
                 <button
                   type="button"
                   onClick={() => setVisibleProgramIds(new Set(selectedClientProgramIds))}
-                  className="rounded-full border border-white/10 bg-white/[0.035] px-4 py-2 text-sm font-medium text-cyan-100 transition-colors hover:border-cyan-300/30 hover:bg-cyan-300/[0.06]"
+                  className="rounded-full border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-sky-800 transition-colors hover:border-sky-400 hover:bg-sky-50"
                 >
                   All {selectedClient?.clientName ?? "client"} programs
                 </button>
@@ -986,8 +986,8 @@ export function ClientPortalConsole({
                     className={cn(
                       "rounded-full border px-4 py-2 text-sm font-medium transition-colors",
                       visibleProgramIds.has(program.id)
-                        ? "border-emerald-300/25 bg-emerald-300/[0.12] text-emerald-100"
-                        : "border-white/10 bg-white/[0.025] text-zinc-500 hover:border-cyan-300/25 hover:text-zinc-200"
+                        ? "border-emerald-600 bg-emerald-600 text-white"
+                        : "border-slate-300 bg-white text-slate-700 hover:border-sky-400 hover:text-sky-800"
                     )}
                   >
                     {program.name}
@@ -999,8 +999,8 @@ export function ClientPortalConsole({
             <section className="mt-8 grid gap-8 xl:grid-cols-[minmax(0,1fr)_minmax(24rem,0.52fr)]">
               <div className="min-w-0">
                 <SectionLabel>Portfolio Program Grid</SectionLabel>
-                <h2 className="mt-4 text-2xl font-semibold text-zinc-50">Weekly Updates</h2>
-                <p className="mt-2 text-lg font-medium text-zinc-500">
+                <h2 className="mt-4 text-2xl font-semibold text-slate-950">Weekly Updates</h2>
+                <p className="mt-2 text-lg font-medium text-slate-600">
                   Program, owner, phase, health, progress, next milestone, and current delivery note.
                 </p>
                 <div className="mt-7 grid gap-6">
@@ -1030,9 +1030,9 @@ export function ClientPortalConsole({
             ) : null}
           </>
         ) : (
-          <section className="mt-10 rounded-lg border border-white/10 bg-zinc-950/80 p-10 text-center shadow-glow">
-            <p className="text-2xl font-semibold text-zinc-50">No client programs assigned yet.</p>
-            <p className="mx-auto mt-3 max-w-2xl text-base leading-7 text-zinc-500">
+          <section className="mt-10 rounded-lg border border-slate-200 bg-white p-10 text-center shadow-[0_18px_45px_rgba(15,23,42,0.08)]">
+            <p className="text-2xl font-semibold text-slate-950">No client programs assigned yet.</p>
+            <p className="mx-auto mt-3 max-w-2xl text-base leading-7 text-slate-600">
               Ask an Admin to assign this client user to one or more programs. Assigned programs will appear here as an executive portfolio.
             </p>
           </section>

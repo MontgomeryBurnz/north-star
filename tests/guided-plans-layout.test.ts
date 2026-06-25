@@ -29,6 +29,10 @@ test("Client Portal frames executive overview and domain progress", () => {
   const modelSource = readFileSync(new URL("../src/lib/client-portal.ts", import.meta.url), "utf8");
 
   assert.match(source, /Portfolio Dashboard/);
+  assert.match(source, /bg-slate-100 text-slate-950/);
+  assert.match(source, /border-slate-200 bg-white/);
+  assert.match(source, /text-slate-700/);
+  assert.doesNotMatch(source, /bg-\[radial-gradient\(circle_at_top_left/);
   assert.doesNotMatch(source, /FY25 Strategic Program Intelligence/);
   assert.match(source, /Portfolio Program Grid/);
   assert.match(source, /Upcoming Milestones/);
