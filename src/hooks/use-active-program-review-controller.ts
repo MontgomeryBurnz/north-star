@@ -64,6 +64,7 @@ type ActiveProgramScalarField = keyof Omit<
 >;
 
 type OwnershipSaveState = "idle" | "dirty" | "saving" | "saved" | "error";
+type ClientPortfolioSaveState = "idle" | "saving" | "saved" | "error";
 
 export function useActiveProgramReviewController() {
   const programsRequest = useRequestSequence();
@@ -76,6 +77,8 @@ export function useActiveProgramReviewController() {
   const [savedOwnershipSignature, setSavedOwnershipSignature] = useState("");
   const [ownershipSavedAt, setOwnershipSavedAt] = useState<string | null>(null);
   const [selectedProgramId, setSelectedProgramId] = useState("");
+  const [clientPortfolioDraft, setClientPortfolioDraft] = useState("");
+  const [clientPortfolioSaveState, setClientPortfolioSaveState] = useState<ClientPortfolioSaveState>("idle");
   const [existingPrograms, setExistingPrograms] = useState<ExistingProgramOption[]>([]);
   const [updates, setUpdates] = useState<ActiveProgramUpdate[]>([]);
   const [saveState, setSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle");
@@ -141,6 +144,12 @@ export function useActiveProgramReviewController() {
     () => existingPrograms.find((program) => program.id === selectedProgramId),
     [existingPrograms, selectedProgramId]
   );
+  const selectedProgramClientName = selectedProgram?.intake?.clientName ?? "";
+
+  useEffect(() => {
+    setClientPortfolioDraft(selectedProgramId ? selectedProgramClientName : "");
+    setClientPortfolioSaveState("idle");
+  }, [selectedProgramClientName, selectedProgramId]);
 
   const loadProgramUpdates = useCallback(async () => {
     if (!selectedProgramId) return;
@@ -339,6 +348,71 @@ export function useActiveProgramReviewController() {
     },
     [selectedProgram?.intake]
   );
+
+  const updateClientPortfolioDraft = useCallback((value: string) => {
+    setClientPortfolioDraft(value);
+    setClientPortfolioSaveState("idle");
+  }, []);
+
+  const saveClientPortfolio = useCallback(async () => {
+    if (!selectedProgramId) {
+      setClientPortfolioSaveState("error");
+      return;
+    }
+
+    setClientPortfolioSaveState("saving");
+    setSaveConfirmation({
+      scope: "Client portfolio",
+      status: "saving"
+    });
+
+    try {
+      const response = await fetch(`/api/programs/${encodeURIComponent(selectedProgramId)}`, {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          clientName: clientPortfolioDraft
+        })
+      });
+
+      if (!response.ok) throw new Error("Client portfolio save failed.");
+
+      const payload = (await response.json()) as { program: StoredProgram };
+      const updatedProgram = payload.program;
+      const updatedClientName = getProgramClientName(updatedProgram);
+
+      setExistingPrograms((current) =>
+        current.map((program) =>
+          program.id === selectedProgramId
+            ? {
+                ...program,
+                clientName: updatedClientName,
+                intake: updatedProgram.intake,
+                label: updatedProgram.intake.programName,
+                review: normalizeReview(program.review, updatedProgram.intake)
+              }
+            : program
+        )
+      );
+      setReview((current) => normalizeReview(current, updatedProgram.intake));
+      setClientPortfolioDraft(updatedProgram.intake.clientName ?? "");
+      setClientPortfolioSaveState("saved");
+      const savedTime = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+      setSaveConfirmation({
+        detail: `Client portfolio is now ${updatedClientName}.`,
+        savedAt: savedTime,
+        scope: "Client portfolio",
+        status: "saved"
+      });
+    } catch {
+      setClientPortfolioSaveState("error");
+      setSaveConfirmation({
+        detail: "Client portfolio could not be saved. Try again before using the Client Portal.",
+        scope: "Client portfolio",
+        status: "error"
+      });
+    }
+  }, [clientPortfolioDraft, selectedProgramId]);
 
   const addTimelineMilestone = useCallback(() => {
     setReview((current) =>
@@ -962,6 +1036,8 @@ export function useActiveProgramReviewController() {
     addTimelineMilestone,
     assignedOwnersByRole,
     clearCycle,
+    clientPortfolioDraft,
+    clientPortfolioSaveState,
     currentUserId: currentUser?.id ?? null,
     defaultFocusRole,
     addDeliveryBoardItem,
@@ -994,6 +1070,7 @@ export function useActiveProgramReviewController() {
     saveConfirmation,
     savedAt,
     saveMeetingInput,
+    saveClientPortfolio,
     saveReviewSnapshot,
     saveState,
     roleAttachmentUploadState,
@@ -1002,6 +1079,7 @@ export function useActiveProgramReviewController() {
     selectedProgramId,
     teamCoverage,
     teamRoleUpdates,
+    updateClientPortfolioDraft,
     updateField,
     updateDeliveryBoardItem,
     handleDeliveryBoardAttachments,

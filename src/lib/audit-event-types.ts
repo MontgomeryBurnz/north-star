@@ -9,6 +9,7 @@ export type AuditEventType =
   | "guidance.refresh"
   | "leadership.feedback"
   | "model.settings.update"
+  | "program.client.update"
   | "program.create_or_update"
   | "program.role.add"
   | "program.update"

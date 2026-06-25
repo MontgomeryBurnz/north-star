@@ -13,13 +13,17 @@ type SaveConfirmation = ActiveProgramSaveConfirmation;
 
 type ActiveProgramStateFlowProps = {
   selectedProgramId: string;
+  clientPortfolioDraft: string;
+  clientPortfolioSaveState: "idle" | "saving" | "saved" | "error";
   programOptions: ProgramSlicerOption[];
   review: ActiveProgramReview;
   onAddTimelineMilestone: () => void;
+  onClientPortfolioChange: (value: string) => void;
   onFieldChange: (field: ActiveProgramScalarField, value: string) => void;
   onReorderTimelineMilestone: (draggedMilestoneId: string, targetMilestoneId: string) => void;
   onRemoveTimelineMilestone: (milestoneId: string) => void;
   onSaveProfile: () => void;
+  onSaveClientPortfolio: () => void;
   onSaveTimeline: () => void;
   onSelectProgram: (programId: string) => void;
   onTimelineMilestoneChange: (milestoneId: string, field: keyof Omit<ProgramTimelineMilestone, "id">, value: string) => void;
@@ -29,12 +33,16 @@ type ActiveProgramStateFlowProps = {
 
 export function ActiveProgramStateFlow({
   selectedProgramId,
+  clientPortfolioDraft,
+  clientPortfolioSaveState,
   programOptions,
   review,
   onAddTimelineMilestone,
+  onClientPortfolioChange,
   onFieldChange,
   onReorderTimelineMilestone,
   onRemoveTimelineMilestone,
+  onSaveClientPortfolio,
   onSaveProfile,
   onSaveTimeline,
   onSelectProgram,
@@ -54,13 +62,17 @@ export function ActiveProgramStateFlow({
 
       <ActiveProgramStateCard
         selectedProgramId={selectedProgramId}
+        clientPortfolioDraft={clientPortfolioDraft}
+        clientPortfolioSaveState={clientPortfolioSaveState}
         programOptions={programOptions}
         review={review}
+        onClientPortfolioChange={onClientPortfolioChange}
         onSelectProgram={onSelectProgram}
         onFieldChange={onFieldChange}
         onAddTimelineMilestone={onAddTimelineMilestone}
         onReorderTimelineMilestone={onReorderTimelineMilestone}
         onRemoveTimelineMilestone={onRemoveTimelineMilestone}
+        onSaveClientPortfolio={onSaveClientPortfolio}
         onSaveProfile={onSaveProfile}
         onSaveTimeline={onSaveTimeline}
         onTimelineMilestoneChange={onTimelineMilestoneChange}

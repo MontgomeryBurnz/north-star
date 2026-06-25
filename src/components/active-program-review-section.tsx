@@ -13,8 +13,12 @@ export function ActiveProgramReviewSection() {
       <form onSubmit={controller.handleSubmit} className="grid gap-5">
         <ActiveProgramStateFlow
           selectedProgramId={controller.selectedProgramId}
+          clientPortfolioDraft={controller.clientPortfolioDraft}
+          clientPortfolioSaveState={controller.clientPortfolioSaveState}
           programOptions={controller.programOptions}
           review={controller.review}
+          onClientPortfolioChange={controller.updateClientPortfolioDraft}
+          onSaveClientPortfolio={controller.saveClientPortfolio}
           onSelectProgram={controller.selectExistingProgram}
           onFieldChange={controller.updateField}
           onAddTimelineMilestone={controller.addTimelineMilestone}
