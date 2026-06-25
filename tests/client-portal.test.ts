@@ -161,8 +161,9 @@ test("buildClientPortalProgram creates executive posture from program signals", 
   assert.equal(portalProgram.nextMilestone.name, "Scope baseline");
   assert.equal(portalProgram.nextMilestone.dateLabel, "May 08");
   assert.equal(portalProgram.nextMilestone.priority, "High");
+  assert.equal(portalProgram.milestones[2]?.name, "Scope baseline");
   assert.equal(portalProgram.milestones[2]?.status, "current");
-  assert.equal(portalProgram.milestones.length, 6);
+  assert.equal(portalProgram.milestones.length, 4);
 });
 
 test("buildClientPortalPortfolio rolls program posture into portfolio metrics", () => {
@@ -179,4 +180,35 @@ test("buildClientPortalPortfolio rolls program posture into portfolio metrics", 
   assert.equal(portfolio.upcomingMilestones[0]?.title, "Scope baseline");
   assert.equal(portfolio.keyRisks[0]?.trend, "Worse");
   assert.equal(portfolio.roadmap[0]?.segments.length, 5);
+});
+
+test("buildClientPortalProgram avoids fabricated client content without saved updates or guidance", () => {
+  const minimalProgram: StoredProgram = {
+    ...program,
+    id: "minimal",
+    createdAt: "2026-04-01T00:00:00.000Z",
+    updatedAt: "2026-04-01T00:00:00.000Z",
+    intake: {
+      ...program.intake,
+      programName: "New Program",
+      currentStatus: "",
+      decisionsNeeded: "",
+      outcomes: "",
+      risks: "",
+      sowSummary: "",
+      teamRoles: []
+    }
+  };
+
+  const portalProgram = buildClientPortalProgram({ program: minimalProgram });
+  const serialized = JSON.stringify(portalProgram);
+
+  assert.equal(portalProgram.metrics.programCompletionPercent, 0);
+  assert.equal(portalProgram.completionDelta, "");
+  assert.equal(portalProgram.nextMilestone.name, "No milestone captured");
+  assert.deepEqual(portalProgram.recommendedPath, []);
+  assert.deepEqual(portalProgram.executiveRisks, []);
+  assert.deepEqual(portalProgram.leadershipDecisions, []);
+  assert.doesNotMatch(serialized, /Pilot Readiness|Cutover Readiness|Go-Live/);
+  assert.doesNotMatch(serialized, /Status unchanged from prior cycle|Core delivery transformation/);
 });

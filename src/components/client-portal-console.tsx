@@ -209,7 +209,8 @@ function ProgramGridRow({
         <span>
           <span className="block text-xs font-medium uppercase tracking-[0.16em] text-zinc-500">% Complete</span>
           <span className="mt-2 block text-2xl font-semibold text-zinc-50">
-            {program.metrics.programCompletionPercent}% <span className={styles.text}>{program.completionDelta}</span>
+            {program.metrics.programCompletionPercent}%{" "}
+            {program.completionDelta ? <span className={styles.text}>{program.completionDelta}</span> : null}
           </span>
         </span>
       </div>
@@ -346,13 +347,14 @@ function PortfolioRoadmap({ roadmap }: { roadmap: ClientPortalRoadmapRow[] }) {
 
 function ProgramHero({ program }: { program: ClientPortalProgram }) {
   const styles = postureStyles[program.posture];
+  const highlights = program.executiveStatusHighlights.slice(0, 3);
 
   return (
     <section className="rounded-lg border border-emerald-300/15 bg-zinc-950/90 px-6 py-8 text-zinc-50 shadow-glow md:px-9">
       <div className="grid gap-8 xl:grid-cols-[minmax(0,1fr)_minmax(22rem,0.5fr)] xl:items-start">
         <div>
           <h2 className="text-4xl font-semibold tracking-normal">{program.name}</h2>
-          <p className="mt-4 text-lg font-medium text-cyan-100">Core delivery transformation program overview</p>
+          <p className="mt-4 text-lg font-medium text-cyan-100">{program.primaryOutcome}</p>
           <div className="mt-8 flex flex-wrap gap-x-10 gap-y-3 text-base text-zinc-400">
             <span data-client-executive-sponsor>Executive Sponsor: <strong className="text-zinc-50">{program.executiveSponsor}</strong></span>
             <span data-client-program-lead>Program Lead: <strong className="text-zinc-50">{program.programLead}</strong></span>
@@ -367,13 +369,14 @@ function ProgramHero({ program }: { program: ClientPortalProgram }) {
       </div>
       <div className="mt-8 border-t border-white/10 pt-6">
         <div className="grid gap-5 text-base font-medium text-zinc-300 md:grid-cols-2">
-          <StatusBullet tone="neutral">Status unchanged from prior cycle</StatusBullet>
-          <StatusBullet tone="good">Percent complete {program.completionDelta} (current {program.metrics.programCompletionPercent}%)</StatusBullet>
-        </div>
-        <div className="mt-7">
-          <StatusBullet tone={program.posture === "on-track" ? "good" : "risk"}>
-            Risk exposure {program.posture === "on-track" ? "remains contained" : "requires attention"}: {program.topRisk}
-          </StatusBullet>
+          {highlights.map((highlight, index) => (
+            <StatusBullet
+              key={`${highlight}-${index}`}
+              tone={highlight.toLowerCase().includes("risk") || program.posture === "blocked" ? "risk" : index === 1 ? "good" : "neutral"}
+            >
+              {highlight}
+            </StatusBullet>
+          ))}
         </div>
       </div>
     </section>
@@ -417,34 +420,54 @@ function ExecutiveCard({ children, icon: Icon, title }: { children: ReactNode; i
 function ProgramMilestoneTimeline({ program }: { program: ClientPortalProgram }) {
   return (
     <ExecutiveCard icon={Flag} title="Milestone Timeline">
-      <div className="mt-10 overflow-x-auto pb-3">
-        <div className="grid min-w-[58rem] grid-cols-6 items-start gap-0">
-          {program.milestones.map((milestone, index) => {
-            const isComplete = milestone.status === "complete";
-            const isCurrent = milestone.status === "current";
-            return (
-              <div key={`${milestone.name}-${index}`} className="relative text-center">
-                <div className={cn("absolute left-0 right-0 top-7 h-2", index === 0 ? "left-1/2" : "", index === program.milestones.length - 1 ? "right-1/2" : "", isComplete || isCurrent ? "bg-emerald-300" : "bg-white/10")} />
-                <div
-                  className={cn(
-                    "relative mx-auto flex h-14 w-14 items-center justify-center rounded-full border-4 text-xl font-semibold shadow-sm",
-                    isComplete ? "border-emerald-300/20 bg-emerald-300/[0.16] text-emerald-100" : isCurrent ? "border-amber-300/20 bg-amber-300/[0.16] text-amber-100" : "border-white/10 bg-white/[0.035] text-zinc-500"
-                  )}
-                >
-                  {isComplete ? <CheckCircle2 className="h-7 w-7" /> : isCurrent ? <Compass className="h-7 w-7" /> : <Flag className="h-6 w-6" />}
+      {program.milestones.length ? (
+        <div className="mt-10 overflow-x-auto pb-3">
+          <div
+            className="grid min-w-[58rem] items-start gap-0"
+            style={{ gridTemplateColumns: `repeat(${program.milestones.length}, minmax(9rem, 1fr))` }}
+          >
+            {program.milestones.map((milestone, index) => {
+              const isComplete = milestone.status === "complete";
+              const isCurrent = milestone.status === "current";
+              return (
+                <div key={`${milestone.name}-${index}`} className="relative text-center">
+                  <div
+                    className={cn(
+                      "absolute left-0 right-0 top-7 h-2",
+                      index === 0 ? "left-1/2" : "",
+                      index === program.milestones.length - 1 ? "right-1/2" : "",
+                      isComplete || isCurrent ? "bg-emerald-300" : "bg-white/10"
+                    )}
+                  />
+                  <div
+                    className={cn(
+                      "relative mx-auto flex h-14 w-14 items-center justify-center rounded-full border-4 text-xl font-semibold shadow-sm",
+                      isComplete
+                        ? "border-emerald-300/20 bg-emerald-300/[0.16] text-emerald-100"
+                        : isCurrent
+                          ? "border-amber-300/20 bg-amber-300/[0.16] text-amber-100"
+                          : "border-white/10 bg-white/[0.035] text-zinc-500"
+                    )}
+                  >
+                    {isComplete ? <CheckCircle2 className="h-7 w-7" /> : isCurrent ? <Compass className="h-7 w-7" /> : <Flag className="h-6 w-6" />}
+                  </div>
+                  <p className={cn("mt-4 text-base font-semibold", isComplete ? "text-emerald-100" : isCurrent ? "text-amber-100" : "text-zinc-500")}>
+                    {milestone.name}
+                  </p>
+                  <p className="mt-5 text-sm font-medium text-zinc-500">{milestone.dateLabel}</p>
+                  <p className={cn("mt-2 text-sm font-semibold", isComplete ? "text-emerald-200" : isCurrent ? "text-emerald-200" : "text-zinc-600")}>
+                    {isComplete ? "On time" : isCurrent ? "Current checkpoint" : "On track"}
+                  </p>
                 </div>
-                <p className={cn("mt-4 text-base font-semibold", isComplete ? "text-emerald-100" : isCurrent ? "text-amber-100" : "text-zinc-500")}>
-                  {milestone.name}
-                </p>
-                <p className="mt-5 text-sm font-medium text-zinc-500">{milestone.dateLabel}</p>
-                <p className={cn("mt-2 text-sm font-semibold", isComplete ? "text-emerald-200" : isCurrent ? "text-emerald-200" : "text-zinc-600")}>
-                  {isComplete ? "On time" : isCurrent ? "Current checkpoint" : "On track"}
-                </p>
-              </div>
-            );
-          })}
+              );
+            })}
+          </div>
         </div>
-      </div>
+      ) : (
+        <p className="mt-6 rounded-lg border border-white/10 bg-white/[0.025] p-5 text-base font-medium leading-7 text-zinc-500">
+          Milestones will appear after the team saves a next milestone or delivery board due date in Program Hub.
+        </p>
+      )}
     </ExecutiveCard>
   );
 }
@@ -468,30 +491,43 @@ function RiskDecisionSection({ program }: { program: ClientPortalProgram }) {
   return (
     <div className="grid gap-6 xl:grid-cols-2">
       <ExecutiveCard icon={TriangleAlert} title="Risks / Issues / Dependencies">
-        <div className="mt-7 overflow-x-auto">
-          <table className="w-full min-w-[42rem] text-left">
-            <thead>
-              <tr className="border-b border-white/10 text-xs font-semibold uppercase tracking-[0.1em] text-zinc-500">
-                <th className="py-3 pr-5">Severity</th>
-                <th className="py-3 pr-5">Description</th>
-                <th className="py-3 pr-5">Owner</th>
-                <th className="py-3 pr-5">Mitigation</th>
-                <th className="py-3">Target Date</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-white/10 text-sm font-medium leading-6 text-zinc-400">
-              {program.executiveRisks.map((risk, index) => (
-                <tr key={`${risk.description}-${index}`}>
-                  <td className={cn("py-4 pr-5 font-semibold", risk.severity === "High" ? "text-rose-200" : risk.severity === "Medium" ? "text-amber-200" : "text-emerald-200")}>{risk.severity}</td>
-                  <td className="py-4 pr-5">{risk.description}</td>
-                  <td className="py-4 pr-5">{risk.owner}</td>
-                  <td className="py-4 pr-5">{risk.mitigation}</td>
-                  <td className="py-4">{risk.target}</td>
+        {program.executiveRisks.length ? (
+          <div className="mt-7 overflow-x-auto">
+            <table className="w-full min-w-[42rem] text-left">
+              <thead>
+                <tr className="border-b border-white/10 text-xs font-semibold uppercase tracking-[0.1em] text-zinc-500">
+                  <th className="py-3 pr-5">Severity</th>
+                  <th className="py-3 pr-5">Description</th>
+                  <th className="py-3 pr-5">Owner</th>
+                  <th className="py-3 pr-5">Mitigation</th>
+                  <th className="py-3">Target Date</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody className="divide-y divide-white/10 text-sm font-medium leading-6 text-zinc-400">
+                {program.executiveRisks.map((risk, index) => (
+                  <tr key={`${risk.description}-${index}`}>
+                    <td
+                      className={cn(
+                        "py-4 pr-5 font-semibold",
+                        risk.severity === "High" ? "text-rose-200" : risk.severity === "Medium" ? "text-amber-200" : "text-emerald-200"
+                      )}
+                    >
+                      {risk.severity}
+                    </td>
+                    <td className="py-4 pr-5">{risk.description}</td>
+                    <td className="py-4 pr-5">{risk.owner}</td>
+                    <td className="py-4 pr-5">{risk.mitigation}</td>
+                    <td className="py-4">{risk.target}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <p className="mt-6 rounded-lg border border-white/10 bg-white/[0.025] p-5 text-base font-medium leading-7 text-zinc-500">
+            No executive risks, issues, or dependencies are currently captured for this program.
+          </p>
+        )}
       </ExecutiveCard>
 
       <section className="rounded-lg border border-cyan-300/15 bg-cyan-300/[0.045] p-7 shadow-glow">
@@ -500,17 +536,23 @@ function RiskDecisionSection({ program }: { program: ClientPortalProgram }) {
           Leadership Decisions Needed
         </h3>
         <div className="mt-6 grid gap-4">
-          {program.leadershipDecisions.map((decision, index) => (
-            <div key={`${decision.title}-${index}`} className="grid grid-cols-[3rem_minmax(0,1fr)] gap-4 rounded-lg border border-white/10 bg-zinc-950/70 p-5">
-              <span className={cn("flex h-10 w-10 items-center justify-center rounded-full text-lg font-semibold text-zinc-950", index === 0 ? "bg-rose-300" : "bg-amber-300")}>
-                {index + 1}
-              </span>
-              <span>
-                <span className="block text-lg font-semibold leading-7 text-zinc-50">{decision.title}</span>
-                <span className="mt-1 block text-sm font-medium text-zinc-500">{decision.meta}</span>
-              </span>
-            </div>
-          ))}
+          {program.leadershipDecisions.length ? (
+            program.leadershipDecisions.map((decision, index) => (
+              <div key={`${decision.title}-${index}`} className="grid grid-cols-[3rem_minmax(0,1fr)] gap-4 rounded-lg border border-white/10 bg-zinc-950/70 p-5">
+                <span className={cn("flex h-10 w-10 items-center justify-center rounded-full text-lg font-semibold text-zinc-950", index === 0 ? "bg-rose-300" : "bg-amber-300")}>
+                  {index + 1}
+                </span>
+                <span>
+                  <span className="block text-lg font-semibold leading-7 text-zinc-50">{decision.title}</span>
+                  <span className="mt-1 block text-sm font-medium text-zinc-500">{decision.meta}</span>
+                </span>
+              </div>
+            ))
+          ) : (
+            <p className="rounded-lg border border-white/10 bg-zinc-950/70 p-5 text-base font-medium leading-7 text-zinc-500">
+              No executive decision is currently pending from saved program updates or client requests.
+            </p>
+          )}
         </div>
       </section>
     </div>
@@ -735,7 +777,7 @@ export function ClientPortalConsole({
 
       <div className="northstar-shell py-10">
         <section>
-          <h1 className="text-4xl font-semibold tracking-normal text-zinc-50 md:text-5xl">FY25 Strategic Program Intelligence</h1>
+          <h1 className="text-4xl font-semibold tracking-normal text-zinc-50 md:text-5xl">Portfolio Dashboard</h1>
           <div className="mt-6 flex flex-wrap items-center gap-3 text-lg font-medium text-zinc-500">
             <span>Week Ending {formatDate(portfolio.generatedAt)}</span>
             <span className="rounded-full border border-emerald-300/20 bg-emerald-300/[0.08] px-4 py-2 text-base text-emerald-100">Refreshed {formatRefreshTime(portfolio.generatedAt)}</span>

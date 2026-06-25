@@ -210,9 +210,8 @@ function visibleSignals(value: string | undefined | null, fallback: string, limi
   return splitSignals(value ?? "", fallback).map(clean).filter(Boolean).slice(0, limit);
 }
 
-function planItems(section: { items: string[] } | undefined, fallback: string, limit = 3) {
-  const items = section?.items.map(clean).filter(Boolean) ?? [];
-  return (items.length ? items : [fallback]).slice(0, limit);
+function guidedSectionItems(section: { items: string[] } | undefined, limit = 4) {
+  return section?.items.map(clean).filter(isMeaningfulSignal).slice(0, limit) ?? [];
 }
 
 function countSignals(values: string[]) {
@@ -256,13 +255,6 @@ function statusSignal(posture: ClientProgramPosture): ClientProgramStatusSignal 
   if (posture === "at-risk") return "AMBER";
   if (posture === "blocked") return "RED";
   return "WATCH";
-}
-
-function completionDelta(posture: ClientProgramPosture) {
-  if (posture === "on-track") return "+6%";
-  if (posture === "watch") return "+2%";
-  if (posture === "at-risk") return "-3%";
-  return "-8%";
 }
 
 function parsePercent(value: string | undefined | null) {
@@ -485,6 +477,8 @@ function buildClientExecutiveOverview(input: {
 }
 
 function buildTimeline(currentPhase: string) {
+  if (!clean(currentPhase) || currentPhase === "Phase not set") return [];
+
   const phaseText = currentPhase.toLowerCase();
   const currentIndex = Math.max(
     0,
@@ -501,14 +495,16 @@ function buildTimeline(currentPhase: string) {
 function getCurrentPhaseIndex(currentPhase: string) {
   const phaseText = currentPhase.toLowerCase();
   const matchedIndex = timelinePhases.findIndex((phase) => phaseText.includes(phase.toLowerCase()));
-  return matchedIndex >= 0 ? matchedIndex : 0;
+  return matchedIndex >= 0 ? matchedIndex : -1;
 }
 
 function getCompletionMetrics(currentPhase: string, posture: ClientProgramPosture) {
   const phaseIndex = getCurrentPhaseIndex(currentPhase);
-  const phaseCompletionPercent = Math.round(((phaseIndex + 1) / timelinePhases.length) * 100);
+  const phaseCompletionPercent = phaseIndex >= 0 ? Math.round(((phaseIndex + 1) / timelinePhases.length) * 100) : 0;
   const postureAdjustment = posture === "on-track" ? 0 : posture === "watch" ? -4 : posture === "at-risk" ? -9 : -15;
-  const programCompletionPercent = Math.max(5, Math.min(98, phaseCompletionPercent + postureAdjustment));
+  const programCompletionPercent = phaseCompletionPercent
+    ? Math.max(5, Math.min(98, phaseCompletionPercent + postureAdjustment))
+    : 0;
 
   return {
     phaseCompletionPercent,
@@ -552,26 +548,24 @@ function stakeholderByKeyword(stakeholders: string | undefined, keyword: string,
 
 function buildExecutiveStatusHighlights(input: {
   completion: { phaseCompletionPercent: number; programCompletionPercent: number };
+  completionDelta: string;
   phase: string;
   posture: ClientProgramPosture;
   postureLabel: string;
   risks: string[];
+  statusNote: string;
 }) {
   const riskSignal = firstMeaningful(...input.risks);
-  const riskMovement =
-    input.posture === "blocked"
-      ? "requires immediate sponsor attention"
-      : input.posture === "at-risk"
-        ? "is elevated and needs active mitigation"
-        : input.posture === "watch"
-          ? "should stay visible through the next checkpoint"
-          : "remains contained this cycle";
+  const highlights = [
+    input.phase && input.phase !== "Phase not set" ? `${input.postureLabel} in ${input.phase}` : "",
+    input.completion.programCompletionPercent
+      ? `Program complete ${input.completion.programCompletionPercent}%${input.completionDelta ? ` · ${input.completionDelta}` : ""}`
+      : "",
+    input.statusNote && !riskSignal ? input.statusNote : "",
+    riskSignal ? `Risk exposure: ${conciseSignal(riskSignal, 96)}` : ""
+  ].filter(isMeaningfulSignal);
 
-  return [
-    `${input.postureLabel} in ${input.phase || "current phase"}`,
-    `Program complete ${input.completion.programCompletionPercent}% · phase ${input.completion.phaseCompletionPercent}%`,
-    riskSignal ? `Risk exposure ${riskMovement}: ${conciseSignal(riskSignal, 86)}` : `Risk exposure ${riskMovement}`
-  ];
+  return highlights.length ? highlights : ["Executive highlights will appear after the next saved program update or guided plan refresh."];
 }
 
 function buildRecentAccomplishments(input: {
@@ -636,9 +630,9 @@ function buildExecutiveRisks(input: {
   const riskRows = input.risks.filter(isMeaningfulSignal).map((risk, index) => ({
     severity: (input.posture === "blocked" || (input.posture === "at-risk" && index === 0) ? "High" : "Medium") as "High" | "Medium",
     description: risk,
-    mitigation: firstMeaningful(input.review?.supportNeeded, input.review?.programSynthesisNote, "Confirm mitigation owner and timing in the next operating review."),
+    mitigation: firstMeaningful(input.review?.supportNeeded, input.review?.programSynthesisNote, "Mitigation not captured yet."),
     owner: input.owner,
-    target: "Next checkpoint"
+    target: formatDateLabel(input.review?.nextMilestoneDate) || "Not captured"
   }));
 
   const blockedBoardRows = (input.review?.deliveryBoardItems ?? [])
@@ -674,7 +668,7 @@ function buildLeadershipDecisions(input: {
     }));
 
   const rows = [...decisionRows, ...boardReviewRows].slice(0, 3);
-  return rows.length ? rows : [{ title: "No executive decision is currently pending.", meta: "Continue monitoring through the next update cycle." }];
+  return rows;
 }
 
 function workstreamPercent(statusLabel: string) {
@@ -682,7 +676,7 @@ function workstreamPercent(statusLabel: string) {
   if (label.includes("blocked")) return 25;
   if (label.includes("risk")) return 52;
   if (label.includes("track")) return 82;
-  return 38;
+  return 0;
 }
 
 function buildWorkstreams(domainSummaries: ClientPortalDomainSummary[]) {
@@ -702,61 +696,61 @@ function buildMilestones(input: {
   program: StoredProgram;
   recommendedPath: string[];
   review: StoredProgramUpdate["review"] | undefined;
+  updateTimestamp: string | undefined;
 }) {
-  const boardItems = (input.review?.deliveryBoardItems ?? [])
-    .filter((item) => item.dueDate && item.status !== "done")
-    .sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime());
-  const nextBoardItem = boardItems[0];
+  const boardMilestones = (input.review?.deliveryBoardItems ?? [])
+    .filter((item) => item.dueDate && isMeaningfulSignal(item.title))
+    .sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime())
+    .slice(0, 4)
+    .map((item) => ({
+      dateLabel: formatDateLabel(item.dueDate) || "Due date",
+      name: item.title,
+      note: `${item.role || "Team"} · ${deliveryBoardStatusLabel(item.status)}`,
+      status: item.status === "done" ? "complete" as const : item.status === "in-progress" || item.status === "needs-review" ? "current" as const : "next" as const
+    }));
   const createdLabel = formatDateLabel(input.program.createdAt) || "Captured";
-  const updatedLabel = formatDateLabel(input.program.updatedAt) || "Current";
+  const updatedLabel = formatDateLabel(input.updateTimestamp) || "";
   const explicitMilestoneName = clean(input.review?.nextMilestoneName);
   const explicitMilestoneDate = formatDateLabel(input.review?.nextMilestoneDate);
   const explicitMilestonePriority = priorityFromReview(input.review?.nextMilestonePriority);
-  const checkpointName = explicitMilestoneName || nextBoardItem?.title || firstSignal(input.recommendedPath.join("\n"), input.phase || "Current checkpoint");
-  const checkpointNote = explicitMilestoneName
-    ? `${explicitMilestonePriority ?? "Current"} priority checkpoint`
-    : nextBoardItem
-    ? `${nextBoardItem.role || "Team"} · ${deliveryBoardStatusLabel(nextBoardItem.status)}`
-    : firstSignal(input.decisions.join("\n"), "Confirm the next decision, milestone, or delivery checkpoint.");
-
-  return [
+  const milestones: ClientPortalProgram["milestones"] = [
     {
       dateLabel: createdLabel,
-      name: "Planning Complete",
-      note: "Intake, intended outcomes, and source context captured.",
+      name: "Program intake captured",
+      note: firstSignal(input.program.intake.outcomes, input.program.intake.sowSummary || "Initial program setup saved."),
       status: "complete" as const
-    },
-    {
-      dateLabel: updatedLabel,
-      name: "Design Finalized",
-      note: "Current delivery structure, domain ownership, and working plan are established.",
-      status: input.completion.programCompletionPercent > 35 ? "complete" as const : "current" as const
-    },
-    {
-      dateLabel: explicitMilestoneDate || (nextBoardItem ? formatDateLabel(nextBoardItem.dueDate) || "Next" : "Next"),
-      name: checkpointName,
-      note: checkpointNote,
-      status: "current" as const
-    },
-    {
-      dateLabel: "Next",
-      name: "Pilot Readiness",
-      note: "Validate readiness, dependencies, and stakeholder acceptance path.",
-      status: "next" as const
-    },
-    {
-      dateLabel: "Next",
-      name: "Cutover Readiness",
-      note: "Confirm execution conditions, operational support, and decision coverage.",
-      status: "next" as const
-    },
-    {
-      dateLabel: "Next",
-      name: "Go-Live",
-      note: "Move from delivery execution into launch, adoption, and value realization.",
-      status: "next" as const
     }
   ];
+
+  if (updatedLabel && firstMeaningful(input.review?.clientStatusNote, input.review?.programSynthesisNote, input.review?.progressSinceLastReview)) {
+    milestones.push({
+      dateLabel: updatedLabel,
+      name: input.phase && input.phase !== "Phase not set" ? `${input.phase} update` : "Latest program update",
+      note: firstMeaningful(input.review?.clientStatusNote, input.review?.programSynthesisNote, input.review?.progressSinceLastReview),
+      status: "current" as const
+    });
+  }
+
+  if (explicitMilestoneName) {
+    milestones.push({
+      dateLabel: explicitMilestoneDate || "Date not captured",
+      name: explicitMilestoneName,
+      note: `${explicitMilestonePriority ?? "Priority not set"} priority checkpoint`,
+      status: "current" as const
+    });
+  }
+
+  milestones.push(...boardMilestones);
+
+  const seen = new Set<string>();
+  return milestones
+    .filter((milestone) => {
+      const key = `${milestone.name.toLowerCase()}-${milestone.dateLabel.toLowerCase()}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    })
+    .slice(0, 6);
 }
 
 export function buildClientPortalProgram(input: ClientPortalProgramInput): ClientPortalProgram {
@@ -771,12 +765,10 @@ export function buildClientPortalProgram(input: ClientPortalProgramInput): Clien
     firstNonEmpty(review?.decisionsPending, intake.decisionsNeeded),
     "No executive decision is currently pending."
   );
-  const outcomes = planItems(input.latestPlan?.keyOutcomes, firstSignal(intake.outcomes, "Outcome detail is still being shaped."));
-  const recommendedPath = planItems(
-    input.latestPlan?.workPath,
-    "Use the next operating cycle to confirm ownership, remove blockers, and tighten decision timing."
-  );
-  const currentPhase = clean(firstNonEmpty(review?.currentPhase, intake.currentStatus, "Plan"));
+  const intakeOutcomes = splitSignals(intake.outcomes, "").filter(isMeaningfulSignal);
+  const outcomes = [...guidedSectionItems(input.latestPlan?.keyOutcomes), ...intakeOutcomes].slice(0, 4);
+  const recommendedPath = guidedSectionItems(input.latestPlan?.workPath, 4);
+  const currentPhase = clean(firstNonEmpty(review?.currentPhase, intake.currentStatus, "Phase not set"));
   const { atRiskRoles, blockedRoles } = deriveRoleStatusCounts(roleUpdates);
   const posture = derivePosture({
     deliveryHealth: firstNonEmpty(review?.deliveryHealth, intake.currentStatus),
@@ -786,7 +778,7 @@ export function buildClientPortalProgram(input: ClientPortalProgramInput): Clien
   const computedCompletion = getCompletionMetrics(currentPhase, posture);
   const completion = {
     ...computedCompletion,
-    programCompletionPercent: parsePercent(review?.programCompletionPercent) ?? computedCompletion.programCompletionPercent
+    programCompletionPercent: parsePercent(review?.programCompletionPercent) ?? 0
   };
   const domainSummaries = buildDomainSummaries({
     plan: input.latestPlan,
@@ -822,12 +814,27 @@ export function buildClientPortalProgram(input: ClientPortalProgramInput): Clien
     leadershipSummary: leadershipSignal,
     intakeSummary: intake.sowSummary
   });
+  const completionDeltaSignal = clean(review?.completionDelta);
+  const statusNote = conciseSignal(
+    firstMeaningful(
+      review?.clientStatusNote,
+      input.latestPlan?.programGuide?.sponsorReadout,
+      input.latestPlan?.summary,
+      review?.programSynthesisNote,
+      progressUpdates[0],
+      executiveOverview,
+      "Current program posture will appear after the next saved program update or guided plan refresh."
+    ),
+    138
+  );
   const executiveStatusHighlights = buildExecutiveStatusHighlights({
     completion,
+    completionDelta: completionDeltaSignal,
     phase: currentPhase,
     posture,
     postureLabel: postureLabel(posture),
-    risks
+    risks,
+    statusNote
   });
   const recentAccomplishments = buildRecentAccomplishments({
     domainSummaries,
@@ -848,27 +855,24 @@ export function buildClientPortalProgram(input: ClientPortalProgramInput): Clien
     phase: currentPhase,
     program: input.program,
     recommendedPath,
-    review
+    review,
+    updateTimestamp: input.latestUpdate?.updatedAt ?? input.latestUpdate?.createdAt
   });
-  const nextMilestone = milestones.find((milestone) => milestone.status === "current") ?? milestones.find((milestone) => milestone.status === "next") ?? {
-    dateLabel: "Next",
-    name: "Next checkpoint",
-    note: "Confirm the next meaningful checkpoint.",
+  const explicitMilestoneName = clean(review?.nextMilestoneName);
+  const nextMilestone = (explicitMilestoneName
+    ? milestones.find((milestone) => milestone.name === explicitMilestoneName)
+    : undefined)
+    ?? milestones.find((milestone) => milestone.status === "current" && !milestone.name.toLowerCase().endsWith(" update"))
+    ?? milestones.find((milestone) => milestone.status === "next")
+    ?? milestones.find((milestone) => milestone.status === "current")
+    ?? {
+    dateLabel: "",
+    name: "No milestone captured",
+    note: "Add a next milestone or delivery board due date in Program Hub.",
     status: "next" as const
   };
   const owner = firstNonEmpty(intake.programOwner, "Owner not set");
   const explicitMilestonePriority = priorityFromReview(review?.nextMilestonePriority);
-  const statusNote = conciseSignal(
-    firstMeaningful(
-      review?.clientStatusNote,
-      review?.deliveryHealth,
-      review?.programSynthesisNote,
-      progressUpdates[0],
-      executiveOverview,
-      "Current program posture will sharpen after the next role update."
-    ),
-    138
-  );
 
   return {
     id: input.program.id,
@@ -881,13 +885,14 @@ export function buildClientPortalProgram(input: ClientPortalProgramInput): Clien
     posture,
     postureLabel: postureLabel(posture),
     statusSignal: statusSignal(posture),
-    completionDelta: firstNonEmpty(review?.completionDelta, completionDelta(posture)),
+    completionDelta: completionDeltaSignal,
     statusNote,
     updatedAt: input.latestUpdate?.updatedAt ?? input.latestUpdate?.createdAt ?? input.latestPlan?.createdAt ?? input.program.updatedAt,
     executiveOverview,
     executiveSummary: clean(
       firstNonEmpty(
         review?.clientStatusNote,
+        input.latestPlan?.programGuide?.sponsorReadout,
         input.latestPlan?.summary,
         review?.programSynthesisNote,
         intake.sowSummary,
@@ -901,7 +906,7 @@ export function buildClientPortalProgram(input: ClientPortalProgramInput): Clien
     },
     nextDecision: firstSignal(decisions.join("\n"), "No executive decision is currently pending."),
     topRisk: firstSignal(risks.join("\n"), "No active executive risk has been captured yet."),
-    primaryOutcome: firstSignal(outcomes.join("\n"), "Outcome detail is still being shaped."),
+    primaryOutcome: firstSignal(outcomes.join("\n"), "Outcome detail will appear after intake or guided plan synthesis."),
     northStar: clean(firstNonEmpty(input.latestPlan?.northStar, review?.originalNorthStar, intake.vision, "North star not captured yet.")),
     leadershipSignal,
     assignedRoles: input.assignedRoles ?? [],
@@ -967,6 +972,7 @@ function buildPortfolioRoadmap(programs: ClientPortalProgram[]): ClientPortalRoa
 
 function buildPortfolioMilestones(programs: ClientPortalProgram[]): ClientPortalPortfolioMilestone[] {
   return programs
+    .filter((program) => program.nextMilestone.name !== "No milestone captured")
     .map((program) => ({
       dateLabel: program.nextMilestone.dateLabel,
       id: `${program.id}-next-milestone`,
