@@ -112,6 +112,20 @@ async function ensureAuditRows(session) {
   );
 }
 
+async function verifyAuditSummary(session) {
+  await ensureAuditRows(session);
+  await session.waitFor("Admin audit activity summary", () =>
+    session.execute(`
+      const summary = document.querySelector("[data-admin-audit-summary]");
+      const topUsers = document.querySelector("[data-admin-audit-top-users]");
+      const topActions = document.querySelector("[data-admin-audit-top-actions]");
+      const cards = document.querySelectorAll("[data-admin-audit-summary-card]");
+      return Boolean(summary && topUsers && topActions && cards.length >= 2);
+    `),
+    10_000
+  );
+}
+
 async function chooseTargetEvent(session) {
   await ensureAuditRows(session);
 
@@ -288,12 +302,14 @@ async function main() {
   await withSafariBrowser(async (session) => {
     await authenticate(session);
     await openAdminAudit(session);
+    await verifyAuditSummary(session);
     const target = await chooseTargetEvent(session);
     const filters = await applyFilters(session, target);
     const download = await exportFilteredAudit(session);
     const rowCount = verifyFilteredCsv(download.text, target, filters);
 
     console.log(`✓ Admin audit filters applied: ${Object.entries(filters).filter(([, value]) => value).map(([key]) => key).join(", ")}`);
+    console.log("✓ Admin audit summary verified: top users and top actions rendered.");
     console.log(`✓ Admin audit export verified: ${download.download} (${rowCount} filtered rows).`);
   });
 

@@ -15,6 +15,27 @@ type AuditVisibility = "important" | "all";
 type DateFilter = "all" | "today" | "last-7-days" | "last-30-days";
 
 const maxEventsPerGroup = 12;
+const maxSummaryItems = 4;
+
+const auditActionLabels: Record<AuditEventType, string> = {
+  "artifact.copy": "Artifact copied",
+  "artifact.export": "Artifact exported",
+  "artifact.generate": "Artifact generated",
+  "client.decision.create": "Client decision added",
+  "flag.create": "Guidance flagged",
+  "flag.review": "Flag reviewed",
+  "guide.dialogue": "Guide dialogue recorded",
+  "guidance.refresh": "Guidance refreshed",
+  "leadership.feedback": "Leadership feedback saved",
+  "model.settings.update": "Model settings changed",
+  "program.create_or_update": "Program saved",
+  "program.role.add": "Program role added",
+  "program.update": "Program updated",
+  "user.access.remove": "User access removed",
+  "user.access.update": "User access updated",
+  "user.invite.link": "Invite link generated",
+  "user.invite.send": "User invited"
+};
 
 const dateOptions: Array<{ label: string; value: DateFilter }> = [
   { label: "All dates", value: "all" },
@@ -69,6 +90,10 @@ function formatAuditType(value: AuditEventRecord["eventType"]) {
   if (value.startsWith("program.")) return "Program";
   if (value.startsWith("user.")) return "User access";
   return "Audit";
+}
+
+function formatAuditAction(value: AuditEventType) {
+  return auditActionLabels[value] ?? formatAuditType(value);
 }
 
 function eventCategory(eventType: AuditEventType): AuditCategory {
@@ -140,6 +165,15 @@ type AuditEventGroup = {
   label: string;
 };
 
+type AuditSummaryItem = {
+  count: number;
+  detail?: string;
+  key: string;
+  label: string;
+  latestAt?: string;
+  secondary?: string;
+};
+
 function sortAuditEvents(events: AuditEventRecord[]) {
   return [...events].sort((left, right) => new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime());
 }
@@ -149,7 +183,12 @@ function groupAuditEventsByTime(events: AuditEventRecord[]): AuditEventGroup[] {
 
   for (const event of sortAuditEvents(events)) {
     const label = getAuditGroupLabel(event.createdAt);
-    groups.set(label, [...(groups.get(label) ?? []), event]);
+    const groupEvents = groups.get(label);
+    if (groupEvents) {
+      groupEvents.push(event);
+    } else {
+      groups.set(label, [event]);
+    }
   }
 
   return ["Today", "Yesterday", "Last 7 days", "Older"]
@@ -199,6 +238,76 @@ function summarizeEventsByCategory(events: AuditEventRecord[]) {
     .filter((option) => option.value !== "all")
     .map((option) => ({ count: counts.get(option.value) ?? 0, label: option.label }))
     .filter((item) => item.count > 0);
+}
+
+function newestTimestamp(left?: string, right?: string) {
+  if (!left) return right;
+  if (!right) return left;
+  return new Date(right).getTime() > new Date(left).getTime() ? right : left;
+}
+
+function topCategoryLabel(events: AuditEventRecord[]) {
+  const [topCategory] = summarizeEventsByCategory(events).sort((left, right) => right.count - left.count);
+  return topCategory ? `${topCategory.label}: ${topCategory.count}` : undefined;
+}
+
+function buildTopActorSummary(events: AuditEventRecord[]): AuditSummaryItem[] {
+  const grouped = new Map<string, AuditEventRecord[]>();
+
+  for (const event of events) {
+    const key = actorKey(event);
+    const actorEvents = grouped.get(key);
+    if (actorEvents) {
+      actorEvents.push(event);
+    } else {
+      grouped.set(key, [event]);
+    }
+  }
+
+  return Array.from(grouped.entries())
+    .map(([key, actorEvents]) => {
+      const latestAt = actorEvents.reduce<string | undefined>((current, event) => newestTimestamp(current, event.createdAt), undefined);
+      return {
+        count: actorEvents.length,
+        detail: actorDetail(actorEvents[0]),
+        key,
+        label: actorLabel(actorEvents[0]),
+        latestAt,
+        secondary: topCategoryLabel(actorEvents)
+      };
+    })
+    .sort((left, right) => {
+      if (right.count !== left.count) return right.count - left.count;
+      return new Date(right.latestAt ?? 0).getTime() - new Date(left.latestAt ?? 0).getTime();
+    })
+    .slice(0, maxSummaryItems);
+}
+
+function buildTopActionSummary(events: AuditEventRecord[]): AuditSummaryItem[] {
+  const grouped = new Map<AuditEventType, { actors: Set<string>; count: number; latestAt?: string }>();
+
+  for (const event of events) {
+    const current = grouped.get(event.eventType) ?? { actors: new Set<string>(), count: 0, latestAt: undefined };
+    current.actors.add(actorLabel(event));
+    current.count += 1;
+    current.latestAt = newestTimestamp(current.latestAt, event.createdAt);
+    grouped.set(event.eventType, current);
+  }
+
+  return Array.from(grouped.entries())
+    .map(([eventType, item]) => ({
+      count: item.count,
+      detail: eventType,
+      key: eventType,
+      label: formatAuditAction(eventType),
+      latestAt: item.latestAt,
+      secondary: `${item.actors.size} actor${item.actors.size === 1 ? "" : "s"}`
+    }))
+    .sort((left, right) => {
+      if (right.count !== left.count) return right.count - left.count;
+      return new Date(right.latestAt ?? 0).getTime() - new Date(left.latestAt ?? 0).getTime();
+    })
+    .slice(0, maxSummaryItems);
 }
 
 function csvValue(value: unknown) {
@@ -381,6 +490,66 @@ function AuditGroupDetails({
   );
 }
 
+function AuditSummaryList({ items, label }: { items: AuditSummaryItem[]; label: string }) {
+  if (!items.length) {
+    return <p className="rounded-md border border-white/10 bg-black/20 px-3 py-2 text-xs text-zinc-500">No {label.toLowerCase()} in this filtered view.</p>;
+  }
+
+  return (
+    <div className="grid gap-2">
+      {items.map((item) => (
+        <div
+          key={item.key}
+          className="grid gap-2 rounded-md border border-white/10 bg-black/20 px-3 py-2 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center"
+          data-admin-audit-summary-card
+        >
+          <span className="min-w-0">
+            <span className="block truncate text-sm font-medium text-zinc-100">{item.label}</span>
+            <span className="mt-0.5 block truncate text-xs text-zinc-500">
+              {[item.detail, item.secondary, item.latestAt ? `Last ${formatTimestamp(item.latestAt)}` : ""].filter(Boolean).join(" · ")}
+            </span>
+          </span>
+          <span className="rounded-full border border-emerald-300/20 bg-emerald-300/10 px-2.5 py-1 text-xs font-medium text-emerald-100">
+            {item.count} event{item.count === 1 ? "" : "s"}
+          </span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function AuditActivitySummary({
+  topActions,
+  topActors
+}: {
+  topActions: AuditSummaryItem[];
+  topActors: AuditSummaryItem[];
+}) {
+  return (
+    <div className="grid gap-3 md:grid-cols-2" data-admin-audit-summary>
+      <section className="rounded-md border border-white/10 bg-white/[0.025] p-3" data-admin-audit-top-users>
+        <div className="mb-3 flex items-center justify-between gap-3">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-emerald-100">Top active users</p>
+            <p className="mt-1 text-xs text-zinc-500">Who is creating the most audit signal in this view.</p>
+          </div>
+        </div>
+        <AuditSummaryList items={topActors} label="Top users" />
+      </section>
+
+      <section className="rounded-md border border-white/10 bg-white/[0.025] p-3" data-admin-audit-top-actions>
+        <div className="mb-3 flex items-center justify-between gap-3">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-cyan-100">Top actions</p>
+            <p className="mt-1 text-xs text-zinc-500">Which behaviors are happening most often.</p>
+          </div>
+        </div>
+        <AuditSummaryList items={topActions} label="Top actions" />
+      </section>
+    </div>
+  );
+}
+
 export function AdminAuditHistoryPanel({ auditEvents }: AdminAuditHistoryPanelProps) {
   const [actorFilter, setActorFilter] = useState("all");
   const [categoryFilter, setCategoryFilter] = useState<AuditCategory>("all");
@@ -430,6 +599,8 @@ export function AdminAuditHistoryPanel({ auditEvents }: AdminAuditHistoryPanelPr
     });
   }, [actorFilter, auditEvents, categoryFilter, dateFilter, eventTypeFilter, programFilter, searchQuery, visibility]);
   const groupedEvents = useMemo(() => groupAuditEvents(filteredEvents, groupMode), [filteredEvents, groupMode]);
+  const topActors = useMemo(() => buildTopActorSummary(filteredEvents), [filteredEvents]);
+  const topActions = useMemo(() => buildTopActionSummary(filteredEvents), [filteredEvents]);
 
   return (
     <section className="grid gap-4" data-admin-audit-history>
@@ -578,6 +749,8 @@ export function AdminAuditHistoryPanel({ auditEvents }: AdminAuditHistoryPanelPr
           options={dateOptions}
         />
       </div>
+
+      <AuditActivitySummary topActors={topActors} topActions={topActions} />
 
       {groupedEvents.length ? (
         <div className="grid gap-3">

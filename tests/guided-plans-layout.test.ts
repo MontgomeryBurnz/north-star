@@ -350,6 +350,11 @@ test("Admin audit history uses persisted audit events instead of inferred activi
   assert.match(auditPanelSource, /groupAuditEvents/);
   assert.match(auditPanelSource, /groupAuditEventsByActor/);
   assert.match(auditPanelSource, /maxEventsPerGroup/);
+  assert.match(auditPanelSource, /buildTopActorSummary/);
+  assert.match(auditPanelSource, /buildTopActionSummary/);
+  assert.match(auditPanelSource, /AuditActivitySummary/);
+  assert.match(auditPanelSource, /Top active users/);
+  assert.match(auditPanelSource, /Top actions/);
   assert.match(auditPanelSource, /EventDetail/);
   assert.match(auditPanelSource, /exportAuditEvents\(filteredEvents\)/);
   assert.match(auditPanelSource, /Important only/);
@@ -358,6 +363,10 @@ test("Admin audit history uses persisted audit events instead of inferred activi
   assert.match(auditPanelSource, /Group by time/);
   assert.match(auditPanelSource, /data-admin-audit-export/);
   assert.match(auditPanelSource, /data-admin-audit-filter/);
+  assert.match(auditPanelSource, /data-admin-audit-summary/);
+  assert.match(auditPanelSource, /data-admin-audit-summary-card/);
+  assert.match(auditPanelSource, /data-admin-audit-top-users/);
+  assert.match(auditPanelSource, /data-admin-audit-top-actions/);
   assert.match(auditPanelSource, /data-admin-audit-group-mode/);
   assert.match(auditPanelSource, /data-admin-audit-visibility/);
   assert.match(auditPanelSource, /data-admin-audit-category/);
