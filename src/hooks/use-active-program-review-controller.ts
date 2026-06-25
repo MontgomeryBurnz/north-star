@@ -372,6 +372,32 @@ export function useActiveProgramReviewController() {
     [selectedProgram?.intake]
   );
 
+  const reorderTimelineMilestone = useCallback(
+    (draggedMilestoneId: string, targetMilestoneId: string) => {
+      setReview((current) => {
+        const milestones = normalizeProgramMilestones(current.programMilestones);
+        const draggedIndex = milestones.findIndex((milestone) => milestone.id === draggedMilestoneId);
+        const targetIndex = milestones.findIndex((milestone) => milestone.id === targetMilestoneId);
+
+        if (draggedIndex < 0 || targetIndex < 0 || draggedIndex === targetIndex) return current;
+
+        const reorderedMilestones = [...milestones];
+        const [draggedMilestone] = reorderedMilestones.splice(draggedIndex, 1);
+        if (!draggedMilestone) return current;
+        reorderedMilestones.splice(targetIndex, 0, draggedMilestone);
+
+        return normalizeReview(
+          {
+            ...current,
+            programMilestones: reorderedMilestones
+          },
+          selectedProgram?.intake
+        );
+      });
+    },
+    [selectedProgram?.intake]
+  );
+
   const removeTimelineMilestone = useCallback(
     (milestoneId: string) => {
       setReview((current) =>
@@ -927,6 +953,7 @@ export function useActiveProgramReviewController() {
     removeDeliveryBoardItem,
     removeRoleAttachment,
     removeMeetingAttachment,
+    reorderTimelineMilestone,
     removeTimelineMilestone,
     review,
     saveConfirmation,

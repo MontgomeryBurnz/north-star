@@ -18,8 +18,10 @@ export function ActiveProgramReviewSection() {
           onSelectProgram={controller.selectExistingProgram}
           onFieldChange={controller.updateField}
           onAddTimelineMilestone={controller.addTimelineMilestone}
+          onReorderTimelineMilestone={controller.reorderTimelineMilestone}
           onRemoveTimelineMilestone={controller.removeTimelineMilestone}
           onSaveProfile={() => controller.saveReviewSnapshot("", "Program profile")}
+          onSaveTimeline={() => controller.saveReviewSnapshot("", "Program timeline")}
           onTimelineMilestoneChange={controller.updateTimelineMilestone}
           saveConfirmation={controller.saveConfirmation}
           saveState={controller.saveState}

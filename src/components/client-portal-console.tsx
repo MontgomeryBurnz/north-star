@@ -84,13 +84,26 @@ const priorityStyles = {
   Low: "border border-rose-300/25 bg-rose-300/[0.08] text-rose-100"
 } as const;
 
-const roadmapSegmentStyles = {
+const roadmapPhaseSegmentStyles: Record<string, string> = {
   Discover: "border-r border-white/10 bg-cyan-300/[0.12] text-cyan-100",
   Plan: "border-r border-white/10 bg-emerald-300/[0.12] text-emerald-100",
   Execute: "border-r border-white/10 bg-emerald-300/35 text-zinc-950",
   Stabilize: "border-r border-white/10 bg-cyan-300/[0.08] text-cyan-100",
   Value: "bg-white/[0.06] text-zinc-500"
 } as const;
+
+type RoadmapSegmentState = ClientPortalRoadmapRow["segments"][number]["state"];
+type RoadmapWindowMode = ClientPortalRoadmapRow["windowMode"];
+
+function roadmapSegmentClass(label: string, state: RoadmapSegmentState, windowMode: RoadmapWindowMode) {
+  if (windowMode === "year") {
+    return roadmapPhaseSegmentStyles[label] ?? "border-r border-white/10 bg-white/[0.06] text-zinc-500";
+  }
+
+  if (state === "complete") return "border-r border-white/10 bg-emerald-300/[0.16] text-emerald-100";
+  if (state === "current") return "border-r border-white/10 bg-cyan-300/[0.18] text-cyan-100";
+  return "border-r border-white/10 bg-white/[0.04] text-zinc-500";
+}
 
 function formatDate(value: string) {
   const date = new Date(value);
@@ -309,14 +322,35 @@ function PortfolioRoadmap({ roadmap }: { roadmap: ClientPortalRoadmapRow[] }) {
     : ["Window 1", "Window 2", "Window 3", "Window 4", "Window 5"];
   const timeframeLabel = roadmap[0]?.timeframeLabel;
   const currentWindowIndex = roadmap[0]?.currentWindowIndex ?? 2;
+  const windowMode = roadmap[0]?.windowMode ?? "year";
+  const isShortWindow = windowMode === "month" || windowMode === "week";
 
   return (
     <section className="rounded-lg border border-white/10 bg-zinc-950/80 p-6 shadow-glow">
-      <SectionLabel>{timeframeLabel ? `Portfolio Roadmap - ${timeframeLabel}` : "Portfolio Roadmap"}</SectionLabel>
-      <h2 className="mt-4 text-2xl font-semibold text-zinc-50">Program Timeline</h2>
-      <div className="mt-6 flex flex-wrap gap-8 text-xl font-semibold text-zinc-600">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <SectionLabel>{timeframeLabel ? `Portfolio Roadmap - ${timeframeLabel}` : "Portfolio Roadmap"}</SectionLabel>
+          <h2 className="mt-4 text-2xl font-semibold text-zinc-50">Program Timeline</h2>
+        </div>
+        <span className="inline-flex rounded-full border border-cyan-300/20 bg-cyan-300/[0.06] px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.14em] text-cyan-100">
+          {windowMode} view
+        </span>
+      </div>
+      <div className={cn("mt-6 flex flex-wrap font-semibold", isShortWindow ? "gap-2 text-sm" : "gap-8 text-xl text-zinc-600")}>
         {activeWindowLabels.map((windowLabel, index) => (
-          <span key={windowLabel} className={index === currentWindowIndex ? "text-cyan-100" : undefined}>
+          <span
+            key={windowLabel}
+            className={cn(
+              isShortWindow ? "rounded-full border px-3 py-1.5" : "",
+              index === currentWindowIndex
+                ? isShortWindow
+                  ? "border-cyan-300/30 bg-cyan-300/[0.1] text-cyan-100"
+                  : "text-cyan-100"
+                : isShortWindow
+                  ? "border-white/10 bg-white/[0.025] text-zinc-500"
+                  : undefined
+            )}
+          >
             {windowLabel}
           </span>
         ))}
@@ -324,6 +358,7 @@ function PortfolioRoadmap({ roadmap }: { roadmap: ClientPortalRoadmapRow[] }) {
       <div className="mt-8 grid gap-8">
         {roadmap.map((row) => {
           const markerStyle = postureStyles[row.markerTone];
+          const rowIsShortWindow = row.windowMode === "month" || row.windowMode === "week";
           return (
             <div key={row.programId}>
               <div className="mb-4 flex flex-wrap items-end justify-between gap-2">
@@ -333,9 +368,19 @@ function PortfolioRoadmap({ roadmap }: { roadmap: ClientPortalRoadmapRow[] }) {
                 ) : null}
               </div>
               <div className="relative">
-                <div className="grid overflow-hidden rounded-full md:grid-cols-5">
+                <div
+                  className={cn("grid overflow-hidden rounded-full", rowIsShortWindow ? "border border-white/10" : "")}
+                  style={{ gridTemplateColumns: `repeat(${row.segments.length}, minmax(0, 1fr))` }}
+                >
                   {row.segments.map((segment) => (
-                    <div key={`${row.programId}-${segment.label}`} className={cn("px-4 py-4 text-center text-sm font-semibold", roadmapSegmentStyles[segment.label])}>
+                    <div
+                      key={`${row.programId}-${segment.label}`}
+                      className={cn(
+                        "px-3 text-center font-semibold",
+                        rowIsShortWindow ? "py-3 text-xs sm:text-sm" : "py-4 text-sm",
+                        roadmapSegmentClass(segment.label, segment.state, row.windowMode)
+                      )}
+                    >
                       {segment.label}
                     </div>
                   ))}
@@ -429,16 +474,18 @@ function ExecutiveCard({ children, icon: Icon, title }: { children: ReactNode; i
 }
 
 function ProgramMilestoneTimeline({ program }: { program: ClientPortalProgram }) {
+  const compactTimeline = program.timelineScale === "month" || program.timelineScale === "week";
+
   return (
     <ExecutiveCard icon={Flag} title="Milestone Timeline">
       {program.milestones.length ? (
-        <div className="mt-10 overflow-x-auto pb-3">
+        <div className={cn("overflow-x-auto pb-3", compactTimeline ? "mt-8" : "mt-10")}>
           <p className="-mt-4 mb-8 inline-flex rounded-full border border-cyan-300/20 bg-cyan-300/[0.06] px-4 py-2 text-sm font-semibold text-cyan-100">
             {program.timelineScaleLabel} view · {program.timelineWindowLabel}
           </p>
           <div
-            className="grid min-w-[58rem] items-start gap-0"
-            style={{ gridTemplateColumns: `repeat(${program.milestones.length}, minmax(9rem, 1fr))` }}
+            className={cn("grid items-start gap-0", compactTimeline ? "min-w-[44rem]" : "min-w-[58rem]")}
+            style={{ gridTemplateColumns: `repeat(${program.milestones.length}, minmax(${compactTimeline ? "7.5rem" : "9rem"}, 1fr))` }}
           >
             {program.milestones.map((milestone, index) => {
               const isComplete = milestone.status === "complete";

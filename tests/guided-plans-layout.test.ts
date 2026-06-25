@@ -39,6 +39,8 @@ test("Client Portal frames executive overview and domain progress", () => {
   assert.match(source, /currentWindowIndex/);
   assert.match(source, /timelineScaleLabel/);
   assert.match(source, /timelineWindowLabel/);
+  assert.match(source, /roadmapSegmentClass/);
+  assert.match(source, /windowMode/);
   assert.match(source, /Program Timeline/);
   assert.match(source, /Executive Summary/);
   assert.match(source, /Milestone Timeline/);
@@ -67,6 +69,10 @@ test("Client Portal frames executive overview and domain progress", () => {
   assert.match(modelSource, /buildPortfolioRisks/);
   assert.match(modelSource, /buildPortfolioRoadmap/);
   assert.match(modelSource, /buildRoadmapWindow/);
+  assert.match(modelSource, /deriveMonthWindowLabels/);
+  assert.match(modelSource, /formatShortDateLabel/);
+  assert.match(modelSource, /timelineScale: roadmapWindow\.scale/);
+  assert.match(modelSource, /windowMode: program\.timelineScale/);
   assert.match(modelSource, /buildReviewMilestones/);
   assert.match(modelSource, /ProgramTimelineMilestone/);
   assert.match(modelSource, /buildDomainMovementSignal/);
@@ -93,10 +99,16 @@ test("Active Program captures configurable timeline windows and milestones for C
   assert.match(stateSource, /data-active-timeline-week/);
   assert.match(stateSource, /data-active-program-add-milestone/);
   assert.match(stateSource, /data-active-program-milestone-row/);
+  assert.match(stateSource, /data-active-program-milestone-drag-handle/);
+  assert.match(stateSource, /data-active-program-timeline-save/);
+  assert.match(stateSource, /data-active-program-timeline-save-confirmation/);
   assert.match(stateSource, /data-active-program-profile-save/);
   assert.match(flowSource, /onTimelineMilestoneChange/);
+  assert.match(flowSource, /onReorderTimelineMilestone/);
+  assert.match(flowSource, /onSaveTimeline/);
   assert.match(controllerSource, /addTimelineMilestone/);
   assert.match(controllerSource, /updateTimelineMilestone/);
+  assert.match(controllerSource, /reorderTimelineMilestone/);
   assert.match(controllerSource, /removeTimelineMilestone/);
   assert.match(activeSmokeSource, /Smoke custom timeline milestone/);
   assert.match(activeSmokeSource, /timelineYear === "FY99"/);

@@ -96,6 +96,7 @@ export type ClientPortalProgram = {
     priority?: ClientPortalPriority;
     status: "complete" | "current" | "next";
   }>;
+  timelineScale: ProgramTimelineScale;
   timelineScaleLabel: string;
   timelineWindowLabel: string;
   roadmapWindowLabels: string[];
@@ -134,13 +135,14 @@ export type ClientPortalRoadmapRow = {
   markerLabel: string;
   markerPosition: number;
   markerTone: ClientProgramPosture;
+  windowMode: ProgramTimelineScale;
   timeframeLabel: string;
   windowLabels: string[];
   currentWindowIndex: number;
   programId: string;
   programName: string;
   segments: Array<{
-    label: "Discover" | "Plan" | "Execute" | "Stabilize" | "Value";
+    label: string;
     state: "complete" | "current" | "next";
   }>;
 };
@@ -591,9 +593,17 @@ function deriveYearWindowLabels(year: string) {
 }
 
 function deriveMonthWindowLabels(month: string) {
-  const label = formatMonthLabel(month);
-  if (!label) return ["Week 1", "Week 2", "Week 3", "Week 4", "Week 5"];
-  return ["Week 1", "Week 2", "Week 3", "Week 4", "Week 5"].map((week) => `${week}`);
+  const monthMatch = month.match(/^(\d{4})-(\d{2})$/);
+  if (!monthMatch) return ["Week 1", "Week 2", "Week 3", "Week 4", "Week 5"];
+
+  const start = new Date(Number(monthMatch[1]), Number(monthMatch[2]) - 1, 1);
+  if (Number.isNaN(start.getTime())) return ["Week 1", "Week 2", "Week 3", "Week 4", "Week 5"];
+
+  return Array.from({ length: 5 }, (_, index) => {
+    const week = new Date(start);
+    week.setDate(start.getDate() + index * 7);
+    return formatShortDateLabel(week);
+  });
 }
 
 function deriveWeekWindowLabels(weekStart: string) {
@@ -632,6 +642,7 @@ function buildRoadmapWindow(review: StoredProgramUpdate["review"] | undefined, c
     const timeframeLabel = review?.timelineWeek ? `Week of ${formatDateLabel(review.timelineWeek)}` : "Program Week";
     return {
       currentWindowIndex: currentWindowIndexFromDate(currentMilestoneDate || review?.timelineWeek, scale),
+      scale,
       scaleLabel: "Week",
       timeframeLabel,
       windowLabels: deriveWeekWindowLabels(review?.timelineWeek ?? "")
@@ -642,6 +653,7 @@ function buildRoadmapWindow(review: StoredProgramUpdate["review"] | undefined, c
     const timeframeLabel = formatMonthLabel(review?.timelineMonth) || "Program Month";
     return {
       currentWindowIndex: currentWindowIndexFromDate(currentMilestoneDate, scale),
+      scale,
       scaleLabel: "Month",
       timeframeLabel,
       windowLabels: deriveMonthWindowLabels(review?.timelineMonth ?? "")
@@ -651,6 +663,7 @@ function buildRoadmapWindow(review: StoredProgramUpdate["review"] | undefined, c
   const timeframeLabel = review?.timelineYear?.trim() || "Program Year";
   return {
     currentWindowIndex: currentWindowIndexFromDate(currentMilestoneDate, scale),
+    scale,
     scaleLabel: "Year",
     timeframeLabel,
     windowLabels: deriveYearWindowLabels(timeframeLabel)
@@ -1081,6 +1094,7 @@ export function buildClientPortalProgram(input: ClientPortalProgramInput): Clien
     }),
     workstreams,
     milestones,
+    timelineScale: roadmapWindow.scale,
     timelineScaleLabel: roadmapWindow.scaleLabel,
     timelineWindowLabel: roadmapWindow.timeframeLabel,
     roadmapWindowLabels: roadmapWindow.windowLabels,
@@ -1102,22 +1116,27 @@ function roadmapStateForIndex(program: ClientPortalProgram, index: number) {
 }
 
 function buildPortfolioRoadmap(programs: ClientPortalProgram[]): ClientPortalRoadmapRow[] {
-  const segmentLabels = ["Discover", "Plan", "Execute", "Stabilize", "Value"] as const;
+  const phaseSegmentLabels = ["Discover", "Plan", "Execute", "Stabilize", "Value"] as const;
 
-  return programs.map((program) => ({
-    markerLabel: program.nextMilestone.name,
-    markerPosition: Math.max(8, Math.min(94, program.metrics.programCompletionPercent)),
-    markerTone: program.posture,
-    timeframeLabel: program.timelineWindowLabel,
-    windowLabels: program.roadmapWindowLabels,
-    currentWindowIndex: program.roadmapCurrentWindowIndex,
-    programId: program.id,
-    programName: program.name,
-    segments: segmentLabels.map((label, index) => ({
-      label,
-      state: roadmapStateForIndex(program, index)
-    }))
-  }));
+  return programs.map((program) => {
+    const segmentLabels = program.timelineScale === "year" ? [...phaseSegmentLabels] : program.roadmapWindowLabels;
+
+    return {
+      markerLabel: program.nextMilestone.name,
+      markerPosition: Math.max(8, Math.min(94, program.metrics.programCompletionPercent)),
+      markerTone: program.posture,
+      windowMode: program.timelineScale,
+      timeframeLabel: program.timelineWindowLabel,
+      windowLabels: program.roadmapWindowLabels,
+      currentWindowIndex: program.roadmapCurrentWindowIndex,
+      programId: program.id,
+      programName: program.name,
+      segments: segmentLabels.map((label, index) => ({
+        label,
+        state: roadmapStateForIndex(program, index)
+      }))
+    };
+  });
 }
 
 function buildPortfolioMilestones(programs: ClientPortalProgram[]): ClientPortalPortfolioMilestone[] {

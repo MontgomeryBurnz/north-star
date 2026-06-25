@@ -20,8 +20,10 @@ type ActiveProgramStateFlowProps = {
   review: ActiveProgramReview;
   onAddTimelineMilestone: () => void;
   onFieldChange: (field: ActiveProgramScalarField, value: string) => void;
+  onReorderTimelineMilestone: (draggedMilestoneId: string, targetMilestoneId: string) => void;
   onRemoveTimelineMilestone: (milestoneId: string) => void;
   onSaveProfile: () => void;
+  onSaveTimeline: () => void;
   onSelectProgram: (programId: string) => void;
   onTimelineMilestoneChange: (milestoneId: string, field: keyof Omit<ProgramTimelineMilestone, "id">, value: string) => void;
   saveConfirmation: SaveConfirmation;
@@ -34,8 +36,10 @@ export function ActiveProgramStateFlow({
   review,
   onAddTimelineMilestone,
   onFieldChange,
+  onReorderTimelineMilestone,
   onRemoveTimelineMilestone,
   onSaveProfile,
+  onSaveTimeline,
   onSelectProgram,
   onTimelineMilestoneChange,
   saveConfirmation,
@@ -58,8 +62,10 @@ export function ActiveProgramStateFlow({
         onSelectProgram={onSelectProgram}
         onFieldChange={onFieldChange}
         onAddTimelineMilestone={onAddTimelineMilestone}
+        onReorderTimelineMilestone={onReorderTimelineMilestone}
         onRemoveTimelineMilestone={onRemoveTimelineMilestone}
         onSaveProfile={onSaveProfile}
+        onSaveTimeline={onSaveTimeline}
         onTimelineMilestoneChange={onTimelineMilestoneChange}
         saveConfirmation={saveConfirmation}
         saveState={saveState}

@@ -425,6 +425,23 @@ async function populateExecutiveClientPortalFields(session, smokeText) {
     throw new Error("Active Program smoke could not populate a custom timeline milestone.");
   }
 
+  await session.execute('document.querySelector("[data-active-program-timeline-save]")?.click();');
+  await session.waitFor("Active Program timeline save completed", async () => {
+    const state = await session.execute(`
+      const confirmation = document.querySelector("[data-active-program-timeline-save-confirmation]");
+      return {
+        found: Boolean(confirmation),
+        text: confirmation?.textContent ?? ""
+      };
+    `);
+
+    if (state.found && state.text.includes("Saved locally only")) {
+      throw new Error(`Active Program timeline save did not complete server-side: ${state.text.trim()}`);
+    }
+
+    return state.found && state.text.includes("Timeline saved") && state.text.includes("Client Portal refresh started");
+  }, 120_000);
+
   console.log("✓ Active Program: populated fields that feed Client Portal, including timeline and milestones.");
 }
 

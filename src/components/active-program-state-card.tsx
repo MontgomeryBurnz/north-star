@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type DragEvent } from "react";
 import { Activity, ArrowUpRight, CalendarClock, ChevronDown, Compass, Plus, SlidersHorizontal, Trash2 } from "lucide-react";
 import type { ActiveProgramReview, ProgramTimelineMilestone } from "@/lib/active-program-types";
 import { ProgramSlicer } from "@/components/program-slicer";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { cn } from "@/lib/utils";
 
 type ProgramOption = {
   id: string;
@@ -27,6 +28,8 @@ type ActiveProgramStateCardProps = {
   onAddTimelineMilestone: () => void;
   onRemoveTimelineMilestone: (milestoneId: string) => void;
   onSaveProfile: () => void;
+  onSaveTimeline: () => void;
+  onReorderTimelineMilestone: (draggedMilestoneId: string, targetMilestoneId: string) => void;
   onTimelineMilestoneChange: (milestoneId: string, field: keyof Omit<ProgramTimelineMilestone, "id">, value: string) => void;
   saveConfirmation: SaveConfirmation;
   saveState: "idle" | "saving" | "saved" | "error";
@@ -47,11 +50,15 @@ export function ActiveProgramStateCard({
   onAddTimelineMilestone,
   onRemoveTimelineMilestone,
   onSaveProfile,
+  onSaveTimeline,
+  onReorderTimelineMilestone,
   onTimelineMilestoneChange,
   saveConfirmation,
   saveState
 }: ActiveProgramStateCardProps) {
   const [isSetupOpen, setIsSetupOpen] = useState(false);
+  const [draggingMilestoneId, setDraggingMilestoneId] = useState<string | null>(null);
+  const [dragOverMilestoneId, setDragOverMilestoneId] = useState<string | null>(null);
   const slicerOptions = useMemo(
     () => programOptions.map((program) => ({ id: program.id, label: program.label })),
     [programOptions]
@@ -60,9 +67,41 @@ export function ActiveProgramStateCard({
   const timelineScale = review.timelineScale ?? "year";
   const programMilestones = review.programMilestones ?? [];
   const profileConfirmationVisible = saveConfirmation?.scope === "Program profile";
+  const timelineConfirmationVisible = saveConfirmation?.scope === "Program timeline";
+
+  function handleMilestoneDragStart(event: DragEvent<HTMLElement>, milestoneId: string) {
+    setDraggingMilestoneId(milestoneId);
+    setDragOverMilestoneId(null);
+    event.dataTransfer.effectAllowed = "move";
+    event.dataTransfer.setData("text/plain", milestoneId);
+  }
+
+  function handleMilestoneDragOver(event: DragEvent<HTMLDivElement>, milestoneId: string) {
+    event.preventDefault();
+    if (!draggingMilestoneId || draggingMilestoneId === milestoneId) return;
+    event.dataTransfer.dropEffect = "move";
+    setDragOverMilestoneId(milestoneId);
+  }
+
+  function handleMilestoneDrop(event: DragEvent<HTMLDivElement>, targetMilestoneId: string) {
+    event.preventDefault();
+    const draggedMilestoneId = draggingMilestoneId ?? event.dataTransfer.getData("text/plain");
+    if (draggedMilestoneId && draggedMilestoneId !== targetMilestoneId) {
+      onReorderTimelineMilestone(draggedMilestoneId, targetMilestoneId);
+    }
+    setDraggingMilestoneId(null);
+    setDragOverMilestoneId(null);
+  }
+
+  function handleMilestoneDragEnd() {
+    setDraggingMilestoneId(null);
+    setDragOverMilestoneId(null);
+  }
 
   useEffect(() => {
     setIsSetupOpen(false);
+    setDraggingMilestoneId(null);
+    setDragOverMilestoneId(null);
   }, [selectedProgramId]);
 
   return (
@@ -401,12 +440,38 @@ export function ActiveProgramStateCard({
 
                   {programMilestones.length ? (
                     <div className="grid gap-3">
-                      {programMilestones.map((milestone) => (
+                      {programMilestones.map((milestone, index) => (
                         <div
                           key={milestone.id}
                           data-active-program-milestone-row
-                          className="grid gap-3 rounded-md border border-white/10 bg-zinc-950/70 p-3"
+                          onDragOver={(event) => handleMilestoneDragOver(event, milestone.id)}
+                          onDrop={(event) => handleMilestoneDrop(event, milestone.id)}
+                          className={cn(
+                            "grid gap-3 rounded-md border bg-zinc-950/70 p-3 transition-colors",
+                            dragOverMilestoneId === milestone.id ? "border-emerald-300/45 bg-emerald-300/[0.06]" : "border-white/10",
+                            draggingMilestoneId === milestone.id ? "opacity-60" : ""
+                          )}
                         >
+                          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/10 pb-3">
+                            <div>
+                              <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-zinc-500">Milestone {index + 1}</p>
+                              <p className="mt-1 text-xs text-zinc-500">Drag the handle to reorder the client timeline.</p>
+                            </div>
+                            <button
+                              type="button"
+                              draggable={programMilestones.length > 1}
+                              data-active-program-milestone-drag-handle
+                              onDragStart={(event) => handleMilestoneDragStart(event, milestone.id)}
+                              onDragEnd={handleMilestoneDragEnd}
+                              className={cn(
+                                "inline-flex min-h-9 cursor-grab items-center rounded-md border border-white/10 bg-white/[0.035] px-3 text-xs font-semibold uppercase tracking-[0.14em] text-zinc-400 transition-colors active:cursor-grabbing",
+                                programMilestones.length > 1 ? "hover:border-emerald-300/30 hover:text-emerald-100" : "cursor-not-allowed opacity-50"
+                              )}
+                              aria-label={`Drag ${milestone.name || "milestone"} to reorder`}
+                            >
+                              Reorder
+                            </button>
+                          </div>
                           <div className="grid gap-3 lg:grid-cols-[minmax(0,1.35fr)_10rem_10rem_9rem_auto]">
                             <label className="grid gap-2">
                               <span className="text-[11px] font-medium uppercase tracking-[0.16em] text-zinc-500">Milestone</span>
@@ -484,6 +549,30 @@ export function ActiveProgramStateCard({
                       No custom milestones yet. Add the checkpoints that should appear in the Client Portal timeline.
                     </div>
                   )}
+                </div>
+
+                <div className="flex flex-wrap items-center justify-between gap-3 border-t border-emerald-300/10 pt-3">
+                  <p className="max-w-2xl text-xs leading-5 text-zinc-500">
+                    Save timeline after changing the planning window, milestone details, or milestone order.
+                  </p>
+                  <button
+                    type="button"
+                    data-active-program-timeline-save
+                    onClick={onSaveTimeline}
+                    disabled={saveState === "saving"}
+                    className="inline-flex min-h-10 items-center justify-center rounded-md bg-emerald-300 px-4 text-sm font-semibold text-zinc-950 transition-colors hover:bg-emerald-200 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {saveState === "saving" && timelineConfirmationVisible ? "Saving timeline..." : "Save timeline"}
+                  </button>
+                  {timelineConfirmationVisible ? (
+                    <p data-active-program-timeline-save-confirmation className="w-full text-sm font-medium text-emerald-100">
+                      {saveConfirmation?.status === "saved"
+                        ? "Timeline saved and Client Portal refresh started."
+                        : saveConfirmation?.status === "error"
+                          ? "Timeline save failed. Try again."
+                          : "Saving program timeline..."}
+                    </p>
+                  ) : null}
                 </div>
               </div>
 

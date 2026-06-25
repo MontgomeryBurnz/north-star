@@ -194,6 +194,7 @@ test("buildClientPortalProgram creates executive posture from program signals", 
   assert.equal(portalProgram.milestones[1]?.name, "Scope baseline");
   assert.equal(portalProgram.milestones[1]?.status, "current");
   assert.equal(portalProgram.milestones.length, 3);
+  assert.equal(portalProgram.timelineScale, "year");
   assert.equal(portalProgram.timelineScaleLabel, "Year");
   assert.equal(portalProgram.timelineWindowLabel, "FY25");
   assert.deepEqual(portalProgram.roadmapWindowLabels, ["Q1 FY25", "Q2 FY25", "Q3 FY25", "Q4 FY25", "Q1 FY26"]);
@@ -214,8 +215,83 @@ test("buildClientPortalPortfolio rolls program posture into portfolio metrics", 
   assert.equal(portfolio.upcomingMilestones[0]?.title, "Scope baseline");
   assert.equal(portfolio.keyRisks[0]?.trend, "Worse");
   assert.equal(portfolio.roadmap[0]?.segments.length, 5);
+  assert.equal(portfolio.roadmap[0]?.windowMode, "year");
   assert.equal(portfolio.roadmap[0]?.timeframeLabel, "FY25");
   assert.deepEqual(portfolio.roadmap[0]?.windowLabels, ["Q1 FY25", "Q2 FY25", "Q3 FY25", "Q4 FY25", "Q1 FY26"]);
+});
+
+test("Client Portal roadmap adapts to month and week timeline windows", () => {
+  const monthUpdate: StoredProgramUpdate = {
+    ...update,
+    review: {
+      ...update.review,
+      timelineScale: "month",
+      timelineMonth: "2026-05",
+      timelineYear: "",
+      timelineWeek: "",
+      nextMilestoneDate: "2026-05-15",
+      programMilestones: [
+        {
+          id: "may-build",
+          name: "May build checkpoint",
+          date: "2026-05-15",
+          status: "current",
+          priority: "High",
+          note: "May checkpoint."
+        }
+      ]
+    }
+  };
+  const weekUpdate: StoredProgramUpdate = {
+    ...update,
+    review: {
+      ...update.review,
+      timelineScale: "week",
+      timelineMonth: "",
+      timelineYear: "",
+      timelineWeek: "2026-05-11",
+      nextMilestoneDate: "2026-05-13",
+      programMilestones: [
+        {
+          id: "week-build",
+          name: "Midweek checkpoint",
+          date: "2026-05-13",
+          status: "current",
+          priority: "Medium",
+          note: "Week checkpoint."
+        }
+      ]
+    }
+  };
+
+  const monthProgram = buildClientPortalProgram({ latestPlan: plan, latestUpdate: monthUpdate, program });
+  const weekProgram = buildClientPortalProgram({ latestPlan: plan, latestUpdate: weekUpdate, program });
+
+  assert.equal(monthProgram.timelineScale, "month");
+  assert.equal(monthProgram.timelineScaleLabel, "Month");
+  assert.equal(monthProgram.timelineWindowLabel, "May 2026");
+  assert.deepEqual(monthProgram.roadmapWindowLabels, ["May 1", "May 8", "May 15", "May 22", "May 29"]);
+  assert.equal(monthProgram.roadmapCurrentWindowIndex, 2);
+
+  assert.equal(weekProgram.timelineScale, "week");
+  assert.equal(weekProgram.timelineScaleLabel, "Week");
+  assert.equal(weekProgram.timelineWindowLabel, "Week of May 11");
+  assert.deepEqual(weekProgram.roadmapWindowLabels, ["May 11", "May 12", "May 13", "May 14", "May 15"]);
+  assert.equal(weekProgram.roadmapCurrentWindowIndex, 2);
+
+  const monthPortfolio = buildClientPortalPortfolio({
+    generatedAt: "2026-04-30T00:00:00.000Z",
+    programs: [{ latestPlan: plan, latestUpdate: monthUpdate, program }]
+  });
+  const weekPortfolio = buildClientPortalPortfolio({
+    generatedAt: "2026-04-30T00:00:00.000Z",
+    programs: [{ latestPlan: plan, latestUpdate: weekUpdate, program }]
+  });
+
+  assert.equal(monthPortfolio.roadmap[0]?.windowMode, "month");
+  assert.deepEqual(monthPortfolio.roadmap[0]?.segments.map((segment) => segment.label), monthProgram.roadmapWindowLabels);
+  assert.equal(weekPortfolio.roadmap[0]?.windowMode, "week");
+  assert.deepEqual(weekPortfolio.roadmap[0]?.segments.map((segment) => segment.label), weekProgram.roadmapWindowLabels);
 });
 
 test("buildClientPortalProgram avoids fabricated client content without saved updates or guidance", () => {
