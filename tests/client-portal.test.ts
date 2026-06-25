@@ -34,8 +34,17 @@ const update: StoredProgramUpdate = {
   updatedAt: "2026-04-29T00:00:00.000Z",
   review: {
     programName: "Compliance Hub",
+    executiveSponsor: "R. Thompson",
+    programLead: "A. Miller",
+    pmo: "Sandra Kowalski",
     originalNorthStar: "Launch compliant alpha workflows.",
     currentPhase: "Execute",
+    programCompletionPercent: "78",
+    completionDelta: "+6%",
+    nextMilestoneName: "Scope baseline",
+    nextMilestoneDate: "2026-05-08",
+    nextMilestonePriority: "High",
+    clientStatusNote: "Discovery remains stable and aligned to baseline.",
     progressSinceLastReview: "Intake rules are complete.",
     planChanges: "",
     activeRisks: "iTrade API timing could delay release.",
@@ -117,16 +126,18 @@ test("buildClientPortalProgram creates executive posture from program signals", 
 
   assert.equal(portalProgram.posture, "at-risk");
   assert.equal(portalProgram.statusSignal, "AMBER");
-  assert.equal(portalProgram.completionDelta, "-3%");
-  assert.equal(portalProgram.programLead, "Delivery Lead");
-  assert.equal(portalProgram.executiveSponsor, "Executive sponsor");
-  assert.equal(portalProgram.pmo, "PMO");
+  assert.equal(portalProgram.completionDelta, "+6%");
+  assert.equal(portalProgram.programLead, "A. Miller");
+  assert.equal(portalProgram.executiveSponsor, "R. Thompson");
+  assert.equal(portalProgram.pmo, "Sandra Kowalski");
+  assert.equal(portalProgram.statusNote, "Discovery remains stable and aligned to baseline.");
+  assert.equal(portalProgram.executiveSummary, "Discovery remains stable and aligned to baseline.");
   assert.equal(portalProgram.metrics.risks, 1);
   assert.equal(portalProgram.metrics.decisions, 1);
   assert.equal(portalProgram.assignedRoles[0], "Executive Sponsor");
   assert.equal(portalProgram.primaryOutcome, "Alpha workflow ready for sponsor validation");
   assert.equal(portalProgram.metrics.phaseCompletionPercent, 75);
-  assert.equal(portalProgram.metrics.programCompletionPercent, 66);
+  assert.equal(portalProgram.metrics.programCompletionPercent, 78);
   assert.match(portalProgram.progressUpdates[0], /Focus:/);
   assert.match(portalProgram.progressUpdates.join(" "), /Engineering: Dependency remains open/);
   assert.match(portalProgram.progressUpdates.join(" "), /Risk:/);
@@ -134,20 +145,22 @@ test("buildClientPortalProgram creates executive posture from program signals", 
   assert.ok(portalProgram.progressUpdates.every((signal) => signal.length <= 130));
   assert.ok(portalProgram.executiveOverview.length <= 260);
   assert.match(portalProgram.executiveOverview, /At risk in Execute/);
-  assert.match(portalProgram.executiveOverview, /Engineering is clearing/);
+  assert.match(portalProgram.executiveOverview, /Discovery remains stable/);
   assert.match(portalProgram.executiveOverview, /Confirm the launch readiness owner/);
   assert.equal(portalProgram.domainSummaries[0]?.role, "Engineering");
   assert.equal(portalProgram.domainSummaries[0]?.pursuit, "Dependency remains open.");
   assert.equal(portalProgram.domainSummaries[0]?.risksOrBlockers, "API timing");
   assert.equal(portalProgram.domainSummaries[0]?.owner, "Tech Lead");
-  assert.match(portalProgram.executiveStatusHighlights.join(" "), /Program complete 66%/);
+  assert.match(portalProgram.executiveStatusHighlights.join(" "), /Program complete 78%/);
   assert.match(portalProgram.recentAccomplishments.join(" "), /Intake rules are complete/);
   assert.match(portalProgram.upcomingWork.join(" "), /Confirm the launch readiness owner/);
   assert.equal(portalProgram.executiveRisks[0]?.severity, "High");
   assert.match(portalProgram.leadershipDecisions[0]?.title ?? "", /Confirm launch readiness owner/);
   assert.equal(portalProgram.workstreams[0]?.name, "Engineering");
   assert.equal(portalProgram.workstreams[0]?.percent, 52);
-  assert.equal(portalProgram.nextMilestone.name, "API readiness review");
+  assert.equal(portalProgram.nextMilestone.name, "Scope baseline");
+  assert.equal(portalProgram.nextMilestone.dateLabel, "May 08");
+  assert.equal(portalProgram.nextMilestone.priority, "High");
   assert.equal(portalProgram.milestones[2]?.status, "current");
   assert.equal(portalProgram.milestones.length, 6);
 });
@@ -161,9 +174,9 @@ test("buildClientPortalPortfolio rolls program posture into portfolio metrics", 
   assert.equal(portfolio.metrics.totalPrograms, 1);
   assert.equal(portfolio.metrics.atRisk, 1);
   assert.equal(portfolio.metrics.delayed, 0);
-  assert.equal(portfolio.metrics.averageCompletionPercent, 66);
+  assert.equal(portfolio.metrics.averageCompletionPercent, 78);
   assert.equal(portfolio.metrics.healthScore, 46);
-  assert.equal(portfolio.upcomingMilestones[0]?.title, "API readiness review");
+  assert.equal(portfolio.upcomingMilestones[0]?.title, "Scope baseline");
   assert.equal(portfolio.keyRisks[0]?.trend, "Worse");
   assert.equal(portfolio.roadmap[0]?.segments.length, 5);
 });

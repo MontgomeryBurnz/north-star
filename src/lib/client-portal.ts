@@ -265,10 +265,24 @@ function completionDelta(posture: ClientProgramPosture) {
   return "-8%";
 }
 
+function parsePercent(value: string | undefined | null) {
+  const parsed = Number(clean(value).replace(/%$/, ""));
+  if (!Number.isFinite(parsed)) return null;
+  return Math.max(0, Math.min(100, Math.round(parsed)));
+}
+
 function priorityFromPosture(posture: ClientProgramPosture): ClientPortalPriority {
   if (posture === "blocked" || posture === "at-risk") return "High";
   if (posture === "watch") return "Medium";
   return "Low";
+}
+
+function priorityFromReview(value: string | undefined | null): ClientPortalPriority | null {
+  const normalized = clean(value).toLowerCase();
+  if (normalized === "high") return "High";
+  if (normalized === "medium") return "Medium";
+  if (normalized === "low") return "Low";
+  return null;
 }
 
 function riskTrend(posture: ClientProgramPosture): ClientPortalRiskTrend {
@@ -435,6 +449,7 @@ function buildClientExecutiveOverview(input: {
   intakeSummary: string | undefined;
 }) {
   const focus = firstMeaningful(
+    input.review?.clientStatusNote,
     input.plan?.programGuide?.focus,
     input.review?.programSynthesisNote,
     buildDomainMovementSignal(input.domainSummaries),
@@ -520,7 +535,10 @@ function uniqueMeaningfulSignals(values: Array<string | undefined | null>, fallb
 
 function formatDateLabel(value: string | undefined | null) {
   if (!value) return "";
-  const date = new Date(value);
+  const dateOnlyMatch = value.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  const date = dateOnlyMatch
+    ? new Date(Number(dateOnlyMatch[1]), Number(dateOnlyMatch[2]) - 1, Number(dateOnlyMatch[3]))
+    : new Date(value);
   if (Number.isNaN(date.getTime())) return value;
   return new Intl.DateTimeFormat("en-US", { day: "2-digit", month: "short" }).format(date);
 }
@@ -691,8 +709,13 @@ function buildMilestones(input: {
   const nextBoardItem = boardItems[0];
   const createdLabel = formatDateLabel(input.program.createdAt) || "Captured";
   const updatedLabel = formatDateLabel(input.program.updatedAt) || "Current";
-  const checkpointName = nextBoardItem?.title || firstSignal(input.recommendedPath.join("\n"), input.phase || "Current checkpoint");
-  const checkpointNote = nextBoardItem
+  const explicitMilestoneName = clean(input.review?.nextMilestoneName);
+  const explicitMilestoneDate = formatDateLabel(input.review?.nextMilestoneDate);
+  const explicitMilestonePriority = priorityFromReview(input.review?.nextMilestonePriority);
+  const checkpointName = explicitMilestoneName || nextBoardItem?.title || firstSignal(input.recommendedPath.join("\n"), input.phase || "Current checkpoint");
+  const checkpointNote = explicitMilestoneName
+    ? `${explicitMilestonePriority ?? "Current"} priority checkpoint`
+    : nextBoardItem
     ? `${nextBoardItem.role || "Team"} · ${deliveryBoardStatusLabel(nextBoardItem.status)}`
     : firstSignal(input.decisions.join("\n"), "Confirm the next decision, milestone, or delivery checkpoint.");
 
@@ -710,7 +733,7 @@ function buildMilestones(input: {
       status: input.completion.programCompletionPercent > 35 ? "complete" as const : "current" as const
     },
     {
-      dateLabel: nextBoardItem ? formatDateLabel(nextBoardItem.dueDate) || "Next" : "Next",
+      dateLabel: explicitMilestoneDate || (nextBoardItem ? formatDateLabel(nextBoardItem.dueDate) || "Next" : "Next"),
       name: checkpointName,
       note: checkpointNote,
       status: "current" as const
@@ -760,7 +783,11 @@ export function buildClientPortalProgram(input: ClientPortalProgramInput): Clien
     riskText: risks.join(" "),
     roleUpdates
   });
-  const completion = getCompletionMetrics(currentPhase, posture);
+  const computedCompletion = getCompletionMetrics(currentPhase, posture);
+  const completion = {
+    ...computedCompletion,
+    programCompletionPercent: parsePercent(review?.programCompletionPercent) ?? computedCompletion.programCompletionPercent
+  };
   const domainSummaries = buildDomainSummaries({
     plan: input.latestPlan,
     roleUpdates,
@@ -830,8 +857,10 @@ export function buildClientPortalProgram(input: ClientPortalProgramInput): Clien
     status: "next" as const
   };
   const owner = firstNonEmpty(intake.programOwner, "Owner not set");
+  const explicitMilestonePriority = priorityFromReview(review?.nextMilestonePriority);
   const statusNote = conciseSignal(
     firstMeaningful(
+      review?.clientStatusNote,
       review?.deliveryHealth,
       review?.programSynthesisNote,
       progressUpdates[0],
@@ -845,19 +874,20 @@ export function buildClientPortalProgram(input: ClientPortalProgramInput): Clien
     id: input.program.id,
     name: firstNonEmpty(intake.programName, input.latestPlan?.programName, "Untitled program"),
     owner,
-    executiveSponsor: stakeholderByKeyword(intake.stakeholders, "sponsor", "Executive sponsor"),
-    programLead: owner,
-    pmo: stakeholderByKeyword(intake.stakeholders, "pmo", "PMO"),
+    executiveSponsor: firstNonEmpty(review?.executiveSponsor, stakeholderByKeyword(intake.stakeholders, "sponsor", "Executive sponsor")),
+    programLead: firstNonEmpty(review?.programLead, owner),
+    pmo: firstNonEmpty(review?.pmo, stakeholderByKeyword(intake.stakeholders, "pmo", "PMO")),
     phase: currentPhase,
     posture,
     postureLabel: postureLabel(posture),
     statusSignal: statusSignal(posture),
-    completionDelta: completionDelta(posture),
+    completionDelta: firstNonEmpty(review?.completionDelta, completionDelta(posture)),
     statusNote,
     updatedAt: input.latestUpdate?.updatedAt ?? input.latestUpdate?.createdAt ?? input.latestPlan?.createdAt ?? input.program.updatedAt,
     executiveOverview,
     executiveSummary: clean(
       firstNonEmpty(
+        review?.clientStatusNote,
         input.latestPlan?.summary,
         review?.programSynthesisNote,
         intake.sowSummary,
@@ -867,7 +897,7 @@ export function buildClientPortalProgram(input: ClientPortalProgramInput): Clien
     nextMilestone: {
       dateLabel: nextMilestone.dateLabel,
       name: nextMilestone.name,
-      priority: priorityFromPosture(posture)
+      priority: explicitMilestonePriority ?? priorityFromPosture(posture)
     },
     nextDecision: firstSignal(decisions.join("\n"), "No executive decision is currently pending."),
     topRisk: firstSignal(risks.join("\n"), "No active executive risk has been captured yet."),

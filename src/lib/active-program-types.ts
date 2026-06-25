@@ -36,8 +36,17 @@ export type DeliveryBoardItem = {
 
 export type ActiveProgramReview = {
   programName: string;
+  executiveSponsor?: string;
+  programLead?: string;
+  pmo?: string;
   originalNorthStar: string;
   currentPhase: string;
+  programCompletionPercent?: string;
+  completionDelta?: string;
+  nextMilestoneName?: string;
+  nextMilestoneDate?: string;
+  nextMilestonePriority?: string;
+  clientStatusNote?: string;
   progressSinceLastReview: string;
   planChanges: string;
   activeRisks: string;
