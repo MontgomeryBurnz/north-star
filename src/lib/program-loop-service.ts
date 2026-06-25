@@ -40,6 +40,8 @@ function normalizeReview(review: Partial<ActiveProgramReview>): MutationResult<A
       nextMilestoneName: review.nextMilestoneName ?? "",
       nextMilestoneDate: review.nextMilestoneDate ?? "",
       nextMilestonePriority: review.nextMilestonePriority ?? "",
+      programStartDate: review.programStartDate ?? "",
+      programTargetFinishDate: review.programTargetFinishDate ?? "",
       clientStatusNote: review.clientStatusNote ?? "",
       progressSinceLastReview: review.progressSinceLastReview ?? "",
       planChanges: review.planChanges ?? "",

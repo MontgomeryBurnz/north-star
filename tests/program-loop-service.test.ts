@@ -57,13 +57,17 @@ test("saveActiveProgramReview normalizes input and regenerates the plan when the
     "program-1",
     {
       programName: "Compass Compliance Hub Alpha",
-      currentPhase: "Execution"
+      currentPhase: "Execution",
+      programStartDate: "2026-04-01",
+      programTargetFinishDate: "2026-06-30"
     }
   );
 
   assert.equal(result.ok, true);
   if (!result.ok) return;
   assert.equal(result.record.review.updateCadence, "weekly");
+  assert.equal(result.record.review.programStartDate, "2026-04-01");
+  assert.equal(result.record.review.programTargetFinishDate, "2026-06-30");
   assert.deepEqual(result.record.review.teamRoleUpdates, []);
   assert.equal(result.plan?.sourceRecordIds.includes("update-1"), true);
   assert.equal(createGuidedPlanCalls, 1);
