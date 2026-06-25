@@ -60,6 +60,13 @@ function combinedDecisionOutcomeText(roleUpdate: TeamRoleUpdate) {
     .join("\n");
 }
 
+function signalCount(value: string) {
+  return value
+    .split(/\n|;/)
+    .map((signal) => signal.trim())
+    .filter(Boolean).length;
+}
+
 type ActiveProgramTeamUpdatesCardProps = {
   teamRoleUpdates: TeamRoleUpdate[];
   assignedOwnersByRole: Record<string, string[]>;
@@ -240,6 +247,8 @@ export function ActiveProgramTeamUpdatesCard({
     const assignedOwners = assignedOwnersByRole[roleKey] ?? [];
     const ownerDisplay = roleUpdate.updatedBy || assignedOwners.join(", ");
     const attachmentCount = roleUpdate.attachments?.length ?? 0;
+    const riskCount = signalCount(combinedRiskBlockerText(roleUpdate));
+    const decisionCount = signalCount(combinedDecisionOutcomeText(roleUpdate));
     const hasSaveableSignal = hasRoleSubmission(roleUpdate);
     const isExpanded = expandedRole === roleUpdate.role;
     const summary = firstRoleSignal(roleUpdate);
@@ -299,10 +308,22 @@ export function ActiveProgramTeamUpdatesCard({
               <p className={`${isPrimary ? "line-clamp-3" : "line-clamp-1"} min-w-0 text-sm leading-6 text-zinc-400`}>
                 {summary || (isPrimary ? "Write the update this role wants the team to understand this cycle." : "No role update captured yet.")}
               </p>
-              <div className={`grid gap-2 ${isPrimary ? "sm:grid-cols-3 lg:min-w-[360px]" : "sm:grid-cols-3"}`}>
+              <div className={`grid gap-2 ${isPrimary ? "sm:grid-cols-2 lg:min-w-[560px] lg:grid-cols-5" : "sm:grid-cols-2 lg:grid-cols-5"}`}>
                 <span className="inline-flex min-h-9 items-center gap-2 rounded-md border border-white/10 bg-black/20 px-3 py-2 text-xs text-zinc-400">
                   <Clock3 className="h-3.5 w-3.5 text-zinc-500" />
                   <span className="truncate">{lastUpdatedLabel}</span>
+                </span>
+                <span
+                  data-active-role-risk-count={roleKey}
+                  className="inline-flex min-h-9 items-center gap-2 rounded-md border border-amber-300/15 bg-amber-300/[0.055] px-3 py-2 text-xs text-amber-100"
+                >
+                  {riskCount} risk{riskCount === 1 ? "" : "s"}
+                </span>
+                <span
+                  data-active-role-decision-count={roleKey}
+                  className="inline-flex min-h-9 items-center gap-2 rounded-md border border-cyan-300/15 bg-cyan-300/[0.055] px-3 py-2 text-xs text-cyan-100"
+                >
+                  {decisionCount} decision{decisionCount === 1 ? "" : "s"}
                 </span>
                 <span className="inline-flex min-h-9 items-center gap-2 rounded-md border border-cyan-300/15 bg-cyan-300/[0.055] px-3 py-2 text-xs text-cyan-100">
                   <Paperclip className="h-3.5 w-3.5" />

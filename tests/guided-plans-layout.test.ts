@@ -84,6 +84,7 @@ test("Client Portal frames executive overview and domain progress", () => {
 
 test("Active Program captures configurable timeline windows and milestones for Client Portal", () => {
   const stateSource = readFileSync(new URL("../src/components/active-program-state-card.tsx", import.meta.url), "utf8");
+  const roleLaneSource = readFileSync(new URL("../src/components/active-program-team-updates-card.tsx", import.meta.url), "utf8");
   const flowSource = readFileSync(new URL("../src/components/active-program-state-flow.tsx", import.meta.url), "utf8");
   const controllerSource = readFileSync(new URL("../src/hooks/use-active-program-review-controller.ts", import.meta.url), "utf8");
   const typeSource = readFileSync(new URL("../src/lib/active-program-types.ts", import.meta.url), "utf8");
@@ -103,6 +104,8 @@ test("Active Program captures configurable timeline windows and milestones for C
   assert.match(stateSource, /data-active-program-timeline-save/);
   assert.match(stateSource, /data-active-program-timeline-save-confirmation/);
   assert.match(stateSource, /data-active-program-profile-save/);
+  assert.match(roleLaneSource, /data-active-role-risk-count/);
+  assert.match(roleLaneSource, /data-active-role-decision-count/);
   assert.match(flowSource, /onTimelineMilestoneChange/);
   assert.match(flowSource, /onReorderTimelineMilestone/);
   assert.match(flowSource, /onSaveTimeline/);
