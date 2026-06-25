@@ -1,5 +1,6 @@
 import { mkdirSync } from "node:fs";
 import path from "node:path";
+import { setTimeout as delay } from "node:timers/promises";
 import { loadEnvFile, withSafariBrowser } from "./browser-webdriver.mjs";
 
 loadEnvFile();
@@ -761,56 +762,71 @@ async function saveRoleSignal(session, program, smokeText) {
 }
 
 async function verifyClientPortalExecutiveFields(session, program, smokeText) {
-  await session.navigate(`${baseUrl}/client?smoke=client-portal-executive-fields`);
-  await session.waitFor("Client Portal portfolio loaded", async () => {
-    return session.execute(`
-      const bodyText = document.body.textContent ?? "";
-      return bodyText.includes("North Star Client Portal") &&
-        Boolean(document.querySelector("[data-client-program-card]"));
-    `);
-  }, 20_000);
+  let lastState = null;
 
-  const selected = await session.execute(
-    `
-      const cards = Array.from(document.querySelectorAll("[data-client-program-card]"));
-      const card = cards.find((element) => element.getAttribute("data-client-program-card") === arguments[0]);
-      card?.click();
-      return Boolean(card);
-    `,
-    [program.id]
-  );
+  for (let attempt = 0; attempt < 4; attempt += 1) {
+    await session.navigate(`${baseUrl}/client?smoke=client-portal-executive-fields&attempt=${attempt}`);
+    await session.waitFor("Client Portal portfolio loaded", async () => {
+      return session.execute(`
+        const bodyText = document.body.textContent ?? "";
+        return bodyText.includes("North Star Client Portal") &&
+          Boolean(document.querySelector("[data-client-program-card]"));
+      `);
+    }, 20_000);
 
-  if (!selected) {
-    throw new Error(`Client Portal smoke could not find program card for ${program.label}.`);
-  }
-
-  await session.waitFor("Client Portal executive fields rendered", async () => {
-    return session.execute(
+    const selected = await session.execute(
       `
         const cards = Array.from(document.querySelectorAll("[data-client-program-card]"));
-        const details = Array.from(document.querySelectorAll("[data-client-program-detail]"));
         const card = cards.find((element) => element.getAttribute("data-client-program-card") === arguments[0]);
-        const detail = details.find((element) => element.getAttribute("data-client-program-detail") === arguments[0]);
-        const cardText = card?.textContent ?? "";
-        const detailText = detail?.textContent ?? "";
-        return Boolean(card) &&
-          Boolean(detail) &&
-          cardText.includes("Smoke executive milestone") &&
-          cardText.includes("64%") &&
-          detailText.includes("Smoke Sponsor") &&
-          detailText.includes("Smoke Program Lead") &&
-          detailText.includes("Smoke PMO") &&
-          detailText.includes("64%") &&
-          detailText.includes("+4%") &&
-          detailText.includes("FY99") &&
-          detailText.includes("Smoke custom timeline milestone") &&
-          detailText.includes(arguments[1]);
+        card?.click();
+        return Boolean(card);
       `,
-      [program.id, smokeText]
+      [program.id]
     );
-  }, 20_000);
 
-  console.log("✓ Client Portal: executive fields rendered in portfolio card and program detail view.");
+    if (!selected) {
+      throw new Error(`Client Portal smoke could not find program card for ${program.label}.`);
+    }
+
+    const rendered = await session.waitFor("Client Portal executive fields rendered", async () => {
+      lastState = await session.execute(
+        `
+          const cards = Array.from(document.querySelectorAll("[data-client-program-card]"));
+          const details = Array.from(document.querySelectorAll("[data-client-program-detail]"));
+          const card = cards.find((element) => element.getAttribute("data-client-program-card") === arguments[0]);
+          const detail = details.find((element) => element.getAttribute("data-client-program-detail") === arguments[0]);
+          const cardText = card?.textContent ?? "";
+          const detailText = detail?.textContent ?? "";
+          return {
+            cardFound: Boolean(card),
+            detailFound: Boolean(detail),
+            cardHasMilestone: cardText.includes("Smoke executive milestone"),
+            cardHasPercent: cardText.includes("64%"),
+            detailHasSponsor: detailText.includes("Smoke Sponsor"),
+            detailHasLead: detailText.includes("Smoke Program Lead"),
+            detailHasPmo: detailText.includes("Smoke PMO"),
+            detailHasPercent: detailText.includes("64%"),
+            detailHasDelta: detailText.includes("+4%"),
+            detailHasTimeline: detailText.includes("FY99"),
+            detailHasMilestone: detailText.includes("Smoke custom timeline milestone"),
+            detailHasTag: detailText.includes(arguments[1])
+          };
+        `,
+        [program.id, smokeText]
+      );
+
+      return Object.values(lastState).every(Boolean);
+    }, 15_000).catch(() => false);
+
+    if (rendered) {
+      console.log("✓ Client Portal: executive fields rendered in portfolio card and program detail view.");
+      return;
+    }
+
+    await delay(500);
+  }
+
+  throw new Error(`Timed out waiting for Client Portal executive fields rendered. Last state: ${JSON.stringify(lastState)}`);
 }
 
 async function cleanupRoleSignal(session, program, savedSignal) {
@@ -866,14 +882,24 @@ async function cleanupRoleSignal(session, program, savedSignal) {
 async function main() {
   await withSafariBrowser(async (session) => {
     const smokeText = `North Star active-program save smoke ${new Date().toISOString()}`;
-    await authenticate(session);
-    const program = await selectProgram(session);
-    await populateExecutiveClientPortalFields(session, smokeText);
-    await verifyOperatingView(session);
-    await captureMobileRoleFocusScreenshot(session, program);
-    const savedSignal = await saveRoleSignal(session, program, smokeText);
-    await verifyClientPortalExecutiveFields(session, program, smokeText);
-    await cleanupRoleSignal(session, program, savedSignal);
+    let program = null;
+    let savedSignal = null;
+    let shouldAttemptCleanup = false;
+
+    try {
+      await authenticate(session);
+      program = await selectProgram(session);
+      await populateExecutiveClientPortalFields(session, smokeText);
+      shouldAttemptCleanup = true;
+      await verifyOperatingView(session);
+      await captureMobileRoleFocusScreenshot(session, program);
+      savedSignal = await saveRoleSignal(session, program, smokeText);
+      await verifyClientPortalExecutiveFields(session, program, smokeText);
+    } finally {
+      if (program && shouldAttemptCleanup) {
+        await cleanupRoleSignal(session, program, savedSignal ?? { role: "timeline", tag: smokeText });
+      }
+    }
   });
 
   console.log("Active Program save and Client Portal browser smoke test passed.");
