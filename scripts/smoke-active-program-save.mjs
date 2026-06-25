@@ -314,7 +314,10 @@ async function populateExecutiveClientPortalFields(session, smokeText) {
 
   await session.waitFor("Active Program Client Portal profile fields", async () => {
     return session.execute(`
-      return Boolean(document.querySelector("[data-active-program-client-portal-fields]")) &&
+      return Boolean(document.querySelector("[data-active-program-client-assignment]")) &&
+        Boolean(document.querySelector("[data-active-client-portfolio-field]")) &&
+        Boolean(document.querySelector("[data-active-client-portfolio-save]")) &&
+        Boolean(document.querySelector("[data-active-program-client-portal-fields]")) &&
         Boolean(document.querySelector("[data-active-executive-sponsor]")) &&
         Boolean(document.querySelector("[data-active-client-status-note]"));
     `);

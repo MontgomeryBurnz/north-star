@@ -128,6 +128,9 @@ test("Active Program captures configurable timeline windows and milestones for C
   assert.match(controllerSource, /updateTimelineMilestone/);
   assert.match(controllerSource, /reorderTimelineMilestone/);
   assert.match(controllerSource, /removeTimelineMilestone/);
+  assert.match(activeSmokeSource, /data-active-program-client-assignment/);
+  assert.match(activeSmokeSource, /data-active-client-portfolio-field/);
+  assert.match(activeSmokeSource, /data-active-client-portfolio-save/);
   assert.match(activeSmokeSource, /Smoke custom timeline milestone/);
   assert.match(activeSmokeSource, /timelineYear === "FY99"/);
   assert.match(programRouteSource, /PATCH/);
