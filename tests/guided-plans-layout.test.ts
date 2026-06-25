@@ -356,6 +356,7 @@ test("Active Program review is split into state, cockpit, and team signal flows"
   const artifactServiceSource = readFileSync(new URL("../src/lib/role-artifact-service.ts", import.meta.url), "utf8");
   const packageSource = readFileSync(new URL("../package.json", import.meta.url), "utf8");
   const activeProgramSaveSmokeSource = readFileSync(new URL("../scripts/smoke-active-program-save.mjs", import.meta.url), "utf8");
+  const clientPortalSmokeSource = readFileSync(new URL("../scripts/smoke-client-portal.mjs", import.meta.url), "utf8");
   const productionSmokeSource = readFileSync(new URL("../scripts/smoke-production.mjs", import.meta.url), "utf8");
   const browserWebdriverSource = readFileSync(new URL("../scripts/browser-webdriver.mjs", import.meta.url), "utf8");
 
@@ -510,6 +511,7 @@ test("Active Program review is split into state, cockpit, and team signal flows"
   assert.doesNotMatch(sidebarSource, /Update impact/);
   assert.match(packageSource, /smoke:active-program-save/);
   assert.match(packageSource, /smoke:client-portal/);
+  assert.match(packageSource, /scripts\/smoke-client-portal\.mjs/);
   assert.match(activeProgramSaveSmokeSource, /data-active-role-signal-card/);
   assert.match(activeProgramSaveSmokeSource, /data-active-program-save-confirmation/);
   assert.match(activeProgramSaveSmokeSource, /populateExecutiveClientPortalFields/);
@@ -554,7 +556,19 @@ test("Active Program review is split into state, cockpit, and team signal flows"
   assert.match(browserWebdriverSource, /async setWindowRect/);
   assert.match(browserWebdriverSource, /async screenshot/);
   assert.match(browserWebdriverSource, /"\/screenshot"/);
+  assert.match(clientPortalSmokeSource, /NORTHSTAR_TEST_USER_EMAIL/);
+  assert.match(clientPortalSmokeSource, /\/api\/auth\/user\/login/);
+  assert.match(clientPortalSmokeSource, /\/api\/programs/);
+  assert.match(clientPortalSmokeSource, /method: "POST"/);
+  assert.match(clientPortalSmokeSource, /Client Portal smoke status/);
+  assert.match(clientPortalSmokeSource, /smoke=client-portal-seeded-update/);
+  assert.match(clientPortalSmokeSource, /Portfolio Dashboard/);
+  assert.match(clientPortalSmokeSource, /data-client-program-card/);
+  assert.match(clientPortalSmokeSource, /data-client-program-detail/);
+  assert.match(clientPortalSmokeSource, /method: "DELETE"/);
+  assert.match(clientPortalSmokeSource, /NORTHSTAR_CLIENT_PORTAL_SMOKE_CLEANUP/);
   assert.match(productionSmokeSource, /active program save \+ client portal/);
+  assert.match(productionSmokeSource, /client portal seeded update/);
 });
 
 test("chat guidance is disabled and client decisions still write audit events", () => {

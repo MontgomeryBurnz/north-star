@@ -12,6 +12,13 @@ const smokeSteps = [
   { name: "admin audit export", script: "smoke-admin-audit-export.mjs" },
   {
     env: {
+      NORTHSTAR_CLIENT_PORTAL_SMOKE_CLEANUP: process.env.NORTHSTAR_CLIENT_PORTAL_SMOKE_CLEANUP ?? "prune"
+    },
+    name: "client portal seeded update",
+    script: "smoke-client-portal.mjs"
+  },
+  {
+    env: {
       NORTHSTAR_SMOKE_CLEANUP: process.env.NORTHSTAR_SMOKE_CLEANUP ?? "prune"
     },
     name: "active program save + client portal",
