@@ -15,6 +15,7 @@ import {
 import type { ActiveProgramReview, ActiveProgramUpdate, TeamRoleUpdate } from "@/lib/active-program-types";
 import type { DeliveryLeadershipSignal } from "@/lib/leadership-feedback-types";
 import { firstSignal } from "@/lib/text-signals";
+import { MetricBasisLabel } from "@/components/metric-basis-label";
 import { Card, CardContent } from "@/components/ui/card";
 
 type ActiveProgramCockpitCardProps = {
@@ -172,7 +173,7 @@ export function ActiveProgramCockpitCard({
     {
       label: "Phase",
       value: review.currentPhase || "Not set",
-      detail: `${phaseProgress.percent}% directional progress`,
+      detail: `${phaseProgress.percent}% phase estimate`,
       icon: Activity,
       className: "border-cyan-300/20 bg-cyan-300/[0.07] text-cyan-100"
     },
@@ -252,6 +253,7 @@ export function ActiveProgramCockpitCard({
             <div className="h-2 overflow-hidden rounded-full bg-zinc-900">
               <div className="h-full rounded-full bg-cyan-300 shadow-[0_0_24px_rgba(103,232,249,0.32)]" style={{ width: `${phaseProgress.percent}%` }} />
             </div>
+            <MetricBasisLabel>Basis: phase estimate from the saved current phase, not task completion.</MetricBasisLabel>
             <div className="grid gap-2 sm:grid-cols-4">
               {phaseStops.map((phase) => {
                 const complete = phase.percent <= phaseProgress.percent;

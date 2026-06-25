@@ -26,6 +26,7 @@ import type {
 } from "@/lib/client-portal";
 import type { ClientDecisionRequest } from "@/lib/program-intelligence-types";
 import { cn } from "@/lib/utils";
+import { MetricBasisLabel } from "@/components/metric-basis-label";
 import { Button } from "@/components/ui/button";
 
 const postureStyles: Record<
@@ -140,7 +141,7 @@ function MetricTile({ helper, label, value }: { helper?: string; label: string; 
     <div className="min-h-32 rounded-lg border border-white/10 bg-zinc-950/80 p-6 shadow-glow">
       <p className="text-xs font-medium uppercase tracking-[0.16em] text-zinc-500">{label}</p>
       <p className="mt-8 text-4xl font-semibold tracking-normal text-zinc-50">{value}</p>
-      {helper ? <p className="mt-3 text-xs font-medium leading-5 text-zinc-500">{helper}</p> : null}
+      {helper ? <MetricBasisLabel className="mt-3">{helper}</MetricBasisLabel> : null}
     </div>
   );
 }
@@ -225,7 +226,7 @@ function ProgramGridRow({
             {program.completionDelta ? <span className={styles.text}>{program.completionDelta}</span> : null}
           </span>
           <span className="mt-1 block text-xs font-medium text-zinc-500">
-            {program.metrics.completionBasis} · {program.metrics.completionScheduleLabel}
+            Basis: {program.metrics.completionBasis} · {program.metrics.completionScheduleLabel}
           </span>
         </span>
       </div>
@@ -434,7 +435,7 @@ function ProgramHero({ program }: { program: ClientPortalProgram }) {
             label="% Complete"
             value={`${program.metrics.programCompletionPercent}%`}
             delta={program.completionDelta}
-            helper={`${program.metrics.completionBasis} · ${program.metrics.completionScheduleLabel}`}
+            helper={`Basis: ${program.metrics.completionBasis} · ${program.metrics.completionScheduleLabel}`}
           />
           <HeroMetric label="Current Phase" value={program.phase} />
         </div>
@@ -464,7 +465,7 @@ function HeroMetric({ dot, helper, label, value, delta }: { delta?: string; dot?
         {value}
         {delta ? <span className="text-lg text-emerald-200">{delta}</span> : null}
       </p>
-      {helper ? <p className="mt-1 text-xs font-medium leading-5 text-zinc-500">{helper}</p> : null}
+      {helper ? <MetricBasisLabel className="mt-1">{helper}</MetricBasisLabel> : null}
     </div>
   );
 }
@@ -669,10 +670,10 @@ function WorkstreamStatus({ program }: { program: ClientPortalProgram }) {
               </div>
               <div className="mt-4 flex flex-wrap gap-2">
                 <span className="rounded-full border border-white/10 bg-black/20 px-2.5 py-1 text-[10px] font-medium uppercase tracking-[0.12em] text-zinc-400">
-                  {workstream.taskCount ? workstream.percentBasis : "No tasks linked"}
+                  Task basis: {workstream.taskCount ? workstream.percentBasis : "No tasks linked"}
                 </span>
                 <span className="rounded-full border border-cyan-300/15 bg-cyan-300/[0.045] px-2.5 py-1 text-[10px] font-medium uppercase tracking-[0.12em] text-cyan-100">
-                  {workstream.scheduleLabel}
+                  Schedule: {workstream.scheduleLabel}
                 </span>
               </div>
               <p className="mt-4 text-base font-medium leading-7 text-zinc-400">{workstream.note}</p>
@@ -886,7 +887,7 @@ export function ClientPortalConsole({
           <MetricTile label="Total Programs" value={String(visibleMetrics.totalPrograms)} />
           <MetricTile label="At Risk" value={String(visibleMetrics.atRisk)} />
           <MetricTile label="Delayed" value={String(visibleMetrics.delayed)} />
-          <MetricTile label="Avg % Complete" value={`${visibleMetrics.averageCompletionPercent}%`} helper="Averaged from each program completion basis." />
+          <MetricTile label="Avg % Complete" value={`${visibleMetrics.averageCompletionPercent}%`} helper="Averaged from each program's shown completion basis." />
           <MetricTile label="Decisions Pending" value={String(visibleMetrics.decisions)} />
         </section>
 

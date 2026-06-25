@@ -41,6 +41,11 @@ test("Client Portal frames executive overview and domain progress", () => {
   assert.match(source, /timelineWindowLabel/);
   assert.match(source, /roadmapSegmentClass/);
   assert.match(source, /windowMode/);
+  assert.match(source, /MetricBasisLabel/);
+  assert.match(source, /Basis: \{program\.metrics\.completionBasis\}/);
+  assert.match(source, /Task basis:/);
+  assert.match(source, /Schedule:/);
+  assert.match(source, /Averaged from each program's shown completion basis/);
   assert.match(source, /Program Timeline/);
   assert.match(source, /Executive Summary/);
   assert.match(source, /Milestone Timeline/);
@@ -452,6 +457,8 @@ test("Active Program review is split into state, cockpit, and team signal flows"
   assert.match(cockpitSource, /Program cockpit/);
   assert.match(cockpitSource, /derivePhaseProgress/);
   assert.match(cockpitSource, /Phase progress/);
+  assert.match(cockpitSource, /Basis: phase estimate from the saved current phase, not task completion\./);
+  assert.match(cockpitSource, /phase estimate/);
   assert.match(cockpitSource, /Update program phase/);
   assert.match(cockpitSource, /data-active-program-phase-select/);
   assert.match(cockpitSource, /data-active-program-phase-save/);
@@ -815,4 +822,12 @@ test("API routes use shared access helpers instead of one-off site checks", () =
     assert.doesNotMatch(source, /isSiteAccessRequestAuthorized/);
     assert.doesNotMatch(source, /createSiteAccessDeniedResponse/);
   }
+});
+
+test("release checks are wired for local deployment hardening", () => {
+  const packageSource = readFileSync(new URL("../package.json", import.meta.url), "utf8");
+  const intakeSource = readFileSync(new URL("../src/components/program-intake-section.tsx", import.meta.url), "utf8");
+
+  assert.match(packageSource, /"check:release": "npm run test && npm run lint && npm run build"/);
+  assert.match(intakeSource, /Basis: required intake fields plus at least one uploaded artifact\./);
 });

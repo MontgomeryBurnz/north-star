@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowRight, CheckCircle2, ClipboardList, FileText, FolderUp, ListChecks, Save, ShieldAlert, Sparkles, Trash2 } from "lucide-react";
 import type { ProgramArtifact, ProgramIntake, ReviewedArtifactContext } from "@/lib/program-intake-types";
+import { MetricBasisLabel } from "@/components/metric-basis-label";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
@@ -1141,6 +1142,7 @@ export function ProgramIntakeSection() {
                 <div className="h-2 overflow-hidden rounded-full bg-zinc-900">
                   <div className="h-full bg-emerald-300 transition-all" style={{ width: `${completion}%` }} />
                 </div>
+                <MetricBasisLabel>Basis: required intake fields plus at least one uploaded artifact.</MetricBasisLabel>
               </div>
               <div className="rounded-md border border-amber-300/20 bg-amber-300/[0.055] p-3">
                 <div className="mb-2 flex items-center gap-2 text-sm font-medium text-amber-100">
