@@ -5,12 +5,13 @@ import { FileUp, KanbanSquare, Save, Users2 } from "lucide-react";
 import type { ActiveProgramSaveConfirmation, ActiveProgramUpdate, DeliveryBoardItem, TeamRoleUpdate } from "@/lib/active-program-types";
 import type { DeliveryLeadershipSignal } from "@/lib/leadership-feedback-types";
 import type { ProgramMeetingInput } from "@/lib/program-intelligence-types";
-import type { ProgramArtifact } from "@/lib/program-intake-types";
+import type { ProgramArtifact, ProgramTeamFootprintRole } from "@/lib/program-intake-types";
 import { ActiveProgramDeliveryBoardCard } from "@/components/active-program-delivery-board-card";
 import { ActiveProgramMeetingIntelligenceCard } from "@/components/active-program-meeting-intelligence-card";
 import { ActiveProgramSidebar } from "@/components/active-program-sidebar";
 import { ActiveProgramStatusArtifactsCard } from "@/components/active-program-status-artifacts-card";
 import { ActiveProgramTeamUpdatesCard } from "@/components/active-program-team-updates-card";
+import { TeamFootprintEditor } from "@/components/team-footprint-editor";
 import { Button } from "@/components/ui/button";
 import type { emptyMeetingInputDraft } from "@/components/active-program-review-model";
 
@@ -34,6 +35,9 @@ type ActiveProgramTeamSignalFlowProps = {
   defaultFocusRole: string | null;
   currentUserId: string | null;
   selectedProgramId: string;
+  teamFootprint: ProgramTeamFootprintRole[];
+  teamFootprintSaveState: "idle" | "dirty" | "saving" | "saved" | "error";
+  teamFootprintSavedAt: string | null;
   ownershipSaveState: "idle" | "dirty" | "saving" | "saved" | "error";
   ownershipSavedAt: string | null;
   meetingInputDraft: typeof emptyMeetingInputDraft;
@@ -62,6 +66,8 @@ type ActiveProgramTeamSignalFlowProps = {
   onRoleAttachmentsChange: (role: string, event: ChangeEvent<HTMLInputElement>) => void | Promise<void>;
   onRemoveRoleAttachment: (role: string, attachmentId: string) => void;
   onSaveOwnership: (lastUpdatedRole?: string) => void | Promise<void>;
+  onTeamFootprintChange: (teamFootprint: ProgramTeamFootprintRole[]) => void;
+  onSaveTeamFootprint: () => void | Promise<void>;
   onSaveRoleSignal: (lastUpdatedRole?: string) => void | Promise<void>;
   onMeetingDraftChange: (patch: Partial<typeof emptyMeetingInputDraft>) => void;
   onMeetingAttachmentsChange: (event: ChangeEvent<HTMLInputElement>) => void | Promise<void>;
@@ -85,6 +91,9 @@ export function ActiveProgramTeamSignalFlow({
   defaultFocusRole,
   currentUserId,
   selectedProgramId,
+  teamFootprint,
+  teamFootprintSaveState,
+  teamFootprintSavedAt,
   ownershipSaveState,
   ownershipSavedAt,
   meetingInputDraft,
@@ -108,6 +117,8 @@ export function ActiveProgramTeamSignalFlow({
   onRoleAttachmentsChange,
   onRemoveRoleAttachment,
   onSaveOwnership,
+  onTeamFootprintChange,
+  onSaveTeamFootprint,
   onSaveRoleSignal,
   onMeetingDraftChange,
   onMeetingAttachmentsChange,
@@ -165,6 +176,17 @@ export function ActiveProgramTeamSignalFlow({
 
   return (
     <div className="grid gap-5">
+      {selectedProgramId ? (
+        <TeamFootprintEditor
+          footprint={teamFootprint}
+          onChange={onTeamFootprintChange}
+          onSave={onSaveTeamFootprint}
+          saveState={teamFootprintSaveState}
+          savedAt={teamFootprintSavedAt}
+          description="Keep the role footprint, owner, and responsibility current for this active program. Role lanes, Guided Plans, Studio suggestions, and Client Portal domain summaries read from this structure."
+        />
+      ) : null}
+
       <div className="rounded-xl border border-white/10 bg-zinc-950/80 p-3 sm:p-4">
         <div className="grid gap-3 lg:grid-cols-3">
           {workspaceTabs.map((tab) => {

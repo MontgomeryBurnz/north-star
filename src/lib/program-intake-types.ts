@@ -38,6 +38,14 @@ export type ReviewedArtifactContext = {
   reviewedAt?: string;
 };
 
+export type ProgramTeamFootprintRole = {
+  id: string;
+  role: string;
+  owner: string;
+  responsibility: string;
+  active?: boolean;
+};
+
 export type ProgramIntake = {
   clientName?: string;
   programName: string;
@@ -52,6 +60,7 @@ export type ProgramIntake = {
   decisionsNeeded: string;
   blockers: string;
   teamRoles?: string[];
+  teamFootprint?: ProgramTeamFootprintRole[];
   leadershipReviewCadence?: "weekly" | "biweekly";
   artifacts: ProgramArtifact[];
   reviewedContext?: ReviewedArtifactContext;

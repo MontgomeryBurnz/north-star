@@ -225,6 +225,35 @@ test("buildClientPortalProgram creates executive posture from program signals", 
   assert.equal(portalProgram.roadmapCurrentWindowIndex, 2);
 });
 
+test("buildClientPortalProgram uses team footprint owner and responsibility for domain summaries", () => {
+  const portalProgram = buildClientPortalProgram({
+    program: {
+      ...program,
+      intake: {
+        ...program.intake,
+        teamFootprint: [
+          {
+            active: true,
+            id: "product-management",
+            owner: "Abi Ledesma",
+            responsibility: "Shape roadmap scope, release tradeoffs, and product decisions.",
+            role: "Product Management"
+          }
+        ],
+        teamRoles: ["Legacy Role"]
+      }
+    }
+  });
+
+  assert.equal(portalProgram.domainSummaries[0]?.role, "Product Management");
+  assert.equal(portalProgram.domainSummaries[0]?.owner, "Abi Ledesma");
+  assert.equal(
+    portalProgram.domainSummaries[0]?.pursuit,
+    "Shape roadmap scope, release tradeoffs, and product decisions."
+  );
+  assert.equal(portalProgram.metrics.teamRoles, 1);
+});
+
 test("Client Portal does not expose internal updates without a published client update", () => {
   const internalOnlyProgram = buildClientPortalProgram({
     program: {

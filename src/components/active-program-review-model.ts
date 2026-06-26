@@ -11,7 +11,7 @@ import type {
 } from "@/lib/active-program-types";
 import type { ProgramMeetingAttachment, ProgramMeetingInput } from "@/lib/program-intelligence-types";
 import type { ProgramIntake } from "@/lib/program-intake-types";
-import { normalizeTeamRoles } from "@/lib/team-roles";
+import { getProgramRoleNames } from "@/lib/team-roles";
 
 export const emptyReview: ActiveProgramReview = {
   programName: "",
@@ -139,7 +139,7 @@ export function inferMeetingTitleFromFileName(fileName: string) {
 }
 
 export function getProgramTeamRoles(intake?: ProgramIntake) {
-  return normalizeTeamRoles(intake?.teamRoles);
+  return getProgramRoleNames(intake);
 }
 
 function startOfWeek(date: Date) {

@@ -5,7 +5,7 @@ import type { LeadershipReviewRecord } from "./leadership-feedback-types.ts";
 import { buildDeliveryLeadershipSignal } from "./leadership-signal.ts";
 import type { ProgramMeetingInput } from "./program-intelligence-types.ts";
 import type { StoredProgram } from "./program-intake-types.ts";
-import { normalizeTeamRoles } from "./team-roles.ts";
+import { getProgramRoleNames } from "./team-roles.ts";
 
 function splitItems(value: string, fallback: string[]) {
   const items = value
@@ -149,7 +149,7 @@ function buildRolePlans(
   const outcomeFocus = firstAvailable(reviewedContext?.outcomes ?? "", intake.outcomes, intake.vision);
   const outputFocus = firstAvailable(reviewedContext?.outputs ?? "", "Updated delivery plan, decision log, and risk posture.");
   const mitigationFocus = firstAvailable(review?.planChanges ?? "", "Tighten ownership, sequence key decisions, and reduce ambiguity early.");
-  const roleNames = normalizeTeamRoles(intake.teamRoles);
+  const roleNames = getProgramRoleNames(intake);
   const roleUpdateMap = new Map(
     getTeamRoleUpdates(latestUpdate).map((roleUpdate) => [roleUpdate.role.toLowerCase(), roleUpdate])
   );

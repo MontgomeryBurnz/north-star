@@ -12,7 +12,7 @@ import { useProgramCatalog } from "@/hooks/use-program-catalog";
 import { useRequestSequence } from "@/hooks/use-request-sequence";
 import { buildTeamActionPlanFlagSourceId } from "@/lib/guidance-feedback-flag-sources";
 import { buildProgramGantt } from "@/lib/program-gantt";
-import { normalizeTeamRoles } from "@/lib/team-roles";
+import { getProgramRoleNames } from "@/lib/team-roles";
 import { GuidedPlanEmptyStateCard } from "@/components/guided-plan-empty-state-card";
 import { GuidedPlanGanttSummary } from "@/components/guided-plan-gantt-summary";
 import { GuidedPlanLeadershipSignalCard } from "@/components/guided-plan-leadership-signal-card";
@@ -144,7 +144,7 @@ export function GuidedPlansConsole() {
   const ganttPhases = useMemo(() => buildProgramGantt(selectedProgram, latestUpdate), [latestUpdate, selectedProgram]);
   const currentPhase = ganttPhases.find((phase) => phase.status === "current") ?? ganttPhases[ganttPhases.length - 1];
   const teamRoles = useMemo(
-    () => normalizeTeamRoles(selectedProgram?.intake.teamRoles),
+    () => getProgramRoleNames(selectedProgram?.intake),
     [selectedProgram]
   );
   const teamRoleSignature = useMemo(() => teamRoles.map((role) => normalizeRoleKey(role)).join("|"), [teamRoles]);
@@ -313,6 +313,22 @@ export function GuidedPlansConsole() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           ...selectedProgram.intake,
+          teamFootprint: [
+            ...(selectedProgram.intake.teamFootprint ?? teamRoles.map((teamRole) => ({
+              active: true,
+              id: teamRole.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, ""),
+              owner: "",
+              responsibility: "",
+              role: teamRole
+            }))),
+            {
+              active: true,
+              id: role.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, ""),
+              owner: "",
+              responsibility: "",
+              role
+            }
+          ],
           teamRoles: [...teamRoles, role]
         })
       });

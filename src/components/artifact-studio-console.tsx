@@ -17,7 +17,7 @@ import {
   type RoleArtifactDefinition,
   type RoleArtifactSuggestion
 } from "@/lib/role-artifact-types";
-import { normalizeTeamRoles } from "@/lib/team-roles";
+import { getProgramRoleNames } from "@/lib/team-roles";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { AgentWorkbenchCard } from "@/components/agent-workbench-card";
@@ -261,7 +261,7 @@ export function ArtifactStudioConsole() {
   });
   const { getAssignmentForProgram, loaded: assignmentsLoaded } = useCurrentUserAssignments();
   const programOptions = useMemo(() => programsToSlicerOptions(programs, "signal"), [programs]);
-  const teamRoles = useMemo(() => normalizeTeamRoles(selectedProgram?.intake.teamRoles), [selectedProgram?.intake.teamRoles]);
+  const teamRoles = useMemo(() => getProgramRoleNames(selectedProgram?.intake), [selectedProgram?.intake]);
   const agentRoleLenses = useMemo(() => getDeliveryAgentRoleLenses(), []);
   const roleOptions = useMemo(
     () => (selectedProgramId ? Array.from(new Set([...teamRoles, ...agentRoleLenses])) : []),

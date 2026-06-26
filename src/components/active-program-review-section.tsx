@@ -68,6 +68,9 @@ export function ActiveProgramReviewSection() {
           defaultFocusRole={controller.defaultFocusRole}
           currentUserId={controller.currentUserId}
           selectedProgramId={controller.selectedProgramId}
+          teamFootprint={controller.teamFootprint}
+          teamFootprintSaveState={controller.teamFootprintSaveState}
+          teamFootprintSavedAt={controller.teamFootprintSavedAt}
           ownershipSaveState={controller.ownershipSaveState}
           ownershipSavedAt={controller.ownershipSavedAt}
           meetingInputDraft={controller.meetingInputDraft}
@@ -91,6 +94,8 @@ export function ActiveProgramReviewSection() {
           onRoleAttachmentsChange={controller.handleRoleAttachments}
           onRemoveRoleAttachment={controller.removeRoleAttachment}
           onSaveOwnership={controller.saveReviewSnapshot}
+          onTeamFootprintChange={controller.updateTeamFootprint}
+          onSaveTeamFootprint={controller.saveTeamFootprint}
           onSaveRoleSignal={controller.saveReviewSnapshot}
           onMeetingDraftChange={controller.updateMeetingInputDraft}
           onMeetingAttachmentsChange={controller.handleMeetingAttachments}

@@ -15,6 +15,7 @@ export type AuditEventType =
   | "program.client.update"
   | "program.create_or_update"
   | "program.role.add"
+  | "program.team_footprint.update"
   | "program.update"
   | "user.access.remove"
   | "user.access.update"

@@ -3,6 +3,7 @@ import { requireSiteAccessRequest } from "@/lib/api-route-access";
 import { buildSystemAuditActor } from "@/lib/audit-event-service";
 import { createAuditEvent, listPrograms, upsertProgram } from "@/lib/program-store";
 import type { ProgramIntake } from "@/lib/program-intake-types";
+import { syncProgramTeamFootprint } from "@/lib/team-roles";
 
 export async function GET(request: Request) {
   const denied = requireSiteAccessRequest(request);
@@ -22,7 +23,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Program name is required." }, { status: 400 });
   }
 
-  const program = await upsertProgram({
+  const intake = syncProgramTeamFootprint({
     clientName: body.clientName ?? "",
     programName: body.programName,
     programOwner: body.programOwner ?? "",
@@ -35,17 +36,13 @@ export async function POST(request: Request) {
     currentStatus: body.currentStatus ?? "",
     decisionsNeeded: body.decisionsNeeded ?? "",
     blockers: body.blockers ?? "",
-    teamRoles: Array.from(
-      new Set(
-        (body.teamRoles ?? [])
-          .map((role) => role?.trim())
-          .filter((role): role is string => Boolean(role))
-      )
-    ),
+    teamFootprint: body.teamFootprint,
+    teamRoles: body.teamRoles,
     leadershipReviewCadence: body.leadershipReviewCadence === "biweekly" ? "biweekly" : "weekly",
     artifacts: body.artifacts ?? [],
     reviewedContext: body.reviewedContext
   });
+  const program = await upsertProgram(intake);
   await createAuditEvent({
     actor: buildSystemAuditActor(),
     entityId: program.id,
@@ -55,7 +52,7 @@ export async function POST(request: Request) {
     metadata: {
       artifactCount: program.intake.artifacts.length,
       clientName: program.intake.clientName ?? "",
-      roleCount: program.intake.teamRoles?.length ?? 0
+      roleCount: program.intake.teamFootprint?.filter((item) => item.active !== false).length ?? program.intake.teamRoles?.length ?? 0
     },
     programId: program.id,
     programName: program.intake.programName,

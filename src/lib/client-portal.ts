@@ -10,9 +10,10 @@ import type {
 import type { ClientPortalUpdateRecord } from "./client-portal-update-types.ts";
 import type { GuidedPlan } from "./guided-plan-types.ts";
 import type { ClientDecisionRequest } from "./program-intelligence-types.ts";
-import type { StoredProgram } from "./program-intake-types.ts";
+import type { ProgramTeamFootprintRole, StoredProgram } from "./program-intake-types.ts";
 import { sanitizeClientPortalUpdateForDisplay } from "./client-safe-copy.ts";
 import { compareClientNames, getProgramClientName } from "./client-portfolio.ts";
+import { getProgramRoleNames } from "./team-roles.ts";
 import { firstNonEmpty, firstSignal, normalizeWhitespace, splitSignals } from "./text-signals.ts";
 
 export type ClientProgramPosture = "on-track" | "at-risk" | "blocked" | "watch";
@@ -365,15 +366,20 @@ function firstRolePlanSignal(values: string[] | undefined) {
 function buildDomainSummaries(input: {
   plan: GuidedPlan | null | undefined;
   roleUpdates: TeamRoleUpdate[];
+  teamFootprint: ProgramTeamFootprintRole[] | undefined;
   teamRoles: string[] | undefined;
 }) {
   const roleUpdatesByRole = new Map(input.roleUpdates.map((roleUpdate) => [normalizeRoleKey(roleUpdate.role), roleUpdate]));
   const rolePlansByRole = new Map(
     (input.plan?.rolePlans?.roles ?? []).map((rolePlan) => [normalizeRoleKey(rolePlan.role), rolePlan])
   );
+  const footprintByRole = new Map(
+    (input.teamFootprint ?? []).filter((item) => item.active !== false).map((item) => [normalizeRoleKey(item.role), item])
+  );
   const roleNames = [
     ...new Set([
       ...input.roleUpdates.map((roleUpdate) => roleUpdate.role),
+      ...(input.teamFootprint ?? []).filter((item) => item.active !== false).map((item) => item.role),
       ...(input.teamRoles ?? []),
       ...(input.plan?.rolePlans?.roles ?? []).map((rolePlan) => rolePlan.role)
     ].map(clean).filter(Boolean))
@@ -384,13 +390,15 @@ function buildDomainSummaries(input: {
   return visibleRoleNames.slice(0, 8).map((role) => {
     const roleUpdate = roleUpdatesByRole.get(normalizeRoleKey(role));
     const rolePlan = rolePlansByRole.get(normalizeRoleKey(role));
+    const footprint = footprintByRole.get(normalizeRoleKey(role));
 
     return {
       role,
-      owner: firstNonEmpty(roleUpdate?.updatedBy, `${role} lead`),
+      owner: firstNonEmpty(roleUpdate?.updatedBy, footprint?.owner, `${role} lead`),
       pursuit: firstNonEmpty(
         roleUpdate?.progressUpdate,
         roleUpdate?.changesObserved,
+        footprint?.responsibility,
         firstRolePlanSignal(rolePlan?.actionPlan),
         firstRolePlanSignal(rolePlan?.keyFocusAreas),
         "No current pursuit has been captured for this domain yet."
@@ -1221,6 +1229,7 @@ export function buildClientPortalProgram(input: ClientPortalProgramInput): Clien
   const domainSummaries = buildDomainSummaries({
     plan,
     roleUpdates,
+    teamFootprint: intake.teamFootprint,
     teamRoles: intake.teamRoles
   });
   const leadershipSignal = clean(
@@ -1361,7 +1370,7 @@ export function buildClientPortalProgram(input: ClientPortalProgramInput): Clien
       risks: countSignals(risks),
       blockedRoles,
       atRiskRoles,
-      teamRoles: roleUpdates.length || intake.teamRoles?.length || 0,
+      teamRoles: roleUpdates.length || getProgramRoleNames(intake).length,
       phaseCompletionPercent: completion.phaseCompletionPercent,
       programCompletionPercent: completion.programCompletionPercent
     },

@@ -12,6 +12,7 @@ import { useRequestSequence } from "@/hooks/use-request-sequence";
 import { buildReviewCycleStatusForCadence, type ReviewCadence, type ReviewQueueItem } from "@/lib/leadership-review-queue";
 import { buildProgramGantt } from "@/lib/program-gantt";
 import type { StoredProgram } from "@/lib/program-intake-types";
+import { getProgramRoleNames } from "@/lib/team-roles";
 import { firstNonEmpty, firstSignal, splitSignals } from "@/lib/text-signals";
 import { LeadershipExecutiveSummary } from "@/components/leadership-executive-summary";
 import { LeadershipProgramTimeline } from "@/components/leadership-program-timeline";
@@ -302,7 +303,7 @@ function buildLeadershipLaneOptions(input: {
   update?: StoredProgramUpdate;
 }): LeadershipLaneOption[] {
   const roles = [
-    ...(input.program?.intake.teamRoles ?? []),
+    ...getProgramRoleNames(input.program?.intake),
     ...(input.update?.review.teamRoleUpdates?.map((roleUpdate) => roleUpdate.role) ?? []),
     ...(input.feedback?.interpretation?.roleImpacts.map((roleImpact) => roleImpact.role) ?? [])
   ]

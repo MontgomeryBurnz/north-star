@@ -450,6 +450,8 @@ test("Active Program review is split into state, cockpit, and team signal flows"
   const cockpitFlowSource = readFileSync(new URL("../src/components/active-program-cockpit-flow.tsx", import.meta.url), "utf8");
   const cockpitSource = readFileSync(new URL("../src/components/active-program-cockpit-card.tsx", import.meta.url), "utf8");
   const teamSignalFlowSource = readFileSync(new URL("../src/components/active-program-team-signal-flow.tsx", import.meta.url), "utf8");
+  const programIntakeSource = readFileSync(new URL("../src/components/program-intake-section.tsx", import.meta.url), "utf8");
+  const teamFootprintEditorSource = readFileSync(new URL("../src/components/team-footprint-editor.tsx", import.meta.url), "utf8");
   const deliveryBoardSource = readFileSync(new URL("../src/components/active-program-delivery-board-card.tsx", import.meta.url), "utf8");
   const teamUpdatesSource = readFileSync(new URL("../src/components/active-program-team-updates-card.tsx", import.meta.url), "utf8");
   const meetingInputSource = readFileSync(new URL("../src/components/active-program-meeting-intelligence-card.tsx", import.meta.url), "utf8");
@@ -479,6 +481,10 @@ test("Active Program review is split into state, cockpit, and team signal flows"
   assert.match(reviewSectionSource, /ActiveProgramCockpitFlow/);
   assert.match(reviewSectionSource, /ActiveProgramClientUpdateCard/);
   assert.match(reviewSectionSource, /ActiveProgramTeamSignalFlow/);
+  assert.match(programIntakeSource, /TeamFootprintEditor/);
+  assert.match(teamSignalFlowSource, /TeamFootprintEditor/);
+  assert.match(teamFootprintEditorSource, /data-team-footprint-editor/);
+  assert.match(reviewControllerSource, /saveTeamFootprint/);
   assert.doesNotMatch(reviewSectionSource, /useRequestSequence/);
   assert.doesNotMatch(reviewSectionSource, /useForegroundRefresh/);
   assert.doesNotMatch(reviewSectionSource, /useCurrentUserAssignments/);

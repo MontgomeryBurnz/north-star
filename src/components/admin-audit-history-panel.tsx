@@ -34,6 +34,7 @@ const auditActionLabels: Record<AuditEventType, string> = {
   "program.client.update": "Client portfolio assigned",
   "program.create_or_update": "Program saved",
   "program.role.add": "Program role added",
+  "program.team_footprint.update": "Team footprint updated",
   "program.update": "Program updated",
   "user.access.remove": "User access removed",
   "user.access.update": "User access updated",

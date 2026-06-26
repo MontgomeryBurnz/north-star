@@ -15,9 +15,10 @@ import { useRequestSequence } from "@/hooks/use-request-sequence";
 import type { DeliveryLeadershipSignal } from "@/lib/leadership-feedback-types";
 import type { ProgramTeamAssignmentSummary } from "@/lib/program-team-assignments";
 import type { ProgramMeetingAttachment, ProgramMeetingInput } from "@/lib/program-intelligence-types";
-import type { ProgramArtifact, ProgramIntake, StoredProgram } from "@/lib/program-intake-types";
+import type { ProgramArtifact, ProgramIntake, ProgramTeamFootprintRole, StoredProgram } from "@/lib/program-intake-types";
 import { getProgramClientName } from "@/lib/client-portfolio";
 import { programsToSlicerOptions } from "@/lib/program-slicer";
+import { getProgramRoleOwnerMap, getProgramTeamFootprint } from "@/lib/team-roles";
 import { splitLines } from "@/lib/text-signals";
 import {
   buildCycleMetadata,
@@ -65,6 +66,7 @@ type ActiveProgramScalarField = keyof Omit<
 
 type OwnershipSaveState = "idle" | "dirty" | "saving" | "saved" | "error";
 type ClientPortfolioSaveState = "idle" | "saving" | "saved" | "error";
+type TeamFootprintSaveState = "idle" | "dirty" | "saving" | "saved" | "error";
 
 export function useActiveProgramReviewController() {
   const programsRequest = useRequestSequence();
@@ -79,6 +81,8 @@ export function useActiveProgramReviewController() {
   const [selectedProgramId, setSelectedProgramId] = useState("");
   const [clientPortfolioDraft, setClientPortfolioDraft] = useState("");
   const [clientPortfolioSaveState, setClientPortfolioSaveState] = useState<ClientPortfolioSaveState>("idle");
+  const [teamFootprintSaveState, setTeamFootprintSaveState] = useState<TeamFootprintSaveState>("idle");
+  const [teamFootprintSavedAt, setTeamFootprintSavedAt] = useState<string | null>(null);
   const [existingPrograms, setExistingPrograms] = useState<ExistingProgramOption[]>([]);
   const [updates, setUpdates] = useState<ActiveProgramUpdate[]>([]);
   const [saveState, setSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle");
@@ -149,7 +153,96 @@ export function useActiveProgramReviewController() {
   useEffect(() => {
     setClientPortfolioDraft(selectedProgramId ? selectedProgramClientName : "");
     setClientPortfolioSaveState("idle");
+    setTeamFootprintSaveState("idle");
+    setTeamFootprintSavedAt(null);
   }, [selectedProgramClientName, selectedProgramId]);
+
+  const updateTeamFootprint = useCallback(
+    (teamFootprint: ProgramTeamFootprintRole[]) => {
+      if (!selectedProgramId) return;
+
+      setExistingPrograms((current) =>
+        current.map((program) =>
+          program.id === selectedProgramId && program.intake
+            ? {
+                ...program,
+                intake: {
+                  ...program.intake,
+                  teamFootprint,
+                  teamRoles: teamFootprint.filter((item) => item.active !== false).map((item) => item.role)
+                }
+              }
+            : program
+        )
+      );
+      setTeamFootprintSaveState("dirty");
+    },
+    [selectedProgramId]
+  );
+
+  const saveTeamFootprint = useCallback(async () => {
+    if (!selectedProgramId || !selectedProgram?.intake) {
+      setTeamFootprintSaveState("error");
+      return;
+    }
+
+    setTeamFootprintSaveState("saving");
+    setSaveConfirmation({
+      scope: "Team footprint",
+      status: "saving"
+    });
+
+    try {
+      const response = await fetch(`/api/programs/${encodeURIComponent(selectedProgramId)}`, {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          teamFootprint: selectedProgram.intake.teamFootprint
+        })
+      });
+
+      if (!response.ok) throw new Error("Team footprint save failed.");
+
+      const payload = (await response.json()) as {
+        planRefresh?: { status: "current" | "failed" | "refreshed"; refreshedAt?: string };
+        program: StoredProgram;
+      };
+      const updatedProgram = payload.program;
+      setExistingPrograms((current) =>
+        current.map((program) =>
+          program.id === selectedProgramId
+            ? {
+                ...program,
+                clientName: getProgramClientName(updatedProgram),
+                intake: updatedProgram.intake,
+                label: updatedProgram.intake.programName,
+                review: normalizeReview(program.review, updatedProgram.intake)
+              }
+            : program
+        )
+      );
+      setReview((current) => normalizeReview(current, updatedProgram.intake));
+      const savedTime = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+      setTeamFootprintSaveState(payload.planRefresh?.status === "failed" ? "error" : "saved");
+      setTeamFootprintSavedAt(savedTime);
+      setSaveConfirmation({
+        detail:
+          payload.planRefresh?.status === "refreshed"
+            ? "Team footprint saved and guided plan refresh started."
+            : "Team footprint saved.",
+        savedAt: savedTime,
+        scope: "Team footprint",
+        status: payload.planRefresh?.status === "failed" ? "error" : "saved"
+      });
+    } catch {
+      setTeamFootprintSaveState("error");
+      setSaveConfirmation({
+        detail: "Team footprint could not be saved. Try again before relying on role-centered views.",
+        scope: "Team footprint",
+        status: "error"
+      });
+    }
+  }, [selectedProgram, selectedProgramId]);
 
   const loadProgramUpdates = useCallback(async () => {
     if (!selectedProgramId) return;
@@ -207,13 +300,17 @@ export function useActiveProgramReviewController() {
 
   const defaultFocusRole = selectedProgramId ? getAssignmentForProgram(selectedProgramId)?.role ?? null : null;
   const activeTeamRoles = useMemo(() => getProgramTeamRoles(selectedProgram?.intake), [selectedProgram?.intake]);
-  const assignedOwnersByRole = useMemo(
-    () =>
-      Object.fromEntries(
-        teamAssignments.map((assignment) => [normalizeProgramLabel(assignment.role), assignment.owners])
-      ) as Record<string, string[]>,
-    [teamAssignments]
-  );
+  const teamFootprint = useMemo(() => getProgramTeamFootprint(selectedProgram?.intake), [selectedProgram?.intake]);
+  const assignedOwnersByRole = useMemo(() => {
+    const nextOwners = { ...getProgramRoleOwnerMap(selectedProgram?.intake) };
+
+    for (const assignment of teamAssignments) {
+      const roleKey = normalizeProgramLabel(assignment.role);
+      nextOwners[roleKey] = Array.from(new Set([...(nextOwners[roleKey] ?? []), ...assignment.owners].filter(Boolean)));
+    }
+
+    return nextOwners;
+  }, [selectedProgram?.intake, teamAssignments]);
 
   const loadTeamAssignments = useCallback(async () => {
     if (!selectedProgramId) {
@@ -1078,13 +1175,18 @@ export function useActiveProgramReviewController() {
     selectedProgramHistory,
     selectedProgramId,
     teamCoverage,
+    teamFootprint,
+    teamFootprintSavedAt,
+    teamFootprintSaveState,
     teamRoleUpdates,
     updateClientPortfolioDraft,
+    updateTeamFootprint,
     updateField,
     updateDeliveryBoardItem,
     handleDeliveryBoardAttachments,
     updateMeetingInputDraft,
     updateTimelineMilestone,
-    updateRoleField
+    updateRoleField,
+    saveTeamFootprint
   };
 }

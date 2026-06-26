@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { requireProgramRouteAccess } from "@/lib/api-route-access";
 import { buildProgramTeamAssignments } from "@/lib/program-team-assignments";
 import { getProgram, listManagedUsers } from "@/lib/program-store";
-import { normalizeTeamRoles } from "@/lib/team-roles";
+import { getProgramRoleNames } from "@/lib/team-roles";
 
 export async function GET(request: Request, context: { params: Promise<{ id: string }> }) {
   const { id } = await context.params;
@@ -18,7 +18,7 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
   const users = await listManagedUsers();
   const assignments = buildProgramTeamAssignments({
     programId: id,
-    roles: normalizeTeamRoles(program.intake.teamRoles),
+    roles: getProgramRoleNames(program.intake),
     users
   });
 

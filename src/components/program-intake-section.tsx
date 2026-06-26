@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { ArrowRight, CheckCircle2, ClipboardList, FileText, FolderUp, ListChecks, Save, ShieldAlert, Sparkles, Trash2 } from "lucide-react";
 import type { ProgramArtifact, ProgramIntake, ReviewedArtifactContext } from "@/lib/program-intake-types";
 import { MetricBasisLabel } from "@/components/metric-basis-label";
+import { TeamFootprintEditor } from "@/components/team-footprint-editor";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
@@ -22,6 +23,8 @@ const emptyIntake: ProgramIntake = {
   currentStatus: "",
   decisionsNeeded: "",
   blockers: "",
+  teamFootprint: [],
+  teamRoles: [],
   artifacts: []
 };
 
@@ -57,6 +60,58 @@ const sampleIntake: ProgramIntake = {
   currentStatus: "New program context is being assembled for first guided-plan generation.",
   decisionsNeeded: "Confirm the minimum viable planning output\nName the owner for sponsor alignment",
   blockers: "Source context exists, but it needs to be translated into a clear work path.",
+  teamFootprint: [
+    {
+      active: true,
+      id: "product-management",
+      owner: "Product lead",
+      responsibility: "Own roadmap, MVP scope, and feature sequencing.",
+      role: "Product Management"
+    },
+    {
+      active: true,
+      id: "business-analysis",
+      owner: "Business analyst",
+      responsibility: "Own requirements, process detail, traceability, and acceptance clarity.",
+      role: "Business Analysis"
+    },
+    {
+      active: true,
+      id: "user-experience",
+      owner: "UX lead",
+      responsibility: "Own user journeys, flows, and usability risks.",
+      role: "User Experience"
+    },
+    {
+      active: true,
+      id: "application-development",
+      owner: "Engineering lead",
+      responsibility: "Own application build, technical sequencing, and release readiness.",
+      role: "Application Development"
+    },
+    {
+      active: true,
+      id: "data-engineering",
+      owner: "Data lead",
+      responsibility: "Own data readiness, mappings, integrations, and quality controls.",
+      role: "Data Engineering"
+    },
+    {
+      active: true,
+      id: "change-management",
+      owner: "Change lead",
+      responsibility: "Own stakeholder readiness, communications, adoption, and training impacts.",
+      role: "Change Management"
+    }
+  ],
+  teamRoles: [
+    "Product Management",
+    "Business Analysis",
+    "User Experience",
+    "Application Development",
+    "Data Engineering",
+    "Change Management"
+  ],
   reviewedContext: {
     outcomes: "Reduce onboarding cycle time\nCreate a visible delivery path\nImprove sponsor decision clarity",
     stakeholders: "Executive sponsor\nDelivery lead\nCX operations\nImplementation team\nCustomer success\nCompliance partner",
@@ -88,7 +143,7 @@ const sampleIntake: ProgramIntake = {
 };
 
 const textFields: Array<{
-  id: keyof Omit<ProgramIntake, "artifacts" | "reviewedContext">;
+  id: keyof Omit<ProgramIntake, "artifacts" | "reviewedContext" | "teamFootprint" | "teamRoles">;
   label: string;
   placeholder: string;
   rows: number;
@@ -184,7 +239,7 @@ const analysisPriorityOptions: Array<{ value: NonNullable<ProgramArtifact["analy
 const reviewedContextFields: Array<{
   id: keyof Omit<ReviewedArtifactContext, "confidence" | "reviewedAt">;
   label: string;
-  intakeField?: keyof Omit<ProgramIntake, "artifacts" | "reviewedContext">;
+  intakeField?: keyof Omit<ProgramIntake, "artifacts" | "reviewedContext" | "teamFootprint" | "teamRoles">;
 }> = [
   { id: "outcomes", label: "Outcomes", intakeField: "outcomes" },
   { id: "stakeholders", label: "Stakeholders", intakeField: "stakeholders" },
@@ -344,7 +399,7 @@ export function ProgramIntakeSection() {
 
   const completion = useMemo(() => {
     const values = Object.entries(intake)
-      .filter(([key]) => key !== "artifacts" && key !== "reviewedContext")
+      .filter(([key]) => key !== "artifacts" && key !== "reviewedContext" && key !== "teamFootprint" && key !== "teamRoles")
       .map(([, value]) => String(value).trim());
     const completed = values.filter(Boolean).length + (intake.artifacts.length ? 1 : 0);
     return Math.round((completed / (values.length + 1)) * 100);
@@ -386,7 +441,7 @@ export function ProgramIntakeSection() {
     return intake.reviewedContext ?? buildReviewedContextFromArtifacts(intake.artifacts);
   }, [intake.artifacts, intake.reviewedContext]);
 
-  function updateField(field: keyof Omit<ProgramIntake, "artifacts" | "reviewedContext">, value: string) {
+  function updateField(field: keyof Omit<ProgramIntake, "artifacts" | "reviewedContext" | "teamFootprint" | "teamRoles">, value: string) {
     if (field === "programName" && saveError) setSaveError(null);
     setIntake((current) => ({ ...current, [field]: value }));
   }
@@ -598,7 +653,10 @@ export function ProgramIntakeSection() {
   function prefillFromArtifact(artifact: ProgramArtifact) {
     if (!artifact.extractedText) return;
     const prefill = buildPrefillFromArtifact(artifact.extractedText);
-    type PrefillField = keyof Omit<ProgramIntake, "artifacts" | "reviewedContext" | "teamRoles" | "leadershipReviewCadence">;
+    type PrefillField = keyof Omit<
+      ProgramIntake,
+      "artifacts" | "reviewedContext" | "teamFootprint" | "teamRoles" | "leadershipReviewCadence"
+    >;
     const populated = Object.entries(prefill).filter(([field, value]) => {
       const intakeField = field as PrefillField;
       const nextValue = typeof value === "string" ? value : "";
@@ -627,8 +685,13 @@ export function ProgramIntakeSection() {
   function prefillFromAllArtifacts() {
     const context = reviewedContext;
     if (!context) return;
-    type PrefillField = keyof Omit<ProgramIntake, "artifacts" | "reviewedContext" | "teamRoles" | "leadershipReviewCadence">;
-    const prefill: Partial<Omit<ProgramIntake, "artifacts" | "reviewedContext" | "teamRoles" | "leadershipReviewCadence">> = {
+    type PrefillField = keyof Omit<
+      ProgramIntake,
+      "artifacts" | "reviewedContext" | "teamFootprint" | "teamRoles" | "leadershipReviewCadence"
+    >;
+    const prefill: Partial<
+      Omit<ProgramIntake, "artifacts" | "reviewedContext" | "teamFootprint" | "teamRoles" | "leadershipReviewCadence">
+    > = {
       outcomes: context.outcomes,
       stakeholders: context.stakeholders,
       risks: context.risks,
@@ -840,6 +903,13 @@ export function ProgramIntakeSection() {
                 </div>
               </CardContent>
             </Card>
+
+            <TeamFootprintEditor
+              footprint={intake.teamFootprint}
+              fallbackRoles={intake.teamRoles}
+              onChange={(teamFootprint) => setIntake((current) => ({ ...current, teamFootprint }))}
+              description="Set the program role footprint during setup so each surface can center the right owners, responsibilities, guided plans, and client-facing domain summaries."
+            />
 
             <Card className="bg-zinc-950/80">
               <CardHeader className="border-b border-white/10">

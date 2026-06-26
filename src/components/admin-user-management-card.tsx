@@ -11,7 +11,7 @@ import type {
 } from "@/lib/admin-user-types";
 import { appUserCredentialStatuses, appUserTypes, isProgramScopedUserType } from "@/lib/admin-user-types";
 import type { StoredProgram } from "@/lib/program-intake-types";
-import { normalizeTeamRoles } from "@/lib/team-roles";
+import { getProgramRoleNames } from "@/lib/team-roles";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
@@ -64,7 +64,7 @@ type InvitationProviderStatus = {
 };
 
 function getProgramRoles(program: StoredProgram | undefined) {
-  return program ? normalizeTeamRoles(program.intake.teamRoles) : [];
+  return getProgramRoleNames(program?.intake);
 }
 
 function formatDate(value: string) {
