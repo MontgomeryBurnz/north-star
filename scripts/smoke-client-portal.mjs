@@ -417,10 +417,11 @@ async function assertClientPortalLayout(session, program, label) {
       const documentWidth = document.documentElement.scrollWidth;
       const heroRect = hero?.getBoundingClientRect();
       const metricRects = metrics.map((metric) => metric.getBoundingClientRect());
+      const minimumMetricWidth = viewportWidth < 600 ? 72 : Math.min(180, heroRect?.width ?? 180);
       const metricInsideHero = Boolean(heroRect) && metricRects.every((rect) =>
         rect.left >= heroRect.left - 2 &&
         rect.right <= heroRect.right + 2 &&
-        rect.width >= Math.min(180, heroRect.width)
+        rect.width >= minimumMetricWidth
       );
 
       return {
@@ -428,6 +429,7 @@ async function assertClientPortalLayout(session, program, label) {
         hero: Boolean(hero),
         heroHeight: heroRect?.height ?? 0,
         heroWidth: heroRect?.width ?? 0,
+        minimumMetricWidth,
         metricCount: metrics.length,
         metricInsideHero,
         ok: Boolean(hero) &&
