@@ -291,12 +291,12 @@ export function ActiveProgramStateCard({
                   <div>
                     <p className="text-xs font-medium uppercase tracking-[0.18em] text-cyan-100">Client / executive update fields</p>
                     <p className="mt-2 text-xs leading-5 text-zinc-500">
-                      These fields feed the Client Portal portfolio and program one-pager after save.
+                      These fields help draft the client-facing update. The Client Portal changes only after a reviewed update is published.
                     </p>
                   </div>
                   <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-300/20 bg-emerald-300/[0.08] px-3 py-1 text-[11px] font-medium uppercase tracking-[0.14em] text-emerald-100">
                     <ArrowUpRight className="h-3.5 w-3.5" />
-                    Feeds Client Portal
+                    Client update input
                   </span>
                 </div>
 
@@ -425,7 +425,7 @@ export function ActiveProgramStateCard({
                       data-active-client-status-note
                       value={review.clientStatusNote ?? ""}
                       onChange={(event) => onFieldChange("clientStatusNote", event.target.value)}
-                      placeholder="One concise executive-facing status note for the Client Portal."
+                      placeholder="Draft a concise executive-facing status note for the client update."
                       rows={3}
                       className="min-h-[96px] resize-none rounded-md border border-white/10 bg-zinc-950 px-3 py-3 text-sm leading-6 text-zinc-100 outline-none transition-colors placeholder:text-zinc-300 focus:border-cyan-300/50"
                     />
@@ -441,12 +441,12 @@ export function ActiveProgramStateCard({
                       Timeline planning
                     </p>
                     <p className="mt-2 max-w-3xl text-xs leading-5 text-zinc-500">
-                      Set the planning window and key checkpoints that should shape the Client Portal roadmap and milestone timeline.
+                      Set the planning window and key checkpoints that can be published into the Client Portal roadmap and milestone timeline.
                     </p>
                   </div>
                   <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-300/20 bg-emerald-300/[0.08] px-3 py-1 text-[11px] font-medium uppercase tracking-[0.14em] text-emerald-100">
                     <ArrowUpRight className="h-3.5 w-3.5" />
-                    Feeds Client Portal
+                    Client update input
                   </span>
                 </div>
 
@@ -630,7 +630,7 @@ export function ActiveProgramStateCard({
                     </div>
                   ) : (
                     <div className="rounded-md border border-dashed border-white/10 bg-zinc-950/50 p-4 text-sm leading-6 text-zinc-500">
-                      No custom milestones yet. Add the checkpoints that should appear in the Client Portal timeline.
+                      No custom milestones yet. Add checkpoints that can be published into the Client Portal timeline.
                     </div>
                   )}
                 </div>
@@ -651,7 +651,7 @@ export function ActiveProgramStateCard({
                   {timelineConfirmationVisible ? (
                     <p data-active-program-timeline-save-confirmation className="w-full text-sm font-medium text-emerald-100">
                       {saveConfirmation?.status === "saved"
-                        ? "Timeline saved and Client Portal refresh started."
+                        ? "Timeline saved. Publish a client update when the portal should change."
                         : saveConfirmation?.status === "warning"
                           ? `Timeline saved. ${saveConfirmation.detail ?? "Guidance refresh needs attention."}`
                         : saveConfirmation?.status === "error"
@@ -709,7 +709,7 @@ export function ActiveProgramStateCard({
 
             <div className="flex flex-wrap items-center justify-between gap-3 border-t border-white/10 pt-4">
               <p className="max-w-2xl text-xs leading-5 text-zinc-500">
-                Saving the profile refreshes the active program record, guided plan inputs, and Client Portal timeline source.
+                Saving the profile refreshes the active program record and guided plan inputs. Publish a client update when the Client Portal should change.
               </p>
               <button
                 type="button"

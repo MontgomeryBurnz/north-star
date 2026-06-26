@@ -1,6 +1,7 @@
 "use client";
 
 import { useActiveProgramReviewController } from "@/hooks/use-active-program-review-controller";
+import { ActiveProgramClientUpdateCard } from "@/components/active-program-client-update-card";
 import { ActiveProgramCockpitFlow } from "@/components/active-program-cockpit-flow";
 import { ActiveProgramStateFlow } from "@/components/active-program-state-flow";
 import { ActiveProgramTeamSignalFlow } from "@/components/active-program-team-signal-flow";
@@ -46,6 +47,14 @@ export function ActiveProgramReviewSection() {
           onPhaseChange={(value) => controller.updateField("currentPhase", value)}
           onSavePhase={() => controller.saveReviewSnapshot("", "Program phase")}
         />
+
+        {controller.selectedProgramId ? (
+          <ActiveProgramClientUpdateCard
+            review={controller.review}
+            selectedProgramId={controller.selectedProgramId}
+            teamRoleUpdates={controller.teamRoleUpdates}
+          />
+        ) : null}
 
         <ActiveProgramTeamSignalFlow
           teamRoleUpdates={controller.teamRoleUpdates}

@@ -7,8 +7,8 @@ import type {
   TeamRoleUpdate,
   TeamRoleUpdateStatus
 } from "./active-program-types.ts";
+import type { ClientPortalUpdateRecord } from "./client-portal-update-types.ts";
 import type { GuidedPlan } from "./guided-plan-types.ts";
-import type { LeadershipReviewRecord } from "./leadership-feedback-types.ts";
 import type { ClientDecisionRequest } from "./program-intelligence-types.ts";
 import type { StoredProgram } from "./program-intake-types.ts";
 import { compareClientNames, getProgramClientName } from "./client-portfolio.ts";
@@ -195,9 +195,7 @@ export type ClientPortalProgramInput = {
   assignedRoles?: string[];
   clientDecisions?: ClientDecisionRequest[];
   generatedAt?: string;
-  latestLeadership?: LeadershipReviewRecord | null;
-  latestPlan?: GuidedPlan | null;
-  latestUpdate?: StoredProgramUpdate | null;
+  latestClientUpdate?: ClientPortalUpdateRecord | null;
   program: StoredProgram;
 };
 
@@ -251,10 +249,6 @@ function conciseSignal(value: string | undefined | null, limit = 96) {
 
 function visibleSignals(value: string | undefined | null, fallback: string, limit = 3) {
   return splitSignals(value ?? "", fallback).map(clean).filter(Boolean).slice(0, limit);
-}
-
-function guidedSectionItems(section: { items: string[] } | undefined, limit = 4) {
-  return section?.items.map(clean).filter(isMeaningfulSignal).slice(0, limit) ?? [];
 }
 
 function countSignals(values: string[]) {
@@ -816,7 +810,7 @@ function buildExecutiveStatusHighlights(input: {
     riskSignal ? `Risk exposure: ${conciseSignal(riskSignal, 96)}` : ""
   ].filter(isMeaningfulSignal);
 
-  return highlights.length ? highlights : ["Executive highlights will appear after the next saved program update or guided plan refresh."];
+  return highlights.length ? highlights : ["Executive highlights will appear after a reviewed client update is published."];
 }
 
 function buildRecentAccomplishments(input: {
@@ -839,7 +833,7 @@ function buildRecentAccomplishments(input: {
       ...domainSignals,
       input.plan?.summary
     ],
-    "Recent accomplishments will populate after the team submits role updates or delivery board movement.",
+    "Recent accomplishments will populate after a reviewed client update is published.",
     4
   );
 }
@@ -863,11 +857,12 @@ function buildUpcomingWork(input: {
       input.plan?.programGuide?.nextStep,
       ...input.recommendedPath,
       input.review?.supportNeeded,
+      input.review?.planChanges,
       ...activeBoardItems,
       ...domainDecisionSignals,
       ...input.decisions
     ],
-    "Upcoming work will sharpen after the next team update, delivery board card, or leadership decision is captured.",
+    "Upcoming work will sharpen after a reviewed client update is published.",
     4
   );
 }
@@ -1122,21 +1117,74 @@ function buildReviewMilestones(programMilestones: ProgramTimelineMilestone[] | u
     .slice(0, 6);
 }
 
+function clientPortalUpdateToReview(update: ClientPortalUpdateRecord | null | undefined): StoredProgramUpdate["review"] | undefined {
+  if (!update) return undefined;
+
+  return {
+    programName: update.programName,
+    executiveSponsor: update.executiveSponsor ?? "",
+    programLead: update.programLead ?? "",
+    pmo: update.pmo ?? "",
+    originalNorthStar: update.originalNorthStar ?? "",
+    currentPhase: update.currentPhase,
+    programCompletionPercent: update.programCompletionPercent ?? "",
+    completionDelta: update.completionDelta ?? "",
+    nextMilestoneName: update.nextMilestoneName ?? "",
+    nextMilestoneDate: update.nextMilestoneDate ?? "",
+    nextMilestonePriority: update.nextMilestonePriority ?? "",
+    programStartDate: update.programStartDate ?? "",
+    programTargetFinishDate: update.programTargetFinishDate ?? "",
+    clientStatusNote: update.clientStatusNote,
+    progressSinceLastReview: update.progressSinceLastReview,
+    planChanges: update.upcomingWork,
+    activeRisks: update.activeRisks,
+    stakeholderTemperature: "",
+    decisionsPending: update.decisionsPending,
+    deliveryHealth: update.deliveryHealth,
+    supportNeeded: update.supportNeeded ?? "",
+    timelineScale: update.timelineScale ?? "year",
+    timelineYear: update.timelineYear ?? "",
+    timelineMonth: update.timelineMonth ?? "",
+    timelineWeek: update.timelineWeek ?? "",
+    programMilestones: update.programMilestones ?? [],
+    programSynthesisNote: update.executiveOverview,
+    teamRoleUpdates: update.domainUpdates.map((domain) => ({
+      role: domain.role,
+      updatedBy: domain.owner,
+      progressUpdate: domain.pursuit,
+      changesObserved: "",
+      activeRisks: domain.risksOrBlockers,
+      blockers: "",
+      decisionsNeeded: domain.decisionsOrOutcomes,
+      supportNeeded: "",
+      status: domain.status,
+      needsLeadershipAttention: domain.status === "blocked",
+      attachments: [],
+      lastUpdatedAt: update.updatedAt
+    })),
+    deliveryBoardItems: update.deliveryBoardItems ?? [],
+    artifacts: []
+  };
+}
+
 export function buildClientPortalProgram(input: ClientPortalProgramInput): ClientPortalProgram {
-  const review = input.latestUpdate?.review;
+  const clientUpdate = input.latestClientUpdate;
+  const review = clientPortalUpdateToReview(clientUpdate);
   const intake = input.program.intake;
+  const plan = null as GuidedPlan | null;
   const roleUpdates = review?.teamRoleUpdates ?? [];
   const risks = visibleSignals(
-    firstNonEmpty(review?.activeRisks, input.latestPlan?.risksAndDecisions.items.join("\n"), intake.risks),
-    "No active executive risk has been captured yet."
+    firstNonEmpty(review?.activeRisks),
+    "No published executive risk has been captured yet."
   );
   const decisions = visibleSignals(
-    firstNonEmpty(review?.decisionsPending, intake.decisionsNeeded),
-    "No executive decision is currently pending."
+    firstNonEmpty(review?.decisionsPending),
+    "No published executive decision is currently pending."
   );
-  const intakeOutcomes = splitSignals(intake.outcomes, "").filter(isMeaningfulSignal);
-  const outcomes = [...guidedSectionItems(input.latestPlan?.keyOutcomes), ...intakeOutcomes].slice(0, 4);
-  const recommendedPath = guidedSectionItems(input.latestPlan?.workPath, 4);
+  const outcomes = clientUpdate
+    ? visibleSignals(firstNonEmpty(review?.supportNeeded, review?.progressSinceLastReview), "", 4).filter(Boolean)
+    : [];
+  const recommendedPath = clientUpdate ? visibleSignals(review?.supportNeeded, "", 4).filter(Boolean) : [];
   const currentPhase = clean(firstNonEmpty(review?.currentPhase, intake.currentStatus, "Phase not set"));
   const { atRiskRoles, blockedRoles } = deriveRoleStatusCounts(roleUpdates);
   const posture = derivePosture({
@@ -1144,7 +1192,7 @@ export function buildClientPortalProgram(input: ClientPortalProgramInput): Clien
     riskText: risks.join(" "),
     roleUpdates
   });
-  const updateTimestamp = input.latestUpdate?.updatedAt ?? input.latestUpdate?.createdAt;
+  const updateTimestamp = clientUpdate?.updatedAt ?? clientUpdate?.createdAt;
   const completion = getCompletionMetrics({
     currentPhase,
     generatedAt: input.generatedAt,
@@ -1155,49 +1203,48 @@ export function buildClientPortalProgram(input: ClientPortalProgramInput): Clien
     updateTimestamp
   });
   const domainSummaries = buildDomainSummaries({
-    plan: input.latestPlan,
+    plan,
     roleUpdates,
     teamRoles: intake.teamRoles
   });
   const leadershipSignal = clean(
     firstNonEmpty(
-      input.latestPlan?.leadershipSignal.summary,
-      input.latestLeadership?.interpretation?.summary,
-      input.latestLeadership?.feedback.leadershipGuidance,
-      "No leadership signal has been captured yet."
+      review?.supportNeeded,
+      review?.decisionsPending,
+      "No client-facing leadership signal has been published yet."
     )
   );
   const progressUpdates = buildProgressUpdates({
     domainSummaries,
-    plan: input.latestPlan,
+    plan,
     recommendedPath,
     review,
     risks,
     decisions,
-    intakeStatus: intake.currentStatus
+    intakeStatus: clientUpdate ? intake.currentStatus : undefined
   });
   const executiveOverview = buildClientExecutiveOverview({
     phase: currentPhase,
     postureLabel: postureLabel(posture),
-    plan: input.latestPlan,
+    plan,
     review,
     domainSummaries,
     risks,
     decisions,
     recommendedPath,
     leadershipSummary: leadershipSignal,
-    intakeSummary: intake.sowSummary
+    intakeSummary: clientUpdate ? intake.sowSummary : undefined
   });
   const completionDeltaSignal = clean(review?.completionDelta);
   const statusNote = conciseSignal(
     firstMeaningful(
       review?.clientStatusNote,
-      input.latestPlan?.programGuide?.sponsorReadout,
-      input.latestPlan?.summary,
+      plan?.programGuide?.sponsorReadout,
+      plan?.summary,
       review?.programSynthesisNote,
       progressUpdates[0],
       executiveOverview,
-      "Current program posture will appear after the next saved program update or guided plan refresh."
+      "Publish a reviewed client update to show current program posture."
     ),
     138
   );
@@ -1212,13 +1259,13 @@ export function buildClientPortalProgram(input: ClientPortalProgramInput): Clien
   });
   const recentAccomplishments = buildRecentAccomplishments({
     domainSummaries,
-    plan: input.latestPlan,
+    plan,
     review
   });
   const upcomingWork = buildUpcomingWork({
     decisions,
     domainSummaries,
-    plan: input.latestPlan,
+    plan,
     recommendedPath,
     review
   });
@@ -1257,7 +1304,7 @@ export function buildClientPortalProgram(input: ClientPortalProgramInput): Clien
 
   return {
     id: input.program.id,
-    name: firstNonEmpty(intake.programName, input.latestPlan?.programName, "Untitled program"),
+    name: firstNonEmpty(intake.programName, "Untitled program"),
     clientName: getProgramClientName(input.program),
     owner,
     executiveSponsor: firstNonEmpty(review?.executiveSponsor, stakeholderByKeyword(intake.stakeholders, "sponsor", "Executive sponsor")),
@@ -1269,16 +1316,15 @@ export function buildClientPortalProgram(input: ClientPortalProgramInput): Clien
     statusSignal: statusSignal(posture),
     completionDelta: completionDeltaSignal,
     statusNote,
-    updatedAt: input.latestUpdate?.updatedAt ?? input.latestUpdate?.createdAt ?? input.latestPlan?.createdAt ?? input.program.updatedAt,
+    updatedAt: clientUpdate?.updatedAt ?? clientUpdate?.createdAt ?? input.program.updatedAt,
     executiveOverview,
     executiveSummary: clean(
       firstNonEmpty(
         review?.clientStatusNote,
-        input.latestPlan?.programGuide?.sponsorReadout,
-        input.latestPlan?.summary,
+        plan?.programGuide?.sponsorReadout,
+        plan?.summary,
         review?.programSynthesisNote,
-        intake.sowSummary,
-        "Program summary is still being developed."
+        "Publish a reviewed client update to show the executive summary."
       )
     ),
     nextMilestone: {
@@ -1288,8 +1334,8 @@ export function buildClientPortalProgram(input: ClientPortalProgramInput): Clien
     },
     nextDecision: firstSignal(decisions.join("\n"), "No executive decision is currently pending."),
     topRisk: firstSignal(risks.join("\n"), "No active executive risk has been captured yet."),
-    primaryOutcome: firstSignal(outcomes.join("\n"), "Outcome detail will appear after intake or guided plan synthesis."),
-    northStar: clean(firstNonEmpty(input.latestPlan?.northStar, review?.originalNorthStar, intake.vision, "North star not captured yet.")),
+    primaryOutcome: firstSignal(outcomes.join("\n"), "No client-facing outcome has been published yet."),
+    northStar: clean(firstNonEmpty(review?.originalNorthStar, "Publish a reviewed client update to show the north star.")),
     leadershipSignal,
     assignedRoles: input.assignedRoles ?? [],
     metrics: {

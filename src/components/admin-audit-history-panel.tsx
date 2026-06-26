@@ -22,6 +22,8 @@ const auditActionLabels: Record<AuditEventType, string> = {
   "artifact.export": "Artifact exported",
   "artifact.generate": "Artifact generated",
   "client.decision.create": "Client decision added",
+  "client.update.delete": "Client update pruned",
+  "client.update.publish": "Client update published",
   "flag.create": "Guidance flagged",
   "flag.review": "Flag reviewed",
   "guide.dialogue": "Guide dialogue recorded",
@@ -57,6 +59,7 @@ const categoryOptions: Array<{ label: string; value: AuditCategory }> = [
 
 const importantEventTypes = new Set<AuditEventType>([
   "client.decision.create",
+  "client.update.publish",
   "flag.create",
   "flag.review",
   "guidance.refresh",

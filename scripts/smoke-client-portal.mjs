@@ -113,11 +113,11 @@ async function cleanupStaleClientPortalUpdates(session, program) {
   const staleTags = await session.execute(
     `
       const smokeTagPattern = /North Star active-program save smoke client-portal [0-9]+/g;
-      return fetch("/api/programs/" + encodeURIComponent(arguments[0]) + "/updates", { cache: "no-store" })
+      return fetch("/api/programs/" + encodeURIComponent(arguments[0]) + "/client-updates", { cache: "no-store" })
         .then((response) => response.ok ? response.json() : Promise.reject(new Error(String(response.status))))
         .then((payload) => Array.from(new Set(
           payload.updates
-            .flatMap((update) => JSON.stringify(update.review).match(smokeTagPattern) ?? [])
+            .flatMap((update) => JSON.stringify(update).match(smokeTagPattern) ?? [])
         )));
     `,
     [program.id]
@@ -128,10 +128,10 @@ async function cleanupStaleClientPortalUpdates(session, program) {
   for (const tag of staleTags) {
     const result = await session.execute(
       `
-        return fetch("/api/programs/" + encodeURIComponent(arguments[0]) + "/updates", {
+        return fetch("/api/programs/" + encodeURIComponent(arguments[0]) + "/client-updates", {
           method: "DELETE",
           headers: { "content-type": "application/json" },
-          body: JSON.stringify({ tag: arguments[1], refreshGuidance: false })
+          body: JSON.stringify({ tag: arguments[1] })
         }).then(async (response) => ({
           ok: response.ok,
           status: response.status,
@@ -180,7 +180,6 @@ function buildSeededReview(program, smokeText) {
     ],
     deliveryHealth: "At risk from client portal smoke validation.",
     executiveSponsor: "Client Portal Smoke Sponsor",
-    lastUpdatedRole: primaryRole,
     nextMilestoneDate: "2026-05-08",
     nextMilestoneName: `Client Portal smoke milestone ${smokeText}`,
     nextMilestonePriority: "High",
@@ -191,9 +190,8 @@ function buildSeededReview(program, smokeText) {
     programTargetFinishDate: schedule.finishDate,
     programLead: "Client Portal Smoke Lead",
     programName: program.intake.programName,
-    programSynthesisNote: `Client Portal smoke synthesis ${smokeText}: program signal was generated from a saved update.`,
+    executiveOverview: `Client Portal smoke synthesis ${smokeText}: program signal was generated from a reviewed client update.`,
     progressSinceLastReview: `Client Portal smoke progress ${smokeText}: role updates are feeding the executive view.`,
-    stakeholderTemperature: `Client Portal smoke stakeholder signal ${smokeText}: sponsors are aligned but watching risk.`,
     supportNeeded: `Client Portal smoke support ${smokeText}: keep leadership decision path clear.`,
     timelineScale: "year",
     timelineYear: "FY99",
@@ -225,26 +223,18 @@ function buildSeededReview(program, smokeText) {
         note: `Client Portal smoke value checkpoint ${smokeText}.`
       }
     ],
-    teamRoleUpdates: [
+    domainUpdates: [
       {
-        activeRisks: `Client Portal smoke role risk ${smokeText}.`,
-        attachments: [],
-        blockers: "",
-        changesObserved: `Client Portal smoke role change ${smokeText}.`,
-        decisionsNeeded: `Client Portal smoke role decision ${smokeText}.`,
-        lastUpdatedAt: now,
-        needsLeadershipAttention: false,
-        progressUpdate: `Client Portal smoke role progress ${smokeText}.`,
+        attachments: 0,
+        decisionsOrOutcomes: `Client Portal smoke role decision ${smokeText}.`,
+        owner: "Client Portal Smoke",
+        pursuit: `Client Portal smoke role progress ${smokeText}.`,
+        risksOrBlockers: `Client Portal smoke role risk ${smokeText}.`,
         role: primaryRole,
-        status: "at-risk",
-        supportNeeded: `Client Portal smoke role support ${smokeText}.`,
-        updatedBy: "Client Portal Smoke"
+        status: "at-risk"
       }
     ],
-    updateCadence: "weekly",
-    cycleLabel: "Client Portal smoke cycle",
-    cycleStartedAt: now,
-    planChanges: `Client Portal smoke plan change ${smokeText}: update seeded for render verification.`
+    upcomingWork: `Client Portal smoke upcoming work ${smokeText}: prepare sponsor readout.`
   };
 }
 
@@ -254,7 +244,7 @@ async function seedProgramUpdate(session, program, smokeText) {
 
   const result = await session.execute(
     `
-      return fetch("/api/programs/" + encodeURIComponent(arguments[0]) + "/updates", {
+      return fetch("/api/programs/" + encodeURIComponent(arguments[0]) + "/client-updates", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify(arguments[1])
@@ -272,11 +262,11 @@ async function seedProgramUpdate(session, program, smokeText) {
   }
 
   const update = result.payload?.update;
-  if (!update?.id || !update.review?.clientStatusNote?.includes(smokeText)) {
+  if (!update?.id || !update.clientStatusNote?.includes(smokeText)) {
     throw new Error(`Client Portal smoke update seed returned an unexpected payload: ${JSON.stringify(result.payload)}`);
   }
 
-  console.log("✓ Client Portal: seeded tagged active-program update.");
+  console.log("✓ Client Portal: seeded tagged reviewed client update.");
   return { review, update };
 }
 
@@ -410,12 +400,11 @@ async function cleanupProgramUpdate(session, program, smokeText) {
 
   const result = await session.execute(
     `
-      return fetch("/api/programs/" + encodeURIComponent(arguments[0]) + "/updates", {
+      return fetch("/api/programs/" + encodeURIComponent(arguments[0]) + "/client-updates", {
         method: "DELETE",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
-          tag: arguments[1],
-          refreshGuidance: arguments[2]
+          tag: arguments[1]
         })
       }).then(async (response) => ({
         ok: response.ok,
@@ -437,9 +426,9 @@ async function cleanupProgramUpdate(session, program, smokeText) {
 
   const stillPresent = await session.execute(
     `
-      return fetch("/api/programs/" + encodeURIComponent(arguments[0]) + "/updates", { cache: "no-store" })
+      return fetch("/api/programs/" + encodeURIComponent(arguments[0]) + "/client-updates", { cache: "no-store" })
         .then((response) => response.ok ? response.json() : Promise.reject(new Error(String(response.status))))
-        .then((payload) => payload.updates.some((update) => JSON.stringify(update.review).includes(arguments[1])));
+        .then((payload) => payload.updates.some((update) => JSON.stringify(update).includes(arguments[1])));
     `,
     [program.id, smokeText]
   );

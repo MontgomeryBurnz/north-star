@@ -1,6 +1,7 @@
 import "server-only";
 import { createFileArtifactPersistence, createPostgresArtifactPersistence } from "@/lib/artifact-persistence";
 import { createFileAuditPersistence, createPostgresAuditPersistence } from "@/lib/audit-persistence";
+import { createFileClientPortalPersistence, createPostgresClientPortalPersistence } from "@/lib/client-portal-persistence";
 import { createFileGuidancePersistence, createPostgresGuidancePersistence } from "@/lib/guidance-persistence";
 import { createFileProgramPersistence, createPostgresProgramPersistence } from "@/lib/program-persistence";
 import type { ProgramRepository } from "@/lib/program-repository-types";
@@ -10,6 +11,7 @@ function createFileRepository(): ProgramRepository {
   return {
     provider: "file",
     ...createFileProgramPersistence(),
+    ...createFileClientPortalPersistence(),
     ...createFileGuidancePersistence(),
     ...createFileArtifactPersistence(),
     ...createFileAuditPersistence(),
@@ -23,6 +25,7 @@ function createPostgresRepository(): ProgramRepository {
   Object.assign(
     repository,
     createPostgresProgramPersistence(repository),
+    createPostgresClientPortalPersistence(repository),
     createPostgresGuidancePersistence(repository),
     createPostgresArtifactPersistence(repository),
     createPostgresAuditPersistence(),

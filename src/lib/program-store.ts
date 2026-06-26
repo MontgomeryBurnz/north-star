@@ -2,6 +2,7 @@ import "server-only";
 import type { AuditEventInput } from "@/lib/audit-event-types";
 import type { ManagedAppUserInput } from "@/lib/admin-user-types";
 import type { ActiveProgramReview } from "@/lib/active-program-types";
+import type { ClientPortalUpdateInput } from "@/lib/client-portal-update-types";
 import type { LeadershipReviewInput } from "@/lib/leadership-feedback-types";
 import type {
   ClientDecisionRequestInput,
@@ -87,6 +88,18 @@ export async function listClientDecisionRequests(programId: string) {
 
 export async function createClientDecisionRequest(programId: string, input: ClientDecisionRequestInput) {
   return getProgramRepository().createClientDecisionRequest(programId, input);
+}
+
+export async function listClientPortalUpdates(programId: string) {
+  return getProgramRepository().listClientPortalUpdates(programId);
+}
+
+export async function createClientPortalUpdate(programId: string, input: ClientPortalUpdateInput) {
+  return getProgramRepository().createClientPortalUpdate(programId, input);
+}
+
+export async function deleteClientPortalUpdatesByTag(programId: string, tag: string) {
+  return getProgramRepository().deleteClientPortalUpdatesByTag(programId, tag);
 }
 
 export async function listGuidanceJustifications(programId: string) {

@@ -1,6 +1,7 @@
 import type { AuditEventInput, AuditEventRecord } from "@/lib/audit-event-types";
 import type { ManagedAppUser, ManagedAppUserInput } from "@/lib/admin-user-types";
 import type { ActiveProgramReview, StoredProgramUpdate } from "@/lib/active-program-types";
+import type { ClientPortalUpdateInput, ClientPortalUpdateRecord } from "@/lib/client-portal-update-types";
 import type { GuidedPlan } from "@/lib/guided-plan-types";
 import type { LeadershipReviewInput, LeadershipReviewRecord } from "@/lib/leadership-feedback-types";
 import type {
@@ -35,6 +36,9 @@ export type ProgramRepository = {
   createRoleArtifact(programId: string, artifact: RoleArtifactDraft): Promise<RoleArtifactDraft>;
   listClientDecisionRequests(programId: string): Promise<ClientDecisionRequest[]>;
   createClientDecisionRequest(programId: string, input: ClientDecisionRequestInput): Promise<ClientDecisionRequest>;
+  listClientPortalUpdates(programId: string): Promise<ClientPortalUpdateRecord[]>;
+  createClientPortalUpdate(programId: string, input: ClientPortalUpdateInput): Promise<ClientPortalUpdateRecord>;
+  deleteClientPortalUpdatesByTag(programId: string, tag: string): Promise<number>;
   listGuidanceJustifications(programId: string): Promise<GuidanceJustificationRecord[]>;
   createGuidanceJustification(record: GuidanceJustificationRecord): Promise<GuidanceJustificationRecord>;
   listGuidanceFeedbackFlags(programId: string): Promise<GuidanceFeedbackFlag[]>;
@@ -58,6 +62,7 @@ export type ProgramStoreFile = {
   meetingInputs: ProgramMeetingInput[];
   roleArtifacts: RoleArtifactDraft[];
   clientDecisionRequests: ClientDecisionRequest[];
+  clientPortalUpdates: ClientPortalUpdateRecord[];
   guidanceJustifications: GuidanceJustificationRecord[];
   guidanceFeedbackFlags: GuidanceFeedbackFlag[];
   openAIUsageRecords: OpenAIUsageRecord[];

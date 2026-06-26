@@ -445,10 +445,10 @@ async function populateExecutiveClientPortalFields(session, smokeText) {
       throw new Error(`Active Program timeline save did not complete server-side: ${state.text.trim()}`);
     }
 
-    return state.found && state.text.includes("Timeline saved") && state.text.includes("Client Portal refresh started");
+    return state.found && state.text.includes("Timeline saved") && state.text.includes("Publish a client update");
   }, 120_000);
 
-  console.log("✓ Active Program: populated fields that feed Client Portal, including timeline and milestones.");
+  console.log("✓ Active Program: populated client-update drafting fields, including timeline and milestones.");
 }
 
 async function saveRoleSignal(session, program, smokeText) {
@@ -784,6 +784,93 @@ async function saveRoleSignal(session, program, smokeText) {
   return { role: selectedRole, tag: smokeText };
 }
 
+async function publishClientFacingUpdate(session, program, smokeText) {
+  await session.waitFor("Active Program client-facing update publisher visible", async () => {
+    return session.execute(`
+      return Boolean(document.querySelector("[data-active-client-update-builder]")) &&
+        Boolean(document.querySelector("[data-active-client-update-overview]")) &&
+        Boolean(document.querySelector("[data-active-client-update-publish]"));
+    `);
+  });
+
+  const populated = await session.execute(
+    `
+      const setTextArea = (selector, value) => {
+        const field = document.querySelector(selector);
+        if (!(field instanceof HTMLTextAreaElement)) return false;
+        const setter = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, "value")?.set;
+        if (!setter) return false;
+        setter.call(field, value);
+        field.dispatchEvent(new Event("input", { bubbles: true }));
+        return true;
+      };
+
+      const rows = Array.from(document.querySelectorAll("[data-active-client-update-domain-row]"));
+      const firstRow = rows[0];
+      if (firstRow) {
+        const textareas = Array.from(firstRow.querySelectorAll("textarea"));
+        const setter = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, "value")?.set;
+        if (!setter || textareas.length < 3) return false;
+        setter.call(textareas[0], "Client-facing domain pursuit " + arguments[0]);
+        textareas[0].dispatchEvent(new Event("input", { bubbles: true }));
+        setter.call(textareas[1], "Client-facing domain risk " + arguments[0]);
+        textareas[1].dispatchEvent(new Event("input", { bubbles: true }));
+        setter.call(textareas[2], "Client-facing domain decision " + arguments[0]);
+        textareas[2].dispatchEvent(new Event("input", { bubbles: true }));
+      }
+
+      return [
+        setTextArea("[data-active-client-update-overview]", "Client portal smoke status: " + arguments[0]),
+        setTextArea("[data-active-client-update-narrative]", "Client-facing executive narrative " + arguments[0]),
+        setTextArea("[data-active-client-update-accomplishments]", "Client-facing accomplishment " + arguments[0]),
+        setTextArea("[data-active-client-update-upcoming]", "Client-facing upcoming work " + arguments[0]),
+        setTextArea("[data-active-client-update-risks]", "Client-facing top risk " + arguments[0]),
+        setTextArea("[data-active-client-update-decisions]", "Client-facing decision " + arguments[0])
+      ].every(Boolean);
+    `,
+    [smokeText]
+  );
+
+  if (!populated) {
+    throw new Error("Active Program smoke could not populate the client-facing update publisher.");
+  }
+
+  await session.waitFor("Active Program client-facing publish enabled", async () => {
+    return session.execute(`
+      const button = document.querySelector("[data-active-client-update-publish]");
+      return Boolean(button) && !button.disabled;
+    `);
+  });
+
+  await session.execute('document.querySelector("[data-active-client-update-publish]")?.click();');
+  await session.waitFor("Active Program client-facing update published", async () => {
+    return session.execute(`
+      const confirmation = document.querySelector("[data-active-client-update-confirmation]");
+      return Boolean(confirmation) && confirmation.textContent.includes("Client update published");
+    `);
+  }, 60_000);
+
+  const persisted = await session.execute(
+    `
+      return fetch("/api/programs/" + encodeURIComponent(arguments[0]) + "/client-updates", { cache: "no-store" })
+        .then((response) => response.ok ? response.json() : Promise.reject(new Error(String(response.status))))
+        .then((payload) => payload.updates.some((update) =>
+          update.clientStatusNote.includes(arguments[1]) &&
+          update.executiveOverview.includes(arguments[1]) &&
+          update.activeRisks.includes(arguments[1]) &&
+          update.decisionsPending.includes(arguments[1])
+        ));
+    `,
+    [program.id, smokeText]
+  );
+
+  if (!persisted) {
+    throw new Error("Published client-facing update was not returned by the client-updates API.");
+  }
+
+  console.log("✓ Active Program: published reviewed client-facing update for Client Portal.");
+}
+
 async function verifyClientPortalExecutiveFields(session, program, smokeText) {
   let lastState = null;
 
@@ -833,7 +920,10 @@ async function verifyClientPortalExecutiveFields(session, program, smokeText) {
             detailHasDelta: detailText.includes("+4%"),
             detailHasTimeline: detailText.includes("FY99"),
             detailHasMilestone: detailText.includes("Smoke custom timeline milestone"),
-            detailHasTag: detailText.includes(arguments[1])
+            detailHasTag: detailText.includes(arguments[1]) &&
+              detailText.includes("Client-facing executive narrative") &&
+              detailText.includes("Client-facing accomplishment") &&
+              detailText.includes("Client-facing upcoming work")
           };
         `,
         [program.id, smokeText]
@@ -901,6 +991,29 @@ async function cleanupRoleSignal(session, program, savedSignal) {
 
   const refreshMessage = shouldRefreshAfterCleanup ? " and refreshed guidance" : "";
   console.log(`✓ Active Program: pruned ${deletedCount} tagged smoke update${deletedCount === 1 ? "" : "s"}${refreshMessage}.`);
+
+  const clientUpdateCleanup = await session.execute(
+    `
+      return fetch("/api/programs/" + encodeURIComponent(arguments[0]) + "/client-updates", {
+        method: "DELETE",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ tag: arguments[1] })
+      }).then(async (response) => ({
+        ok: response.ok,
+        status: response.status,
+        payload: await response.json().catch(() => ({}))
+      }));
+    `,
+    [program.id, savedSignal.tag]
+  );
+
+  if (!clientUpdateCleanup.ok) {
+    throw new Error(`Client-facing smoke cleanup failed with HTTP ${clientUpdateCleanup.status}: ${JSON.stringify(clientUpdateCleanup.payload)}`);
+  }
+
+  if ((clientUpdateCleanup.payload?.deletedCount ?? 0) > 0) {
+    console.log(`✓ Active Program: pruned tagged client-facing smoke update.`);
+  }
 }
 
 async function main() {
@@ -918,6 +1031,7 @@ async function main() {
       await verifyOperatingView(session);
       await captureMobileRoleFocusScreenshot(session, program);
       savedSignal = await saveRoleSignal(session, program, smokeText);
+      await publishClientFacingUpdate(session, program, smokeText);
       await verifyClientPortalExecutiveFields(session, program, smokeText);
     } finally {
       if (program && shouldAttemptCleanup) {

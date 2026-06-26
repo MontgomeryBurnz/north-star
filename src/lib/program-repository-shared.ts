@@ -6,6 +6,7 @@ import { Pool } from "pg";
 import type { AuditEventInput, AuditEventRecord } from "@/lib/audit-event-types";
 import type { ManagedAppUser } from "@/lib/admin-user-types";
 import type { ActiveProgramReview, StoredProgramUpdate } from "@/lib/active-program-types";
+import type { ClientPortalUpdateRecord } from "@/lib/client-portal-update-types";
 import type { GuidedPlan } from "@/lib/guided-plan-types";
 import type { LeadershipReviewInput, LeadershipReviewRecord } from "@/lib/leadership-feedback-types";
 import type {
@@ -28,6 +29,7 @@ const emptyFileStore: ProgramStoreFile = {
   meetingInputs: [],
   roleArtifacts: [],
   clientDecisionRequests: [],
+  clientPortalUpdates: [],
   guidanceJustifications: [],
   guidanceFeedbackFlags: [],
   openAIUsageRecords: [],
@@ -51,6 +53,7 @@ function normalizeFileStore(input: Partial<ProgramStoreFile>): ProgramStoreFile 
     meetingInputs: store.meetingInputs,
     roleArtifacts: store.roleArtifacts,
     clientDecisionRequests: store.clientDecisionRequests,
+    clientPortalUpdates: store.clientPortalUpdates,
     guidanceJustifications: store.guidanceJustifications,
     guidanceFeedbackFlags: store.guidanceFeedbackFlags,
     openAIUsageRecords: store.openAIUsageRecords,
@@ -249,6 +252,16 @@ export async function ensurePostgresSchema() {
             updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
           );
 
+          CREATE TABLE IF NOT EXISTS client_portal_updates (
+            id TEXT PRIMARY KEY,
+            program_id TEXT NOT NULL REFERENCES programs(id) ON DELETE CASCADE,
+            program_name TEXT NOT NULL,
+            status TEXT NOT NULL,
+            record JSONB NOT NULL,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+          );
+
           CREATE TABLE IF NOT EXISTS guidance_justifications (
             id TEXT PRIMARY KEY,
             program_id TEXT NOT NULL REFERENCES programs(id) ON DELETE CASCADE,
@@ -327,6 +340,8 @@ export async function ensurePostgresSchema() {
             ON role_artifacts(program_id, artifact_type, created_at DESC);
           CREATE INDEX IF NOT EXISTS idx_client_decision_requests_program_id_created_at
             ON client_decision_requests(program_id, created_at DESC);
+          CREATE INDEX IF NOT EXISTS idx_client_portal_updates_program_id_created_at
+            ON client_portal_updates(program_id, created_at DESC);
           CREATE INDEX IF NOT EXISTS idx_guidance_justifications_program_id_created_at
             ON guidance_justifications(program_id, created_at DESC);
           CREATE INDEX IF NOT EXISTS idx_guidance_feedback_flags_program_id_created_at
@@ -361,6 +376,7 @@ export async function ensurePostgresSchema() {
               'meeting_inputs',
               'role_artifacts',
               'client_decision_requests',
+              'client_portal_updates',
               'guidance_justifications',
               'guidance_feedback_flags',
               'openai_usage_records',
@@ -473,6 +489,10 @@ export function mapRoleArtifactRow(row: { record: RoleArtifactDraft }): RoleArti
 }
 
 export function mapClientDecisionRequestRow(row: { record: ClientDecisionRequest }): ClientDecisionRequest {
+  return row.record;
+}
+
+export function mapClientPortalUpdateRow(row: { record: ClientPortalUpdateRecord }): ClientPortalUpdateRecord {
   return row.record;
 }
 

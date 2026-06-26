@@ -4,13 +4,7 @@ import { redirect } from "next/navigation";
 import { ClientPortalConsole } from "@/components/client-portal-console";
 import { buildClientPortalPortfolio, type ClientPortalProgramInput } from "@/lib/client-portal";
 import { getCurrentManagedUser } from "@/lib/current-managed-user";
-import {
-  getLatestGuidedPlan,
-  listClientDecisionRequests,
-  listLeadershipFeedback,
-  listPrograms,
-  listProgramUpdates
-} from "@/lib/program-store";
+import { listClientDecisionRequests, listClientPortalUpdates, listPrograms } from "@/lib/program-store";
 import { hasSiteAccessPageSession } from "@/lib/app-page-access";
 
 function assignedProgramIds(assignments: Array<{ programId: string }>) {
@@ -37,10 +31,8 @@ export default async function ClientPortalPage() {
 
   const programInputs = await Promise.all<ClientPortalProgramInput>(
     programs.map(async (program) => {
-      const [updates, latestPlan, leadershipFeedback, clientDecisions] = await Promise.all([
-        listProgramUpdates(program.id),
-        getLatestGuidedPlan(program.id),
-        listLeadershipFeedback(program.id),
+      const [clientUpdates, clientDecisions] = await Promise.all([
+        listClientPortalUpdates(program.id),
         listClientDecisionRequests(program.id)
       ]);
       return {
@@ -48,9 +40,7 @@ export default async function ClientPortalPage() {
           .filter((assignment) => assignment.programId === program.id)
           .map((assignment) => assignment.role),
         clientDecisions,
-        latestLeadership: leadershipFeedback[0] ?? null,
-        latestPlan,
-        latestUpdate: updates[0] ?? null,
+        latestClientUpdate: clientUpdates[0] ?? null,
         program
       };
     })

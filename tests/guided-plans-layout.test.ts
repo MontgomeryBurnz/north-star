@@ -431,6 +431,7 @@ test("Active Program review is split into state, cockpit, and team signal flows"
   const storeSource = readFileSync(new URL("../src/lib/program-store.ts", import.meta.url), "utf8");
   const stateFlowSource = readFileSync(new URL("../src/components/active-program-state-flow.tsx", import.meta.url), "utf8");
   const stateCardSource = readFileSync(new URL("../src/components/active-program-state-card.tsx", import.meta.url), "utf8");
+  const clientUpdateCardSource = readFileSync(new URL("../src/components/active-program-client-update-card.tsx", import.meta.url), "utf8");
   const cockpitFlowSource = readFileSync(new URL("../src/components/active-program-cockpit-flow.tsx", import.meta.url), "utf8");
   const cockpitSource = readFileSync(new URL("../src/components/active-program-cockpit-card.tsx", import.meta.url), "utf8");
   const teamSignalFlowSource = readFileSync(new URL("../src/components/active-program-team-signal-flow.tsx", import.meta.url), "utf8");
@@ -451,10 +452,13 @@ test("Active Program review is split into state, cockpit, and team signal flows"
   const clientPortalSmokeSource = readFileSync(new URL("../scripts/smoke-client-portal.mjs", import.meta.url), "utf8");
   const productionSmokeSource = readFileSync(new URL("../scripts/smoke-production.mjs", import.meta.url), "utf8");
   const browserWebdriverSource = readFileSync(new URL("../scripts/browser-webdriver.mjs", import.meta.url), "utf8");
+  const clientPortalPageSource = readFileSync(new URL("../src/app/client/page.tsx", import.meta.url), "utf8");
+  const clientUpdatesRouteSource = readFileSync(new URL("../src/app/api/programs/[id]/client-updates/route.ts", import.meta.url), "utf8");
 
   assert.match(reviewSectionSource, /useActiveProgramReviewController/);
   assert.match(reviewSectionSource, /ActiveProgramStateFlow/);
   assert.match(reviewSectionSource, /ActiveProgramCockpitFlow/);
+  assert.match(reviewSectionSource, /ActiveProgramClientUpdateCard/);
   assert.match(reviewSectionSource, /ActiveProgramTeamSignalFlow/);
   assert.doesNotMatch(reviewSectionSource, /useRequestSequence/);
   assert.doesNotMatch(reviewSectionSource, /useForegroundRefresh/);
@@ -482,7 +486,7 @@ test("Active Program review is split into state, cockpit, and team signal flows"
   assert.match(stateCardSource, /Select a program to manage the live operating view/);
   assert.match(stateCardSource, /Profile fields should change only when the program baseline changes/);
   assert.match(stateCardSource, /Client \/ executive update fields/);
-  assert.match(stateCardSource, /These fields feed the Client Portal portfolio and program one-pager after save/);
+  assert.match(stateCardSource, /The Client Portal changes only after a reviewed update is published/);
   assert.match(stateCardSource, /Program start/);
   assert.match(stateCardSource, /Expected finish/);
   assert.match(stateCardSource, /Manual % override/);
@@ -611,6 +615,10 @@ test("Active Program review is split into state, cockpit, and team signal flows"
   assert.match(activeProgramSaveSmokeSource, /data-active-role-signal-card/);
   assert.match(activeProgramSaveSmokeSource, /data-active-program-save-confirmation/);
   assert.match(activeProgramSaveSmokeSource, /populateExecutiveClientPortalFields/);
+  assert.match(activeProgramSaveSmokeSource, /publishClientFacingUpdate/);
+  assert.match(activeProgramSaveSmokeSource, /data-active-client-update-publish/);
+  assert.match(activeProgramSaveSmokeSource, /\/client-updates/);
+  assert.match(activeProgramSaveSmokeSource, /Client update published/);
   assert.match(activeProgramSaveSmokeSource, /verifyClientPortalExecutiveFields/);
   assert.match(activeProgramSaveSmokeSource, /data-active-executive-sponsor/);
   assert.match(activeProgramSaveSmokeSource, /data-active-client-status-note/);
@@ -655,6 +663,7 @@ test("Active Program review is split into state, cockpit, and team signal flows"
   assert.match(clientPortalSmokeSource, /NORTHSTAR_TEST_USER_EMAIL/);
   assert.match(clientPortalSmokeSource, /\/api\/auth\/user\/login/);
   assert.match(clientPortalSmokeSource, /\/api\/programs/);
+  assert.match(clientPortalSmokeSource, /\/client-updates/);
   assert.match(clientPortalSmokeSource, /method: "POST"/);
   assert.match(clientPortalSmokeSource, /Client Portal smoke status/);
   assert.match(clientPortalSmokeSource, /smoke=client-portal-seeded-update/);
@@ -663,6 +672,14 @@ test("Active Program review is split into state, cockpit, and team signal flows"
   assert.match(clientPortalSmokeSource, /data-client-program-detail/);
   assert.match(clientPortalSmokeSource, /method: "DELETE"/);
   assert.match(clientPortalSmokeSource, /NORTHSTAR_CLIENT_PORTAL_SMOKE_CLEANUP/);
+  assert.match(clientUpdateCardSource, /data-active-client-update-builder/);
+  assert.match(clientUpdateCardSource, /Governed client publication layer/);
+  assert.match(clientUpdateCardSource, /Internal role updates, blockers, and working notes remain private/);
+  assert.match(clientUpdateCardSource, /data-active-client-update-confirmation/);
+  assert.match(clientUpdatesRouteSource, /client\.update\.publish/);
+  assert.match(clientUpdatesRouteSource, /client\.update\.delete/);
+  assert.match(clientPortalPageSource, /listClientPortalUpdates/);
+  assert.doesNotMatch(clientPortalPageSource, /listProgramUpdates/);
   assert.match(productionSmokeSource, /active program save \+ client portal/);
   assert.match(productionSmokeSource, /client portal seeded update/);
 });
@@ -820,6 +837,7 @@ test("API routes use shared access helpers instead of one-off site checks", () =
 
   const programScopedRoutes = [
     "bundle",
+    "client-updates",
     "client-decisions",
     "guidance-feedback-flags",
     "guidance-justifications",

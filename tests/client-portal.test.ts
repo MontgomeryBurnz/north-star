@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { buildClientPortalPortfolio, buildClientPortalProgram } from "../src/lib/client-portal.ts";
 import type { StoredProgramUpdate } from "../src/lib/active-program-types.ts";
-import type { GuidedPlan } from "../src/lib/guided-plan-types.ts";
+import type { ClientPortalUpdateRecord } from "../src/lib/client-portal-update-types.ts";
 import type { StoredProgram } from "../src/lib/program-intake-types.ts";
 
 const program: StoredProgram = {
@@ -116,44 +116,60 @@ const update: StoredProgramUpdate = {
   }
 };
 
-const plan: GuidedPlan = {
-  id: "plan-1",
-  programId: "compliance-hub",
-  programName: "Compliance Hub",
-  createdAt: "2026-04-29T00:00:00.000Z",
-  northStar: "Ship a controlled compliance alpha.",
-  summary: "Compliance Hub is progressing, with API timing as the executive risk.",
-  programGuide: {
-    title: "Overall Program Guide",
-    focus: "Engineering is clearing the API timing dependency while product validates launch readiness.",
-    whyItMatters: "API timing controls whether the alpha release can safely proceed.",
-    nextStep: "Confirm the launch readiness owner and lock the API timing path.",
-    sponsorReadout: "Engineering is clearing the API dependency so the alpha release can proceed with controlled readiness."
-  },
-  sourceInputs: { title: "Inputs", items: [] },
-  assistantDialogue: { title: "Guide", items: [] },
-  signalFromNoise: { title: "Signal", items: [] },
-  workPath: { title: "Path", items: ["Lock API timing", "Confirm launch readiness", "Prepare sponsor readout"] },
-  planningApproach: { title: "Planning", items: [] },
-  keyOutcomes: { title: "Outcomes", items: ["Alpha workflow ready for sponsor validation"] },
-  criticalRequirements: { title: "Requirements", items: [] },
-  keyOutputs: { title: "Outputs", items: [] },
-  risksAndDecisions: { title: "Risks", items: ["API timing requires escalation"] },
-  leadershipChanges: { title: "Leadership", items: [] },
-  leadershipSignal: {
-    status: "incorporated",
-    summary: "Leadership input is incorporated.",
-    highlights: []
-  },
-  followUpQuestions: [],
-  sourceRecordIds: []
-};
+function clientPortalUpdateFromStoredUpdate(source: StoredProgramUpdate): ClientPortalUpdateRecord {
+  const review = source.review;
+
+  return {
+    id: `client-${source.id}`,
+    programId: source.programId,
+    programName: source.programName,
+    status: "published",
+    createdAt: source.createdAt,
+    updatedAt: source.updatedAt ?? source.createdAt,
+    activeRisks: review.activeRisks,
+    clientStatusNote: review.clientStatusNote ?? "",
+    completionDelta: review.completionDelta,
+    currentPhase: review.currentPhase,
+    decisionsPending: review.decisionsPending,
+    deliveryBoardItems: review.deliveryBoardItems ?? [],
+    deliveryHealth: review.deliveryHealth,
+    domainUpdates: (review.teamRoleUpdates ?? []).map((roleUpdate) => ({
+      attachments: roleUpdate.attachments?.length ?? 0,
+      decisionsOrOutcomes: roleUpdate.decisionsNeeded,
+      owner: roleUpdate.updatedBy,
+      pursuit: roleUpdate.progressUpdate,
+      risksOrBlockers: roleUpdate.activeRisks || roleUpdate.blockers,
+      role: roleUpdate.role,
+      status: roleUpdate.status
+    })),
+    executiveOverview: review.programSynthesisNote ?? "",
+    executiveSponsor: review.executiveSponsor,
+    nextMilestoneDate: review.nextMilestoneDate,
+    nextMilestoneName: review.nextMilestoneName,
+    nextMilestonePriority: review.nextMilestonePriority,
+    originalNorthStar: review.originalNorthStar,
+    pmo: review.pmo,
+    programCompletionPercent: review.programCompletionPercent,
+    programLead: review.programLead,
+    programMilestones: review.programMilestones ?? [],
+    programStartDate: review.programStartDate,
+    programTargetFinishDate: review.programTargetFinishDate,
+    progressSinceLastReview: review.progressSinceLastReview,
+    supportNeeded: review.supportNeeded,
+    timelineMonth: review.timelineMonth,
+    timelineScale: review.timelineScale,
+    timelineWeek: review.timelineWeek,
+    timelineYear: review.timelineYear,
+    upcomingWork: review.planChanges
+  };
+}
+
+const clientUpdate = clientPortalUpdateFromStoredUpdate(update);
 
 test("buildClientPortalProgram creates executive posture from program signals", () => {
   const portalProgram = buildClientPortalProgram({
     assignedRoles: ["Executive Sponsor"],
-    latestPlan: plan,
-    latestUpdate: update,
+    latestClientUpdate: clientUpdate,
     program
   });
 
@@ -169,7 +185,7 @@ test("buildClientPortalProgram creates executive posture from program signals", 
   assert.equal(portalProgram.metrics.risks, 1);
   assert.equal(portalProgram.metrics.decisions, 1);
   assert.equal(portalProgram.assignedRoles[0], "Executive Sponsor");
-  assert.equal(portalProgram.primaryOutcome, "Alpha workflow ready for sponsor validation");
+  assert.equal(portalProgram.primaryOutcome, "Intake rules are complete.");
   assert.equal(portalProgram.metrics.phaseCompletionPercent, 75);
   assert.equal(portalProgram.metrics.programCompletionPercent, 78);
   assert.match(portalProgram.progressUpdates[0], /Focus:/);
@@ -180,14 +196,14 @@ test("buildClientPortalProgram creates executive posture from program signals", 
   assert.ok(portalProgram.executiveOverview.length <= 260);
   assert.match(portalProgram.executiveOverview, /At risk in Execute/);
   assert.match(portalProgram.executiveOverview, /Discovery remains stable/);
-  assert.match(portalProgram.executiveOverview, /Confirm the launch readiness owner/);
+  assert.match(portalProgram.executiveOverview, /Confirm launch readiness owner/);
   assert.equal(portalProgram.domainSummaries[0]?.role, "Engineering");
   assert.equal(portalProgram.domainSummaries[0]?.pursuit, "Dependency remains open.");
   assert.equal(portalProgram.domainSummaries[0]?.risksOrBlockers, "API timing");
   assert.equal(portalProgram.domainSummaries[0]?.owner, "Tech Lead");
   assert.match(portalProgram.executiveStatusHighlights.join(" "), /Program complete 78%/);
   assert.match(portalProgram.recentAccomplishments.join(" "), /Intake rules are complete/);
-  assert.match(portalProgram.upcomingWork.join(" "), /Confirm the launch readiness owner/);
+  assert.match(portalProgram.upcomingWork.join(" "), /Confirm launch readiness owner/);
   assert.equal(portalProgram.executiveRisks[0]?.severity, "High");
   assert.match(portalProgram.leadershipDecisions[0]?.title ?? "", /Confirm launch readiness owner/);
   assert.equal(portalProgram.workstreams[0]?.name, "Engineering");
@@ -208,10 +224,32 @@ test("buildClientPortalProgram creates executive posture from program signals", 
   assert.equal(portalProgram.roadmapCurrentWindowIndex, 2);
 });
 
+test("Client Portal does not expose internal updates without a published client update", () => {
+  const internalOnlyProgram = buildClientPortalProgram({
+    program: {
+      ...program,
+      intake: {
+        ...program.intake,
+        risks: "INTERNAL ONLY: client stakeholder is escalating in a sensitive way.",
+        decisionsNeeded: "INTERNAL ONLY: protect consulting team relationship."
+      }
+    }
+  });
+  const serialized = JSON.stringify(internalOnlyProgram);
+
+  assert.doesNotMatch(serialized, /INTERNAL ONLY/);
+  assert.equal(internalOnlyProgram.topRisk, "No published executive risk has been captured yet.");
+  assert.equal(internalOnlyProgram.nextDecision, "No published executive decision is currently pending.");
+  assert.equal(internalOnlyProgram.statusNote, "Publish a reviewed client update to show current program posture.");
+  assert.equal(internalOnlyProgram.executiveSummary, "Publish a reviewed client update to show the executive summary.");
+  assert.equal(internalOnlyProgram.primaryOutcome, "No client-facing outcome has been published yet.");
+  assert.equal(internalOnlyProgram.northStar, "Publish a reviewed client update to show the north star.");
+});
+
 test("buildClientPortalPortfolio rolls program posture into portfolio metrics", () => {
   const portfolio = buildClientPortalPortfolio({
     generatedAt: "2026-04-30T00:00:00.000Z",
-    programs: [{ latestPlan: plan, latestUpdate: update, program }]
+    programs: [{ latestClientUpdate: clientUpdate, program }]
   });
 
   assert.equal(portfolio.metrics.totalPrograms, 1);
@@ -269,8 +307,8 @@ test("buildClientPortalPortfolio separates programs into client portfolios", () 
   const portfolio = buildClientPortalPortfolio({
     generatedAt: "2026-04-30T00:00:00.000Z",
     programs: [
-      { latestPlan: plan, latestUpdate: update, program },
-      { latestPlan: plan, latestUpdate: secondUpdate, program: secondProgram }
+      { latestClientUpdate: clientUpdate, program },
+      { latestClientUpdate: clientPortalUpdateFromStoredUpdate(secondUpdate), program: secondProgram }
     ]
   });
 
@@ -295,13 +333,12 @@ test("Client Portal completion prefers program schedule over manual percent", ()
 
   const portalProgram = buildClientPortalProgram({
     generatedAt: "2026-04-11T00:00:00.000Z",
-    latestPlan: plan,
-    latestUpdate: scheduledUpdate,
+    latestClientUpdate: clientPortalUpdateFromStoredUpdate(scheduledUpdate),
     program
   });
   const portfolio = buildClientPortalPortfolio({
     generatedAt: "2026-04-11T00:00:00.000Z",
-    programs: [{ latestPlan: plan, latestUpdate: scheduledUpdate, program }]
+    programs: [{ latestClientUpdate: clientPortalUpdateFromStoredUpdate(scheduledUpdate), program }]
   });
 
   assert.equal(portalProgram.metrics.programCompletionPercent, 50);
@@ -322,7 +359,10 @@ test("Client Portal completion falls back to phase estimate when schedule and ma
     }
   };
 
-  const portalProgram = buildClientPortalProgram({ latestPlan: plan, latestUpdate: phaseOnlyUpdate, program });
+  const portalProgram = buildClientPortalProgram({
+    latestClientUpdate: clientPortalUpdateFromStoredUpdate(phaseOnlyUpdate),
+    program
+  });
 
   assert.equal(portalProgram.metrics.completionBasis, "Phase estimate");
   assert.equal(portalProgram.metrics.programCompletionPercent, 66);
@@ -352,7 +392,7 @@ test("Client Portal year roadmap marker follows the saved phase instead of stale
   };
   const portfolio = buildClientPortalPortfolio({
     generatedAt: "2026-04-30T00:00:00.000Z",
-    programs: [{ latestPlan: plan, latestUpdate: buildUpdate, program }]
+    programs: [{ latestClientUpdate: clientPortalUpdateFromStoredUpdate(buildUpdate), program }]
   });
 
   assert.equal(portfolio.roadmap[0]?.timeframeLabel, "Program Year");
@@ -406,8 +446,14 @@ test("Client Portal roadmap adapts to month and week timeline windows", () => {
     }
   };
 
-  const monthProgram = buildClientPortalProgram({ latestPlan: plan, latestUpdate: monthUpdate, program });
-  const weekProgram = buildClientPortalProgram({ latestPlan: plan, latestUpdate: weekUpdate, program });
+  const monthProgram = buildClientPortalProgram({
+    latestClientUpdate: clientPortalUpdateFromStoredUpdate(monthUpdate),
+    program
+  });
+  const weekProgram = buildClientPortalProgram({
+    latestClientUpdate: clientPortalUpdateFromStoredUpdate(weekUpdate),
+    program
+  });
 
   assert.equal(monthProgram.timelineScale, "month");
   assert.equal(monthProgram.timelineScaleLabel, "Month");
@@ -428,11 +474,11 @@ test("Client Portal roadmap adapts to month and week timeline windows", () => {
 
   const monthPortfolio = buildClientPortalPortfolio({
     generatedAt: "2026-04-30T00:00:00.000Z",
-    programs: [{ latestPlan: plan, latestUpdate: monthUpdate, program }]
+    programs: [{ latestClientUpdate: clientPortalUpdateFromStoredUpdate(monthUpdate), program }]
   });
   const weekPortfolio = buildClientPortalPortfolio({
     generatedAt: "2026-04-30T00:00:00.000Z",
-    programs: [{ latestPlan: plan, latestUpdate: weekUpdate, program }]
+    programs: [{ latestClientUpdate: clientPortalUpdateFromStoredUpdate(weekUpdate), program }]
   });
 
   assert.equal(monthPortfolio.roadmap[0]?.windowMode, "month");

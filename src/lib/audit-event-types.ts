@@ -3,6 +3,8 @@ export type AuditEventType =
   | "artifact.export"
   | "artifact.generate"
   | "client.decision.create"
+  | "client.update.delete"
+  | "client.update.publish"
   | "flag.create"
   | "flag.review"
   | "guide.dialogue"
