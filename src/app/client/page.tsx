@@ -1,59 +1,14 @@
 export const dynamic = "force-dynamic";
 
-import { redirect } from "next/navigation";
 import { ClientPortalConsole } from "@/components/client-portal-console";
-import { buildClientPortalPortfolio, type ClientPortalProgramInput } from "@/lib/client-portal";
-import { getCurrentManagedUser } from "@/lib/current-managed-user";
-import { listClientDecisionRequests, listClientPortalUpdates, listPrograms } from "@/lib/program-store";
-import { hasSiteAccessPageSession } from "@/lib/app-page-access";
-
-function assignedProgramIds(assignments: Array<{ programId: string }>) {
-  return new Set(assignments.map((assignment) => assignment.programId));
-}
+import { loadClientPortalData } from "@/lib/client-portal-data";
 
 export default async function ClientPortalPage() {
-  const [currentUser, hasInternalSession] = await Promise.all([
-    getCurrentManagedUser(),
-    hasSiteAccessPageSession()
-  ]);
-
-  if (!currentUser && !hasInternalSession) {
-    redirect("/login?redirect=/client");
-  }
-
-  const allPrograms = await listPrograms();
-  const visibleProgramIds = currentUser?.userType === "client"
-    ? assignedProgramIds(currentUser.assignments)
-    : null;
-  const programs = visibleProgramIds
-    ? allPrograms.filter((program) => visibleProgramIds.has(program.id))
-    : allPrograms;
-
-  const programInputs = await Promise.all<ClientPortalProgramInput>(
-    programs.map(async (program) => {
-      const [clientUpdates, clientDecisions] = await Promise.all([
-        listClientPortalUpdates(program.id),
-        listClientDecisionRequests(program.id)
-      ]);
-      return {
-        assignedRoles: currentUser?.assignments
-          .filter((assignment) => assignment.programId === program.id)
-          .map((assignment) => assignment.role),
-        clientDecisions,
-        latestClientUpdate: clientUpdates[0] ?? null,
-        program
-      };
-    })
-  );
-
-  const portfolio = buildClientPortalPortfolio({ programs: programInputs });
-  const viewerLabel = currentUser
-    ? `${currentUser.name} · ${currentUser.userType === "client" ? "Client access" : "Internal preview"}`
-    : "Portfolio preview";
+  const { canReturnToInternal, portfolio, viewerLabel } = await loadClientPortalData("/client");
 
   return (
     <ClientPortalConsole
-      canReturnToInternal={currentUser?.userType !== "client" && hasInternalSession}
+      canReturnToInternal={canReturnToInternal}
       portfolio={portfolio}
       viewerLabel={viewerLabel}
     />

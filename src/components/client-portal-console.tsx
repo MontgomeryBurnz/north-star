@@ -10,6 +10,7 @@ import {
   CheckCircle2,
   ClipboardCheck,
   Compass,
+  Download,
   Flag,
   LogOut,
   Plus,
@@ -934,9 +935,22 @@ export function ClientPortalConsole({
                   </p>
                 </div>
                 {selectedClient ? (
-                  <span className="rounded-full border border-emerald-200 bg-white px-4 py-2 text-sm font-semibold text-emerald-800">
-                    {selectedClient.metrics.totalPrograms} program{selectedClient.metrics.totalPrograms === 1 ? "" : "s"}
-                  </span>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Button asChild variant="outline" size="sm" className="border-sky-200 bg-white text-sky-800 hover:bg-sky-50">
+                      <Link
+                        href={`/client/export?scope=portfolio&client=${encodeURIComponent(selectedClient.clientName)}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        data-client-export-portfolio
+                      >
+                        <Download className="h-4 w-4" />
+                        Portfolio PDF
+                      </Link>
+                    </Button>
+                    <span className="rounded-full border border-emerald-200 bg-white px-4 py-2 text-sm font-semibold text-emerald-800">
+                      {selectedClient.metrics.totalPrograms} program{selectedClient.metrics.totalPrograms === 1 ? "" : "s"}
+                    </span>
+                  </div>
                 ) : null}
               </div>
               <div className="mt-4 flex flex-wrap gap-2">
@@ -1025,6 +1039,19 @@ export function ClientPortalConsole({
 
             {selectedProgram ? (
               <div ref={detailRef} className="mt-12 scroll-mt-8">
+                <div className="mb-5 flex justify-end">
+                  <Button asChild variant="outline" size="sm" className="border-slate-300 bg-white text-slate-700 hover:bg-slate-50 hover:text-slate-950">
+                    <Link
+                      href={`/client/export?scope=program&programId=${encodeURIComponent(selectedProgram.id)}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      data-client-export-program={selectedProgram.id}
+                    >
+                      <Download className="h-4 w-4" />
+                      Program PDF
+                    </Link>
+                  </Button>
+                </div>
                 <ProgramOnePager program={selectedProgram} />
               </div>
             ) : null}

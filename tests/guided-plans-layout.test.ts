@@ -453,6 +453,9 @@ test("Active Program review is split into state, cockpit, and team signal flows"
   const productionSmokeSource = readFileSync(new URL("../scripts/smoke-production.mjs", import.meta.url), "utf8");
   const browserWebdriverSource = readFileSync(new URL("../scripts/browser-webdriver.mjs", import.meta.url), "utf8");
   const clientPortalPageSource = readFileSync(new URL("../src/app/client/page.tsx", import.meta.url), "utf8");
+  const clientPortalDataSource = readFileSync(new URL("../src/lib/client-portal-data.ts", import.meta.url), "utf8");
+  const clientPortalExportPageSource = readFileSync(new URL("../src/app/client/export/page.tsx", import.meta.url), "utf8");
+  const clientPortalConsoleSource = readFileSync(new URL("../src/components/client-portal-console.tsx", import.meta.url), "utf8");
   const clientUpdatesRouteSource = readFileSync(new URL("../src/app/api/programs/[id]/client-updates/route.ts", import.meta.url), "utf8");
 
   assert.match(reviewSectionSource, /useActiveProgramReviewController/);
@@ -678,7 +681,16 @@ test("Active Program review is split into state, cockpit, and team signal flows"
   assert.match(clientUpdateCardSource, /data-active-client-update-confirmation/);
   assert.match(clientUpdatesRouteSource, /client\.update\.publish/);
   assert.match(clientUpdatesRouteSource, /client\.update\.delete/);
-  assert.match(clientPortalPageSource, /listClientPortalUpdates/);
+  assert.match(clientPortalPageSource, /loadClientPortalData/);
+  assert.match(clientPortalDataSource, /listClientPortalUpdates/);
+  assert.match(clientPortalDataSource, /listClientDecisionRequests/);
+  assert.doesNotMatch(clientPortalDataSource, /listProgramUpdates/);
+  assert.match(clientPortalConsoleSource, /data-client-export-portfolio/);
+  assert.match(clientPortalConsoleSource, /data-client-export-program/);
+  assert.match(clientPortalExportPageSource, /loadClientPortalData/);
+  assert.match(clientPortalExportPageSource, /client\.portal\.export/);
+  assert.match(clientPortalExportPageSource, /Print \/ Save PDF/);
+  assert.match(clientPortalExportPageSource, /Internal working-team updates/);
   assert.doesNotMatch(clientPortalPageSource, /listProgramUpdates/);
   assert.match(productionSmokeSource, /active program save \+ client portal/);
   assert.match(productionSmokeSource, /client portal seeded update/);
@@ -688,6 +700,7 @@ test("chat guidance is disabled and client decisions still write audit events", 
   const assistantRouteSource = readFileSync(new URL("../src/app/api/assistant/route.ts", import.meta.url), "utf8");
   const clientDecisionSource = readFileSync(new URL("../src/app/api/programs/[id]/client-decisions/route.ts", import.meta.url), "utf8");
   const auditTypesSource = readFileSync(new URL("../src/lib/audit-event-types.ts", import.meta.url), "utf8");
+  const auditHistorySource = readFileSync(new URL("../src/components/admin-audit-history-panel.tsx", import.meta.url), "utf8");
   const adminCostSource = readFileSync(new URL("../src/components/admin-operating-cost-center.tsx", import.meta.url), "utf8");
   const packageSource = readFileSync(new URL("../package.json", import.meta.url), "utf8");
   const smokeSource = readFileSync(new URL("../scripts/smoke-chat-disabled.mjs", import.meta.url), "utf8");
@@ -695,6 +708,8 @@ test("chat guidance is disabled and client decisions still write audit events", 
 
   assert.match(auditTypesSource, /guide\.dialogue/);
   assert.match(auditTypesSource, /client\.decision\.create/);
+  assert.match(auditTypesSource, /client\.portal\.export/);
+  assert.match(auditHistorySource, /Client report exported/);
   assert.match(assistantRouteSource, /status: 410/);
   assert.match(assistantRouteSource, /chat guidance has been disabled/);
   assert.match(adminCostSource, /data-admin-cost-guardrail/);
