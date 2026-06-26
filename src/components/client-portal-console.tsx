@@ -206,31 +206,27 @@ function ProgramGridRow({
       data-client-program-card={program.id}
       onClick={onSelect}
       className={cn(
-        "grid w-full gap-5 rounded-lg border p-5 text-left shadow-[0_12px_32px_rgba(15,23,42,0.06)] transition-colors",
+        "grid w-full gap-5 rounded-lg border bg-white p-5 text-left shadow-[0_12px_32px_rgba(15,23,42,0.06)] transition-colors",
         selected
-          ? "border-sky-300 bg-sky-50 ring-2 ring-sky-100"
-          : "border-slate-200 bg-white hover:border-sky-300 hover:bg-sky-50/60"
+          ? "border-sky-300 ring-2 ring-sky-100"
+          : "border-slate-200 hover:border-sky-300 hover:bg-sky-50/40"
       )}
     >
-      <div className="grid gap-4 lg:grid-cols-[minmax(15rem,1.15fr)_10rem_12rem] lg:items-center">
-        <span className="rounded-md border border-sky-200 bg-sky-600 px-8 py-4 text-center text-base font-semibold text-white shadow-sm">
-          <span className="block">{program.name}</span>
-          <span className="mt-1 block text-xs font-medium uppercase tracking-[0.14em] text-sky-100">{program.clientName}</span>
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <span className="min-w-0">
+          <span className="block text-xl font-semibold leading-7 text-slate-950">{program.name}</span>
+          <span className="mt-1 block text-xs font-semibold uppercase tracking-[0.14em] text-sky-700">{program.clientName}</span>
         </span>
-        <span>
-          <span className="block text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">RAG</span>
-          <span className={cn("mt-2 inline-flex rounded-full px-3 py-1 text-sm font-medium", styles.badge)}>{program.postureLabel}</span>
-        </span>
-        <span>
-          <span className="block text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">% Complete</span>
-          <span className="mt-2 block text-2xl font-semibold text-slate-950">
-            {program.metrics.programCompletionPercent}%{" "}
-            {program.completionDelta ? <span className={styles.text}>{program.completionDelta}</span> : null}
-          </span>
-          <span className="mt-1 block text-xs font-medium text-slate-600">
-            Basis: {program.metrics.completionBasis} · {program.metrics.completionScheduleLabel}
+        <span className="flex flex-wrap items-center gap-3">
+          <span className={cn("inline-flex rounded-full px-3 py-1 text-sm font-semibold", styles.badge)}>{program.postureLabel}</span>
+          <span className="text-2xl font-semibold text-slate-950">
+            {program.metrics.programCompletionPercent}%
+            {program.completionDelta ? <span className={cn("ml-2 text-base", styles.text)}>{program.completionDelta}</span> : null}
           </span>
         </span>
+      </div>
+      <div className="rounded-md border border-slate-200 bg-slate-50 px-4 py-3">
+        <p className="text-base leading-7 text-slate-700">{program.statusNote}</p>
       </div>
       <div className="grid gap-4 text-slate-700 md:grid-cols-3">
         <span>
@@ -247,10 +243,9 @@ function ProgramGridRow({
           <span className="text-sm">{program.nextMilestone.dateLabel}</span>
         </span>
       </div>
-      <div>
-        <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Status Note</p>
-        <p className="mt-2 text-base leading-7 text-slate-700">{program.statusNote}</p>
-      </div>
+      <MetricBasisLabel>
+        {`Progress basis: ${program.metrics.completionBasis} · ${program.metrics.completionScheduleLabel}`}
+      </MetricBasisLabel>
     </button>
   );
 }
@@ -261,14 +256,17 @@ function SectionLabel({ children }: { children: ReactNode }) {
 
 function UpcomingMilestonesPanel({ milestones }: { milestones: ClientPortalPortfolioMilestone[] }) {
   return (
-    <section className="rounded-lg border border-slate-200 bg-white p-6 shadow-[0_18px_45px_rgba(15,23,42,0.08)]">
-      <div className="rounded-md bg-sky-600 px-6 py-5 text-center text-lg font-semibold text-white">
-        Upcoming Milestones
+    <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-[0_18px_45px_rgba(15,23,42,0.08)]">
+      <div className="flex items-center justify-between gap-3">
+        <h3 className="text-lg font-semibold text-slate-950">Upcoming Milestones</h3>
+        <span className="rounded-full border border-sky-200 bg-sky-50 px-3 py-1 text-xs font-semibold uppercase tracking-[0.12em] text-sky-800">
+          {milestones.length}
+        </span>
       </div>
-      <div className="mt-5 grid gap-4">
+      <div className="mt-4 grid gap-3">
         {milestones.length ? milestones.map((milestone) => (
-          <div key={milestone.id} className="grid grid-cols-[4rem_minmax(0,1fr)_auto] gap-4 rounded-lg border border-slate-200 bg-slate-50 p-4">
-            <div className="rounded-md border border-slate-200 bg-white px-2 py-3 text-center text-slate-950">
+          <div key={milestone.id} className="grid grid-cols-[3.25rem_minmax(0,1fr)_auto] gap-3 rounded-md border border-slate-200 bg-slate-50 p-3">
+            <div className="rounded-md border border-slate-200 bg-white px-2 py-2 text-center text-slate-950">
               <span className="block text-lg font-semibold">{milestone.dateLabel.split(" ")[0] ?? "Next"}</span>
               <span className="block text-xs font-semibold uppercase tracking-[0.08em] text-slate-500">{milestone.dateLabel.split(" ")[1] ?? ""}</span>
             </div>
@@ -281,7 +279,7 @@ function UpcomingMilestonesPanel({ milestones }: { milestones: ClientPortalPortf
             </span>
           </div>
         )) : (
-          <p className="rounded-lg border border-slate-200 bg-slate-50 p-5 text-base font-medium leading-7 text-slate-600">
+          <p className="rounded-md border border-slate-200 bg-slate-50 p-4 text-base font-medium leading-7 text-slate-600">
             Upcoming milestones will appear after programs capture delivery checkpoints or board due dates.
           </p>
         )}
@@ -292,15 +290,18 @@ function UpcomingMilestonesPanel({ milestones }: { milestones: ClientPortalPortf
 
 function PortfolioRisksPanel({ risks }: { risks: ClientPortalPortfolioRisk[] }) {
   return (
-    <section className="rounded-lg border border-slate-200 bg-white p-6 shadow-[0_18px_45px_rgba(15,23,42,0.08)]">
-      <div className="rounded-md bg-slate-900 px-6 py-5 text-center text-lg font-semibold text-white">
-        Key Risks Across Portfolio
+    <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-[0_18px_45px_rgba(15,23,42,0.08)]">
+      <div className="flex items-center justify-between gap-3">
+        <h3 className="text-lg font-semibold text-slate-950">Key Risks Across Portfolio</h3>
+        <span className="rounded-full border border-slate-300 bg-slate-50 px-3 py-1 text-xs font-semibold uppercase tracking-[0.12em] text-slate-700">
+          {risks.length}
+        </span>
       </div>
-      <div className="mt-5 grid gap-4">
+      <div className="mt-4 grid gap-3">
         {risks.length ? risks.map((risk) => (
-          <div key={risk.id} className={cn("rounded-lg border p-5", riskTone(risk))}>
+          <div key={risk.id} className={cn("rounded-md border p-4", riskTone(risk))}>
             <div className="flex items-start justify-between gap-4">
-              <p className="text-lg font-semibold leading-8 text-slate-950">{risk.description}</p>
+              <p className="text-base font-semibold leading-7 text-slate-950">{risk.description}</p>
               <span className="flex shrink-0 items-center gap-1 text-sm font-semibold">
                 <TrendIcon trend={risk.trend} />
                 {risk.trend}
@@ -312,7 +313,7 @@ function PortfolioRisksPanel({ risks }: { risks: ClientPortalPortfolioRisk[] }) 
             <p className="mt-3 text-sm font-medium text-slate-700">Mitigation: {risk.mitigationOwner}</p>
           </div>
         )) : (
-          <p className="rounded-lg border border-slate-200 bg-slate-50 p-5 text-base font-medium leading-7 text-slate-600">
+          <p className="rounded-md border border-slate-200 bg-slate-50 p-4 text-base font-medium leading-7 text-slate-600">
             No executive risks are currently visible across the selected portfolio.
           </p>
         )}
@@ -331,17 +332,17 @@ function PortfolioRoadmap({ roadmap }: { roadmap: ClientPortalRoadmapRow[] }) {
   const isShortWindow = windowMode === "month" || windowMode === "week";
 
   return (
-    <section className="rounded-lg border border-slate-200 bg-white p-6 shadow-[0_18px_45px_rgba(15,23,42,0.08)]">
+    <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-[0_18px_45px_rgba(15,23,42,0.08)]">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <SectionLabel>{timeframeLabel ? `Portfolio Roadmap - ${timeframeLabel}` : "Portfolio Roadmap"}</SectionLabel>
-          <h2 className="mt-4 text-2xl font-semibold text-slate-950">Program Timeline</h2>
+          <h2 className="mt-3 text-2xl font-semibold text-slate-950">Program Timeline</h2>
         </div>
         <span className="inline-flex rounded-full border border-sky-200 bg-sky-50 px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.14em] text-sky-800">
           {windowMode} view
         </span>
       </div>
-      <div className={cn("mt-6 flex flex-wrap font-semibold", isShortWindow ? "gap-2 text-sm" : "gap-8 text-xl text-slate-400")}>
+      <div className={cn("mt-5 flex flex-wrap font-semibold", isShortWindow ? "gap-2 text-sm" : "gap-6 text-lg text-slate-400")}>
         {activeWindowLabels.map((windowLabel, index) => (
           <span
             key={windowLabel}
@@ -360,7 +361,7 @@ function PortfolioRoadmap({ roadmap }: { roadmap: ClientPortalRoadmapRow[] }) {
           </span>
         ))}
       </div>
-      <div className="mt-8 grid gap-8">
+      <div className="mt-7 grid gap-7">
         {roadmap.map((row) => {
           const markerStyle = postureStyles[row.markerTone];
           const rowIsShortWindow = row.windowMode === "month" || row.windowMode === "week";
@@ -389,7 +390,7 @@ function PortfolioRoadmap({ roadmap }: { roadmap: ClientPortalRoadmapRow[] }) {
                       data-client-roadmap-segment-state={segment.state}
                       className={cn(
                         "px-3 text-center font-semibold",
-                        rowIsShortWindow ? "py-3 text-xs sm:text-sm" : "py-4 text-sm",
+                        rowIsShortWindow ? "py-3 text-xs sm:text-sm" : "py-3.5 text-sm",
                         roadmapSegmentClass(segment.label, segment.state, row.windowMode)
                       )}
                     >
@@ -400,7 +401,7 @@ function PortfolioRoadmap({ roadmap }: { roadmap: ClientPortalRoadmapRow[] }) {
                 <div
                   data-client-roadmap-marker={row.programId}
                   data-client-roadmap-marker-position={row.markerPosition}
-                  className={cn("absolute -top-2 h-16 w-4 rounded-md shadow-[0_12px_24px_rgba(15,23,42,0.18)]", markerStyle.marker)}
+                  className={cn("absolute -top-2 h-14 w-4 rounded-md shadow-[0_12px_24px_rgba(15,23,42,0.18)]", markerStyle.marker)}
                   style={{ left: `calc(${row.markerPosition}% - 0.5rem)` }}
                 />
                 <p className={cn("mt-4 text-sm font-semibold", markerStyle.text)} style={{ marginLeft: `max(0rem, calc(${row.markerPosition}% - 5rem))` }}>
@@ -420,14 +421,16 @@ function ProgramHero({ program }: { program: ClientPortalProgram }) {
   const highlights = program.executiveStatusHighlights.slice(0, 3);
 
   return (
-    <section className="rounded-lg border border-slate-800 bg-slate-950 px-6 py-8 text-white shadow-[0_22px_60px_rgba(15,23,42,0.28)] md:px-9">
-      <div className="grid gap-8">
-        <div className="max-w-5xl">
-          <h2 className="text-3xl font-semibold tracking-normal md:text-4xl">{program.name}</h2>
-          <p className="mt-3 text-sm font-semibold uppercase tracking-[0.16em] text-sky-200">{program.clientName}</p>
-          <p className="mt-5 max-w-4xl text-lg font-medium leading-8 text-sky-100">{program.primaryOutcome}</p>
+    <section className="rounded-lg border border-slate-800 bg-slate-950 px-5 py-7 text-white shadow-[0_22px_60px_rgba(15,23,42,0.28)] md:px-8">
+      <div className="grid gap-6">
+        <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(26rem,0.62fr)] xl:items-start">
+          <div className="min-w-0">
+            <p className="text-sm font-semibold uppercase tracking-[0.16em] text-sky-200">{program.clientName}</p>
+            <h2 className="mt-3 text-3xl font-semibold tracking-normal md:text-4xl">{program.name}</h2>
+          </div>
+          <p className="max-w-3xl text-base font-medium leading-7 text-sky-100 xl:justify-self-end">{program.primaryOutcome}</p>
         </div>
-        <div className="grid gap-4 md:grid-cols-3">
+        <div className="grid gap-3 md:grid-cols-3">
           <HeroMetric label="Overall Status" value={program.statusSignal} dot={styles.heroDot} />
           <HeroMetric
             label="% Complete"
@@ -437,14 +440,14 @@ function ProgramHero({ program }: { program: ClientPortalProgram }) {
           />
           <HeroMetric label="Current Phase" value={program.phase} />
         </div>
-        <div className="flex flex-wrap gap-x-10 gap-y-3 border-t border-white/15 pt-6 text-base text-slate-300">
+        <div className="grid gap-3 border-t border-white/15 pt-5 text-base text-slate-300 md:grid-cols-3">
           <span data-client-executive-sponsor>Executive Sponsor: <strong className="text-white">{program.executiveSponsor}</strong></span>
           <span data-client-program-lead>Program Lead: <strong className="text-white">{program.programLead}</strong></span>
           <span data-client-pmo>PMO: <strong className="text-white">{program.pmo}</strong></span>
         </div>
       </div>
-      <div className="mt-8 border-t border-white/15 pt-6">
-        <div className="grid gap-5 text-base font-medium text-slate-200 md:grid-cols-2">
+      <div className="mt-6 border-t border-white/15 pt-5">
+        <div className="grid gap-4 text-base font-medium text-slate-200 md:grid-cols-2">
           {highlights.map((highlight, index) => (
             <StatusBullet
               key={`${highlight}-${index}`}
@@ -461,12 +464,12 @@ function ProgramHero({ program }: { program: ClientPortalProgram }) {
 
 function HeroMetric({ dot, helper, label, value, delta }: { delta?: string; dot?: string; helper?: string; label: string; value: string }) {
   return (
-    <div className="min-w-0 rounded-lg border border-white/10 bg-white/[0.04] p-5">
-      <p className="text-sm font-semibold uppercase tracking-[0.12em] text-slate-400">{label}</p>
-      <p className="mt-2 flex min-w-0 flex-wrap items-center gap-3 break-words text-2xl font-semibold leading-8 text-white">
-        {dot ? <span className={cn("h-4 w-4 rounded-full", dot)} /> : null}
+    <div className="min-w-0 rounded-md border border-white/10 bg-white/[0.04] p-4">
+      <p className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-400">{label}</p>
+      <p className="mt-2 flex min-w-0 flex-wrap items-center gap-3 break-words text-xl font-semibold leading-7 text-white">
+        {dot ? <span className={cn("h-3.5 w-3.5 rounded-full", dot)} /> : null}
         <span className="min-w-0">{value}</span>
-        {delta ? <span className="text-lg text-emerald-300">{delta}</span> : null}
+        {delta ? <span className="text-base text-emerald-300">{delta}</span> : null}
       </p>
       {helper ? <MetricBasisLabel className="mt-1 text-slate-300">{helper}</MetricBasisLabel> : null}
     </div>
@@ -836,6 +839,8 @@ export function ClientPortalConsole({
   const visibleMilestones = portfolio.upcomingMilestones.filter((milestone) => visibleIds.has(milestone.programId));
   const visibleRisks = portfolio.keyRisks.filter((risk) => visibleIds.has(risk.programId));
   const visibleRoadmap = portfolio.roadmap.filter((row) => visibleIds.has(row.programId));
+  const showClientSelector = portfolio.clients.length > 1;
+  const showProgramScope = clientPrograms.length > 1;
 
   useEffect(() => {
     if (!portfolio.clients.length) return;
@@ -941,76 +946,80 @@ export function ClientPortalConsole({
 
         {portfolio.programs.length ? (
           <>
-            <section className="mt-8 rounded-lg border border-sky-200 bg-sky-50 p-5 shadow-[0_18px_45px_rgba(15,23,42,0.08)]" data-client-portfolio-selector>
-              <div className="flex flex-wrap items-start justify-between gap-4">
-                <div>
-                  <p className="text-xs font-semibold uppercase tracking-[0.16em] text-sky-800">Client portfolio</p>
-                  <p className="mt-1 text-sm font-medium leading-6 text-slate-700">
-                    Select the client first, then inspect the programs inside that portfolio.
-                  </p>
+            {showClientSelector ? (
+              <section className="mt-8 rounded-lg border border-sky-200 bg-sky-50 p-5 shadow-[0_18px_45px_rgba(15,23,42,0.08)]" data-client-portfolio-selector>
+                <div className="flex flex-wrap items-start justify-between gap-4">
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-[0.16em] text-sky-800">Client portfolio</p>
+                    <p className="mt-1 text-sm font-medium leading-6 text-slate-700">
+                      Select the client first, then inspect the programs inside that portfolio.
+                    </p>
+                  </div>
+                  {selectedClient ? (
+                    <span className="rounded-full border border-emerald-200 bg-white px-4 py-2 text-sm font-semibold text-emerald-800">
+                      {selectedClient.metrics.totalPrograms} program{selectedClient.metrics.totalPrograms === 1 ? "" : "s"}
+                    </span>
+                  ) : null}
                 </div>
-                {selectedClient ? (
-                  <span className="rounded-full border border-emerald-200 bg-white px-4 py-2 text-sm font-semibold text-emerald-800">
-                    {selectedClient.metrics.totalPrograms} program{selectedClient.metrics.totalPrograms === 1 ? "" : "s"}
-                  </span>
-                ) : null}
-              </div>
-              <div className="mt-4 flex flex-wrap gap-2">
-                {portfolio.clients.map((client) => (
-                  <button
-                    key={client.clientName}
-                    type="button"
-                    aria-pressed={client.clientName === selectedClientName}
-                    data-client-portfolio-option={client.clientName}
-                    onClick={() => selectClient(client.clientName)}
-                    className={cn(
-                      "rounded-full border px-4 py-2 text-sm font-medium transition-colors",
-                      client.clientName === selectedClientName
-                        ? "border-sky-600 bg-sky-600 text-white"
-                        : "border-slate-300 bg-white text-slate-700 hover:border-sky-400 hover:text-sky-800"
-                    )}
-                  >
-                    {client.clientName}
-                  </button>
-                ))}
-              </div>
-            </section>
+                <div className="mt-4 flex flex-wrap gap-2">
+                  {portfolio.clients.map((client) => (
+                    <button
+                      key={client.clientName}
+                      type="button"
+                      aria-pressed={client.clientName === selectedClientName}
+                      data-client-portfolio-option={client.clientName}
+                      onClick={() => selectClient(client.clientName)}
+                      className={cn(
+                        "rounded-full border px-4 py-2 text-sm font-medium transition-colors",
+                        client.clientName === selectedClientName
+                          ? "border-sky-600 bg-sky-600 text-white"
+                          : "border-slate-300 bg-white text-slate-700 hover:border-sky-400 hover:text-sky-800"
+                      )}
+                    >
+                      {client.clientName}
+                    </button>
+                  ))}
+                </div>
+              </section>
+            ) : null}
 
-            <section className="mt-8 rounded-lg border border-slate-200 bg-white p-5 shadow-[0_18px_45px_rgba(15,23,42,0.08)]">
-              <div className="flex flex-wrap items-center justify-between gap-4">
-                <div>
-                  <p className="text-xs font-semibold uppercase tracking-[0.16em] text-sky-700">Portfolio scope</p>
-                  <p className="mt-1 text-sm font-medium text-slate-600">
-                    Toggle which {selectedClient?.clientName ?? "client"} programs appear in the executive view.
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setVisibleProgramIds(new Set(selectedClientProgramIds))}
-                  className="rounded-full border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-sky-800 transition-colors hover:border-sky-400 hover:bg-sky-50"
-                >
-                  All {selectedClient?.clientName ?? "client"} programs
-                </button>
-              </div>
-              <div className="mt-4 flex flex-wrap gap-2">
-                {clientPrograms.map((program) => (
+            {showProgramScope ? (
+              <section className="mt-8 rounded-lg border border-slate-200 bg-white p-5 shadow-[0_18px_45px_rgba(15,23,42,0.08)]">
+                <div className="flex flex-wrap items-center justify-between gap-4">
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-[0.16em] text-sky-700">Portfolio scope</p>
+                    <p className="mt-1 text-sm font-medium text-slate-600">
+                      Toggle which {selectedClient?.clientName ?? "client"} programs appear in the executive view.
+                    </p>
+                  </div>
                   <button
-                    key={program.id}
                     type="button"
-                    aria-pressed={visibleProgramIds.has(program.id)}
-                    onClick={() => toggleProgram(program.id)}
-                    className={cn(
-                      "rounded-full border px-4 py-2 text-sm font-medium transition-colors",
-                      visibleProgramIds.has(program.id)
-                        ? "border-emerald-600 bg-emerald-600 text-white"
-                        : "border-slate-300 bg-white text-slate-700 hover:border-sky-400 hover:text-sky-800"
-                    )}
+                    onClick={() => setVisibleProgramIds(new Set(selectedClientProgramIds))}
+                    className="rounded-full border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-sky-800 transition-colors hover:border-sky-400 hover:bg-sky-50"
                   >
-                    {program.name}
+                    All {selectedClient?.clientName ?? "client"} programs
                   </button>
-                ))}
-              </div>
-            </section>
+                </div>
+                <div className="mt-4 flex flex-wrap gap-2">
+                  {clientPrograms.map((program) => (
+                    <button
+                      key={program.id}
+                      type="button"
+                      aria-pressed={visibleProgramIds.has(program.id)}
+                      onClick={() => toggleProgram(program.id)}
+                      className={cn(
+                        "rounded-full border px-4 py-2 text-sm font-medium transition-colors",
+                        visibleProgramIds.has(program.id)
+                          ? "border-emerald-600 bg-emerald-600 text-white"
+                          : "border-slate-300 bg-white text-slate-700 hover:border-sky-400 hover:text-sky-800"
+                      )}
+                    >
+                      {program.name}
+                    </button>
+                  ))}
+                </div>
+              </section>
+            ) : null}
 
             <section className="mt-8 grid gap-8 xl:grid-cols-[minmax(0,1fr)_minmax(24rem,0.52fr)]">
               <div className="min-w-0">

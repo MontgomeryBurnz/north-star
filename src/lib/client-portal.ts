@@ -559,9 +559,23 @@ function roadmapPhaseIndex(currentPhase: string) {
   if (hasKeyword(phaseText, ["value", "benefit", "realization", "operate", "steady state"])) return 4;
   if (hasKeyword(phaseText, ["stabil", "launch", "readiness", "pilot", "recovery"])) return 3;
   if (hasKeyword(phaseText, ["execute", "execution", "build", "develop", "delivery", "implement"])) return 2;
-  if (hasKeyword(phaseText, ["plan", "design", "requirement", "scope"])) return 1;
+  if (hasKeyword(phaseText, ["plan", "design", "requirement", "roadmap", "scope"])) return 1;
   if (hasKeyword(phaseText, ["discover", "discovery", "intake", "capture", "newly"])) return 0;
   return 0;
+}
+
+function clientPhaseLabel(currentPhase: string) {
+  const phase = clean(currentPhase);
+  if (!phase || phase === "Phase not set") return "Phase not set";
+
+  const phaseText = phase.toLowerCase();
+  if (hasKeyword(phaseText, ["value", "benefit", "realization", "operate", "steady state"])) return "Value";
+  if (hasKeyword(phaseText, ["stabil", "launch", "readiness", "pilot", "recovery"])) return "Stabilize";
+  if (hasKeyword(phaseText, ["execute", "execution", "build", "develop", "delivery", "implement"])) return "Execute";
+  if (hasKeyword(phaseText, ["plan", "design", "requirement", "roadmap", "scope"])) return "Plan";
+  if (hasKeyword(phaseText, ["discover", "discovery", "intake", "capture", "newly"])) return "Intake";
+  if (phase.length <= 32 && !/[.!?]/.test(phase)) return phase;
+  return timelinePhases[Math.max(0, roadmapPhaseIndex(phase))] ?? "Discovery";
 }
 
 function getScheduleCompletionPercent(input: {
@@ -1185,7 +1199,7 @@ export function buildClientPortalProgram(input: ClientPortalProgramInput): Clien
     ? visibleSignals(firstNonEmpty(review?.supportNeeded, review?.progressSinceLastReview), "", 4).filter(Boolean)
     : [];
   const recommendedPath = clientUpdate ? visibleSignals(review?.supportNeeded, "", 4).filter(Boolean) : [];
-  const currentPhase = clean(firstNonEmpty(review?.currentPhase, intake.currentStatus, "Phase not set"));
+  const currentPhase = clientPhaseLabel(firstNonEmpty(review?.currentPhase, intake.currentStatus, "Phase not set"));
   const { atRiskRoles, blockedRoles } = deriveRoleStatusCounts(roleUpdates);
   const posture = derivePosture({
     deliveryHealth: firstNonEmpty(review?.deliveryHealth, intake.currentStatus),

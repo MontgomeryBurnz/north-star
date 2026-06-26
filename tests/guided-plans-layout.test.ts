@@ -45,9 +45,11 @@ test("Client Portal frames executive overview and domain progress", () => {
   assert.match(source, /timelineWindowLabel/);
   assert.match(source, /roadmapSegmentClass/);
   assert.match(source, /windowMode/);
+  assert.match(source, /showClientSelector = portfolio\.clients\.length > 1/);
+  assert.match(source, /showProgramScope = clientPrograms\.length > 1/);
+  assert.match(source, /Progress basis: \$\{program\.metrics\.completionBasis\}/);
   assert.match(source, /MetricBasisLabel/);
-  assert.match(source, /Basis: \{program\.metrics\.completionBasis\}/);
-  assert.match(source, /grid gap-4 md:grid-cols-3/);
+  assert.match(source, /grid gap-3 md:grid-cols-3/);
   assert.doesNotMatch(source, /xl:grid-cols-\[minmax\(0,1fr\)_minmax\(22rem,0\.5fr\)\]/);
   assert.match(source, /Task basis:/);
   assert.match(source, /Schedule:/);
@@ -82,6 +84,8 @@ test("Client Portal frames executive overview and domain progress", () => {
   assert.match(modelSource, /buildRoadmapWindow/);
   assert.match(modelSource, /deriveMonthWindowLabels/);
   assert.match(modelSource, /formatShortDateLabel/);
+  assert.match(modelSource, /function clientPhaseLabel/);
+  assert.match(modelSource, /"roadmap", "scope"/);
   assert.match(modelSource, /timelineScale: roadmapWindow\.scale/);
   assert.match(modelSource, /windowMode: program\.timelineScale/);
   assert.match(modelSource, /buildReviewMilestones/);
