@@ -38,7 +38,7 @@ The bundle currently verifies:
 - Studio program, role, brief load, generation, and export behavior
 - Admin model settings save and automatic revert
 - Admin audit export filters
-- logged-in Client Portal seeded update: writes executive fields, opens `/client`, verifies portfolio/detail rendering, and prunes the tagged update
+- logged-in Client Portal seeded update: writes executive fields, opens `/client`, verifies portfolio/detail rendering, captures desktop/mobile screenshots, and prunes the tagged update
 - Active Program save, role focus, Delivery Board, mobile screenshot, and cleanup behavior
 
 ## Required Smoke Environment
@@ -57,6 +57,10 @@ For browser smokes on macOS, Safari must have `Develop > Allow Remote Automation
 The Active Program smoke defaults production cleanup to `prune` when run through `smoke:production`. If a smoke fails mid-run, review the selected program for records tagged `North Star active-program save smoke` and remove them before the next demo or alpha test cycle.
 
 The Client Portal smoke also defaults cleanup to `prune` and uses the same `North Star active-program save smoke` tag prefix so seeded executive-dashboard records can be safely removed through the smoke cleanup API.
+
+Client Portal screenshots are written to `/tmp/north-star-smoke-screenshots` by default. Override with `NORTHSTAR_CLIENT_PORTAL_SCREENSHOT_DIR`, or set `NORTHSTAR_CLIENT_PORTAL_SCREENSHOT_SMOKE=false` only when browser screenshot capture is intentionally unavailable.
+
+Client-facing updates are governed at publish time. The API rejects internal-only, relationship-sensitive, tactical working-note, and commercial/private delivery language before it can appear in the Client Portal or PDF export.
 
 ## Release Notes
 

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { requireProgramRouteAccess } from "@/lib/api-route-access";
 import { auditActorFromManagedUser } from "@/lib/audit-event-service";
 import type { TeamRoleUpdateStatus } from "@/lib/active-program-types";
+import { validateClientPortalUpdateInput } from "@/lib/client-safe-copy";
 import type { ClientPortalUpdateInput } from "@/lib/client-portal-update-types";
 import {
   createAuditEvent,
@@ -100,6 +101,17 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
   if (!hasClientVisibleContent(input)) {
     return NextResponse.json({ error: "Add client-facing update content before publishing." }, { status: 400 });
+  }
+
+  const copySafety = validateClientPortalUpdateInput(input);
+  if (!copySafety.ok) {
+    return NextResponse.json(
+      {
+        error: "Client-facing update contains internal or tactical language. Rewrite it before publishing.",
+        issues: copySafety.issues
+      },
+      { status: 400 }
+    );
   }
 
   const update = await createClientPortalUpdate(id, input);

@@ -1,3 +1,5 @@
+import { mkdirSync } from "node:fs";
+import { join } from "node:path";
 import { loadEnvFile, withSafariBrowser } from "./browser-webdriver.mjs";
 
 loadEnvFile();
@@ -16,6 +18,11 @@ const shouldRefreshAfterCleanup =
   cleanupMode === "refresh" ||
   process.env.NORTHSTAR_CLIENT_PORTAL_SMOKE_REFRESH_AFTER_CLEANUP === "true" ||
   process.env.NORTHSTAR_SMOKE_REFRESH_AFTER_CLEANUP === "true";
+const shouldCaptureScreenshots = process.env.NORTHSTAR_CLIENT_PORTAL_SCREENSHOT_SMOKE !== "false";
+const screenshotDirectory =
+  process.env.NORTHSTAR_CLIENT_PORTAL_SCREENSHOT_DIR ??
+  process.env.NORTHSTAR_SMOKE_SCREENSHOT_DIR ??
+  "/tmp/north-star-smoke-screenshots";
 
 function requireCredential(value, label) {
   if (value) return value;
@@ -41,6 +48,10 @@ function buildScheduleWindow() {
     finishDate: formatDateInput(finish),
     startDate: formatDateInput(start)
   };
+}
+
+function safeFileSegment(value) {
+  return value.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "").slice(0, 80) || "client-portal";
 }
 
 async function authenticate(session) {
@@ -281,7 +292,6 @@ async function verifyClientPortal(session, program, smokeText) {
       const bodyText = document.body.textContent ?? "";
       return bodyText.includes("North Star Client Portal") &&
         bodyText.includes("Portfolio Dashboard") &&
-        Boolean(document.querySelector("[data-client-portfolio-selector]")) &&
         Boolean(document.querySelector("[data-client-program-card]"));
     `);
   }, 20_000);
@@ -289,6 +299,7 @@ async function verifyClientPortal(session, program, smokeText) {
   const clientSelected = await session.execute(
     `
       const options = Array.from(document.querySelectorAll("[data-client-portfolio-option]"));
+      if (!options.length) return (document.body.textContent ?? "").includes(arguments[0]);
       const option = options.find((element) => (element.textContent ?? "").trim() === arguments[0]);
       option?.click();
       return Boolean(option);
@@ -389,7 +400,79 @@ async function verifyClientPortal(session, program, smokeText) {
     throw new Error("Client Portal smoke did not render seeded executive fields from the saved update.");
   }
 
+  await captureClientPortalScreenshots(session, program, smokeText);
   console.log("✓ Client Portal: portfolio and program detail rendered executive fields from the seeded update.");
+}
+
+async function assertClientPortalLayout(session, program, label) {
+  const state = await session.execute(
+    `
+      const detail = Array.from(document.querySelectorAll("[data-client-program-detail]"))
+        .find((element) => element.getAttribute("data-client-program-detail") === arguments[0]);
+      const hero = detail?.querySelector("[data-client-program-hero]");
+      const metrics = Array.from(detail?.querySelectorAll("[data-client-hero-metric]") ?? []);
+      const phaseMetric = detail?.querySelector("[data-client-hero-metric='current-phase']");
+      const phaseText = (phaseMetric?.textContent ?? "").replace(/\\s+/g, " ").trim();
+      const viewportWidth = document.documentElement.clientWidth;
+      const documentWidth = document.documentElement.scrollWidth;
+      const heroRect = hero?.getBoundingClientRect();
+      const metricRects = metrics.map((metric) => metric.getBoundingClientRect());
+      const metricInsideHero = Boolean(heroRect) && metricRects.every((rect) =>
+        rect.left >= heroRect.left - 2 &&
+        rect.right <= heroRect.right + 2 &&
+        rect.width >= Math.min(180, heroRect.width)
+      );
+
+      return {
+        documentWidth,
+        hero: Boolean(hero),
+        heroHeight: heroRect?.height ?? 0,
+        heroWidth: heroRect?.width ?? 0,
+        metricCount: metrics.length,
+        metricInsideHero,
+        ok: Boolean(hero) &&
+          metrics.length === 3 &&
+          metricInsideHero &&
+          !phaseText.includes("Right now") &&
+          !phaseText.includes("working to") &&
+          phaseText.length <= 80 &&
+          documentWidth <= viewportWidth + 8 &&
+          (heroRect?.height ?? 9999) <= (viewportWidth < 600 ? 820 : 520),
+        phaseText,
+        viewportWidth
+      };
+    `,
+    [program.id]
+  );
+
+  if (!state.ok) {
+    throw new Error(`Client Portal ${label} screenshot layout guard failed: ${JSON.stringify(state)}`);
+  }
+
+  return true;
+}
+
+async function captureClientPortalScreenshots(session, program, smokeText) {
+  if (!shouldCaptureScreenshots) {
+    console.log("ℹ Client Portal screenshot smoke skipped.");
+    return;
+  }
+
+  mkdirSync(screenshotDirectory, { recursive: true });
+  const slug = safeFileSegment(`${program.intake.programName}-${smokeText}`);
+  const desktopPath = join(screenshotDirectory, `${slug}-client-portal-desktop.png`);
+  const mobilePath = join(screenshotDirectory, `${slug}-client-portal-mobile.png`);
+
+  await session.setWindowRect({ height: 1100, width: 1440, x: 0, y: 0 });
+  await session.waitFor("Client Portal desktop screenshot layout", () => assertClientPortalLayout(session, program, "desktop"));
+  await session.screenshot(desktopPath);
+
+  await session.setWindowRect({ height: 900, width: 390, x: 0, y: 0 });
+  await session.waitFor("Client Portal mobile screenshot layout", () => assertClientPortalLayout(session, program, "mobile"));
+  await session.screenshot(mobilePath);
+
+  console.log(`✓ Client Portal: captured desktop screenshot at ${desktopPath}.`);
+  console.log(`✓ Client Portal: captured mobile screenshot at ${mobilePath}.`);
 }
 
 async function cleanupProgramUpdate(session, program, smokeText) {

@@ -57,6 +57,8 @@ SMOKE_BASE_URL=https://www.north-star.live npm run smoke:production
 
 See [NorthStar release checklist](./docs/northstar-release-checklist.md).
 
+Client Portal release smoke captures desktop and mobile screenshots by default and stores them under `/tmp/north-star-smoke-screenshots`. The client-facing update API also enforces client-safe copy rules so internal-only, tactical, relationship-sensitive, and commercial/private delivery language cannot be published into the executive portal.
+
 ## Alpha Architecture
 
 The app now supports two persistence modes:

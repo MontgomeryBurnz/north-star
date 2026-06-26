@@ -421,7 +421,7 @@ function ProgramHero({ program }: { program: ClientPortalProgram }) {
   const highlights = program.executiveStatusHighlights.slice(0, 3);
 
   return (
-    <section className="rounded-lg border border-slate-800 bg-slate-950 px-5 py-7 text-white shadow-[0_22px_60px_rgba(15,23,42,0.28)] md:px-8">
+    <section data-client-program-hero className="rounded-lg border border-slate-800 bg-slate-950 px-5 py-7 text-white shadow-[0_22px_60px_rgba(15,23,42,0.28)] md:px-8">
       <div className="grid gap-6">
         <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(26rem,0.62fr)] xl:items-start">
           <div className="min-w-0">
@@ -431,14 +431,15 @@ function ProgramHero({ program }: { program: ClientPortalProgram }) {
           <p className="max-w-3xl text-base font-medium leading-7 text-sky-100 xl:justify-self-end">{program.primaryOutcome}</p>
         </div>
         <div className="grid gap-3 md:grid-cols-3">
-          <HeroMetric label="Overall Status" value={program.statusSignal} dot={styles.heroDot} />
+          <HeroMetric label="Overall Status" metricId="overall-status" value={program.statusSignal} dot={styles.heroDot} />
           <HeroMetric
             label="% Complete"
+            metricId="percent-complete"
             value={`${program.metrics.programCompletionPercent}%`}
             delta={program.completionDelta}
             helper={`Basis: ${program.metrics.completionBasis} · ${program.metrics.completionScheduleLabel}`}
           />
-          <HeroMetric label="Current Phase" value={program.phase} />
+          <HeroMetric label="Current Phase" metricId="current-phase" value={program.phase} />
         </div>
         <div className="grid gap-3 border-t border-white/15 pt-5 text-base text-slate-300 md:grid-cols-3">
           <span data-client-executive-sponsor>Executive Sponsor: <strong className="text-white">{program.executiveSponsor}</strong></span>
@@ -462,9 +463,23 @@ function ProgramHero({ program }: { program: ClientPortalProgram }) {
   );
 }
 
-function HeroMetric({ dot, helper, label, value, delta }: { delta?: string; dot?: string; helper?: string; label: string; value: string }) {
+function HeroMetric({
+  dot,
+  helper,
+  label,
+  metricId,
+  value,
+  delta
+}: {
+  delta?: string;
+  dot?: string;
+  helper?: string;
+  label: string;
+  metricId: string;
+  value: string;
+}) {
   return (
-    <div className="min-w-0 rounded-md border border-white/10 bg-white/[0.04] p-4">
+    <div data-client-hero-metric={metricId} className="min-w-0 rounded-md border border-white/10 bg-white/[0.04] p-4">
       <p className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-400">{label}</p>
       <p className="mt-2 flex min-w-0 flex-wrap items-center gap-3 break-words text-xl font-semibold leading-7 text-white">
         {dot ? <span className={cn("h-3.5 w-3.5 rounded-full", dot)} /> : null}

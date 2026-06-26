@@ -27,6 +27,7 @@ test("Team Action Plan focused roles can still collapse", () => {
 test("Client Portal frames executive overview and domain progress", () => {
   const source = readFileSync(new URL("../src/components/client-portal-console.tsx", import.meta.url), "utf8");
   const modelSource = readFileSync(new URL("../src/lib/client-portal.ts", import.meta.url), "utf8");
+  const safetySource = readFileSync(new URL("../src/lib/client-safe-copy.ts", import.meta.url), "utf8");
 
   assert.match(source, /Portfolio Dashboard/);
   assert.match(source, /bg-slate-100 text-slate-950/);
@@ -48,6 +49,8 @@ test("Client Portal frames executive overview and domain progress", () => {
   assert.match(source, /showClientSelector = portfolio\.clients\.length > 1/);
   assert.match(source, /showProgramScope = clientPrograms\.length > 1/);
   assert.match(source, /Progress basis: \$\{program\.metrics\.completionBasis\}/);
+  assert.match(source, /data-client-program-hero/);
+  assert.match(source, /data-client-hero-metric/);
   assert.match(source, /MetricBasisLabel/);
   assert.match(source, /grid gap-3 md:grid-cols-3/);
   assert.doesNotMatch(source, /xl:grid-cols-\[minmax\(0,1fr\)_minmax\(22rem,0\.5fr\)\]/);
@@ -85,6 +88,7 @@ test("Client Portal frames executive overview and domain progress", () => {
   assert.match(modelSource, /deriveMonthWindowLabels/);
   assert.match(modelSource, /formatShortDateLabel/);
   assert.match(modelSource, /function clientPhaseLabel/);
+  assert.match(modelSource, /sanitizeClientPortalUpdateForDisplay/);
   assert.match(modelSource, /"roadmap", "scope"/);
   assert.match(modelSource, /timelineScale: roadmapWindow\.scale/);
   assert.match(modelSource, /windowMode: program\.timelineScale/);
@@ -95,6 +99,10 @@ test("Client Portal frames executive overview and domain progress", () => {
   assert.match(modelSource, /conciseSignal/);
   assert.match(modelSource, /Risk:/);
   assert.match(modelSource, /Decision:/);
+  assert.match(safetySource, /validateClientPortalUpdateInput/);
+  assert.match(safetySource, /sanitizeClientPortalUpdateForDisplay/);
+  assert.match(safetySource, /internal-markers/);
+  assert.match(safetySource, /relationship-sensitive/);
 });
 
 test("Active Program captures configurable timeline windows and milestones for Client Portal", () => {
@@ -463,6 +471,7 @@ test("Active Program review is split into state, cockpit, and team signal flows"
   const clientPortalExportPageSource = readFileSync(new URL("../src/app/client/export/page.tsx", import.meta.url), "utf8");
   const clientPortalConsoleSource = readFileSync(new URL("../src/components/client-portal-console.tsx", import.meta.url), "utf8");
   const clientUpdatesRouteSource = readFileSync(new URL("../src/app/api/programs/[id]/client-updates/route.ts", import.meta.url), "utf8");
+  const clientSafetySource = readFileSync(new URL("../src/lib/client-safe-copy.ts", import.meta.url), "utf8");
 
   assert.match(reviewSectionSource, /useActiveProgramReviewController/);
   assert.match(reviewSectionSource, /ActiveProgramStateFlow/);
@@ -679,14 +688,24 @@ test("Active Program review is split into state, cockpit, and team signal flows"
   assert.match(clientPortalSmokeSource, /Portfolio Dashboard/);
   assert.match(clientPortalSmokeSource, /data-client-program-card/);
   assert.match(clientPortalSmokeSource, /data-client-program-detail/);
+  assert.match(clientPortalSmokeSource, /NORTHSTAR_CLIENT_PORTAL_SCREENSHOT_SMOKE/);
+  assert.match(clientPortalSmokeSource, /captureClientPortalScreenshots/);
+  assert.match(clientPortalSmokeSource, /Client Portal desktop screenshot layout/);
+  assert.match(clientPortalSmokeSource, /data-client-hero-metric='current-phase'/);
+  assert.match(clientPortalSmokeSource, /client-portal-desktop\.png/);
+  assert.match(clientPortalSmokeSource, /client-portal-mobile\.png/);
   assert.match(clientPortalSmokeSource, /method: "DELETE"/);
   assert.match(clientPortalSmokeSource, /NORTHSTAR_CLIENT_PORTAL_SMOKE_CLEANUP/);
   assert.match(clientUpdateCardSource, /data-active-client-update-builder/);
   assert.match(clientUpdateCardSource, /Governed client publication layer/);
   assert.match(clientUpdateCardSource, /Internal role updates, blockers, and working notes remain private/);
+  assert.match(clientUpdateCardSource, /Client-safe copy rules block/);
   assert.match(clientUpdateCardSource, /data-active-client-update-confirmation/);
+  assert.match(clientUpdatesRouteSource, /validateClientPortalUpdateInput/);
+  assert.match(clientUpdatesRouteSource, /Client-facing update contains internal or tactical language/);
   assert.match(clientUpdatesRouteSource, /client\.update\.publish/);
   assert.match(clientUpdatesRouteSource, /client\.update\.delete/);
+  assert.match(clientSafetySource, /commercial-private/);
   assert.match(clientPortalPageSource, /loadClientPortalData/);
   assert.match(clientPortalDataSource, /listClientPortalUpdates/);
   assert.match(clientPortalDataSource, /listClientDecisionRequests/);

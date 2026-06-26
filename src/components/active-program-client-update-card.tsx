@@ -159,13 +159,21 @@ export function ActiveProgramClientUpdateCard({
         } satisfies ClientPortalUpdateInput)
       });
 
-      if (!response.ok) throw new Error("client-update-publish");
+      if (!response.ok) {
+        const payload = (await response.json().catch(() => ({}))) as {
+          error?: string;
+          issues?: Array<{ field?: string; message?: string }>;
+        };
+        const firstIssue = payload.issues?.[0];
+        const issueDetail = firstIssue?.field && firstIssue?.message ? ` ${firstIssue.field}: ${firstIssue.message}` : "";
+        throw new Error(`${payload.error ?? "Client update could not be published."}${issueDetail}`);
+      }
 
       setPublishState("published");
       setConfirmation("Client update published. Client Portal now reflects this reviewed update.");
-    } catch {
+    } catch (error) {
       setPublishState("error");
-      setConfirmation("Client update could not be published. Review the content and try again.");
+      setConfirmation(error instanceof Error ? error.message : "Client update could not be published. Review the content and try again.");
     }
   }
 
@@ -189,6 +197,9 @@ export function ActiveProgramClientUpdateCard({
           <p className="mt-2 max-w-4xl text-xs leading-5 text-zinc-400">
             Internal role updates, blockers, and working notes remain private. Publish only reviewed, client-ready language here
             when the executive portal should change.
+          </p>
+          <p className="mt-2 max-w-4xl text-xs leading-5 text-emerald-100/80">
+            Client-safe copy rules block internal-only, relationship-sensitive, and commercial working language from being published.
           </p>
         </div>
 

@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { validateClientPortalUpdateInput } from "../src/lib/client-safe-copy.ts";
 import { buildClientPortalPortfolio, buildClientPortalProgram } from "../src/lib/client-portal.ts";
 import type { StoredProgramUpdate } from "../src/lib/active-program-types.ts";
 import type { ClientPortalUpdateRecord } from "../src/lib/client-portal-update-types.ts";
@@ -244,6 +245,58 @@ test("Client Portal does not expose internal updates without a published client 
   assert.equal(internalOnlyProgram.executiveSummary, "Publish a reviewed client update to show the executive summary.");
   assert.equal(internalOnlyProgram.primaryOutcome, "No client-facing outcome has been published yet.");
   assert.equal(internalOnlyProgram.northStar, "Publish a reviewed client update to show the north star.");
+});
+
+test("Client Portal blocks and scrubs unsafe client-facing copy", () => {
+  const unsafeClientUpdate: ClientPortalUpdateRecord = {
+    ...clientUpdate,
+    activeRisks: "INTERNAL ONLY: client behavior is unreasonable and frustrating.",
+    clientStatusNote: "Client-ready checkpoint remains on track.",
+    decisionsPending: "Confirm milestone date.",
+    deliveryBoardItems: [
+      {
+        attachments: [],
+        description: "Tactical working note about behind the scenes escalation.",
+        dueDate: "2026-05-08",
+        id: "unsafe-board-item",
+        latestNote: "Keep this internal only.",
+        owner: "Delivery Lead",
+        role: "Engineering",
+        sharedRoles: [],
+        startDate: "2026-04-29",
+        status: "needs-review",
+        title: "Client-safe dependency review"
+      }
+    ],
+    domainUpdates: [
+      {
+        attachments: 0,
+        decisionsOrOutcomes: "Confirm milestone date.",
+        owner: "Tech Lead",
+        pursuit: "Resolve readiness path.",
+        risksOrBlockers: "Do not share: difficult sponsor alignment.",
+        role: "Engineering",
+        status: "at-risk"
+      }
+    ],
+    executiveOverview: "Our team internally is triaging client frustration.",
+    progressSinceLastReview: "Architecture review moved forward.",
+    upcomingWork: "Prepare sponsor readout."
+  };
+  const validation = validateClientPortalUpdateInput(unsafeClientUpdate);
+  const portalProgram = buildClientPortalProgram({
+    latestClientUpdate: unsafeClientUpdate,
+    program
+  });
+  const serialized = JSON.stringify(portalProgram);
+
+  assert.equal(validation.ok, false);
+  assert.match(validation.issues.map((issue) => issue.ruleId).join(" "), /internal-markers/);
+  assert.match(validation.issues.map((issue) => issue.ruleId).join(" "), /relationship-sensitive/);
+  assert.doesNotMatch(serialized, /INTERNAL ONLY|unreasonable|frustrating|Our team internally|Do not share|difficult sponsor|behind the scenes/i);
+  assert.match(serialized, /Client-ready checkpoint remains on track/);
+  assert.match(serialized, /Architecture review moved forward/);
+  assert.match(serialized, /Client-safe dependency review/);
 });
 
 test("buildClientPortalPortfolio rolls program posture into portfolio metrics", () => {

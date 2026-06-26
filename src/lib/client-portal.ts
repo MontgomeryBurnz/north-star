@@ -11,6 +11,7 @@ import type { ClientPortalUpdateRecord } from "./client-portal-update-types.ts";
 import type { GuidedPlan } from "./guided-plan-types.ts";
 import type { ClientDecisionRequest } from "./program-intelligence-types.ts";
 import type { StoredProgram } from "./program-intake-types.ts";
+import { sanitizeClientPortalUpdateForDisplay } from "./client-safe-copy.ts";
 import { compareClientNames, getProgramClientName } from "./client-portfolio.ts";
 import { firstNonEmpty, firstSignal, normalizeWhitespace, splitSignals } from "./text-signals.ts";
 
@@ -1133,36 +1134,37 @@ function buildReviewMilestones(programMilestones: ProgramTimelineMilestone[] | u
 
 function clientPortalUpdateToReview(update: ClientPortalUpdateRecord | null | undefined): StoredProgramUpdate["review"] | undefined {
   if (!update) return undefined;
+  const safeUpdate = sanitizeClientPortalUpdateForDisplay(update);
 
   return {
-    programName: update.programName,
-    executiveSponsor: update.executiveSponsor ?? "",
-    programLead: update.programLead ?? "",
-    pmo: update.pmo ?? "",
-    originalNorthStar: update.originalNorthStar ?? "",
-    currentPhase: update.currentPhase,
-    programCompletionPercent: update.programCompletionPercent ?? "",
-    completionDelta: update.completionDelta ?? "",
-    nextMilestoneName: update.nextMilestoneName ?? "",
-    nextMilestoneDate: update.nextMilestoneDate ?? "",
-    nextMilestonePriority: update.nextMilestonePriority ?? "",
-    programStartDate: update.programStartDate ?? "",
-    programTargetFinishDate: update.programTargetFinishDate ?? "",
-    clientStatusNote: update.clientStatusNote,
-    progressSinceLastReview: update.progressSinceLastReview,
-    planChanges: update.upcomingWork,
-    activeRisks: update.activeRisks,
+    programName: safeUpdate.programName,
+    executiveSponsor: safeUpdate.executiveSponsor ?? "",
+    programLead: safeUpdate.programLead ?? "",
+    pmo: safeUpdate.pmo ?? "",
+    originalNorthStar: safeUpdate.originalNorthStar ?? "",
+    currentPhase: safeUpdate.currentPhase,
+    programCompletionPercent: safeUpdate.programCompletionPercent ?? "",
+    completionDelta: safeUpdate.completionDelta ?? "",
+    nextMilestoneName: safeUpdate.nextMilestoneName ?? "",
+    nextMilestoneDate: safeUpdate.nextMilestoneDate ?? "",
+    nextMilestonePriority: safeUpdate.nextMilestonePriority ?? "",
+    programStartDate: safeUpdate.programStartDate ?? "",
+    programTargetFinishDate: safeUpdate.programTargetFinishDate ?? "",
+    clientStatusNote: safeUpdate.clientStatusNote,
+    progressSinceLastReview: safeUpdate.progressSinceLastReview,
+    planChanges: safeUpdate.upcomingWork,
+    activeRisks: safeUpdate.activeRisks,
     stakeholderTemperature: "",
-    decisionsPending: update.decisionsPending,
-    deliveryHealth: update.deliveryHealth,
-    supportNeeded: update.supportNeeded ?? "",
-    timelineScale: update.timelineScale ?? "year",
-    timelineYear: update.timelineYear ?? "",
-    timelineMonth: update.timelineMonth ?? "",
-    timelineWeek: update.timelineWeek ?? "",
-    programMilestones: update.programMilestones ?? [],
-    programSynthesisNote: update.executiveOverview,
-    teamRoleUpdates: update.domainUpdates.map((domain) => ({
+    decisionsPending: safeUpdate.decisionsPending,
+    deliveryHealth: safeUpdate.deliveryHealth,
+    supportNeeded: safeUpdate.supportNeeded ?? "",
+    timelineScale: safeUpdate.timelineScale ?? "year",
+    timelineYear: safeUpdate.timelineYear ?? "",
+    timelineMonth: safeUpdate.timelineMonth ?? "",
+    timelineWeek: safeUpdate.timelineWeek ?? "",
+    programMilestones: safeUpdate.programMilestones ?? [],
+    programSynthesisNote: safeUpdate.executiveOverview,
+    teamRoleUpdates: safeUpdate.domainUpdates.map((domain) => ({
       role: domain.role,
       updatedBy: domain.owner,
       progressUpdate: domain.pursuit,
@@ -1174,9 +1176,9 @@ function clientPortalUpdateToReview(update: ClientPortalUpdateRecord | null | un
       status: domain.status,
       needsLeadershipAttention: domain.status === "blocked",
       attachments: [],
-      lastUpdatedAt: update.updatedAt
+      lastUpdatedAt: safeUpdate.updatedAt
     })),
-    deliveryBoardItems: update.deliveryBoardItems ?? [],
+    deliveryBoardItems: safeUpdate.deliveryBoardItems ?? [],
     artifacts: []
   };
 }
