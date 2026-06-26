@@ -686,7 +686,8 @@ test("Active Program review is split into state, cockpit, and team signal flows"
   assert.match(clientPortalDataSource, /listClientDecisionRequests/);
   assert.doesNotMatch(clientPortalDataSource, /listProgramUpdates/);
   assert.match(clientPortalConsoleSource, /data-client-export-portfolio/);
-  assert.match(clientPortalConsoleSource, /data-client-export-program/);
+  assert.doesNotMatch(clientPortalConsoleSource, /data-client-export-program/);
+  assert.match(clientPortalConsoleSource, /Download PDF/);
   assert.match(clientPortalExportPageSource, /loadClientPortalData/);
   assert.match(clientPortalExportPageSource, /client\.portal\.export/);
   assert.match(clientPortalExportPageSource, /Print \/ Save PDF/);

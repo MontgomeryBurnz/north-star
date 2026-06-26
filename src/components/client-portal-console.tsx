@@ -908,12 +908,27 @@ export function ClientPortalConsole({
       </header>
 
       <div className="northstar-shell py-10">
-        <section>
-          <h1 className="text-4xl font-semibold tracking-normal text-slate-950 md:text-5xl">Portfolio Dashboard</h1>
-          <div className="mt-6 flex flex-wrap items-center gap-3 text-lg font-medium text-slate-600">
-            <span>Week Ending {formatDate(portfolio.generatedAt)}</span>
-            <span className="rounded-full border border-emerald-200 bg-emerald-50 px-4 py-2 text-base font-semibold text-emerald-800">Refreshed {formatRefreshTime(portfolio.generatedAt)}</span>
+        <section className="flex flex-wrap items-start justify-between gap-5">
+          <div>
+            <h1 className="text-4xl font-semibold tracking-normal text-slate-950 md:text-5xl">Portfolio Dashboard</h1>
+            <div className="mt-6 flex flex-wrap items-center gap-3 text-lg font-medium text-slate-600">
+              <span>Week Ending {formatDate(portfolio.generatedAt)}</span>
+              <span className="rounded-full border border-emerald-200 bg-emerald-50 px-4 py-2 text-base font-semibold text-emerald-800">Refreshed {formatRefreshTime(portfolio.generatedAt)}</span>
+            </div>
           </div>
+          {selectedClient ? (
+            <Button asChild className="rounded-md bg-slate-950 px-5 py-3 text-white shadow-sm hover:bg-slate-800">
+              <Link
+                href={`/client/export?scope=portfolio&client=${encodeURIComponent(selectedClient.clientName)}`}
+                target="_blank"
+                rel="noreferrer"
+                data-client-export-portfolio
+              >
+                <Download className="h-4 w-4" />
+                Download PDF
+              </Link>
+            </Button>
+          ) : null}
         </section>
 
         <section className="mt-8 grid gap-5 md:grid-cols-2 xl:grid-cols-5">
@@ -935,22 +950,9 @@ export function ClientPortalConsole({
                   </p>
                 </div>
                 {selectedClient ? (
-                  <div className="flex flex-wrap items-center gap-2">
-                    <Button asChild variant="outline" size="sm" className="border-sky-200 bg-white text-sky-800 hover:bg-sky-50">
-                      <Link
-                        href={`/client/export?scope=portfolio&client=${encodeURIComponent(selectedClient.clientName)}`}
-                        target="_blank"
-                        rel="noreferrer"
-                        data-client-export-portfolio
-                      >
-                        <Download className="h-4 w-4" />
-                        Portfolio PDF
-                      </Link>
-                    </Button>
-                    <span className="rounded-full border border-emerald-200 bg-white px-4 py-2 text-sm font-semibold text-emerald-800">
-                      {selectedClient.metrics.totalPrograms} program{selectedClient.metrics.totalPrograms === 1 ? "" : "s"}
-                    </span>
-                  </div>
+                  <span className="rounded-full border border-emerald-200 bg-white px-4 py-2 text-sm font-semibold text-emerald-800">
+                    {selectedClient.metrics.totalPrograms} program{selectedClient.metrics.totalPrograms === 1 ? "" : "s"}
+                  </span>
                 ) : null}
               </div>
               <div className="mt-4 flex flex-wrap gap-2">
@@ -1039,19 +1041,6 @@ export function ClientPortalConsole({
 
             {selectedProgram ? (
               <div ref={detailRef} className="mt-12 scroll-mt-8">
-                <div className="mb-5 flex justify-end">
-                  <Button asChild variant="outline" size="sm" className="border-slate-300 bg-white text-slate-700 hover:bg-slate-50 hover:text-slate-950">
-                    <Link
-                      href={`/client/export?scope=program&programId=${encodeURIComponent(selectedProgram.id)}`}
-                      target="_blank"
-                      rel="noreferrer"
-                      data-client-export-program={selectedProgram.id}
-                    >
-                      <Download className="h-4 w-4" />
-                      Program PDF
-                    </Link>
-                  </Button>
-                </div>
                 <ProgramOnePager program={selectedProgram} />
               </div>
             ) : null}
