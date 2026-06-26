@@ -421,18 +421,13 @@ function ProgramHero({ program }: { program: ClientPortalProgram }) {
 
   return (
     <section className="rounded-lg border border-slate-800 bg-slate-950 px-6 py-8 text-white shadow-[0_22px_60px_rgba(15,23,42,0.28)] md:px-9">
-      <div className="grid gap-8 xl:grid-cols-[minmax(0,1fr)_minmax(22rem,0.5fr)] xl:items-start">
-        <div>
-          <h2 className="text-4xl font-semibold tracking-normal">{program.name}</h2>
+      <div className="grid gap-8">
+        <div className="max-w-5xl">
+          <h2 className="text-3xl font-semibold tracking-normal md:text-4xl">{program.name}</h2>
           <p className="mt-3 text-sm font-semibold uppercase tracking-[0.16em] text-sky-200">{program.clientName}</p>
-          <p className="mt-4 text-lg font-medium text-sky-100">{program.primaryOutcome}</p>
-          <div className="mt-8 flex flex-wrap gap-x-10 gap-y-3 text-base text-slate-300">
-            <span data-client-executive-sponsor>Executive Sponsor: <strong className="text-white">{program.executiveSponsor}</strong></span>
-            <span data-client-program-lead>Program Lead: <strong className="text-white">{program.programLead}</strong></span>
-            <span data-client-pmo>PMO: <strong className="text-white">{program.pmo}</strong></span>
-          </div>
+          <p className="mt-5 max-w-4xl text-lg font-medium leading-8 text-sky-100">{program.primaryOutcome}</p>
         </div>
-        <div className="grid gap-4 sm:grid-cols-3 xl:grid-cols-3">
+        <div className="grid gap-4 md:grid-cols-3">
           <HeroMetric label="Overall Status" value={program.statusSignal} dot={styles.heroDot} />
           <HeroMetric
             label="% Complete"
@@ -441,6 +436,11 @@ function ProgramHero({ program }: { program: ClientPortalProgram }) {
             helper={`Basis: ${program.metrics.completionBasis} · ${program.metrics.completionScheduleLabel}`}
           />
           <HeroMetric label="Current Phase" value={program.phase} />
+        </div>
+        <div className="flex flex-wrap gap-x-10 gap-y-3 border-t border-white/15 pt-6 text-base text-slate-300">
+          <span data-client-executive-sponsor>Executive Sponsor: <strong className="text-white">{program.executiveSponsor}</strong></span>
+          <span data-client-program-lead>Program Lead: <strong className="text-white">{program.programLead}</strong></span>
+          <span data-client-pmo>PMO: <strong className="text-white">{program.pmo}</strong></span>
         </div>
       </div>
       <div className="mt-8 border-t border-white/15 pt-6">
@@ -461,11 +461,11 @@ function ProgramHero({ program }: { program: ClientPortalProgram }) {
 
 function HeroMetric({ dot, helper, label, value, delta }: { delta?: string; dot?: string; helper?: string; label: string; value: string }) {
   return (
-    <div>
+    <div className="min-w-0 rounded-lg border border-white/10 bg-white/[0.04] p-5">
       <p className="text-sm font-semibold uppercase tracking-[0.12em] text-slate-400">{label}</p>
-      <p className="mt-2 flex items-center gap-3 text-2xl font-semibold text-white">
+      <p className="mt-2 flex min-w-0 flex-wrap items-center gap-3 break-words text-2xl font-semibold leading-8 text-white">
         {dot ? <span className={cn("h-4 w-4 rounded-full", dot)} /> : null}
-        {value}
+        <span className="min-w-0">{value}</span>
         {delta ? <span className="text-lg text-emerald-300">{delta}</span> : null}
       </p>
       {helper ? <MetricBasisLabel className="mt-1 text-slate-300">{helper}</MetricBasisLabel> : null}
