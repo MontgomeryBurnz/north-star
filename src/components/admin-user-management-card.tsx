@@ -11,7 +11,7 @@ import type {
 } from "@/lib/admin-user-types";
 import { appUserCredentialStatuses, appUserTypes, isProgramScopedUserType } from "@/lib/admin-user-types";
 import type { StoredProgram } from "@/lib/program-intake-types";
-import { getProgramRoleNames } from "@/lib/team-roles";
+import { getProgramRoleNames, getProgramTeamFootprint } from "@/lib/team-roles";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
@@ -67,6 +67,24 @@ function getProgramRoles(program: StoredProgram | undefined) {
   return getProgramRoleNames(program?.intake);
 }
 
+function getProgramFootprint(program: StoredProgram | undefined) {
+  return getProgramTeamFootprint(program?.intake).filter((item) => item.active !== false);
+}
+
+function findFootprintRole(program: StoredProgram | undefined, role: string) {
+  const normalizedRole = role.trim().toLowerCase();
+  if (!normalizedRole) return undefined;
+
+  return getProgramFootprint(program).find((item) => item.role.trim().toLowerCase() === normalizedRole);
+}
+
+function getAssignmentFootprint(programs: StoredProgram[], assignment: Pick<ManagedProgramAssignment, "programId" | "role">) {
+  return findFootprintRole(
+    programs.find((program) => program.id === assignment.programId),
+    assignment.role
+  );
+}
+
 function formatDate(value: string) {
   return new Intl.DateTimeFormat(undefined, {
     month: "short",
@@ -118,6 +136,11 @@ export function AdminUserManagementCard({
     [form.programId, programs]
   );
   const availableRoles = useMemo(() => getProgramRoles(selectedProgram), [selectedProgram]);
+  const selectedProgramFootprint = useMemo(() => getProgramFootprint(selectedProgram), [selectedProgram]);
+  const selectedRoleFootprint = useMemo(
+    () => findFootprintRole(selectedProgram, form.role),
+    [form.role, selectedProgram]
+  );
   const programAssignmentRequired = isProgramScopedUserType(form.userType);
   const selectedAssignmentDraftKey = form.programId && form.role
     ? getAssignmentDraftKey({ programId: form.programId, role: form.role })
@@ -754,6 +777,46 @@ export function AdminUserManagementCard({
               </label>
             </div>
 
+            {programAssignmentRequired && selectedProgram ? (
+              <div
+                data-admin-footprint-context
+                className="rounded-md border border-cyan-300/20 bg-cyan-300/[0.045] p-3"
+              >
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <p className="text-xs font-medium uppercase tracking-[0.16em] text-cyan-100">
+                    Footprint ownership
+                  </p>
+                  <span className="rounded-full border border-white/10 bg-black/20 px-2.5 py-1 text-[11px] uppercase tracking-[0.12em] text-zinc-300">
+                    {selectedProgramFootprint.length} active roles
+                  </span>
+                </div>
+                {selectedRoleFootprint ? (
+                  <div className="mt-2 grid gap-2 text-sm leading-6 text-zinc-300 md:grid-cols-[minmax(0,0.65fr)_minmax(0,1fr)]">
+                    <p>
+                      <span className="text-zinc-500">Owner:</span>{" "}
+                      <span className="font-medium text-zinc-100">
+                        {selectedRoleFootprint.owner || "Not mapped yet"}
+                      </span>
+                    </p>
+                    <p>
+                      <span className="text-zinc-500">Responsibility:</span>{" "}
+                      <span className="text-zinc-200">
+                        {selectedRoleFootprint.responsibility || "No responsibility captured yet"}
+                      </span>
+                    </p>
+                  </div>
+                ) : form.role ? (
+                  <p className="mt-2 text-sm leading-6 text-amber-100">
+                    {form.role} is selectable, but it is not fully mapped in this program footprint yet.
+                  </p>
+                ) : (
+                  <p className="mt-2 text-sm leading-6 text-zinc-400">
+                    Select a role to see the owner and responsibility Admin is assigning against.
+                  </p>
+                )}
+              </div>
+            ) : null}
+
             <div className="grid gap-3 rounded-md border border-white/10 bg-black/20 p-3">
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
@@ -781,6 +844,7 @@ export function AdminUserManagementCard({
                 <div className="grid gap-2">
                   {assignmentDrafts.map((assignment) => {
                     const assignmentKey = getAssignmentDraftKey(assignment);
+                    const footprintRole = getAssignmentFootprint(programs, assignment);
 
                     return (
                       <div
@@ -797,6 +861,13 @@ export function AdminUserManagementCard({
                             ) : null}
                           </div>
                           <p className="mt-1 truncate text-xs text-zinc-500">{assignment.programName}</p>
+                          {footprintRole ? (
+                            <p className="mt-2 text-xs leading-5 text-zinc-400">
+                              Footprint owner:{" "}
+                              <span className="text-zinc-200">{footprintRole.owner || "Not mapped"}</span>
+                              {footprintRole.responsibility ? ` · ${footprintRole.responsibility}` : ""}
+                            </p>
+                          ) : null}
                         </div>
                         <div className="flex flex-wrap gap-2">
                           <Button
@@ -871,15 +942,22 @@ export function AdminUserManagementCard({
             </div>
 
             {selectedProgram ? (
-              <div className="flex flex-wrap gap-2">
-                {availableRoles.map((role) => (
+              <div className="grid gap-2 md:grid-cols-2">
+                {availableRoles.map((role) => {
+                  const footprintRole = findFootprintRole(selectedProgram, role);
+
+                  return (
                   <span
                     key={role}
-                    className="rounded-full border border-white/10 bg-black/20 px-3 py-1.5 text-xs text-zinc-300"
+                    className="rounded-md border border-white/10 bg-black/20 px-3 py-2 text-xs leading-5 text-zinc-300"
                   >
-                    {role}
+                    <span className="font-medium text-zinc-100">{role}</span>
+                    <span className="block text-zinc-500">
+                      {footprintRole?.owner ? `Owner: ${footprintRole.owner}` : "Owner not mapped"}
+                    </span>
                   </span>
-                ))}
+                  );
+                })}
               </div>
             ) : (
               <p className="rounded-md border border-white/10 bg-black/20 p-3 text-sm leading-6 text-zinc-400">
@@ -999,6 +1077,9 @@ export function AdminUserManagementCard({
             <div className="grid gap-3">
               {users.map((user) => {
                 const primaryAssignment = getPrimaryAssignment(user.assignments);
+                const primaryFootprintRole = primaryAssignment
+                  ? getAssignmentFootprint(programs, primaryAssignment)
+                  : undefined;
                 const hasGlobalAdminAccess = user.userType === "admin";
                 const expanded = expandedUsers[user.id] ?? false;
                 const otherAssignments = user.assignments.filter((assignment) => assignment.id !== primaryAssignment?.id);
@@ -1081,6 +1162,12 @@ export function AdminUserManagementCard({
                         <p className="mt-1 text-xs leading-5 text-zinc-500">
                           Role-specific UI should open this lane first while keeping adjacent program context available.
                         </p>
+                        {primaryFootprintRole ? (
+                          <p className="mt-2 text-xs leading-5 text-emerald-100/80">
+                            Footprint owner: {primaryFootprintRole.owner || "Not mapped"}
+                            {primaryFootprintRole.responsibility ? ` · ${primaryFootprintRole.responsibility}` : ""}
+                          </p>
+                        ) : null}
                       </div>
                     ) : (
                       <p className="mt-4 rounded-md border border-white/10 bg-black/20 p-3 text-sm leading-6 text-zinc-400">
@@ -1100,12 +1187,22 @@ export function AdminUserManagementCard({
                         </button>
                         {expanded ? (
                           <div className="mt-3 grid gap-2 md:grid-cols-2">
-                            {otherAssignments.map((assignment) => (
-                              <div key={assignment.id} className="rounded-md border border-white/10 bg-black/20 p-3">
-                                <p className="text-sm font-medium text-zinc-100">{assignment.role}</p>
-                                <p className="mt-1 text-xs leading-5 text-zinc-500">{assignment.programName}</p>
-                              </div>
-                            ))}
+                            {otherAssignments.map((assignment) => {
+                              const footprintRole = getAssignmentFootprint(programs, assignment);
+
+                              return (
+                                <div key={assignment.id} className="rounded-md border border-white/10 bg-black/20 p-3">
+                                  <p className="text-sm font-medium text-zinc-100">{assignment.role}</p>
+                                  <p className="mt-1 text-xs leading-5 text-zinc-500">{assignment.programName}</p>
+                                  {footprintRole ? (
+                                    <p className="mt-2 text-xs leading-5 text-zinc-400">
+                                      Footprint owner: {footprintRole.owner || "Not mapped"}
+                                      {footprintRole.responsibility ? ` · ${footprintRole.responsibility}` : ""}
+                                    </p>
+                                  ) : null}
+                                </div>
+                              );
+                            })}
                           </div>
                         ) : null}
                       </div>

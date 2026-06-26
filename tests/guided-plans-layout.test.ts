@@ -452,6 +452,7 @@ test("Active Program review is split into state, cockpit, and team signal flows"
   const teamSignalFlowSource = readFileSync(new URL("../src/components/active-program-team-signal-flow.tsx", import.meta.url), "utf8");
   const programIntakeSource = readFileSync(new URL("../src/components/program-intake-section.tsx", import.meta.url), "utf8");
   const teamFootprintEditorSource = readFileSync(new URL("../src/components/team-footprint-editor.tsx", import.meta.url), "utf8");
+  const adminUserManagementSource = readFileSync(new URL("../src/components/admin-user-management-card.tsx", import.meta.url), "utf8");
   const deliveryBoardSource = readFileSync(new URL("../src/components/active-program-delivery-board-card.tsx", import.meta.url), "utf8");
   const teamUpdatesSource = readFileSync(new URL("../src/components/active-program-team-updates-card.tsx", import.meta.url), "utf8");
   const meetingInputSource = readFileSync(new URL("../src/components/active-program-meeting-intelligence-card.tsx", import.meta.url), "utf8");
@@ -484,6 +485,12 @@ test("Active Program review is split into state, cockpit, and team signal flows"
   assert.match(programIntakeSource, /TeamFootprintEditor/);
   assert.match(teamSignalFlowSource, /TeamFootprintEditor/);
   assert.match(teamFootprintEditorSource, /data-team-footprint-editor/);
+  assert.match(teamFootprintEditorSource, /data-team-footprint-bulk-toggle/);
+  assert.match(teamFootprintEditorSource, /data-team-footprint-bulk-input/);
+  assert.match(teamFootprintEditorSource, /data-team-footprint-apply-bulk/);
+  assert.match(adminUserManagementSource, /data-admin-footprint-context/);
+  assert.match(adminUserManagementSource, /Footprint ownership/);
+  assert.match(adminUserManagementSource, /getAssignmentFootprint/);
   assert.match(reviewControllerSource, /saveTeamFootprint/);
   assert.doesNotMatch(reviewSectionSource, /useRequestSequence/);
   assert.doesNotMatch(reviewSectionSource, /useForegroundRefresh/);
@@ -727,6 +734,8 @@ test("Active Program review is split into state, cockpit, and team signal flows"
   assert.doesNotMatch(clientPortalPageSource, /listProgramUpdates/);
   assert.match(productionSmokeSource, /active program save \+ client portal/);
   assert.match(productionSmokeSource, /client portal seeded update/);
+  assert.match(productionSmokeSource, /team footprint propagation/);
+  assert.match(packageSource, /smoke:team-footprint/);
 });
 
 test("chat guidance is disabled and client decisions still write audit events", () => {
