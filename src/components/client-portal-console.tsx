@@ -421,16 +421,16 @@ function ProgramHero({ program }: { program: ClientPortalProgram }) {
   const highlights = program.executiveStatusHighlights.slice(0, 3);
 
   return (
-    <section data-client-program-hero className="rounded-lg border border-slate-800 bg-slate-950 px-5 py-7 text-white shadow-[0_22px_60px_rgba(15,23,42,0.28)] md:px-8">
+    <section data-client-program-hero className="min-w-0 max-w-full overflow-hidden rounded-lg border border-slate-800 bg-slate-950 px-4 py-5 text-white shadow-[0_22px_60px_rgba(15,23,42,0.28)] sm:px-5 sm:py-6 md:px-8 md:py-7">
       <div className="grid gap-6">
         <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(26rem,0.62fr)] xl:items-start">
           <div className="min-w-0">
             <p className="text-sm font-semibold uppercase tracking-[0.16em] text-sky-200">{program.clientName}</p>
-            <h2 className="mt-3 text-3xl font-semibold tracking-normal md:text-4xl">{program.name}</h2>
+            <h2 className="mt-3 break-words text-2xl font-semibold tracking-normal sm:text-3xl md:text-4xl">{program.name}</h2>
           </div>
-          <p className="max-w-3xl text-base font-medium leading-7 text-sky-100 xl:justify-self-end">{program.primaryOutcome}</p>
+          <p className="max-w-3xl text-sm font-medium leading-6 text-sky-100 sm:text-base sm:leading-7 xl:justify-self-end">{program.primaryOutcome}</p>
         </div>
-        <div className="grid gap-3 md:grid-cols-3">
+        <div className="grid grid-cols-3 gap-2 sm:gap-3">
           <HeroMetric label="Overall Status" metricId="overall-status" value={program.statusSignal} dot={styles.heroDot} />
           <HeroMetric
             label="% Complete"
@@ -448,7 +448,7 @@ function ProgramHero({ program }: { program: ClientPortalProgram }) {
         </div>
       </div>
       <div className="mt-6 border-t border-white/15 pt-5">
-        <div className="grid gap-4 text-base font-medium text-slate-200 md:grid-cols-2">
+        <div className="grid gap-3 text-sm font-medium text-slate-200 sm:text-base sm:leading-7 md:grid-cols-2">
           {highlights.map((highlight, index) => (
             <StatusBullet
               key={`${highlight}-${index}`}
@@ -479,9 +479,9 @@ function HeroMetric({
   value: string;
 }) {
   return (
-    <div data-client-hero-metric={metricId} className="min-w-0 rounded-md border border-white/10 bg-white/[0.04] p-4">
-      <p className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-400">{label}</p>
-      <p className="mt-2 flex min-w-0 flex-wrap items-center gap-3 break-words text-xl font-semibold leading-7 text-white">
+    <div data-client-hero-metric={metricId} className="min-w-0 rounded-md border border-white/10 bg-white/[0.04] p-2.5 sm:p-4">
+      <p className="text-[10px] font-semibold uppercase tracking-[0.1em] text-slate-400 sm:text-xs sm:tracking-[0.12em]">{label}</p>
+      <p className="mt-2 flex min-w-0 flex-wrap items-center gap-2 break-words text-base font-semibold leading-6 text-white sm:gap-3 sm:text-xl sm:leading-7">
         {dot ? <span className={cn("h-3.5 w-3.5 rounded-full", dot)} /> : null}
         <span className="min-w-0">{value}</span>
         {delta ? <span className="text-base text-emerald-300">{delta}</span> : null}
@@ -502,7 +502,7 @@ function StatusBullet({ children, tone }: { children: ReactNode; tone: "neutral"
 
 function ExecutiveCard({ children, icon: Icon, title }: { children: ReactNode; icon: LucideIcon; title: string }) {
   return (
-    <section className="rounded-lg border border-slate-200 bg-white p-7 shadow-[0_18px_45px_rgba(15,23,42,0.08)]">
+    <section className="min-w-0 max-w-full overflow-hidden rounded-lg border border-slate-200 bg-white p-5 shadow-[0_18px_45px_rgba(15,23,42,0.08)] sm:p-7">
       <h3 className="flex items-center gap-3 text-xl font-semibold text-slate-950">
         <Icon className="h-5 w-5 text-sky-700" />
         {title}
@@ -589,7 +589,7 @@ function ExecutiveListCard({ icon, items, title }: { icon: LucideIcon; items: st
 
 function RiskDecisionSection({ program }: { program: ClientPortalProgram }) {
   return (
-    <div className="grid gap-6 xl:grid-cols-2">
+    <div className="grid min-w-0 gap-6 xl:grid-cols-2">
       <ExecutiveCard icon={TriangleAlert} title="Risks / Issues / Dependencies">
         {program.executiveRisks.length ? (
           <div className="mt-7 overflow-x-auto">
@@ -630,7 +630,7 @@ function RiskDecisionSection({ program }: { program: ClientPortalProgram }) {
         )}
       </ExecutiveCard>
 
-      <section className="rounded-lg border border-sky-200 bg-sky-50 p-7 shadow-[0_18px_45px_rgba(15,23,42,0.08)]">
+      <section className="min-w-0 rounded-lg border border-sky-200 bg-sky-50 p-5 shadow-[0_18px_45px_rgba(15,23,42,0.08)] sm:p-7">
         <h3 className="flex items-center gap-3 text-xl font-semibold text-slate-950">
           <ClipboardCheck className="h-5 w-5 text-sky-700" />
           Leadership Decisions Needed
@@ -796,7 +796,7 @@ function ClientDecisionPanel({ program }: { program: ClientPortalProgram }) {
 
 function ProgramOnePager({ program }: { program: ClientPortalProgram }) {
   return (
-    <section data-client-program-detail={program.id} className="grid gap-6">
+    <section data-client-program-detail={program.id} className="grid min-w-0 max-w-full gap-6 overflow-hidden">
       <ProgramHero program={program} />
 
       <ExecutiveCard icon={Compass} title="Executive Summary">
@@ -805,7 +805,7 @@ function ProgramOnePager({ program }: { program: ClientPortalProgram }) {
 
       <ProgramMilestoneTimeline program={program} />
 
-      <div className="grid gap-6 xl:grid-cols-2">
+      <div className="grid min-w-0 gap-6 xl:grid-cols-2">
         <ExecutiveListCard icon={CheckCircle2} title="Recent Accomplishments" items={program.recentAccomplishments} />
         <ExecutiveListCard icon={ArrowRight} title="Upcoming Work (Next 2 Weeks)" items={program.upcomingWork} />
       </div>

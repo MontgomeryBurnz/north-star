@@ -52,7 +52,8 @@ test("Client Portal frames executive overview and domain progress", () => {
   assert.match(source, /data-client-program-hero/);
   assert.match(source, /data-client-hero-metric/);
   assert.match(source, /MetricBasisLabel/);
-  assert.match(source, /grid gap-3 md:grid-cols-3/);
+  assert.match(source, /grid grid-cols-3 gap-2 sm:gap-3/);
+  assert.match(source, /grid min-w-0 max-w-full gap-6 overflow-hidden/);
   assert.doesNotMatch(source, /xl:grid-cols-\[minmax\(0,1fr\)_minmax\(22rem,0\.5fr\)\]/);
   assert.match(source, /Task basis:/);
   assert.match(source, /Schedule:/);
