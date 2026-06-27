@@ -85,6 +85,7 @@ export function TeamFootprintEditor({
 }: TeamFootprintEditorProps) {
   const [bulkMode, setBulkMode] = useState(false);
   const [bulkValue, setBulkValue] = useState("");
+  const [draggingRoleId, setDraggingRoleId] = useState<string | null>(null);
   const roles = normalizeEditorFootprint(footprint, fallbackRoles);
   const mappedOwners = roles.filter((item) => item.active !== false && item.owner.trim()).length;
   const activeRoles = roles.filter((item) => item.active !== false).length;
@@ -133,6 +134,19 @@ export function TeamFootprintEditor({
     const currentRole = nextRoles[index];
     nextRoles[index] = nextRoles[nextIndex];
     nextRoles[nextIndex] = currentRole;
+    onChange(nextRoles);
+  }
+
+  function reorderRole(sourceId: string, targetId: string) {
+    if (sourceId === targetId) return;
+
+    const sourceIndex = roles.findIndex((item) => item.id === sourceId);
+    const targetIndex = roles.findIndex((item) => item.id === targetId);
+    if (sourceIndex < 0 || targetIndex < 0) return;
+
+    const nextRoles = [...roles];
+    const [sourceRole] = nextRoles.splice(sourceIndex, 1);
+    nextRoles.splice(targetIndex, 0, sourceRole);
     onChange(nextRoles);
   }
 
@@ -220,8 +234,38 @@ export function TeamFootprintEditor({
 
       <div className="mt-5 grid gap-3">
         {roles.map((item, index) => (
-          <div key={item.id} className="grid gap-3 rounded-lg border border-white/10 bg-white/[0.025] p-3 lg:grid-cols-[auto_0.9fr_0.9fr_1.5fr_auto]">
+          <div
+            key={item.id}
+            draggable
+            onDragStart={(event) => {
+              setDraggingRoleId(item.id);
+              event.dataTransfer.effectAllowed = "move";
+              event.dataTransfer.setData("text/plain", item.id);
+            }}
+            onDragOver={(event) => {
+              event.preventDefault();
+              event.dataTransfer.dropEffect = "move";
+            }}
+            onDrop={(event) => {
+              event.preventDefault();
+              const sourceId = event.dataTransfer.getData("text/plain") || draggingRoleId;
+              if (sourceId) {
+                reorderRole(sourceId, item.id);
+              }
+              setDraggingRoleId(null);
+            }}
+            onDragEnd={() => setDraggingRoleId(null)}
+            className={`grid gap-3 rounded-lg border p-3 transition lg:grid-cols-[auto_0.9fr_0.9fr_1.5fr_auto] ${
+              draggingRoleId === item.id
+                ? "border-cyan-300/40 bg-cyan-300/[0.06] opacity-75"
+                : "border-white/10 bg-white/[0.025]"
+            }`}
+            data-team-footprint-row={item.role}
+          >
             <div className="flex gap-2 lg:flex-col lg:justify-end">
+              <span className="flex h-10 items-center rounded-lg border border-white/10 bg-black/20 px-3 text-[10px] font-semibold uppercase tracking-[0.16em] text-zinc-500">
+                Drag
+              </span>
               <button
                 type="button"
                 aria-label={`Move ${item.role} up`}

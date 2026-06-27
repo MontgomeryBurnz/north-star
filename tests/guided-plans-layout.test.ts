@@ -488,6 +488,9 @@ test("Active Program review is split into state, cockpit, and team signal flows"
   assert.match(teamFootprintEditorSource, /data-team-footprint-bulk-toggle/);
   assert.match(teamFootprintEditorSource, /data-team-footprint-bulk-input/);
   assert.match(teamFootprintEditorSource, /data-team-footprint-apply-bulk/);
+  assert.match(teamFootprintEditorSource, /draggable/);
+  assert.match(teamFootprintEditorSource, /reorderRole/);
+  assert.match(teamFootprintEditorSource, /data-team-footprint-row/);
   assert.match(adminUserManagementSource, /data-admin-footprint-context/);
   assert.match(adminUserManagementSource, /Footprint ownership/);
   assert.match(adminUserManagementSource, /getAssignmentFootprint/);
