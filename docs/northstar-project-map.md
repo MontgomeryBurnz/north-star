@@ -58,6 +58,15 @@ NorthStar is the product workspace for the app hosted at `https://www.north-star
 - `SMOKE_BASE_URL=https://www.north-star.live npm run smoke:production` runs the standard post-deploy production smoke bundle.
 - Release verification is documented in `docs/northstar-release-checklist.md`.
 
+## Knowledge Management
+
+- Executive application review and demo narrative: `docs/northstar-executive-demo-guide.md`
+- User guide and training manual source: `docs/northstar-team-user-guide.md`
+- Evergreen knowledge-management blueprint: `docs/northstar-knowledge-management-solution.md`
+- Release documentation gate: `docs/northstar-release-checklist.md`
+
+The long-term product direction is an in-app Knowledge Center that renders role-aware, searchable guidance from repo-backed content, then uses AI-assisted draft updates and Admin approval to keep training material current as NorthStar evolves.
+
 ## Codex Organization
 
 Use a Codex project named `NorthStar` for future work so implementation threads, test notes, deployment tasks, and product decisions stay grouped around the product. The GitHub repo remains the source of truth for code.

@@ -14,6 +14,11 @@ npm run build
 ```
 
 3. Confirm any feature work includes a focused automated test, smoke test, or documented QA path.
+4. Confirm user-facing changes update the relevant knowledge assets:
+   - `docs/northstar-team-user-guide.md`
+   - `docs/northstar-executive-demo-guide.md`
+   - `docs/northstar-knowledge-management-solution.md`
+   - module-specific release notes or smoke documentation when behavior changes
 
 ## Deploy
 
@@ -69,5 +74,6 @@ For each release, record:
 - commit SHA
 - Vercel deployment URL
 - production smoke result
+- documentation impact: updated, not impacted, or follow-up required
 - any intentionally skipped smoke step and why
 - any follow-up defect or product risk
