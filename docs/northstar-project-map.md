@@ -56,6 +56,7 @@ NorthStar is the product workspace for the app hosted at `https://www.north-star
 - `SMOKE_BASE_URL=https://www.north-star.live npm run smoke:slicers` validates program slicers across key product surfaces.
 - `SMOKE_BASE_URL=https://www.north-star.live npm run smoke:client-portal` signs in with the QA user, seeds a tagged active-program update, opens `/client`, verifies the executive portfolio/detail fields render from that update, captures desktop/mobile screenshots, and prunes the seeded record.
 - `SMOKE_BASE_URL=https://www.north-star.live npm run smoke:production` runs the standard post-deploy production smoke bundle.
+- The production bundle includes Admin Trust & Operations coverage by verifying that the documentation freshness panel renders after deploy.
 - Release verification is documented in `docs/northstar-release-checklist.md`.
 
 ## Knowledge Management

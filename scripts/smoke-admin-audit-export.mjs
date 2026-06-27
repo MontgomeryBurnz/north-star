@@ -126,6 +126,22 @@ async function verifyAuditSummary(session) {
   );
 }
 
+async function verifyDocumentationFreshnessPanel(session) {
+  await session.waitFor("Admin documentation freshness panel", () =>
+    session.execute(`
+      const panel = document.querySelector("[data-admin-documentation-freshness]");
+      if (!panel) return false;
+
+      const text = panel.textContent || "";
+      return text.includes("Documentation freshness")
+        && text.includes("Latest docs update")
+        && text.includes("Latest user-facing change")
+        && /Current|Needs review|Unknown/.test(text);
+    `),
+    10_000
+  );
+}
+
 async function chooseTargetEvent(session) {
   await ensureAuditRows(session);
 
@@ -302,6 +318,7 @@ async function main() {
   await withSafariBrowser(async (session) => {
     await authenticate(session);
     await openAdminAudit(session);
+    await verifyDocumentationFreshnessPanel(session);
     await verifyAuditSummary(session);
     const target = await chooseTargetEvent(session);
     const filters = await applyFilters(session, target);
@@ -309,6 +326,7 @@ async function main() {
     const rowCount = verifyFilteredCsv(download.text, target, filters);
 
     console.log(`✓ Admin audit filters applied: ${Object.entries(filters).filter(([, value]) => value).map(([key]) => key).join(", ")}`);
+    console.log("✓ Admin Trust & Operations verified: documentation freshness panel rendered.");
     console.log("✓ Admin audit summary verified: top users and top actions rendered.");
     console.log(`✓ Admin audit export verified: ${download.download} (${rowCount} filtered rows).`);
   });

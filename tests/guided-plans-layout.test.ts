@@ -858,6 +858,7 @@ test("production releases have one documented smoke verification path", () => {
   assert.match(checklistSource, /NORTHSTAR_TEST_USER_PASSWORD/);
   assert.match(checklistSource, /\/api\/assistant/);
   assert.match(checklistSource, /410/);
+  assert.match(checklistSource, /Admin Trust & Operations documentation freshness panel/);
   assert.match(checklistSource, /prune/);
 });
 
@@ -905,6 +906,9 @@ test("Admin can manage OpenAI guidance model settings", () => {
   assert.match(modelCardSource, /\/api\/admin\/model-settings/);
   assert.match(modelCardSource, /data-admin-model-settings-confirmation/);
   assert.match(modelCardSource, /Model settings changed to/);
+  assert.match(auditSmokeSource, /data-admin-documentation-freshness/);
+  assert.match(auditSmokeSource, /Admin documentation freshness panel/);
+  assert.match(auditSmokeSource, /Admin Trust & Operations verified/);
   assert.match(routeSource, /saveGuidanceModelSettings/);
   assert.match(routeSource, /model\.settings\.update/);
   assert.match(routeAccessSource, /requireAdminRouteAccess/);

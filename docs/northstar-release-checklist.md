@@ -44,6 +44,7 @@ The bundle currently verifies:
 - Studio program, role, brief load, generation, and export behavior
 - Admin model settings save and automatic revert
 - Admin audit export filters
+- Admin Trust & Operations documentation freshness panel renders after deploy
 - logged-in Client Portal seeded update: writes executive fields, opens `/client`, verifies portfolio/detail rendering, captures desktop/mobile screenshots, and prunes the tagged update
 - Active Program save, role focus, Delivery Board, mobile screenshot, and cleanup behavior
 
