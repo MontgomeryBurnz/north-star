@@ -19,6 +19,7 @@ npm run build
    - `docs/northstar-executive-demo-guide.md`
    - `docs/northstar-knowledge-management-solution.md`
    - module-specific release notes or smoke documentation when behavior changes
+5. Review Admin > Trust & Operations > Documentation freshness after deployment. If it shows `Needs review`, update the Knowledge Center source docs before the next planned release.
 
 ## Deploy
 

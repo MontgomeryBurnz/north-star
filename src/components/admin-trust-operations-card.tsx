@@ -1,7 +1,8 @@
-import { Activity, BrainCircuit, KeyRound, MailCheck, ShieldCheck, type LucideIcon } from "lucide-react";
+import { Activity, BrainCircuit, FileClock, KeyRound, MailCheck, ShieldCheck, type LucideIcon } from "lucide-react";
 import type { InvitationProviderStatus } from "@/lib/admin-user-invitations";
 import type { AuditEventRecord } from "@/lib/audit-event-types";
 import type { ManagedAppUser } from "@/lib/admin-user-types";
+import type { DocumentationFreshnessSnapshot } from "@/lib/documentation-freshness";
 import type { GuidanceModelProfile } from "@/lib/guidance-model-profile";
 import type { GuidanceFeedbackFlag } from "@/lib/program-intelligence-types";
 import { isSupabaseAdminConfigured, isSupabaseConfigured } from "@/lib/supabase/server";
@@ -10,6 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 type AdminTrustOperationsCardProps = {
   auditEvents: AuditEventRecord[];
+  documentationFreshness: DocumentationFreshnessSnapshot;
   guidanceFlags: GuidanceFeedbackFlag[];
   guidanceModelProfile: GuidanceModelProfile;
   invitationProvider: InvitationProviderStatus;
@@ -100,8 +102,78 @@ function AuditCoverageTile({
   );
 }
 
+function formatFreshnessDate(value: string | null) {
+  if (!value) return "Unavailable";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return new Intl.DateTimeFormat("en-US", {
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    month: "short",
+    timeZone: "America/New_York",
+    year: "numeric"
+  }).format(date);
+}
+
+function DocumentationFreshnessPanel({ snapshot }: { snapshot: DocumentationFreshnessSnapshot }) {
+  const isCurrent = snapshot.status === "current";
+  const isUnknown = snapshot.status === "unknown";
+  const statusLabel = isCurrent ? "Current" : isUnknown ? "Unknown" : "Needs review";
+  const tone = isCurrent
+    ? "border-emerald-300/20 bg-emerald-300/[0.055] text-emerald-100"
+    : isUnknown
+      ? "border-zinc-500/20 bg-white/[0.035] text-zinc-300"
+      : "border-amber-300/25 bg-amber-300/[0.07] text-amber-100";
+  let reviewSignal = "Review the Knowledge Center docs before the next release.";
+  if (isCurrent) {
+    reviewSignal = "Knowledge docs are aligned with the latest app change.";
+  } else if (isUnknown) {
+    reviewSignal = "Freshness could not be confirmed from Git or file metadata.";
+  }
+
+  return (
+    <section className="grid gap-3" data-admin-documentation-freshness>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <p className="flex items-center gap-2 text-sm font-semibold text-zinc-100">
+            <FileClock className="h-4 w-4 text-cyan-200" />
+            Documentation freshness
+          </p>
+          <p className="mt-1 text-xs leading-5 text-zinc-500">
+            Flags when user-facing application changes are newer than the Knowledge Center source docs.
+          </p>
+        </div>
+        <span className={`rounded-full border px-3 py-1 text-[11px] font-medium uppercase tracking-[0.14em] ${tone}`}>
+          {statusLabel}
+        </span>
+      </div>
+      <div className="grid gap-3 md:grid-cols-3">
+        <div className="rounded-md border border-white/10 bg-white/[0.035] p-4">
+          <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-zinc-500">Latest docs update</p>
+          <p className="mt-2 text-sm font-semibold text-zinc-100">{formatFreshnessDate(snapshot.docsLatestAt)}</p>
+          <p className="mt-1 truncate text-xs text-zinc-500">{snapshot.docsLatestPath ?? "No documentation source detected"}</p>
+        </div>
+        <div className="rounded-md border border-white/10 bg-white/[0.035] p-4">
+          <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-zinc-500">Latest user-facing change</p>
+          <p className="mt-2 text-sm font-semibold text-zinc-100">{formatFreshnessDate(snapshot.productLatestAt)}</p>
+          <p className="mt-1 truncate text-xs text-zinc-500">{snapshot.productLatestPath ?? "No app source detected"}</p>
+        </div>
+        <div className={`rounded-md border p-4 ${tone}`}>
+          <p className="text-[11px] font-medium uppercase tracking-[0.16em]">Review signal</p>
+          <p className="mt-2 text-sm font-semibold text-zinc-50">{reviewSignal}</p>
+          <p className="mt-1 text-xs leading-5 text-zinc-400">
+            Use this as a release hygiene check, not a blocker for emergency fixes.
+          </p>
+        </div>
+      </div>
+    </section>
+  );
+}
+
 export function AdminTrustOperationsCard({
   auditEvents,
+  documentationFreshness,
   guidanceFlags,
   guidanceModelProfile,
   invitationProvider,
@@ -193,6 +265,8 @@ export function AdminTrustOperationsCard({
             />
           </div>
         </section>
+
+        <DocumentationFreshnessPanel snapshot={documentationFreshness} />
 
         <section className="grid gap-3">
           <p className="text-sm font-semibold text-zinc-100">Audit coverage</p>

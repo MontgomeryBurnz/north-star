@@ -306,6 +306,7 @@ Admins use it to:
 - Export filtered audit events.
 - Manage model settings.
 - Monitor cost, usage, platform health, and integration status.
+- Review documentation freshness so user-facing changes stay aligned with Knowledge Center content.
 
 ### Audit History
 
@@ -321,6 +322,7 @@ Use Trust and Operations to confirm:
 - Whether key systems are connected and healthy.
 - Whether exports, flags, client decisions, and settings changes are being audited.
 - Whether cost and usage tracking are available.
+- Whether user-facing application changes are newer than the Knowledge Center source docs.
 
 ### Knowledge Management Stewardship
 

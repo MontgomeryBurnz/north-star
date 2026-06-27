@@ -401,14 +401,25 @@ test("Primary workflow pages share the product header template and stronger empt
 test("Admin includes Trust and Operations controls", () => {
   const adminSource = readFileSync(new URL("../src/app/admin/page.tsx", import.meta.url), "utf8");
   const trustSource = readFileSync(new URL("../src/components/admin-trust-operations-card.tsx", import.meta.url), "utf8");
+  const freshnessSource = readFileSync(new URL("../src/lib/documentation-freshness.ts", import.meta.url), "utf8");
 
   assert.match(adminSource, /AdminTrustOperationsCard/);
+  assert.match(adminSource, /getDocumentationFreshnessSnapshot/);
+  assert.match(adminSource, /documentationFreshness=\{documentationFreshness\}/);
   assert.match(trustSource, /Trust & Operations/);
   assert.match(trustSource, /Permission model/);
   assert.match(trustSource, /Reliability indicators/);
+  assert.match(trustSource, /Documentation freshness/);
+  assert.match(trustSource, /data-admin-documentation-freshness/);
+  assert.match(trustSource, /Latest docs update/);
+  assert.match(trustSource, /Latest user-facing change/);
   assert.match(trustSource, /Audit coverage/);
   assert.match(trustSource, /AdminAuditHistoryPanel/);
   assert.match(trustSource, /DOCX export/);
+  assert.match(freshnessSource, /documentationPaths/);
+  assert.match(freshnessSource, /userFacingProductPaths/);
+  assert.match(freshnessSource, /git/);
+  assert.match(freshnessSource, /needs-review/);
 });
 
 test("Admin audit history uses persisted audit events instead of inferred activity", () => {
