@@ -333,7 +333,7 @@ export function LeadershipReviewConsole() {
   const queueMode = searchParams.get("queue") === "due";
   const queueRequest = useRequestSequence();
   const contextRequest = useRequestSequence();
-  const { getAssignmentForProgram, loaded: assignmentsLoaded, primaryAssignment } = useCurrentUserAssignments();
+  const { getRoleUiProfileForProgram, loaded: assignmentsLoaded, primaryAssignment } = useCurrentUserAssignments();
   const assignmentProgramAppliedRef = useRef(false);
   const previousLaneProgramId = useRef<string | null>(null);
   const [updates, setUpdates] = useState<StoredProgramUpdate[]>(seededLeadershipUpdates);
@@ -361,7 +361,11 @@ export function LeadershipReviewConsole() {
   );
   const selectedLaneOption = laneOptions.find((option) => option.value === selectedLane) ?? laneOptions[0];
   const selectedRole = selectedLane === allSponsorLanesValue ? null : selectedLane;
-  const assignedLane = selectedProgramId ? getAssignmentForProgram(selectedProgramId)?.role ?? null : null;
+  const roleUiProfile = useMemo(
+    () => (selectedProgramId ? getRoleUiProfileForProgram(selectedProgramId, laneOptions.map((option) => option.value)) : null),
+    [getRoleUiProfileForProgram, laneOptions, selectedProgramId]
+  );
+  const assignedLane = roleUiProfile?.assignedRole ?? null;
   const selectedRoleUpdate = useMemo(
     () => latestUpdate?.review.teamRoleUpdates?.find((roleUpdate) => sameRole(roleUpdate.role, selectedLane)) ?? null,
     [latestUpdate?.review.teamRoleUpdates, selectedLane]

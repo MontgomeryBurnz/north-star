@@ -259,14 +259,19 @@ export function ArtifactStudioConsole() {
     autoSelectFirstProgram: false,
     onError: handleProgramLoadError
   });
-  const { getAssignmentForProgram, loaded: assignmentsLoaded } = useCurrentUserAssignments();
+  const { getRoleUiProfileForProgram, loaded: assignmentsLoaded } = useCurrentUserAssignments();
   const programOptions = useMemo(() => programsToSlicerOptions(programs, "signal"), [programs]);
   const teamRoles = useMemo(() => getProgramRoleNames(selectedProgram?.intake), [selectedProgram?.intake]);
   const agentRoleLenses = useMemo(() => getDeliveryAgentRoleLenses(), []);
-  const roleOptions = useMemo(
+  const baseRoleOptions = useMemo(
     () => (selectedProgramId ? Array.from(new Set([...teamRoles, ...agentRoleLenses])) : []),
     [agentRoleLenses, selectedProgramId, teamRoles]
   );
+  const roleUiProfile = useMemo(
+    () => (selectedProgramId ? getRoleUiProfileForProgram(selectedProgramId, baseRoleOptions) : null),
+    [baseRoleOptions, getRoleUiProfileForProgram, selectedProgramId]
+  );
+  const roleOptions = roleUiProfile?.roleOptions ?? baseRoleOptions;
   const isRoleSelectionDisabled = !selectedProgramId || roleOptions.length === 0;
   const starterSuggestions = useMemo(() => {
     if (!selectedProgramId || !selectedRoleFocus) return [];
@@ -284,15 +289,12 @@ export function ArtifactStudioConsole() {
       return;
     }
 
-    const assignedRole = getAssignmentForProgram(selectedProgramId)?.role;
-    const assignedRoleMatch = assignedRole
-      ? roleOptions.find((role) => role.toLowerCase() === assignedRole.toLowerCase())
-      : undefined;
+    const assignedRoleMatch = roleUiProfile?.defaultRole && roleOptions.includes(roleUiProfile.defaultRole) ? roleUiProfile.defaultRole : undefined;
 
     setSelectedRoleFocus((current) => (roleOptions.includes(current) ? current : assignedRoleMatch ?? ""));
     setCustomRole((current) => (roleOptions.includes(current) ? current : assignedRoleMatch ?? ""));
     setLaunchRequest(null);
-  }, [assignmentsLoaded, getAssignmentForProgram, roleOptions, selectedProgramId]);
+  }, [assignmentsLoaded, roleOptions, roleUiProfile?.defaultRole, selectedProgramId]);
 
   useEffect(() => {
     setLaunchRequest(null);
@@ -481,6 +483,11 @@ export function ArtifactStudioConsole() {
                   </select>
                   <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400" />
                 </span>
+                {selectedProgramId && roleUiProfile?.summary ? (
+                  <span data-role-aware-ui-summary className="text-xs leading-5 text-zinc-400">
+                    {roleUiProfile.summary}
+                  </span>
+                ) : null}
               </label>
             </div>
 

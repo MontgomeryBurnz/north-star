@@ -139,7 +139,7 @@ export function GuidedPlansConsole() {
     autoSelectFirstProgram: false,
     onError: handleProgramLoadError
   });
-  const { currentUser, getAssignmentForProgram, loaded: assignmentsLoaded } = useCurrentUserAssignments();
+  const { currentUser, getRoleUiProfileForProgram, loaded: assignmentsLoaded } = useCurrentUserAssignments();
   const latestUpdate = updates[0];
   const ganttPhases = useMemo(() => buildProgramGantt(selectedProgram, latestUpdate), [latestUpdate, selectedProgram]);
   const currentPhase = ganttPhases.find((phase) => phase.status === "current") ?? ganttPhases[ganttPhases.length - 1];
@@ -148,7 +148,11 @@ export function GuidedPlansConsole() {
     [selectedProgram]
   );
   const teamRoleSignature = useMemo(() => teamRoles.map((role) => normalizeRoleKey(role)).join("|"), [teamRoles]);
-  const assignedRoleForProgram = selectedProgramId ? getAssignmentForProgram(selectedProgramId)?.role ?? null : null;
+  const roleUiProfile = useMemo(
+    () => (selectedProgramId ? getRoleUiProfileForProgram(selectedProgramId, teamRoles) : null),
+    [getRoleUiProfileForProgram, selectedProgramId, teamRoles]
+  );
+  const assignedRoleForProgram = roleUiProfile?.assignedRole ?? null;
   const roleFocusStorageKey = useMemo(
     () => (selectedProgramId ? `north-star:guided-plans:role-focus:${currentUser?.id ?? "anonymous"}:${selectedProgramId}` : ""),
     [currentUser?.id, selectedProgramId]

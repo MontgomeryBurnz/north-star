@@ -180,6 +180,24 @@ test("Program setup transitions into a readiness checkpoint after save", () => {
   assert.ok(!source.includes("router.push(`/systems?program=${encodeURIComponent(savePayload.program.id)}`)"));
 });
 
+test("Role-aware UI profile is shared across role-centric surfaces", () => {
+  const hookSource = readFileSync(new URL("../src/hooks/use-current-user-assignments.ts", import.meta.url), "utf8");
+  const activeControllerSource = readFileSync(new URL("../src/hooks/use-active-program-review-controller.ts", import.meta.url), "utf8");
+  const guidedSource = readFileSync(new URL("../src/components/guided-plans-console.tsx", import.meta.url), "utf8");
+  const studioSource = readFileSync(new URL("../src/components/artifact-studio-console.tsx", import.meta.url), "utf8");
+  const leadershipSource = readFileSync(new URL("../src/components/leadership-review-console.tsx", import.meta.url), "utf8");
+
+  assert.match(hookSource, /getRoleUiProfileForProgram/);
+  assert.match(activeControllerSource, /roleUiProfile/);
+  assert.match(activeControllerSource, /defaultFocusRole = roleUiProfile\?\.defaultRole/);
+  assert.match(guidedSource, /roleUiProfile/);
+  assert.match(guidedSource, /assignedRoleForProgram = roleUiProfile\?\.assignedRole/);
+  assert.match(studioSource, /roleUiProfile/);
+  assert.match(studioSource, /data-role-aware-ui-summary/);
+  assert.match(leadershipSource, /roleUiProfile/);
+  assert.match(leadershipSource, /assignedLane = roleUiProfile\?\.assignedRole/);
+});
+
 test("Primary app surfaces use the wider North Star shell", () => {
   const globalSource = readFileSync(new URL("../src/app/globals.css", import.meta.url), "utf8");
   const clientSource = readFileSync(new URL("../src/components/client-portal-console.tsx", import.meta.url), "utf8");

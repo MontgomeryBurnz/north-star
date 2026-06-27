@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { ManagedAppUser, ManagedProgramAssignment } from "@/lib/admin-user-types";
+import { buildRoleAwareUiProfile } from "@/lib/role-aware-ui";
 
 type CurrentUserAssignmentsPayload = {
   assignmentSource: "none" | "supabase";
@@ -47,11 +48,16 @@ export function useCurrentUserAssignments() {
       assignments.find((assignment) => assignment.programId === programId) ?? null,
     [assignments]
   );
+  const getRoleUiProfileForProgram = useCallback(
+    (programId: string, availableRoles: string[]) => buildRoleAwareUiProfile(currentUser, programId, availableRoles),
+    [currentUser]
+  );
 
   return {
     assignments,
     currentUser,
     getAssignmentForProgram,
+    getRoleUiProfileForProgram,
     loaded,
     primaryAssignment
   };

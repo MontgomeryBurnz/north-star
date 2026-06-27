@@ -73,7 +73,7 @@ export function useActiveProgramReviewController() {
   const updatesRequest = useRequestSequence();
   const signalRequest = useRequestSequence();
   const meetingInputsRequest = useRequestSequence();
-  const { currentUser, getAssignmentForProgram, loaded: assignmentsLoaded, primaryAssignment } = useCurrentUserAssignments();
+  const { currentUser, getRoleUiProfileForProgram, loaded: assignmentsLoaded, primaryAssignment } = useCurrentUserAssignments();
   const [review, setReview] = useState<ActiveProgramReview>(emptyReview);
   const [savedAt, setSavedAt] = useState<string | null>(null);
   const [savedOwnershipSignature, setSavedOwnershipSignature] = useState("");
@@ -298,8 +298,12 @@ export function useActiveProgramReviewController() {
     void loadLeadershipSignal();
   }, [loadLeadershipSignal]);
 
-  const defaultFocusRole = selectedProgramId ? getAssignmentForProgram(selectedProgramId)?.role ?? null : null;
   const activeTeamRoles = useMemo(() => getProgramTeamRoles(selectedProgram?.intake), [selectedProgram?.intake]);
+  const roleUiProfile = useMemo(
+    () => (selectedProgramId ? getRoleUiProfileForProgram(selectedProgramId, activeTeamRoles) : null),
+    [activeTeamRoles, getRoleUiProfileForProgram, selectedProgramId]
+  );
+  const defaultFocusRole = roleUiProfile?.defaultRole ?? null;
   const teamFootprint = useMemo(() => getProgramTeamFootprint(selectedProgram?.intake), [selectedProgram?.intake]);
   const assignedOwnersByRole = useMemo(() => {
     const nextOwners = { ...getProgramRoleOwnerMap(selectedProgram?.intake) };
@@ -1136,6 +1140,7 @@ export function useActiveProgramReviewController() {
     clientPortfolioDraft,
     clientPortfolioSaveState,
     currentUserId: currentUser?.id ?? null,
+    currentUserRoleUiMode: roleUiProfile?.mode ?? "unassigned",
     defaultFocusRole,
     addDeliveryBoardItem,
     deliveryBoardUploadState,
