@@ -160,6 +160,26 @@ test("Active Program captures configurable timeline windows and milestones for C
   assert.match(clientSmokeSource, /timelineYear: "FY99"/);
 });
 
+test("Program setup transitions into a readiness checkpoint after save", () => {
+  const source = readFileSync(new URL("../src/components/program-intake-section.tsx", import.meta.url), "utf8");
+
+  assert.match(source, /buildProgramReadinessModel/);
+  assert.match(source, /showReadinessTransition/);
+  assert.match(source, /data-program-readiness-transition/);
+  assert.match(source, /North Star readiness/);
+  assert.match(source, /What we understand/);
+  assert.match(source, /Further advised info/);
+  assert.match(source, /data-program-readiness-actions/);
+  assert.match(source, /Upload artifact/);
+  assert.match(source, /Complete Team Footprint/);
+  assert.match(source, /Go to Program Hub/);
+  assert.match(source, /Open Guided Plans/);
+  assert.match(source, /Basis: intake fields, team footprint, named owners, risks, decisions, and attached artifacts/);
+  assert.match(source, /program-intake-artifacts/);
+  assert.match(source, /program-intake-team-footprint/);
+  assert.ok(!source.includes("router.push(`/systems?program=${encodeURIComponent(savePayload.program.id)}`)"));
+});
+
 test("Primary app surfaces use the wider North Star shell", () => {
   const globalSource = readFileSync(new URL("../src/app/globals.css", import.meta.url), "utf8");
   const clientSource = readFileSync(new URL("../src/components/client-portal-console.tsx", import.meta.url), "utf8");

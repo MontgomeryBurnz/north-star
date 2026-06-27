@@ -3,7 +3,19 @@
 import { ChangeEvent, FormEvent, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowRight, CheckCircle2, ClipboardList, FileText, FolderUp, ListChecks, Save, ShieldAlert, Sparkles, Trash2 } from "lucide-react";
+import {
+  ArrowRight,
+  CheckCircle2,
+  ClipboardList,
+  FileText,
+  FolderUp,
+  Gauge,
+  ListChecks,
+  Save,
+  ShieldAlert,
+  Sparkles,
+  Trash2
+} from "lucide-react";
 import type { ProgramArtifact, ProgramIntake, ReviewedArtifactContext } from "@/lib/program-intake-types";
 import { MetricBasisLabel } from "@/components/metric-basis-label";
 import { TeamFootprintEditor } from "@/components/team-footprint-editor";
@@ -386,6 +398,77 @@ function buildReviewedContextFromArtifacts(artifacts: ProgramArtifact[]): Review
   };
 }
 
+type ProgramReadinessModel = {
+  score: number;
+  label: string;
+  tone: "strong" | "medium" | "low";
+  understood: string[];
+  gaps: string[];
+};
+
+function hasText(value: string | undefined) {
+  return Boolean(value?.trim());
+}
+
+function buildProgramReadinessModel(intake: ProgramIntake, completion: number): ProgramReadinessModel {
+  const activeFootprint = intake.teamFootprint?.filter((role) => role.active !== false && role.role.trim()) ?? [];
+  const ownedRoles = activeFootprint.filter((role) => role.owner.trim());
+  const extractedArtifacts = intake.artifacts.filter((artifact) => artifact.extractionStatus === "extracted" || artifact.extractionStatus === "partial");
+  const hasAnyArtifact = Boolean(intake.artifacts.length);
+  const scoreInputs = [
+    hasText(intake.programName),
+    hasText(intake.clientName),
+    hasText(intake.programOwner),
+    hasText(intake.vision),
+    hasText(intake.sowSummary),
+    hasText(intake.outcomes),
+    hasText(intake.stakeholders),
+    hasText(intake.risks) || hasText(intake.blockers),
+    hasText(intake.decisionsNeeded),
+    activeFootprint.length > 0,
+    activeFootprint.length > 0 && ownedRoles.length === activeFootprint.length,
+    hasAnyArtifact,
+    extractedArtifacts.length > 0
+  ];
+  const signalScore = Math.round((scoreInputs.filter(Boolean).length / scoreInputs.length) * 100);
+  const score = Math.round(signalScore * 0.72 + completion * 0.28);
+  const tone: ProgramReadinessModel["tone"] = score >= 78 ? "strong" : score >= 52 ? "medium" : "low";
+  const understood = [
+    hasText(intake.programName) ? `Program identity: ${intake.programName.trim()}` : null,
+    hasText(intake.clientName) ? `Client portfolio: ${intake.clientName?.trim()}` : null,
+    hasText(intake.vision) || hasText(intake.outcomes) ? "Desired outcome and success path are captured." : null,
+    activeFootprint.length ? `${activeFootprint.length} team role${activeFootprint.length === 1 ? "" : "s"} mapped into the footprint.` : null,
+    ownedRoles.length ? `${ownedRoles.length} role owner${ownedRoles.length === 1 ? "" : "s"} named for execution.` : null,
+    hasAnyArtifact ? `${intake.artifacts.length} supporting artifact${intake.artifacts.length === 1 ? "" : "s"} attached.` : null,
+    extractedArtifacts.length ? "At least one artifact has usable extracted text for guidance." : null,
+    hasText(intake.risks) || hasText(intake.decisionsNeeded) ? "Early risks, blockers, or decisions have been named." : null
+  ].filter(Boolean) as string[];
+  const gaps = [
+    !hasText(intake.vision) && !hasText(intake.outcomes) ? "Add the clearest business outcome or definition of success." : null,
+    !hasText(intake.sowSummary) ? "Add scope, work statement, assumptions, or delivery summary." : null,
+    !hasText(intake.stakeholders) ? "Name executive sponsors, impacted teams, and decision owners." : null,
+    !activeFootprint.length ? "Add the team role footprint so guidance can be role-aware." : null,
+    activeFootprint.length && ownedRoles.length < activeFootprint.length ? "Add owners for every active role in the team footprint." : null,
+    !hasAnyArtifact ? "Upload a BRD, SoW, roadmap, status note, or meeting notes for grounded context." : null,
+    hasAnyArtifact && !extractedArtifacts.length ? "Review uploaded artifacts so at least one source has usable extracted text." : null,
+    !hasText(intake.risks) && !hasText(intake.blockers) ? "Capture known risks, blockers, constraints, or delivery pressure." : null,
+    !hasText(intake.decisionsNeeded) ? "List decisions needed to unlock the first delivery cycle." : null
+  ].filter(Boolean) as string[];
+
+  return {
+    score,
+    label:
+      tone === "strong"
+        ? "Strong guidance foundation"
+        : tone === "medium"
+          ? "Useful, but more context will sharpen guidance"
+          : "More signal needed before guidance is reliable",
+    tone,
+    understood: understood.length ? understood.slice(0, 6) : ["Program was saved, but the intake still needs more delivery context."],
+    gaps: gaps.length ? gaps.slice(0, 6) : ["No major intake gaps detected. Continue into Program Hub or Guided Plans."]
+  };
+}
+
 export function ProgramIntakeSection() {
   const router = useRouter();
   const [intake, setIntake] = useState<ProgramIntake>(emptyIntake);
@@ -395,6 +478,7 @@ export function ProgramIntakeSection() {
   const [artifactStatus, setArtifactStatus] = useState<string | null>(null);
   const [savedProgramId, setSavedProgramId] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [showReadinessTransition, setShowReadinessTransition] = useState(false);
   const hasProgramName = Boolean(intake.programName.trim());
 
   const completion = useMemo(() => {
@@ -441,6 +525,8 @@ export function ProgramIntakeSection() {
     return intake.reviewedContext ?? buildReviewedContextFromArtifacts(intake.artifacts);
   }, [intake.artifacts, intake.reviewedContext]);
 
+  const readinessModel = useMemo(() => buildProgramReadinessModel(intake, completion), [completion, intake]);
+
   function updateField(field: keyof Omit<ProgramIntake, "artifacts" | "reviewedContext" | "teamFootprint" | "teamRoles">, value: string) {
     if (field === "programName" && saveError) setSaveError(null);
     setIntake((current) => ({ ...current, [field]: value }));
@@ -454,6 +540,14 @@ export function ProgramIntakeSection() {
     setSavedAt(null);
     setSaveError(null);
     setArtifactStatus("Loaded a sample SoW with extracted context.");
+    setShowReadinessTransition(false);
+  }
+
+  function scrollToProgramIntakeSection(sectionId: string) {
+    setShowReadinessTransition(false);
+    window.requestAnimationFrame(() => {
+      document.getElementById(sectionId)?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
   }
 
   async function extractArtifactOnServer(file: File, fileFormat: NonNullable<ProgramArtifact["fileFormat"]>) {
@@ -737,6 +831,7 @@ export function ProgramIntakeSection() {
     window.localStorage.setItem("work-path-program-intake", JSON.stringify(intake));
     setSaveState("saving");
     setSaveError(null);
+    setShowReadinessTransition(false);
 
     try {
       const response = await fetch("/api/programs", {
@@ -753,6 +848,7 @@ export function ProgramIntakeSection() {
       setSavedProgramId(payload.program.id);
       setSaveState("saved");
       setSavedAt(new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }));
+      setShowReadinessTransition(true);
     } catch (error) {
       setSavedProgramId(null);
       setSaveState("error");
@@ -775,6 +871,7 @@ export function ProgramIntakeSection() {
     setSaveState("saving");
     setGenerateState("generating");
     setSaveError(null);
+    setShowReadinessTransition(false);
 
     try {
       const saveResponse = await fetch("/api/programs", {
@@ -797,7 +894,8 @@ export function ProgramIntakeSection() {
       });
 
       if (!planResponse.ok) throw new Error("Guided plan generation failed.");
-      router.push(`/systems?program=${encodeURIComponent(savePayload.program.id)}`);
+      setGenerateState("idle");
+      setShowReadinessTransition(true);
     } catch (error) {
       setSavedProgramId(null);
       setSaveState("error");
@@ -810,6 +908,91 @@ export function ProgramIntakeSection() {
   return (
     <section id="program-intake" className="border-y border-white/10 bg-white/[0.02]">
       <div className="northstar-shell grid gap-6 py-16 lg:grid-cols-[minmax(0,1fr)_390px]">
+        {showReadinessTransition && savedProgramId ? (
+          <div className="lg:col-span-2" data-program-readiness-transition>
+            <Card className="overflow-hidden border-emerald-300/20 bg-zinc-950/90">
+              <CardHeader className="border-b border-white/10 bg-emerald-300/[0.045]">
+                <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                  <div>
+                    <p className="mb-2 text-xs font-medium uppercase tracking-[0.22em] text-emerald-300">Program created</p>
+                    <CardTitle className="text-3xl text-zinc-50 md:text-4xl">Review program readiness before moving forward.</CardTitle>
+                    <p className="mt-3 max-w-3xl text-sm leading-7 text-zinc-300">
+                      North Star has enough context to start shaping guidance, but stronger inputs will produce sharper plans, role actions, and client-ready views.
+                    </p>
+                  </div>
+                  <div
+                    className={`rounded-lg border p-5 text-left lg:min-w-72 ${
+                      readinessModel.tone === "strong"
+                        ? "border-emerald-300/30 bg-emerald-300/[0.08]"
+                        : readinessModel.tone === "medium"
+                          ? "border-cyan-300/30 bg-cyan-300/[0.08]"
+                          : "border-amber-300/30 bg-amber-300/[0.08]"
+                    }`}
+                  >
+                    <p className="flex items-center gap-2 text-xs font-medium uppercase tracking-[0.18em] text-zinc-300">
+                      <Gauge className="h-4 w-4 text-emerald-200" />
+                      North Star readiness
+                    </p>
+                    <div className="mt-4 flex items-end gap-2">
+                      <span className="text-5xl font-semibold text-zinc-50">{readinessModel.score}%</span>
+                      <span className="pb-2 text-sm text-zinc-400">understood</span>
+                    </div>
+                    <p className="mt-3 text-sm leading-6 text-zinc-200">{readinessModel.label}</p>
+                    <div className="mt-4 h-2 overflow-hidden rounded-full bg-zinc-900">
+                      <div className="h-full bg-emerald-300 transition-all" style={{ width: `${readinessModel.score}%` }} />
+                    </div>
+                    <MetricBasisLabel>Basis: intake fields, team footprint, named owners, risks, decisions, and attached artifacts.</MetricBasisLabel>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent className="grid gap-5 p-5 lg:grid-cols-2">
+                <div className="rounded-md border border-white/10 bg-white/[0.035] p-4">
+                  <p className="text-xs font-medium uppercase tracking-[0.18em] text-emerald-200">What we understand</p>
+                  <ul className="mt-4 grid gap-3">
+                    {readinessModel.understood.map((item) => (
+                      <li key={item} className="flex gap-3 text-sm leading-6 text-zinc-300">
+                        <CheckCircle2 className="mt-1 h-4 w-4 shrink-0 text-emerald-200" />
+                        <span>{item}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+                <div className="rounded-md border border-cyan-300/20 bg-cyan-300/[0.045] p-4">
+                  <p className="text-xs font-medium uppercase tracking-[0.18em] text-cyan-200">Further advised info</p>
+                  <ul className="mt-4 grid gap-3">
+                    {readinessModel.gaps.map((item) => (
+                      <li key={item} className="flex gap-3 text-sm leading-6 text-zinc-300">
+                        <ArrowRight className="mt-1 h-4 w-4 shrink-0 text-cyan-200" />
+                        <span>{item}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+                <div className="flex flex-wrap gap-3 lg:col-span-2" data-program-readiness-actions>
+                  <Button type="button" onClick={() => scrollToProgramIntakeSection("program-intake-artifacts")}>
+                    <FolderUp className="h-4 w-4" />
+                    Upload artifact
+                  </Button>
+                  <Button type="button" variant="outline" onClick={() => scrollToProgramIntakeSection("program-intake-team-footprint")}>
+                    <ClipboardList className="h-4 w-4" />
+                    Complete Team Footprint
+                  </Button>
+                  <Button type="button" variant="outline" onClick={() => router.push(`/active-program?mode=manage&program=${encodeURIComponent(savedProgramId)}`)}>
+                    <ArrowRight className="h-4 w-4" />
+                    Go to Program Hub
+                  </Button>
+                  <Button type="button" variant="secondary" onClick={() => router.push(`/systems?program=${encodeURIComponent(savedProgramId)}`)}>
+                    <Sparkles className="h-4 w-4" />
+                    Open Guided Plans
+                  </Button>
+                  <Button type="button" variant="ghost" onClick={() => setShowReadinessTransition(false)}>
+                    Keep editing setup
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        ) : null}
         <div>
           <p className="mb-3 text-xs font-medium uppercase tracking-[0.22em] text-emerald-300">Program intake</p>
           <h2 className="text-3xl font-semibold text-zinc-50 md:text-4xl">Frame the program before the pressure starts.</h2>
@@ -904,14 +1087,16 @@ export function ProgramIntakeSection() {
               </CardContent>
             </Card>
 
-            <TeamFootprintEditor
-              footprint={intake.teamFootprint}
-              fallbackRoles={intake.teamRoles}
-              onChange={(teamFootprint) => setIntake((current) => ({ ...current, teamFootprint }))}
-              description="Set the program role footprint during setup so each surface can center the right owners, responsibilities, guided plans, and client-facing domain summaries."
-            />
+            <div id="program-intake-team-footprint">
+              <TeamFootprintEditor
+                footprint={intake.teamFootprint}
+                fallbackRoles={intake.teamRoles}
+                onChange={(teamFootprint) => setIntake((current) => ({ ...current, teamFootprint }))}
+                description="Set the program role footprint during setup so each surface can center the right owners, responsibilities, guided plans, and client-facing domain summaries."
+              />
+            </div>
 
-            <Card className="bg-zinc-950/80">
+            <Card id="program-intake-artifacts" className="bg-zinc-950/80">
               <CardHeader className="border-b border-white/10">
                 <CardTitle className="flex items-center gap-2 text-zinc-50">
                   <FolderUp className="h-4 w-4 text-cyan-200" />
@@ -1153,6 +1338,7 @@ export function ProgramIntakeSection() {
                   setGenerateState("idle");
                   setArtifactStatus(null);
                   setSaveError(null);
+                  setShowReadinessTransition(false);
                 }}
               >
                 Clear form
