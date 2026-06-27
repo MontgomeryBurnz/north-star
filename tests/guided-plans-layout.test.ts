@@ -198,6 +198,27 @@ test("Role-aware UI profile is shared across role-centric surfaces", () => {
   assert.match(leadershipSource, /assignedLane = roleUiProfile\?\.assignedRole/);
 });
 
+test("Knowledge Center renders versioned docs as searchable in-app guidance", () => {
+  const pageSource = readFileSync(new URL("../src/app/knowledge/page.tsx", import.meta.url), "utf8");
+  const loaderSource = readFileSync(new URL("../src/lib/knowledge-center.ts", import.meta.url), "utf8");
+  const consoleSource = readFileSync(new URL("../src/components/knowledge-center-console.tsx", import.meta.url), "utf8");
+  const navSource = readFileSync(new URL("../src/components/site-nav.tsx", import.meta.url), "utf8");
+
+  assert.match(pageSource, /requireSiteAccessPage\("\/knowledge"\)/);
+  assert.match(pageSource, /getKnowledgeArticles/);
+  assert.match(loaderSource, /docs\/northstar-executive-demo-guide\.md/);
+  assert.match(loaderSource, /docs\/northstar-team-user-guide\.md/);
+  assert.match(loaderSource, /docs\/northstar-knowledge-management-solution\.md/);
+  assert.match(loaderSource, /docs\/northstar-release-checklist\.md/);
+  assert.match(consoleSource, /data-knowledge-center/);
+  assert.match(consoleSource, /data-knowledge-search-input/);
+  assert.match(consoleSource, /data-knowledge-article-list/);
+  assert.match(consoleSource, /MarkdownArticle/);
+  assert.match(consoleSource, /Knowledge Center/);
+  assert.match(navSource, /Knowledge/);
+  assert.match(navSource, /\/knowledge/);
+});
+
 test("Primary app surfaces use the wider North Star shell", () => {
   const globalSource = readFileSync(new URL("../src/app/globals.css", import.meta.url), "utf8");
   const clientSource = readFileSync(new URL("../src/components/client-portal-console.tsx", import.meta.url), "utf8");

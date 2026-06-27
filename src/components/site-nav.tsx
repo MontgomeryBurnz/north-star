@@ -22,7 +22,8 @@ const navItems: NavItem[] = [
   { label: "Guided Plans", href: "/systems" },
   { label: "Studio", href: "/artifacts" },
   { label: "Client Portal", href: "/client" },
-  { label: "Leadership", href: "/leadership" }
+  { label: "Leadership", href: "/leadership" },
+  { label: "Knowledge", href: "/knowledge" }
 ];
 
 const userTypeLabels: Record<AppUserType, string> = {
