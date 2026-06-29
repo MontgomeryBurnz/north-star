@@ -538,6 +538,7 @@ test("Active Program review is split into state, cockpit, and team signal flows"
   const packageSource = readFileSync(new URL("../package.json", import.meta.url), "utf8");
   const activeProgramSaveSmokeSource = readFileSync(new URL("../scripts/smoke-active-program-save.mjs", import.meta.url), "utf8");
   const clientPortalSmokeSource = readFileSync(new URL("../scripts/smoke-client-portal.mjs", import.meta.url), "utf8");
+  const teamFootprintSmokeSource = readFileSync(new URL("../scripts/smoke-team-footprint.mjs", import.meta.url), "utf8");
   const productionSmokeSource = readFileSync(new URL("../scripts/smoke-production.mjs", import.meta.url), "utf8");
   const browserWebdriverSource = readFileSync(new URL("../scripts/browser-webdriver.mjs", import.meta.url), "utf8");
   const clientPortalPageSource = readFileSync(new URL("../src/app/client/page.tsx", import.meta.url), "utf8");
@@ -581,6 +582,9 @@ test("Active Program review is split into state, cockpit, and team signal flows"
   assert.match(routeSource, /export async function DELETE/);
   assert.match(routeSource, /Only tagged Active Program smoke updates can be pruned/);
   assert.match(routeSource, /deleteProgramUpdatesByTag/);
+  assert.match(teamFootprintSmokeSource, /cleanupStaleSmokeFootprints/);
+  assert.match(teamFootprintSmokeSource, /NORTHSTAR_TEAM_FOOTPRINT_SMOKE_CLEANUP_ONLY/);
+  assert.match(teamFootprintSmokeSource, /isSmokeFootprintItem/);
   assert.match(repositoryTypesSource, /deleteProgramUpdatesByTag/);
   assert.match(programPersistenceSource, /review::text LIKE/);
   assert.match(storeSource, /export async function deleteProgramUpdatesByTag/);

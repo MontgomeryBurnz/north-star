@@ -8,6 +8,9 @@ const testUserEmail = process.env.NORTHSTAR_TEST_USER_EMAIL ?? process.env.NORTH
 const testUserPassword = process.env.NORTHSTAR_TEST_USER_PASSWORD ?? process.env.NORTHSTAR_USER_PASSWORD;
 const targetProgramName = process.env.NORTHSTAR_SMOKE_PROGRAM_NAME ?? "";
 const authMode = (process.env.NORTHSTAR_SMOKE_AUTH_MODE ?? "auto").toLowerCase();
+const cleanupOnly = process.env.NORTHSTAR_TEAM_FOOTPRINT_SMOKE_CLEANUP_ONLY === "true";
+const smokeRolePrefixes = ["North Star Smoke Role", "north-star-smoke-role"];
+const smokeTextMarkers = ["Codex QA Owner", "Validate Team Footprint propagation"];
 
 function requireCredential(value, label) {
   if (value) return value;
@@ -56,15 +59,7 @@ async function authenticate(session) {
 }
 
 async function selectProgram(session) {
-  const programs = await session.execute(`
-    return fetch("/api/programs", { cache: "no-store" })
-      .then((response) => response.ok ? response.json() : Promise.reject(new Error(String(response.status))))
-      .then((payload) => payload.programs.map((program) => ({
-        id: program.id,
-        name: program.intake.programName,
-        teamFootprint: program.intake.teamFootprint ?? []
-      })));
-  `);
+  const programs = await listPrograms(session);
 
   if (!programs.length) {
     throw new Error("No programs available for Team Footprint smoke.");
@@ -74,6 +69,30 @@ async function selectProgram(session) {
   return wanted
     ? programs.find((program) => program.name.toLowerCase().includes(wanted)) ?? programs[0]
     : programs[0];
+}
+
+async function listPrograms(session) {
+  return session.execute(`
+    return fetch("/api/programs", { cache: "no-store" })
+      .then((response) => response.ok ? response.json() : Promise.reject(new Error(String(response.status))))
+      .then((payload) => payload.programs.map((program) => ({
+        id: program.id,
+        name: program.intake.programName,
+        teamFootprint: program.intake.teamFootprint ?? []
+      })));
+  `);
+}
+
+function isSmokeFootprintItem(item) {
+  const id = String(item?.id ?? "");
+  const owner = String(item?.owner ?? "");
+  const responsibility = String(item?.responsibility ?? "");
+  const role = String(item?.role ?? "");
+
+  return (
+    smokeRolePrefixes.some((prefix) => id.startsWith(prefix) || role.startsWith(prefix)) ||
+    smokeTextMarkers.some((marker) => owner.includes(marker) || responsibility.includes(marker))
+  );
 }
 
 async function patchFootprint(session, programId, teamFootprint) {
@@ -97,6 +116,32 @@ async function patchFootprint(session, programId, teamFootprint) {
   }
 
   return result.payload;
+}
+
+async function cleanupStaleSmokeFootprints(session) {
+  const programs = await listPrograms(session);
+  let cleanedPrograms = 0;
+  let removedRoles = 0;
+
+  for (const program of programs) {
+    const cleanFootprint = program.teamFootprint.filter((item) => !isSmokeFootprintItem(item));
+    const removed = program.teamFootprint.length - cleanFootprint.length;
+
+    if (!removed) continue;
+
+    await patchFootprint(session, program.id, cleanFootprint);
+    cleanedPrograms += 1;
+    removedRoles += removed;
+    console.log(
+      `✓ Team Footprint: removed ${removed} stale smoke role${removed === 1 ? "" : "s"} from ${program.name}.`
+    );
+  }
+
+  if (!removedRoles) {
+    console.log("✓ Team Footprint: no stale smoke roles found.");
+  }
+
+  return { cleanedPrograms, removedRoles };
 }
 
 async function verifyGuidedPlanConsumesFootprint(session, programId, roleName, owner, responsibility) {
@@ -165,11 +210,22 @@ async function main() {
 
     try {
       await authenticate(session);
+      const cleanup = await cleanupStaleSmokeFootprints(session);
+
+      if (cleanupOnly) {
+        console.log(
+          `✓ Team Footprint cleanup-only mode complete: ${cleanup.removedRoles} stale smoke role${
+            cleanup.removedRoles === 1 ? "" : "s"
+          } removed across ${cleanup.cleanedPrograms} program${cleanup.cleanedPrograms === 1 ? "" : "s"}.`
+        );
+        return;
+      }
+
       program = await selectProgram(session);
-      originalFootprint = program.teamFootprint;
+      originalFootprint = program.teamFootprint.filter((item) => !isSmokeFootprintItem(item));
 
       const nextFootprint = [
-        ...originalFootprint.filter((item) => !String(item.role ?? "").startsWith("North Star Smoke Role")),
+        ...originalFootprint,
         {
           active: true,
           id: `north-star-smoke-role-${stamp}`,

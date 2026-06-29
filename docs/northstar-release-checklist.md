@@ -47,6 +47,7 @@ The bundle currently verifies:
 - Admin Trust & Operations documentation freshness panel renders after deploy
 - logged-in Client Portal seeded update: writes executive fields, opens `/client`, verifies portfolio/detail rendering, captures desktop/mobile screenshots, and prunes the tagged update
 - Active Program save, role focus, Delivery Board, mobile screenshot, and cleanup behavior
+- Team Footprint smoke cleanup: stale tagged smoke roles are pruned before the test and can be removed with `NORTHSTAR_TEAM_FOOTPRINT_SMOKE_CLEANUP_ONLY=true`
 
 ## Required Smoke Environment
 
