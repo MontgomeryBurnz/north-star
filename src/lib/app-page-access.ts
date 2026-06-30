@@ -40,6 +40,11 @@ export async function requireSiteAccessPage(redirectTo: string) {
     return;
   }
 
+  if (hasSupabaseAuthSession(cookieStore)) {
+    await redirectPendingUserSetup(cookieStore);
+    return;
+  }
+
   redirect(`/login?redirect=${encodeURIComponent(redirectTo)}`);
 }
 

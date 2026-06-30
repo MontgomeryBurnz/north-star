@@ -25,6 +25,12 @@ function isPublicPath(pathname: string) {
   return /\.(.*)$/.test(pathname);
 }
 
+function hasSupabaseAuthSession(request: NextRequest) {
+  return request.cookies
+    .getAll()
+    .some((cookie) => cookie.name.startsWith("sb-") && cookie.name.includes("auth-token"));
+}
+
 function isCanonicalRedirectEnabled() {
   if (process.env.NORTHSTAR_CANONICAL_REDIRECT_ENABLED === "false") return false;
   if (process.env.NODE_ENV === "development") return false;
@@ -46,7 +52,7 @@ export function middleware(request: NextRequest) {
   }
 
   const sessionToken = request.cookies.get(siteAccessSessionCookieName)?.value;
-  if (isSiteAccessSessionTokenValid(sessionToken)) {
+  if (isSiteAccessSessionTokenValid(sessionToken) || hasSupabaseAuthSession(request)) {
     return NextResponse.next();
   }
 

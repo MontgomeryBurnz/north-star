@@ -1028,6 +1028,7 @@ test("Client Dashboard Contributor has a scoped publication lane", () => {
     "utf8"
   );
   const clientUpdatesPageSource = readFileSync(new URL("../src/app/client-updates/page.tsx", import.meta.url), "utf8");
+  const appPageAccessSource = readFileSync(new URL("../src/lib/app-page-access.ts", import.meta.url), "utf8");
   const clientUpdatesConsoleSource = readFileSync(
     new URL("../src/components/client-dashboard-updates-console.tsx", import.meta.url),
     "utf8"
@@ -1059,6 +1060,8 @@ test("Client Dashboard Contributor has a scoped publication lane", () => {
   assert.match(authLoginSource, /\/client-updates/);
   assert.match(programRouteSource, /isExternalOnlyUserType/);
   assert.match(middlewareSource, /pathname === "\/client-updates"/);
+  assert.match(middlewareSource, /hasSupabaseAuthSession\(request\)/);
+  assert.match(appPageAccessSource, /hasSupabaseAuthSession\(cookieStore\)/);
   assert.match(packageSource, /smoke:client-updates/);
   assert.match(productionSmokeSource, /smoke-client-dashboard-updates\.mjs/);
   assert.match(clientUpdatesSmokeSource, /data-client-dashboard-publish/);
