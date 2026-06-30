@@ -1035,6 +1035,7 @@ test("Client Dashboard Contributor has a scoped publication lane", () => {
   const navSource = readFileSync(new URL("../src/components/site-nav.tsx", import.meta.url), "utf8");
   const authLoginSource = readFileSync(new URL("../src/app/api/auth/user/login/route.ts", import.meta.url), "utf8");
   const programRouteSource = readFileSync(new URL("../src/app/api/programs/route.ts", import.meta.url), "utf8");
+  const middlewareSource = readFileSync(new URL("../src/middleware.ts", import.meta.url), "utf8");
   const packageSource = readFileSync(new URL("../package.json", import.meta.url), "utf8");
   const productionSmokeSource = readFileSync(new URL("../scripts/smoke-production.mjs", import.meta.url), "utf8");
   const clientUpdatesSmokeSource = readFileSync(new URL("../scripts/smoke-client-dashboard-updates.mjs", import.meta.url), "utf8");
@@ -1055,6 +1056,7 @@ test("Client Dashboard Contributor has a scoped publication lane", () => {
   assert.match(navSource, /getVisibleNavItems/);
   assert.match(authLoginSource, /\/client-updates/);
   assert.match(programRouteSource, /isExternalOnlyUserType/);
+  assert.match(middlewareSource, /pathname === "\/client-updates"/);
   assert.match(packageSource, /smoke:client-updates/);
   assert.match(productionSmokeSource, /smoke-client-dashboard-updates\.mjs/);
   assert.match(clientUpdatesSmokeSource, /data-client-dashboard-publish/);

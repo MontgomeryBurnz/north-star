@@ -7,6 +7,7 @@ function isPublicPath(pathname: string) {
     pathname.startsWith("/api/") ||
     pathname === "/login" ||
     pathname === "/client" ||
+    pathname === "/client-updates" ||
     pathname === "/auth/activate" ||
     pathname === "/auth/callback" ||
     pathname === "/auth/reset-password" ||
