@@ -21,6 +21,7 @@ const navItems: NavItem[] = [
   { label: "Program Hub", href: "/active-program", activePaths: ["/active-program", "/new-program"] },
   { label: "Guided Plans", href: "/systems" },
   { label: "Studio", href: "/artifacts" },
+  { label: "Client Updates", href: "/client-updates" },
   { label: "Client Portal", href: "/client" },
   { label: "Leadership", href: "/leadership" },
   { label: "Knowledge", href: "/knowledge" }
@@ -31,9 +32,20 @@ const userTypeLabels: Record<AppUserType, string> = {
   leadership: "Leadership",
   "delivery-lead": "Delivery Lead",
   "team-member": "Team Member",
+  "client-dashboard-contributor": "Client Dashboard",
   client: "Client",
   viewer: "Viewer"
 };
+
+function getVisibleNavItems(userType: AppUserType | null | undefined) {
+  if (userType === "client-dashboard-contributor") {
+    return navItems.filter((item) => item.href === "/client-updates" || item.href === "/client");
+  }
+  if (userType === "client") {
+    return navItems.filter((item) => item.href === "/client");
+  }
+  return navItems;
+}
 
 function LogoutForm({ className, compact = false }: { className?: string; compact?: boolean }) {
   return (
@@ -109,8 +121,11 @@ function CurrentUserMenu({ className, mobile = false }: { className?: string; mo
 
 export function SiteNav() {
   const pathname = usePathname();
+  const { currentUser, loaded } = useCurrentUserAssignments();
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const adminIsActive = pathname === "/admin" || pathname === "/governance";
+  const visibleNavItems = getVisibleNavItems(currentUser?.userType);
+  const showAdminLink = !loaded || !currentUser || currentUser.userType === "admin";
 
   useEffect(() => {
     setMobileNavOpen(false);
@@ -127,7 +142,7 @@ export function SiteNav() {
             <span className="truncate text-sm font-semibold text-zinc-50">North Star</span>
           </Link>
           <div className="hidden items-center gap-1 lg:flex">
-            {navItems.map((item) => {
+            {visibleNavItems.map((item) => {
               const isActive = item.href === "/"
                 ? pathname === item.href
                 : pathname === item.href || item.activePaths?.includes(pathname);
@@ -147,21 +162,23 @@ export function SiteNav() {
               </Button>
               );
             })}
-            <Button
-              asChild
-              variant="ghost"
-              size="sm"
-              aria-label="Admin console"
-              title="Admin console"
-              className={cn(
-                "ml-1 h-9 w-9 px-0 text-emerald-200/75 hover:text-emerald-100",
-                adminIsActive && "bg-emerald-300/[0.08] text-emerald-100"
-              )}
-            >
-              <Link href="/admin">
-                <Settings className="h-4 w-4" />
-              </Link>
-            </Button>
+            {showAdminLink ? (
+              <Button
+                asChild
+                variant="ghost"
+                size="sm"
+                aria-label="Admin console"
+                title="Admin console"
+                className={cn(
+                  "ml-1 h-9 w-9 px-0 text-emerald-200/75 hover:text-emerald-100",
+                  adminIsActive && "bg-emerald-300/[0.08] text-emerald-100"
+                )}
+              >
+                <Link href="/admin">
+                  <Settings className="h-4 w-4" />
+                </Link>
+              </Button>
+            ) : null}
           </div>
           <div className="flex items-center gap-2">
             <CurrentUserMenu className="hidden lg:block" />
@@ -181,7 +198,7 @@ export function SiteNav() {
         {mobileNavOpen ? (
           <div className="grid gap-2 border-t border-white/10 py-4 lg:hidden">
             <CurrentUserMenu mobile />
-            {navItems.map((item) => {
+            {visibleNavItems.map((item) => {
               const isActive = item.href === "/"
                 ? pathname === item.href
                 : pathname === item.href || item.activePaths?.includes(pathname);
@@ -200,19 +217,21 @@ export function SiteNav() {
               </Button>
               );
             })}
-            <Button
-              asChild
-              variant="ghost"
-              className={cn(
-                "justify-start text-emerald-200/80 hover:text-emerald-100",
-                adminIsActive && "bg-emerald-300/[0.08] text-emerald-100"
-              )}
-            >
-              <Link href="/admin">
-                <Settings className="h-4 w-4" />
-                Settings
-              </Link>
-            </Button>
+            {showAdminLink ? (
+              <Button
+                asChild
+                variant="ghost"
+                className={cn(
+                  "justify-start text-emerald-200/80 hover:text-emerald-100",
+                  adminIsActive && "bg-emerald-300/[0.08] text-emerald-100"
+                )}
+              >
+                <Link href="/admin">
+                  <Settings className="h-4 w-4" />
+                  Settings
+                </Link>
+              </Button>
+            ) : null}
           </div>
         ) : null}
       </nav>

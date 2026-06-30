@@ -1,6 +1,12 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { canAccessAdminSurface, canAccessLeadershipSurface, canAccessProgramScope } from "../src/lib/admin-user-types.ts";
+import {
+  canAccessAdminSurface,
+  canAccessClientDashboardScope,
+  canAccessClientDashboardUpdateSurface,
+  canAccessLeadershipSurface,
+  canAccessProgramScope
+} from "../src/lib/admin-user-types.ts";
 import { buildManagedAppUserRecord } from "../src/lib/admin-user-service.ts";
 import type { StoredProgram } from "../src/lib/program-intake-types.ts";
 
@@ -228,6 +234,29 @@ test("buildManagedAppUserRecord treats client users as program-scoped", () => {
   assert.equal(result.record.assignments[0]?.role, "Executive Sponsor");
 });
 
+test("buildManagedAppUserRecord treats client dashboard contributors as program-scoped", () => {
+  const result = buildManagedAppUserRecord({
+    idFactory: () => "dashboard-1",
+    input: {
+      name: "Client Dashboard Publisher",
+      email: "dashboard@example.com",
+      userType: "client-dashboard-contributor",
+      assignment: {
+        programId: "compliance-hub",
+        role: "Client Dashboard"
+      }
+    },
+    now: "2026-04-29T12:00:00.000Z",
+    programs: [program]
+  });
+
+  assert.equal(result.ok, true);
+  if (!result.ok) return;
+
+  assert.equal(result.record.userType, "client-dashboard-contributor");
+  assert.equal(result.record.assignments.length, 1);
+});
+
 test("managed user surfaces authorize admin and leadership roles correctly", () => {
   assert.equal(canAccessAdminSurface({ credentialStatus: "active", userType: "admin" }), true);
   assert.equal(canAccessAdminSurface({ credentialStatus: "invited", userType: "admin" }), false);
@@ -260,6 +289,30 @@ test("managed user program scope keeps client access assignment-bound", () => {
   assert.equal(canAccessProgramScope(clientUser, "platform-modernization"), false);
   assert.equal(canAccessProgramScope({ ...clientUser, credentialStatus: "disabled" }, "compliance-hub"), false);
   assert.equal(canAccessProgramScope({ ...clientUser, userType: "delivery-lead" }, "platform-modernization"), true);
+});
+
+test("client dashboard contributors are scoped to client dashboard surfaces", () => {
+  const dashboardUser = {
+    assignments: [
+      {
+        id: "assignment-1",
+        programId: "compliance-hub",
+        programName: "Compliance Hub",
+        role: "Client Dashboard",
+        isPrimary: true,
+        createdAt: "2026-04-29T12:00:00.000Z",
+        updatedAt: "2026-04-29T12:00:00.000Z"
+      }
+    ],
+    credentialStatus: "active" as const,
+    userType: "client-dashboard-contributor" as const
+  };
+
+  assert.equal(canAccessProgramScope(dashboardUser, "compliance-hub"), false);
+  assert.equal(canAccessClientDashboardScope(dashboardUser, "compliance-hub"), true);
+  assert.equal(canAccessClientDashboardScope(dashboardUser, "platform-modernization"), false);
+  assert.equal(canAccessClientDashboardUpdateSurface(dashboardUser), true);
+  assert.equal(canAccessClientDashboardUpdateSurface({ ...dashboardUser, userType: "client" }), false);
 });
 
 test("buildManagedAppUserRecord merges new assignments without dropping existing program roles", () => {

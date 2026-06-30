@@ -14,6 +14,7 @@
     "smoke:studio": "node scripts/smoke-studio.mjs",
     "smoke:active-program-save": "node scripts/smoke-active-program-save.mjs",
     "smoke:client-portal": "node scripts/smoke-client-portal.mjs",
+    "smoke:client-updates": "node scripts/smoke-client-dashboard-updates.mjs",
     "smoke:chat-disabled": "node scripts/smoke-chat-disabled.mjs",
     "smoke:team-footprint": "node scripts/smoke-team-footprint.mjs",
     "smoke:production": "node scripts/smoke-production.mjs",

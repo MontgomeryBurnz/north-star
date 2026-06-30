@@ -1016,6 +1016,50 @@ test("API routes use shared access helpers instead of one-off site checks", () =
   }
 });
 
+test("Client Dashboard Contributor has a scoped publication lane", () => {
+  const userTypesSource = readFileSync(new URL("../src/lib/admin-user-types.ts", import.meta.url), "utf8");
+  const routeAccessSource = readFileSync(new URL("../src/lib/api-route-access.ts", import.meta.url), "utf8");
+  const clientUpdatesRouteSource = readFileSync(
+    new URL("../src/app/api/programs/[id]/client-updates/route.ts", import.meta.url),
+    "utf8"
+  );
+  const clientDecisionsRouteSource = readFileSync(
+    new URL("../src/app/api/programs/[id]/client-decisions/route.ts", import.meta.url),
+    "utf8"
+  );
+  const clientUpdatesPageSource = readFileSync(new URL("../src/app/client-updates/page.tsx", import.meta.url), "utf8");
+  const clientUpdatesConsoleSource = readFileSync(
+    new URL("../src/components/client-dashboard-updates-console.tsx", import.meta.url),
+    "utf8"
+  );
+  const navSource = readFileSync(new URL("../src/components/site-nav.tsx", import.meta.url), "utf8");
+  const authLoginSource = readFileSync(new URL("../src/app/api/auth/user/login/route.ts", import.meta.url), "utf8");
+  const programRouteSource = readFileSync(new URL("../src/app/api/programs/route.ts", import.meta.url), "utf8");
+  const packageSource = readFileSync(new URL("../package.json", import.meta.url), "utf8");
+  const productionSmokeSource = readFileSync(new URL("../scripts/smoke-production.mjs", import.meta.url), "utf8");
+  const clientUpdatesSmokeSource = readFileSync(new URL("../scripts/smoke-client-dashboard-updates.mjs", import.meta.url), "utf8");
+
+  assert.match(userTypesSource, /"client-dashboard-contributor"/);
+  assert.match(userTypesSource, /canAccessClientDashboardScope/);
+  assert.match(userTypesSource, /canAccessClientDashboardUpdateSurface/);
+  assert.match(routeAccessSource, /scope\?: "internal" \| "client-dashboard"/);
+  assert.match(routeAccessSource, /isClientDashboardOnlyUserType/);
+  assert.match(clientUpdatesRouteSource, /scope: "client-dashboard"/);
+  assert.match(clientUpdatesRouteSource, /canAccessClientDashboardUpdateSurface/);
+  assert.match(clientDecisionsRouteSource, /scope: "client-dashboard"/);
+  assert.match(clientUpdatesPageSource, /requireClientDashboardUpdatePage/);
+  assert.match(clientUpdatesConsoleSource, /data-client-dashboard-updates-console/);
+  assert.match(clientUpdatesConsoleSource, /Publish to Client Portal/);
+  assert.match(navSource, /Client Updates/);
+  assert.match(navSource, /getVisibleNavItems/);
+  assert.match(authLoginSource, /\/client-updates/);
+  assert.match(programRouteSource, /isExternalOnlyUserType/);
+  assert.match(packageSource, /smoke:client-updates/);
+  assert.match(productionSmokeSource, /smoke-client-dashboard-updates\.mjs/);
+  assert.match(clientUpdatesSmokeSource, /data-client-dashboard-publish/);
+  assert.match(clientUpdatesSmokeSource, /client-updates/);
+});
+
 test("release checks are wired for local deployment hardening", () => {
   const packageSource = readFileSync(new URL("../package.json", import.meta.url), "utf8");
   const intakeSource = readFileSync(new URL("../src/components/program-intake-section.tsx", import.meta.url), "utf8");

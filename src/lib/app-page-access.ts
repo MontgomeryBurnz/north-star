@@ -1,6 +1,11 @@
 import "server-only";
 import { redirect } from "next/navigation";
-import { requiresUserSetup } from "@/lib/admin-user-types";
+import {
+  canAccessClientDashboardUpdateSurface,
+  isExternalOnlyUserType,
+  requiresUserSetup,
+  type ManagedAppUser
+} from "@/lib/admin-user-types";
 import { tryGetCurrentManagedUser } from "@/lib/current-managed-user";
 import { getSiteAccessConfig, isSiteAccessSessionTokenValid, siteAccessSessionCookieName } from "@/lib/site-access";
 
@@ -33,6 +38,49 @@ export async function requireSiteAccessPage(redirectTo: string) {
   if (isSiteAccessSessionTokenValid(sessionToken)) {
     await redirectPendingUserSetup(cookieStore);
     return;
+  }
+
+  redirect(`/login?redirect=${encodeURIComponent(redirectTo)}`);
+}
+
+function redirectExternalOnlyUser(user: ManagedAppUser | null | undefined) {
+  if (!user || requiresUserSetup(user)) return;
+  if (user.userType === "client") {
+    redirect("/client");
+  }
+  if (user.userType === "client-dashboard-contributor") {
+    redirect("/client-updates");
+  }
+}
+
+export async function requireInternalWorkspacePage(redirectTo: string) {
+  await requireSiteAccessPage(redirectTo);
+  const currentUser = await tryGetCurrentManagedUser();
+  redirectExternalOnlyUser(currentUser);
+}
+
+export async function requireClientDashboardUpdatePage(redirectTo: string) {
+  const currentUser = await tryGetCurrentManagedUser();
+  const hasInternalSession = await hasSiteAccessPageSession();
+
+  if (currentUser && requiresUserSetup(currentUser)) {
+    redirect("/auth/setup");
+  }
+
+  if (currentUser?.userType === "client") {
+    redirect("/client");
+  }
+
+  if (canAccessClientDashboardUpdateSurface(currentUser)) {
+    return { currentUser };
+  }
+
+  if (!currentUser && hasInternalSession) {
+    return { currentUser: null };
+  }
+
+  if (currentUser && isExternalOnlyUserType(currentUser.userType)) {
+    redirect("/client");
   }
 
   redirect(`/login?redirect=${encodeURIComponent(redirectTo)}`);

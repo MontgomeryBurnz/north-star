@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { hasActiveUserCredentials, type ManagedAppUser } from "@/lib/admin-user-types";
+import { hasActiveUserCredentials, isExternalOnlyUserType, type ManagedAppUser } from "@/lib/admin-user-types";
 import { syncManagedUserFromAuthUser } from "@/lib/current-managed-user";
 import { getAdminAccessContext, getLeadershipAccessContext } from "@/lib/leadership-auth";
 import { attachSiteAccessCookie } from "@/lib/site-access";
@@ -43,7 +43,7 @@ export async function GET(request: Request) {
 
   function attachInternalAccessForNonClient(response: NextResponse) {
     if (!hasActiveUserCredentials(managedUser)) return response;
-    return managedUser?.userType === "client" ? response : attachSiteAccessCookie(response);
+    return managedUser && isExternalOnlyUserType(managedUser.userType) ? response : attachSiteAccessCookie(response);
   }
 
   if (!isSupabaseConfigured()) {

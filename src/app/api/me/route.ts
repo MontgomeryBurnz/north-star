@@ -4,10 +4,9 @@ import { syncManagedUserFromAuthUser } from "@/lib/current-managed-user";
 import { createSupabaseServerClient, isSupabaseConfigured } from "@/lib/supabase/server";
 
 export async function GET(request: Request) {
-  const denied = requireSiteAccessRequest(request);
-  if (denied) return denied;
-
   if (!isSupabaseConfigured()) {
+    const denied = requireSiteAccessRequest(request);
+    if (denied) return denied;
     return NextResponse.json({ assignmentSource: "none", user: null });
   }
 
@@ -17,6 +16,8 @@ export async function GET(request: Request) {
   } = await supabase.auth.getUser();
 
   if (!authUser) {
+    const denied = requireSiteAccessRequest(request);
+    if (denied) return denied;
     return NextResponse.json({ assignmentSource: "none", user: null });
   }
 

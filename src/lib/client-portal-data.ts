@@ -1,6 +1,7 @@
 import "server-only";
 import { redirect } from "next/navigation";
 import { hasSiteAccessPageSession } from "@/lib/app-page-access";
+import { isExternalOnlyUserType } from "@/lib/admin-user-types";
 import { buildClientPortalPortfolio, type ClientPortalProgramInput } from "@/lib/client-portal";
 import { getCurrentManagedUser } from "@/lib/current-managed-user";
 import { listClientDecisionRequests, listClientPortalUpdates, listPrograms } from "@/lib/program-store";
@@ -20,7 +21,7 @@ export async function loadClientPortalData(redirectTo = "/client") {
   }
 
   const allPrograms = await listPrograms();
-  const visibleProgramIds = currentUser?.userType === "client"
+  const visibleProgramIds = currentUser && isExternalOnlyUserType(currentUser.userType)
     ? assignedProgramIds(currentUser.assignments)
     : null;
   const programs = visibleProgramIds
@@ -47,11 +48,17 @@ export async function loadClientPortalData(redirectTo = "/client") {
 
   const portfolio = buildClientPortalPortfolio({ programs: programInputs });
   const viewerLabel = currentUser
-    ? `${currentUser.name} · ${currentUser.userType === "client" ? "Client access" : "Internal preview"}`
+    ? `${currentUser.name} · ${
+        currentUser.userType === "client"
+          ? "Client access"
+          : currentUser.userType === "client-dashboard-contributor"
+            ? "Client dashboard input"
+            : "Internal preview"
+      }`
     : "Portfolio preview";
 
   return {
-    canReturnToInternal: currentUser?.userType !== "client" && hasInternalSession,
+    canReturnToInternal: currentUser ? !isExternalOnlyUserType(currentUser.userType) && hasInternalSession : hasInternalSession,
     currentUser,
     hasInternalSession,
     portfolio,

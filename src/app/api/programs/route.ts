@@ -1,21 +1,35 @@
 import { NextResponse } from "next/server";
 import { requireSiteAccessRequest } from "@/lib/api-route-access";
+import { hasActiveUserCredentials, isExternalOnlyUserType } from "@/lib/admin-user-types";
 import { buildSystemAuditActor } from "@/lib/audit-event-service";
+import { getCurrentManagedUser } from "@/lib/current-managed-user";
 import { createAuditEvent, listPrograms, upsertProgram } from "@/lib/program-store";
 import type { ProgramIntake } from "@/lib/program-intake-types";
 import { syncProgramTeamFootprint } from "@/lib/team-roles";
 
 export async function GET(request: Request) {
+  const currentUser = await getCurrentManagedUser();
   const denied = requireSiteAccessRequest(request);
-  if (denied) return denied;
+  if (denied && !hasActiveUserCredentials(currentUser)) return denied;
 
   const programs = await listPrograms();
+  if (currentUser && isExternalOnlyUserType(currentUser.userType)) {
+    const assignedProgramIds = new Set(currentUser.assignments.map((assignment) => assignment.programId));
+    return NextResponse.json({
+      programs: programs.filter((program) => assignedProgramIds.has(program.id))
+    });
+  }
+
   return NextResponse.json({ programs });
 }
 
 export async function POST(request: Request) {
   const denied = requireSiteAccessRequest(request);
   if (denied) return denied;
+  const currentUser = await getCurrentManagedUser();
+  if (currentUser && isExternalOnlyUserType(currentUser.userType)) {
+    return NextResponse.json({ error: "Program creation is not available for this user type." }, { status: 403 });
+  }
 
   const body = (await request.json()) as Partial<ProgramIntake>;
 

@@ -5,7 +5,7 @@ import { createAuditEvent, createClientDecisionRequest, listClientDecisionReques
 
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const { response } = await requireProgramRouteAccess(request, id, { loadCurrentUser: true });
+  const { response } = await requireProgramRouteAccess(request, id, { loadCurrentUser: true, scope: "client-dashboard" });
   if (response) return response;
 
   const decisions = await listClientDecisionRequests(id);
@@ -14,7 +14,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
 
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const { currentUser, response } = await requireProgramRouteAccess(request, id, { loadCurrentUser: true });
+  const { currentUser, response } = await requireProgramRouteAccess(request, id, { loadCurrentUser: true, scope: "client-dashboard" });
   if (response) return response;
 
   const body = (await request.json().catch(() => ({}))) as { decisionText?: string };

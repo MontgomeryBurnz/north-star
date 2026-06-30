@@ -1,4 +1,12 @@
-export const appUserTypes = ["admin", "leadership", "delivery-lead", "team-member", "client", "viewer"] as const;
+export const appUserTypes = [
+  "admin",
+  "leadership",
+  "delivery-lead",
+  "team-member",
+  "client-dashboard-contributor",
+  "client",
+  "viewer"
+] as const;
 
 export const appUserCredentialStatuses = ["not-invited", "invited", "active", "disabled"] as const;
 
@@ -72,6 +80,14 @@ export function isProgramScopedUserType(userType: AppUserType) {
   return userType !== "admin";
 }
 
+export function isClientDashboardOnlyUserType(userType: AppUserType) {
+  return userType === "client-dashboard-contributor";
+}
+
+export function isExternalOnlyUserType(userType: AppUserType) {
+  return userType === "client" || isClientDashboardOnlyUserType(userType);
+}
+
 export function canAccessAdminSurface(user: Pick<ManagedAppUser, "credentialStatus" | "userType"> | null | undefined) {
   return Boolean(user && user.credentialStatus === "active" && user.userType === "admin");
 }
@@ -97,6 +113,35 @@ export function canAccessProgramScope(
   programId: string
 ) {
   if (!user || user.credentialStatus === "disabled") return false;
+  if (isClientDashboardOnlyUserType(user.userType)) return false;
   if (user.userType !== "client") return true;
   return user.assignments.some((assignment) => assignment.programId === programId);
+}
+
+export function canAccessClientDashboardScope(
+  user: Pick<ManagedAppUser, "assignments" | "credentialStatus" | "userType"> | null | undefined,
+  programId: string
+) {
+  if (!user || user.credentialStatus !== "active") return false;
+  if (user.userType === "admin" || user.userType === "leadership" || user.userType === "delivery-lead" || user.userType === "team-member") {
+    return true;
+  }
+  if (user.userType === "client" || isClientDashboardOnlyUserType(user.userType)) {
+    return user.assignments.some((assignment) => assignment.programId === programId);
+  }
+  return false;
+}
+
+export function canAccessClientDashboardUpdateSurface(
+  user: Pick<ManagedAppUser, "credentialStatus" | "userType"> | null | undefined
+) {
+  return Boolean(
+    user &&
+      user.credentialStatus === "active" &&
+      (user.userType === "admin" ||
+        user.userType === "leadership" ||
+        user.userType === "delivery-lead" ||
+        user.userType === "team-member" ||
+        user.userType === "client-dashboard-contributor")
+  );
 }

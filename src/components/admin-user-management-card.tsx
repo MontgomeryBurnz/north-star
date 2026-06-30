@@ -20,6 +20,7 @@ const userTypeLabels: Record<AppUserType, string> = {
   leadership: "Leadership",
   "delivery-lead": "Delivery Lead",
   "team-member": "Team Member",
+  "client-dashboard-contributor": "Client Dashboard Contributor",
   client: "Client",
   viewer: "Viewer"
 };
@@ -1025,9 +1026,11 @@ export function AdminUserManagementCard({
                           ? "Owns the program cockpit, team signals, and plan execution loop."
                           : type === "team-member"
                             ? "Updates assigned role signals and can inspect adjacent team context."
-                            : type === "client"
-                              ? "Uses the external Client Portal to review assigned program and portfolio posture."
-                              : "Reads assigned program context without changing program records."}
+                            : type === "client-dashboard-contributor"
+                              ? "Publishes reviewed, client-safe dashboard inputs for assigned programs without access to internal program workspaces."
+                              : type === "client"
+                                ? "Uses the external Client Portal to review assigned program and portfolio posture."
+                                : "Reads assigned program context without changing program records."}
                   </p>
                 </div>
               ))}

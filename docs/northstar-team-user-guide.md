@@ -36,7 +36,7 @@ Use this path when onboarding a new user or team.
 | 4 | Submit a role update or delivery board movement. | Program signal is captured for the active cycle. |
 | 5 | Review Guided Plans. | User understands what the program and their role should do next. |
 | 6 | Use Studio for a work product. | User generates or refines an artifact grounded in program context. |
-| 7 | Review Client Portal only when responsible for client-facing updates. | User understands the difference between internal working signal and client-safe executive communication. |
+| 7 | Publish Client Updates only when responsible for reviewed client-facing inputs. | User understands the difference between internal working signal and client-safe executive communication. |
 | 8 | Escalate access, role, or quality issues to Admin. | Admin can correct assignments, review audit history, and govern quality. |
 
 ## User Types
@@ -46,6 +46,7 @@ Use this path when onboarding a new user or team.
 | Team Member | Update role-level progress, risks, decisions, delivery cards, and artifacts. | Program Hub, Guided Plans, Studio |
 | Delivery Lead | Operate the program cockpit, coordinate role updates, manage the delivery board, and keep guidance current. | Program Hub, Guided Plans, Studio, Leadership context as assigned |
 | Leadership | Review posture, progress, and risk, then provide sponsor guidance. | Leadership, Guided Plans as assigned |
+| Client Dashboard Contributor | Publish reviewed client-facing dashboard inputs for assigned programs without access to internal program workspaces. | Client Updates, Client Portal |
 | Client | Review a curated executive view of portfolio or program progress. | Client Portal |
 | Admin | Manage users, permissions, governance, audit history, cost, model settings, and platform health. | Admin plus all program surfaces |
 
@@ -57,6 +58,7 @@ Use this path when onboarding a new user or team.
 | Program Hub | What changed, who owns it, and what needs action? | You are creating a program or managing active execution. |
 | Guided Plans | What should we do next? | You need the current plan, role actions, risks, decisions, and evidence. |
 | Studio | What should we create to move the work forward? | You need a role-specific artifact such as a roadmap, requirements matrix, user journey, or risk register. |
+| Client Updates | What reviewed information is safe to publish to clients? | You need a governed lane for executive overview, domain progress, client-visible risks, and decisions. |
 | Client Portal | What should clients see? | You need a polished portfolio or program view for client leadership. |
 | Leadership | What input do leaders need to give? | You need sponsor feedback, risk direction, decision guidance, or leadership signal. |
 | Admin | Who can access what, and can we trust the system? | You need to manage users, roles, audit history, quality, cost, and operations. |
@@ -267,6 +269,8 @@ After a leadership review is saved, guidance is refreshed so the latest leadersh
 ## Client Portal
 
 Client Portal gives clients a polished executive view without exposing internal operating detail.
+
+Client Updates is the governed input lane for teams that only maintain client-facing dashboard content. Use it when a user should publish executive overview, domain progress, client-visible risks, and client decisions without entering internal role updates or tactical delivery notes.
 
 Clients should use it to review:
 

@@ -1,5 +1,10 @@
 import { NextResponse } from "next/server";
-import { canAccessProgramScope, type ManagedAppUser } from "@/lib/admin-user-types";
+import {
+  canAccessClientDashboardScope,
+  canAccessProgramScope,
+  isClientDashboardOnlyUserType,
+  type ManagedAppUser
+} from "@/lib/admin-user-types";
 import { getCurrentManagedUser } from "@/lib/current-managed-user";
 import type { LeadershipAccessContext } from "@/lib/leadership-auth";
 import { getAdminAccessContext, getLeadershipAccessContext } from "@/lib/leadership-auth";
@@ -9,6 +14,7 @@ type AuthorizedAccess = Extract<LeadershipAccessContext, { authorized: true }>;
 type AccessResolver = () => Promise<LeadershipAccessContext>;
 type ProgramRouteAccessOptions = {
   loadCurrentUser?: boolean;
+  scope?: "internal" | "client-dashboard";
 };
 
 async function requireProtectedRouteAccess(request: Request, resolveAccess: AccessResolver) {
@@ -41,13 +47,26 @@ export async function requireProgramRouteAccess(
   programId: string,
   options: ProgramRouteAccessOptions = {}
 ): Promise<{ currentUser: ManagedAppUser | null; response: NextResponse | null }> {
+  const scope = options.scope ?? "internal";
+
   if (isSiteAccessRequestAuthorized(request)) {
-    const currentUser = options.loadCurrentUser ? await getCurrentManagedUser() : null;
-    return { currentUser, response: null };
+    const authenticatedUser = await getCurrentManagedUser();
+    if (authenticatedUser && isClientDashboardOnlyUserType(authenticatedUser.userType) && scope !== "client-dashboard") {
+      return {
+        currentUser: authenticatedUser,
+        response: NextResponse.json({ error: "Program access denied." }, { status: 403 })
+      };
+    }
+    return { currentUser: options.loadCurrentUser ? authenticatedUser : null, response: null };
   }
 
   const currentUser = await getCurrentManagedUser();
-  if (canAccessProgramScope(currentUser, programId)) {
+  const canAccess =
+    scope === "client-dashboard"
+      ? canAccessClientDashboardScope(currentUser, programId)
+      : canAccessProgramScope(currentUser, programId);
+
+  if (canAccess) {
     return { currentUser, response: null };
   }
 

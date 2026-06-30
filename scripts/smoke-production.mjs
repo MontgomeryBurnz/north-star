@@ -13,6 +13,13 @@ const smokeSteps = [
   { name: "team footprint propagation", script: "smoke-team-footprint.mjs" },
   {
     env: {
+      NORTHSTAR_CLIENT_DASHBOARD_SMOKE_CLEANUP: process.env.NORTHSTAR_CLIENT_DASHBOARD_SMOKE_CLEANUP ?? "prune"
+    },
+    name: "client dashboard updates",
+    script: "smoke-client-dashboard-updates.mjs"
+  },
+  {
+    env: {
       NORTHSTAR_CLIENT_PORTAL_SMOKE_CLEANUP: process.env.NORTHSTAR_CLIENT_PORTAL_SMOKE_CLEANUP ?? "prune"
     },
     name: "client portal seeded update",

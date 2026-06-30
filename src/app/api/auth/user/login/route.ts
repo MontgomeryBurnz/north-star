@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { hasActiveUserCredentials, requiresUserSetup } from "@/lib/admin-user-types";
+import { hasActiveUserCredentials, isExternalOnlyUserType, requiresUserSetup } from "@/lib/admin-user-types";
 import { syncManagedUserFromAuthUser } from "@/lib/current-managed-user";
 import { attachSiteAccessCookie } from "@/lib/site-access";
 import { createSupabaseServerClient, isSupabaseConfigured } from "@/lib/supabase/server";
@@ -42,8 +42,13 @@ export async function POST(request: Request) {
 
   const response = NextResponse.json({
     ok: true,
-    redirectTo: managedUser.userType === "client" ? "/client" : undefined
+    redirectTo:
+      managedUser.userType === "client"
+        ? "/client"
+        : managedUser.userType === "client-dashboard-contributor"
+          ? "/client-updates"
+          : undefined
   });
 
-  return managedUser.userType === "client" ? response : attachSiteAccessCookie(response);
+  return isExternalOnlyUserType(managedUser.userType) ? response : attachSiteAccessCookie(response);
 }

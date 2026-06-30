@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { requireProgramRouteAccess } from "@/lib/api-route-access";
+import { canAccessClientDashboardUpdateSurface } from "@/lib/admin-user-types";
 import { auditActorFromManagedUser } from "@/lib/audit-event-service";
 import type { TeamRoleUpdateStatus } from "@/lib/active-program-types";
 import { validateClientPortalUpdateInput } from "@/lib/client-safe-copy";
@@ -81,7 +82,7 @@ function hasClientVisibleContent(input: ClientPortalUpdateInput) {
 
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const { response } = await requireProgramRouteAccess(request, id, { loadCurrentUser: true });
+  const { response } = await requireProgramRouteAccess(request, id, { loadCurrentUser: true, scope: "client-dashboard" });
   if (response) return response;
 
   const updates = await listClientPortalUpdates(id);
@@ -90,8 +91,11 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
 
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const { currentUser, response } = await requireProgramRouteAccess(request, id, { loadCurrentUser: true });
+  const { currentUser, response } = await requireProgramRouteAccess(request, id, { loadCurrentUser: true, scope: "client-dashboard" });
   if (response) return response;
+  if (currentUser && !canAccessClientDashboardUpdateSurface(currentUser)) {
+    return NextResponse.json({ error: "Client update publishing is not available for this user type." }, { status: 403 });
+  }
 
   const body = (await request.json().catch(() => ({}))) as Partial<ClientPortalUpdateInput>;
   const input = normalizeClientUpdateInput({
@@ -130,7 +134,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     programId: update.programId,
     programName: update.programName,
     summary: `${update.programName} client-facing update was published.`,
-    surface: "Program Hub"
+    surface: currentUser?.userType === "client-dashboard-contributor" ? "Client Updates" : "Program Hub"
   });
 
   return NextResponse.json({ update });
@@ -138,8 +142,11 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
 export async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const { currentUser, response } = await requireProgramRouteAccess(request, id, { loadCurrentUser: true });
+  const { currentUser, response } = await requireProgramRouteAccess(request, id, { loadCurrentUser: true, scope: "client-dashboard" });
   if (response) return response;
+  if (currentUser && !canAccessClientDashboardUpdateSurface(currentUser)) {
+    return NextResponse.json({ error: "Client update cleanup is not available for this user type." }, { status: 403 });
+  }
 
   const body = (await request.json().catch(() => ({}))) as { tag?: string };
   const tag = body.tag?.trim();
@@ -161,7 +168,7 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
       },
       programId: id,
       summary: `Pruned ${deletedCount} tagged client-facing update${deletedCount === 1 ? "" : "s"}.`,
-      surface: "Program Hub"
+      surface: currentUser?.userType === "client-dashboard-contributor" ? "Client Updates" : "Program Hub"
     });
   }
 
