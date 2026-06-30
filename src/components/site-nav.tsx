@@ -124,8 +124,15 @@ export function SiteNav() {
   const { currentUser, loaded } = useCurrentUserAssignments();
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const adminIsActive = pathname === "/admin" || pathname === "/governance";
-  const visibleNavItems = getVisibleNavItems(currentUser?.userType);
-  const showAdminLink = !loaded || !currentUser || currentUser.userType === "admin";
+  const isClientSurface = pathname === "/client" || pathname.startsWith("/client/") || pathname === "/client-updates";
+  const inferredUserType = currentUser?.userType
+    ?? (!loaded && pathname === "/client-updates"
+      ? "client-dashboard-contributor"
+      : !loaded && (pathname === "/client" || pathname.startsWith("/client/"))
+        ? "client"
+        : undefined);
+  const visibleNavItems = getVisibleNavItems(inferredUserType);
+  const showAdminLink = currentUser?.userType === "admin" || (!isClientSurface && (!loaded || !currentUser));
 
   useEffect(() => {
     setMobileNavOpen(false);

@@ -1054,6 +1054,8 @@ test("Client Dashboard Contributor has a scoped publication lane", () => {
   assert.match(clientUpdatesConsoleSource, /Publish to Client Portal/);
   assert.match(navSource, /Client Updates/);
   assert.match(navSource, /getVisibleNavItems/);
+  assert.match(navSource, /pathname === "\/client-updates"/);
+  assert.match(navSource, /const showAdminLink = currentUser\?\.userType === "admin"/);
   assert.match(authLoginSource, /\/client-updates/);
   assert.match(programRouteSource, /isExternalOnlyUserType/);
   assert.match(middlewareSource, /pathname === "\/client-updates"/);
