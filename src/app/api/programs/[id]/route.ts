@@ -26,11 +26,15 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   const hasTeamFootprintPatch = Array.isArray(body.teamFootprint);
   const clientName = hasClientNamePatch ? (typeof body.clientName === "string" ? body.clientName.trim() : "") : program.intake.clientName ?? "";
   const previousClientName = program.intake.clientName?.trim() ?? "";
+  const patchedTeamRoles = body.teamFootprint
+    ?.filter((item) => item.active !== false && item.role.trim())
+    .map((item) => item.role.trim());
 
   const updatedProgram = await upsertProgram(syncProgramTeamFootprint({
     ...program.intake,
     clientName,
-    teamFootprint: hasTeamFootprintPatch ? body.teamFootprint : program.intake.teamFootprint
+    teamFootprint: hasTeamFootprintPatch ? body.teamFootprint : program.intake.teamFootprint,
+    teamRoles: hasTeamFootprintPatch ? patchedTeamRoles : program.intake.teamRoles
   }));
 
   let planRefresh: { status: "current" | "failed" | "refreshed"; refreshedAt?: string } = { status: "current" };

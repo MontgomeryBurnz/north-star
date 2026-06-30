@@ -511,6 +511,7 @@ test("Active Program review is split into state, cockpit, and team signal flows"
   const reviewControllerSource = readFileSync(new URL("../src/hooks/use-active-program-review-controller.ts", import.meta.url), "utf8");
   const reviewModelSource = readFileSync(new URL("../src/components/active-program-review-model.ts", import.meta.url), "utf8");
   const routeSource = readFileSync(new URL("../src/app/api/programs/[id]/updates/route.ts", import.meta.url), "utf8");
+  const programPatchRouteSource = readFileSync(new URL("../src/app/api/programs/[id]/route.ts", import.meta.url), "utf8");
   const repositoryTypesSource = readFileSync(new URL("../src/lib/program-repository-types.ts", import.meta.url), "utf8");
   const programPersistenceSource = readFileSync(new URL("../src/lib/program-persistence.ts", import.meta.url), "utf8");
   const storeSource = readFileSync(new URL("../src/lib/program-store.ts", import.meta.url), "utf8");
@@ -585,6 +586,7 @@ test("Active Program review is split into state, cockpit, and team signal flows"
   assert.match(teamFootprintSmokeSource, /cleanupStaleSmokeFootprints/);
   assert.match(teamFootprintSmokeSource, /NORTHSTAR_TEAM_FOOTPRINT_SMOKE_CLEANUP_ONLY/);
   assert.match(teamFootprintSmokeSource, /isSmokeFootprintItem/);
+  assert.match(programPatchRouteSource, /teamRoles: hasTeamFootprintPatch \? patchedTeamRoles : program\.intake\.teamRoles/);
   assert.match(repositoryTypesSource, /deleteProgramUpdatesByTag/);
   assert.match(programPersistenceSource, /review::text LIKE/);
   assert.match(storeSource, /export async function deleteProgramUpdatesByTag/);
