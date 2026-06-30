@@ -6,7 +6,7 @@ import {
   requiresUserSetup,
   type ManagedAppUser
 } from "@/lib/admin-user-types";
-import { tryGetCurrentManagedUser } from "@/lib/current-managed-user";
+import { getCurrentManagedUser, tryGetCurrentManagedUser } from "@/lib/current-managed-user";
 import { getSiteAccessConfig, isSiteAccessSessionTokenValid, siteAccessSessionCookieName } from "@/lib/site-access";
 
 async function getCookieStore() {
@@ -60,8 +60,10 @@ export async function requireInternalWorkspacePage(redirectTo: string) {
 }
 
 export async function requireClientDashboardUpdatePage(redirectTo: string) {
-  const currentUser = await tryGetCurrentManagedUser();
-  const hasInternalSession = await hasSiteAccessPageSession();
+  const [currentUser, hasInternalSession] = await Promise.all([
+    getCurrentManagedUser(),
+    hasSiteAccessPageSession()
+  ]);
 
   if (currentUser && requiresUserSetup(currentUser)) {
     redirect("/auth/setup");

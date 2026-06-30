@@ -40,6 +40,12 @@ export default async function SiteLoginPage({
     if (requiresUserSetup(currentUser)) {
       redirect("/auth/setup");
     }
+    if (currentUser?.userType === "client") {
+      redirect("/client");
+    }
+    if (currentUser?.userType === "client-dashboard-contributor") {
+      redirect("/client-updates");
+    }
   }
 
   if (requiredAccessSurface) {
