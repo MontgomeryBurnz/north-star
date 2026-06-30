@@ -2,16 +2,23 @@ export const dynamic = "force-dynamic";
 
 import { ClientDashboardUpdatesConsole } from "@/components/client-dashboard-updates-console";
 import { ProductPageHeader } from "@/components/product-page-header";
-import { requireClientDashboardUpdatePage } from "@/lib/app-page-access";
-import { isExternalOnlyUserType } from "@/lib/admin-user-types";
+import { canAccessClientDashboardUpdateSurface, isExternalOnlyUserType } from "@/lib/admin-user-types";
+import { loadClientPortalData } from "@/lib/client-portal-data";
 import { listPrograms } from "@/lib/program-store";
+import { redirect } from "next/navigation";
 
 export const metadata = {
   title: "Client Updates | North Star"
 };
 
 export default async function ClientUpdatesPage() {
-  const { currentUser } = await requireClientDashboardUpdatePage("/client-updates");
+  const { currentUser } = await loadClientPortalData("/client-updates");
+  if (currentUser?.userType === "client") {
+    redirect("/client");
+  }
+  if (currentUser && !canAccessClientDashboardUpdateSurface(currentUser)) {
+    redirect("/client");
+  }
   const programs = await listPrograms();
   const visiblePrograms = currentUser && isExternalOnlyUserType(currentUser.userType)
     ? programs.filter((program) => currentUser.assignments.some((assignment) => assignment.programId === program.id))

@@ -1047,7 +1047,8 @@ test("Client Dashboard Contributor has a scoped publication lane", () => {
   assert.match(clientUpdatesRouteSource, /scope: "client-dashboard"/);
   assert.match(clientUpdatesRouteSource, /canAccessClientDashboardUpdateSurface/);
   assert.match(clientDecisionsRouteSource, /scope: "client-dashboard"/);
-  assert.match(clientUpdatesPageSource, /requireClientDashboardUpdatePage/);
+  assert.match(clientUpdatesPageSource, /loadClientPortalData/);
+  assert.match(clientUpdatesPageSource, /canAccessClientDashboardUpdateSurface/);
   assert.match(clientUpdatesConsoleSource, /data-client-dashboard-updates-console/);
   assert.match(clientUpdatesConsoleSource, /Publish to Client Portal/);
   assert.match(navSource, /Client Updates/);
