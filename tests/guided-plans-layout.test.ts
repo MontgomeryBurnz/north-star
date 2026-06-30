@@ -1075,5 +1075,6 @@ test("release checks are wired for local deployment hardening", () => {
   const intakeSource = readFileSync(new URL("../src/components/program-intake-section.tsx", import.meta.url), "utf8");
 
   assert.match(packageSource, /"check:release": "npm run test && npm run lint && npm run build"/);
+  assert.match(packageSource, /"lint": "node scripts\/lint\.mjs"/);
   assert.match(intakeSource, /Basis: required intake fields plus at least one uploaded artifact\./);
 });
