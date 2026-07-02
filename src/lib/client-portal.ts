@@ -226,6 +226,8 @@ const weakSignalPatterns = [
   /awaiting/i,
   /guided plan generated/i,
   /initial intake only/i,
+  /^n\/?a$/i,
+  /^none$/i,
   /should capture/i,
   /will sharpen after/i,
   /is still being developed/i
@@ -254,6 +256,13 @@ function conciseSignal(value: string | undefined | null, limit = 96) {
 
 function visibleSignals(value: string | undefined | null, fallback: string, limit = 3) {
   return splitSignals(value ?? "", fallback).map(clean).filter(Boolean).slice(0, limit);
+}
+
+function explicitClientRiskSignals(value: string | undefined | null, limit = 3) {
+  return splitSignals(value ?? "", "")
+    .map(clean)
+    .filter(isMeaningfulSignal)
+    .slice(0, limit);
 }
 
 function countSignals(values: string[]) {
@@ -1156,10 +1165,7 @@ export function buildClientPortalProgram(input: ClientPortalProgramInput): Clien
   const intake = input.program.intake;
   const plan = null as GuidedPlan | null;
   const roleUpdates = review?.teamRoleUpdates ?? [];
-  const risks = visibleSignals(
-    firstNonEmpty(review?.activeRisks),
-    "No published executive risk has been captured yet."
-  );
+  const risks = explicitClientRiskSignals(review?.activeRisks);
   const decisions = visibleSignals(
     firstNonEmpty(review?.decisionsPending),
     "No published executive decision is currently pending."
@@ -1421,13 +1427,16 @@ function buildPortfolioMilestones(programs: ClientPortalProgram[]): ClientPortal
 function buildPortfolioRisks(programs: ClientPortalProgram[]): ClientPortalPortfolioRisk[] {
   return programs
     .flatMap((program) =>
-      program.risks.slice(0, 2).map((risk, index) => ({
-        clientName: program.clientName,
-        description: risk,
-        id: `${program.id}-risk-${index}`,
-        programId: program.id,
-        programName: program.name
-      }))
+      program.risks
+        .filter(isMeaningfulSignal)
+        .slice(0, 2)
+        .map((risk, index) => ({
+          clientName: program.clientName,
+          description: risk,
+          id: `${program.id}-risk-${index}`,
+          programId: program.id,
+          programName: program.name
+        }))
     )
     .slice(0, 6);
 }

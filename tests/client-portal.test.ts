@@ -309,7 +309,7 @@ test("Client Portal does not expose internal updates without a published client 
   const serialized = JSON.stringify(internalOnlyProgram);
 
   assert.doesNotMatch(serialized, /INTERNAL ONLY/);
-  assert.equal(internalOnlyProgram.topRisk, "No published executive risk has been captured yet.");
+  assert.equal(internalOnlyProgram.topRisk, "No active executive risk has been captured yet.");
   assert.equal(internalOnlyProgram.nextDecision, "No published executive decision is currently pending.");
   assert.equal(internalOnlyProgram.statusNote, "Publish a reviewed client update to show current program posture.");
   assert.equal(internalOnlyProgram.executiveSummary, "Publish a reviewed client update to show the executive summary.");
@@ -429,6 +429,53 @@ test("Client Portal does not generate portfolio milestones or risk metadata from
   assert.equal("severity" in (portfolio.keyRisks[0] ?? {}), false);
   assert.equal("trend" in (portfolio.keyRisks[0] ?? {}), false);
   assert.equal("mitigationOwner" in (portfolio.keyRisks[0] ?? {}), false);
+});
+
+test("Client Portal risk cards only come from explicit client-update risk input", () => {
+  const updateWithoutExecutiveRisks: ClientPortalUpdateRecord = {
+    ...clientUpdate,
+    activeRisks: "",
+    clientStatusNote: "Client-ready summary only.",
+    deliveryHealth: "At risk",
+    domainUpdates: [
+      {
+        attachments: 0,
+        decisionsOrOutcomes: "Confirm readiness path.",
+        owner: "Tech Lead",
+        pursuit: "Complete readiness validation.",
+        risksOrBlockers: "API timing remains under internal review.",
+        role: "Engineering",
+        status: "at-risk"
+      }
+    ]
+  };
+  const placeholderRiskUpdate: ClientPortalUpdateRecord = {
+    ...updateWithoutExecutiveRisks,
+    activeRisks: "N/A"
+  };
+
+  const portalProgram = buildClientPortalProgram({
+    latestClientUpdate: updateWithoutExecutiveRisks,
+    program
+  });
+  const placeholderProgram = buildClientPortalProgram({
+    latestClientUpdate: placeholderRiskUpdate,
+    program
+  });
+  const portfolio = buildClientPortalPortfolio({
+    generatedAt: "2026-04-30T00:00:00.000Z",
+    programs: [{ latestClientUpdate: updateWithoutExecutiveRisks, program }]
+  });
+
+  assert.equal(portalProgram.posture, "at-risk");
+  assert.equal(portalProgram.domainSummaries[0]?.risksOrBlockers, "API timing remains under internal review.");
+  assert.deepEqual(portalProgram.risks, []);
+  assert.equal(portalProgram.metrics.risks, 0);
+  assert.deepEqual(portalProgram.executiveRisks, []);
+  assert.equal(portalProgram.topRisk, "No active executive risk has been captured yet.");
+  assert.deepEqual(portfolio.keyRisks, []);
+  assert.deepEqual(placeholderProgram.risks, []);
+  assert.equal(placeholderProgram.metrics.risks, 0);
 });
 
 test("buildClientPortalPortfolio rolls program posture into portfolio metrics", () => {
