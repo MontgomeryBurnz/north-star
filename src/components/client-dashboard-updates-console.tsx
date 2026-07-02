@@ -42,6 +42,61 @@ const roadmapStatusOptions = [
 
 const clientPhaseOptions = ["", "Intake", "Plan", "Execute", "Stabilize", "Value"] as const;
 
+const roadmapMonthFormatter = new Intl.DateTimeFormat("en-US", {
+  month: "long",
+  timeZone: "UTC",
+  year: "numeric"
+});
+
+function monthKeyFromDate(date: Date) {
+  return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}`;
+}
+
+function parseRoadmapMonth(value: string | undefined) {
+  const match = value?.match(/^(\d{4})-(\d{2})$/);
+  if (!match) return null;
+
+  const year = Number(match[1]);
+  const monthIndex = Number(match[2]) - 1;
+  if (!Number.isFinite(year) || monthIndex < 0 || monthIndex > 11) return null;
+
+  return new Date(Date.UTC(year, monthIndex, 1));
+}
+
+function addMonths(date: Date, monthOffset: number) {
+  return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth() + monthOffset, 1));
+}
+
+function formatRoadmapMonth(value: string) {
+  const date = parseRoadmapMonth(value);
+  return date ? roadmapMonthFormatter.format(date) : value;
+}
+
+function buildRoadmapMonthOptions(program: StoredProgram | undefined, items: ClientPortalRoadmapItem[]) {
+  const existingMonths = items
+    .flatMap((item) => [parseRoadmapMonth(item.startMonth), parseRoadmapMonth(item.endMonth)])
+    .filter((date): date is Date => Boolean(date));
+  const programAnchor = new Date(program?.createdAt ?? program?.updatedAt ?? Date.UTC(new Date().getUTCFullYear(), 0, 1));
+  const anchor = existingMonths.length
+    ? new Date(Math.min(...existingMonths.map((date) => date.getTime()), programAnchor.getTime()))
+    : programAnchor;
+  const firstMonth = addMonths(new Date(Date.UTC(anchor.getUTCFullYear(), anchor.getUTCMonth(), 1)), -2);
+  const optionValues = new Set<string>();
+
+  for (let offset = 0; offset < 30; offset += 1) {
+    optionValues.add(monthKeyFromDate(addMonths(firstMonth, offset)));
+  }
+
+  for (const date of existingMonths) {
+    optionValues.add(monthKeyFromDate(date));
+  }
+
+  return [...optionValues].sort().map((value) => ({
+    label: formatRoadmapMonth(value),
+    value
+  }));
+}
+
 function createRoadmapItem(): ClientPortalRoadmapItem {
   return {
     category: "",
@@ -143,6 +198,10 @@ export function ClientDashboardUpdatesConsole({
   );
   const programOptions = useMemo(() => programsToSlicerOptions(programs, "signal"), [programs]);
   const [draft, setDraft] = useState<ClientDashboardDraft>(() => buildDraft(undefined));
+  const roadmapMonthOptions = useMemo(
+    () => buildRoadmapMonthOptions(selectedProgram, draft.clientRoadmapItems ?? []),
+    [draft.clientRoadmapItems, selectedProgram]
+  );
   const [publishState, setPublishState] = useState<PublishState>("idle");
   const [status, setStatus] = useState("");
   const canPublish = Boolean(selectedProgramId && hasPublishableContent(draft) && publishState !== "publishing");
@@ -452,23 +511,35 @@ export function ClientDashboardUpdatesConsole({
                       </label>
                       <label className="grid gap-2">
                         <span className="text-[11px] font-medium uppercase tracking-[0.14em] text-zinc-400">Start</span>
-                        <input
-                          type="month"
+                        <select
                           data-client-dashboard-roadmap-start
                           value={item.startMonth}
                           onChange={(event) => updateRoadmapItem(index, "startMonth", event.target.value)}
                           className="min-h-10 rounded-md border border-white/10 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 outline-none transition-colors focus:border-sky-300/50"
-                        />
+                        >
+                          <option value="">Select month...</option>
+                          {roadmapMonthOptions.map((option) => (
+                            <option key={option.value} value={option.value}>
+                              {option.label}
+                            </option>
+                          ))}
+                        </select>
                       </label>
                       <label className="grid gap-2">
                         <span className="text-[11px] font-medium uppercase tracking-[0.14em] text-zinc-400">End</span>
-                        <input
-                          type="month"
+                        <select
                           data-client-dashboard-roadmap-end
                           value={item.endMonth}
                           onChange={(event) => updateRoadmapItem(index, "endMonth", event.target.value)}
                           className="min-h-10 rounded-md border border-white/10 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 outline-none transition-colors focus:border-sky-300/50"
-                        />
+                        >
+                          <option value="">Select month...</option>
+                          {roadmapMonthOptions.map((option) => (
+                            <option key={option.value} value={option.value}>
+                              {option.label}
+                            </option>
+                          ))}
+                        </select>
                       </label>
                       <label className="grid gap-2">
                         <span className="text-[11px] font-medium uppercase tracking-[0.14em] text-zinc-400">Status</span>
