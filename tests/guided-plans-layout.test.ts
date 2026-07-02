@@ -578,6 +578,14 @@ test("Active Program review is split into state, cockpit, and team signal flows"
   assert.match(teamFootprintEditorSource, /data-team-footprint-bulk-toggle/);
   assert.match(teamFootprintEditorSource, /data-team-footprint-bulk-input/);
   assert.match(teamFootprintEditorSource, /data-team-footprint-apply-bulk/);
+  assert.match(teamFootprintEditorSource, /data-team-footprint-role-library/);
+  assert.match(teamFootprintEditorSource, /data-team-footprint-role-chip/);
+  assert.match(teamFootprintEditorSource, /data-team-footprint-custom-role/);
+  assert.match(teamFootprintEditorSource, /data-team-footprint-add-custom/);
+  assert.match(teamFootprintEditorSource, /Advanced bulk edit/);
+  assert.match(teamFootprintEditorSource, /Start with common delivery roles/);
+  assert.doesNotMatch(teamFootprintEditorSource, /const nextIndex = roles\.length \+ 1/);
+  assert.doesNotMatch(teamFootprintEditorSource, /New role/);
   assert.match(teamFootprintEditorSource, /draggable/);
   assert.match(teamFootprintEditorSource, /reorderRole/);
   assert.match(teamFootprintEditorSource, /data-team-footprint-row/);
