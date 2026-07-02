@@ -8,7 +8,8 @@ import { Button } from "@/components/ui/button";
 import type {
   ClientPortalDomainUpdate,
   ClientPortalRoadmapItem,
-  ClientPortalUpdateInput
+  ClientPortalUpdateInput,
+  ClientPortalUpdateRecord
 } from "@/lib/client-portal-update-types";
 import type { StoredProgram } from "@/lib/program-intake-types";
 import { programsToSlicerOptions } from "@/lib/program-slicer";
@@ -137,48 +138,67 @@ function createRoadmapItem(): ClientPortalRoadmapItem {
   };
 }
 
-function buildDraft(program: StoredProgram | undefined): ClientDashboardDraft {
+function mergeDomainUpdateDefaults(
+  program: StoredProgram | undefined,
+  latestUpdate: ClientPortalUpdateRecord | null | undefined
+): ClientPortalDomainUpdate[] {
   const intake = program?.intake;
   const footprint = program ? getProgramTeamFootprint(intake).filter((item) => item.active !== false) : [];
+  const latestByRole = new Map((latestUpdate?.domainUpdates ?? []).map((domain) => [domain.role.toLowerCase(), domain]));
+  const merged = footprint.map((item) => {
+    const latest = latestByRole.get(item.role.toLowerCase());
+    latestByRole.delete(item.role.toLowerCase());
+
+    return {
+      attachments: latest?.attachments ?? 0,
+      decisionsOrOutcomes: latest?.decisionsOrOutcomes ?? "",
+      owner: latest?.owner ?? item.owner,
+      pursuit: latest?.pursuit ?? item.responsibility,
+      risksOrBlockers: latest?.risksOrBlockers ?? "",
+      role: item.role,
+      status: latest?.status ?? "on-track"
+    };
+  });
+
+  return [...merged, ...latestByRole.values()];
+}
+
+export function buildClientDashboardDraft(
+  program: StoredProgram | undefined,
+  latestUpdate?: ClientPortalUpdateRecord | null
+): ClientDashboardDraft {
+  const intake = program?.intake;
 
   return {
-    activeRisks: "",
-    clientStatusNote: "",
-    clientRoadmapItems: [],
-    completionDelta: "",
-    currentPhase: "",
-    decisionsPending: "",
-    deliveryBoardItems: [],
-    deliveryHealth: "",
-    domainUpdates: footprint.map((item) => ({
-      attachments: 0,
-      decisionsOrOutcomes: "",
-      owner: item.owner,
-      pursuit: item.responsibility,
-      risksOrBlockers: "",
-      role: item.role,
-      status: "on-track"
-    })),
-    executiveOverview: "",
-    executiveSponsor: "",
-    nextMilestoneDate: "",
-    nextMilestoneName: "",
-    nextMilestonePriority: "",
-    originalNorthStar: "",
-    pmo: "",
-    programCompletionPercent: "",
-    programLead: "",
-    programMilestones: [],
-    programStartDate: "",
-    programTargetFinishDate: "",
-    progressSinceLastReview: "",
-    publicationNote: "",
-    supportNeeded: "",
-    timelineMonth: "",
-    timelineScale: "year",
-    timelineWeek: "",
-    timelineYear: "",
-    upcomingWork: ""
+    activeRisks: latestUpdate?.activeRisks ?? "",
+    clientStatusNote: latestUpdate?.clientStatusNote ?? "",
+    clientRoadmapItems: latestUpdate?.clientRoadmapItems?.map((item) => ({ ...item })) ?? [],
+    completionDelta: latestUpdate?.completionDelta ?? "",
+    currentPhase: latestUpdate?.currentPhase ?? "",
+    decisionsPending: latestUpdate?.decisionsPending ?? "",
+    deliveryBoardItems: latestUpdate?.deliveryBoardItems?.map((item) => ({ ...item })) ?? [],
+    deliveryHealth: latestUpdate?.deliveryHealth ?? "",
+    domainUpdates: mergeDomainUpdateDefaults(program, latestUpdate),
+    executiveOverview: latestUpdate?.executiveOverview ?? "",
+    executiveSponsor: latestUpdate?.executiveSponsor ?? "",
+    nextMilestoneDate: latestUpdate?.nextMilestoneDate ?? "",
+    nextMilestoneName: latestUpdate?.nextMilestoneName ?? "",
+    nextMilestonePriority: latestUpdate?.nextMilestonePriority ?? "",
+    originalNorthStar: latestUpdate?.originalNorthStar ?? "",
+    pmo: latestUpdate?.pmo ?? "",
+    programCompletionPercent: latestUpdate?.programCompletionPercent ?? "",
+    programLead: latestUpdate?.programLead ?? intake?.programOwner ?? "",
+    programMilestones: latestUpdate?.programMilestones?.map((item) => ({ ...item })) ?? [],
+    programStartDate: latestUpdate?.programStartDate ?? "",
+    programTargetFinishDate: latestUpdate?.programTargetFinishDate ?? "",
+    progressSinceLastReview: latestUpdate?.progressSinceLastReview ?? "",
+    publicationNote: latestUpdate?.publicationNote ?? "",
+    supportNeeded: latestUpdate?.supportNeeded ?? "",
+    timelineMonth: latestUpdate?.timelineMonth ?? "",
+    timelineScale: latestUpdate?.timelineScale ?? "year",
+    timelineWeek: latestUpdate?.timelineWeek ?? "",
+    timelineYear: latestUpdate?.timelineYear ?? "",
+    upcomingWork: latestUpdate?.upcomingWork ?? ""
   };
 }
 
@@ -224,7 +244,7 @@ export function ClientDashboardUpdatesConsole({
     [programs, selectedProgramId]
   );
   const programOptions = useMemo(() => programsToSlicerOptions(programs, "signal"), [programs]);
-  const [draft, setDraft] = useState<ClientDashboardDraft>(() => buildDraft(undefined));
+  const [draft, setDraft] = useState<ClientDashboardDraft>(() => buildClientDashboardDraft(undefined));
   const roadmapYearOptions = useMemo(
     () => buildRoadmapYearOptions(selectedProgram, draft.clientRoadmapItems ?? []),
     [draft.clientRoadmapItems, selectedProgram]
@@ -238,9 +258,48 @@ export function ClientDashboardUpdatesConsole({
   const canPublish = Boolean(selectedProgramId && hasPublishableContent(draft) && publishState !== "publishing");
 
   useEffect(() => {
-    setDraft(buildDraft(selectedProgram));
+    let cancelled = false;
+
+    async function loadLatestClientUpdate() {
+      setPublishState("idle");
+
+      if (!selectedProgram) {
+        setDraft(buildClientDashboardDraft(undefined));
+        setStatus("");
+        return;
+      }
+
+      setStatus("Loading latest client-facing update...");
+
+      try {
+        const response = await fetch(`/api/programs/${encodeURIComponent(selectedProgram.id)}/client-updates`, {
+          cache: "no-store"
+        });
+        if (!response.ok) throw new Error("latest-load");
+
+        const payload = (await response.json()) as { updates?: ClientPortalUpdateRecord[] };
+        if (cancelled) return;
+
+        const latestUpdate = payload.updates?.[0] ?? null;
+        setDraft(buildClientDashboardDraft(selectedProgram, latestUpdate));
+        setStatus(
+          latestUpdate
+            ? `Loaded latest published update from ${new Date(latestUpdate.updatedAt ?? latestUpdate.createdAt).toLocaleString()}.`
+            : "No published client update yet. Start a new client-facing snapshot."
+        );
+      } catch {
+        if (cancelled) return;
+        setDraft(buildClientDashboardDraft(selectedProgram));
+        setStatus("Could not load the latest published update. You can still draft a new snapshot.");
+      }
+    }
+
+    void loadLatestClientUpdate();
     setPublishState("idle");
-    setStatus("");
+
+    return () => {
+      cancelled = true;
+    };
   }, [selectedProgram]);
 
   function updateField(
@@ -338,8 +397,12 @@ export function ClientDashboardUpdatesConsole({
         throw new Error(`${payload.error ?? "Client dashboard update could not be published."}${issueText}`);
       }
 
+      const payload = (await response.json()) as { update?: ClientPortalUpdateRecord };
+      if (payload.update) {
+        setDraft(buildClientDashboardDraft(selectedProgram, payload.update));
+      }
       setPublishState("published");
-      setStatus("Client dashboard update published. The Client Portal now reflects this reviewed snapshot.");
+      setStatus("Client dashboard update published. This latest snapshot stays loaded for iteration.");
     } catch (error) {
       setPublishState("error");
       setStatus(error instanceof Error ? error.message : "Client dashboard update could not be published.");

@@ -799,6 +799,10 @@ test("Active Program review is split into state, cockpit, and team signal flows"
   assert.match(clientUpdateCardSource, /Internal role updates, blockers, and working notes remain private/);
   assert.match(clientUpdateCardSource, /Client-safe copy rules block/);
   assert.match(clientUpdateCardSource, /data-active-client-update-confirmation/);
+  assert.match(clientUpdateCardSource, /buildInitialClientUpdateDraft/);
+  assert.match(clientUpdateCardSource, /Loaded latest published client update/);
+  assert.match(clientUpdateCardSource, /This latest snapshot stays loaded for iteration/);
+  assert.match(clientUpdateCardSource, /clientRoadmapItems: latestUpdate\?\.clientRoadmapItems/);
   assert.match(clientUpdatesRouteSource, /validateClientPortalUpdateInput/);
   assert.match(clientUpdatesRouteSource, /Client-facing update contains internal or tactical language/);
   assert.match(clientUpdatesRouteSource, /client\.update\.publish/);
@@ -1084,6 +1088,10 @@ test("Client Dashboard Contributor has a scoped publication lane", () => {
   assert.match(clientUpdatesConsoleSource, />Year</);
   assert.doesNotMatch(clientUpdatesConsoleSource, /type="month"/);
   assert.match(clientUpdatesConsoleSource, /data-client-dashboard-current-phase/);
+  assert.match(clientUpdatesConsoleSource, /buildClientDashboardDraft/);
+  assert.match(clientUpdatesConsoleSource, /Loaded latest published update/);
+  assert.match(clientUpdatesConsoleSource, /\/api\/programs\/\$\{encodeURIComponent\(selectedProgram\.id\)\}\/client-updates/);
+  assert.match(clientUpdatesConsoleSource, /This latest snapshot stays loaded for iteration/);
   assert.match(clientUpdatesConsoleSource, /Publish to Client Portal/);
   assert.match(navSource, /Client Updates/);
   assert.match(navSource, /getVisibleNavItems/);
@@ -1097,6 +1105,8 @@ test("Client Dashboard Contributor has a scoped publication lane", () => {
   assert.match(packageSource, /smoke:client-updates/);
   assert.match(productionSmokeSource, /smoke-client-dashboard-updates\.mjs/);
   assert.match(clientUpdatesSmokeSource, /data-client-dashboard-publish/);
+  assert.match(clientUpdatesSmokeSource, /verifyClientUpdateFormHydratesLatestSnapshot/);
+  assert.match(clientUpdatesSmokeSource, /latest published snapshot reloads into the edit form/);
   assert.match(clientUpdatesSmokeSource, /client-updates/);
 });
 

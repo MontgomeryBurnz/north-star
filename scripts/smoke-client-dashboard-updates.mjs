@@ -134,6 +134,32 @@ async function verifyClientPortal(session, smokeText) {
   console.log("✓ Client Updates: Client Portal renders the published dashboard input.");
 }
 
+async function verifyClientUpdateFormHydratesLatestSnapshot(session, program, smokeText) {
+  await session.navigate(`${baseUrl}/client-updates?reloadSmoke=${Date.now()}`);
+  await session.waitFor("Client Updates console reload", () =>
+    session.execute("return Boolean(document.querySelector('[data-client-dashboard-updates-console]'));")
+  );
+  await selectProgramInUi(session, program);
+
+  await session.waitFor("Client Updates latest snapshot hydration", () =>
+    session.execute(
+      `
+        const overview = document.querySelector("[data-client-dashboard-overview]")?.value ?? "";
+        const progress = document.querySelector("[data-client-dashboard-progress]")?.value ?? "";
+        const upcoming = document.querySelector("[data-client-dashboard-upcoming]")?.value ?? "";
+        const confirmation = document.querySelector("[data-client-dashboard-confirmation]")?.textContent ?? "";
+        return overview.includes(arguments[0]) &&
+          progress.includes(arguments[0]) &&
+          upcoming.includes(arguments[0]) &&
+          confirmation.includes("Loaded latest published update");
+      `,
+      [smokeText]
+    )
+  );
+
+  console.log("✓ Client Updates: latest published snapshot reloads into the edit form.");
+}
+
 async function cleanup(session, program, smokeText) {
   if (!shouldCleanup) return;
 
@@ -171,6 +197,7 @@ await withSafariBrowser(async (session) => {
   await selectProgramInUi(session, program);
   await publishClientDashboardUpdate(session, program, smokeText);
   await verifyClientPortal(session, smokeText);
+  await verifyClientUpdateFormHydratesLatestSnapshot(session, program, smokeText);
   await cleanup(session, program, smokeText);
 });
 

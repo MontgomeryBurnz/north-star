@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { ArrowUpRight, SendHorizonal, ShieldCheck } from "lucide-react";
 import type { ActiveProgramReview, TeamRoleUpdate } from "@/lib/active-program-types";
-import type { ClientPortalDomainUpdate, ClientPortalUpdateInput } from "@/lib/client-portal-update-types";
+import type { ClientPortalDomainUpdate, ClientPortalUpdateInput, ClientPortalUpdateRecord } from "@/lib/client-portal-update-types";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 
@@ -33,44 +33,64 @@ function roleStatusFromLabel(value: string): TeamRoleUpdate["status"] {
   return "on-track";
 }
 
-function buildInitialDraft(review: ActiveProgramReview, teamRoleUpdates: TeamRoleUpdate[]): ClientUpdateDraft {
-  return {
-    activeRisks: "",
-    clientStatusNote: review.clientStatusNote ?? "",
-    completionDelta: "",
-    currentPhase: "",
-    decisionsPending: "",
-    deliveryBoardItems: [],
-    deliveryHealth: "",
-    domainUpdates: teamRoleUpdates.map((roleUpdate) => ({
-      attachments: roleUpdate.attachments?.length ?? 0,
-      decisionsOrOutcomes: "",
-      owner: roleUpdate.updatedBy,
-      pursuit: "",
-      risksOrBlockers: "",
+function mergeDomainUpdatesFromLatest(
+  teamRoleUpdates: TeamRoleUpdate[],
+  latestUpdate: ClientPortalUpdateRecord | null | undefined
+): ClientPortalDomainUpdate[] {
+  const latestByRole = new Map((latestUpdate?.domainUpdates ?? []).map((domain) => [domain.role.toLowerCase(), domain]));
+  const merged = teamRoleUpdates.map((roleUpdate) => {
+    const latest = latestByRole.get(roleUpdate.role.toLowerCase());
+    latestByRole.delete(roleUpdate.role.toLowerCase());
+
+    return {
+      attachments: latest?.attachments ?? roleUpdate.attachments?.length ?? 0,
+      decisionsOrOutcomes: latest?.decisionsOrOutcomes ?? "",
+      owner: latest?.owner ?? roleUpdate.updatedBy,
+      pursuit: latest?.pursuit ?? "",
+      risksOrBlockers: latest?.risksOrBlockers ?? "",
       role: roleUpdate.role,
-      status: "on-track"
-    })),
-    executiveOverview: "",
-    executiveSponsor: "",
-    nextMilestoneDate: "",
-    nextMilestoneName: "",
-    nextMilestonePriority: "",
-    originalNorthStar: "",
-    pmo: "",
-    programCompletionPercent: "",
-    programLead: "",
-    programMilestones: [],
-    programStartDate: "",
-    programTargetFinishDate: "",
-    progressSinceLastReview: "",
-    publicationNote: "",
-    supportNeeded: "",
-    timelineMonth: "",
-    timelineScale: review.timelineScale ?? "year",
-    timelineWeek: "",
-    timelineYear: "",
-    upcomingWork: ""
+      status: latest?.status ?? "on-track"
+    };
+  });
+
+  return [...merged, ...latestByRole.values()];
+}
+
+export function buildInitialClientUpdateDraft(
+  review: ActiveProgramReview,
+  teamRoleUpdates: TeamRoleUpdate[],
+  latestUpdate?: ClientPortalUpdateRecord | null
+): ClientUpdateDraft {
+  return {
+    activeRisks: latestUpdate?.activeRisks ?? "",
+    clientStatusNote: latestUpdate?.clientStatusNote ?? review.clientStatusNote ?? "",
+    clientRoadmapItems: latestUpdate?.clientRoadmapItems?.map((item) => ({ ...item })) ?? [],
+    completionDelta: latestUpdate?.completionDelta ?? "",
+    currentPhase: latestUpdate?.currentPhase ?? "",
+    decisionsPending: latestUpdate?.decisionsPending ?? "",
+    deliveryBoardItems: latestUpdate?.deliveryBoardItems?.map((item) => ({ ...item })) ?? [],
+    deliveryHealth: latestUpdate?.deliveryHealth ?? "",
+    domainUpdates: mergeDomainUpdatesFromLatest(teamRoleUpdates, latestUpdate),
+    executiveOverview: latestUpdate?.executiveOverview ?? "",
+    executiveSponsor: latestUpdate?.executiveSponsor ?? review.executiveSponsor ?? "",
+    nextMilestoneDate: latestUpdate?.nextMilestoneDate ?? "",
+    nextMilestoneName: latestUpdate?.nextMilestoneName ?? "",
+    nextMilestonePriority: latestUpdate?.nextMilestonePriority ?? "",
+    originalNorthStar: latestUpdate?.originalNorthStar ?? review.originalNorthStar ?? "",
+    pmo: latestUpdate?.pmo ?? review.pmo ?? "",
+    programCompletionPercent: latestUpdate?.programCompletionPercent ?? review.programCompletionPercent ?? "",
+    programLead: latestUpdate?.programLead ?? review.programLead ?? "",
+    programMilestones: latestUpdate?.programMilestones?.map((item) => ({ ...item })) ?? [],
+    programStartDate: latestUpdate?.programStartDate ?? review.programStartDate ?? "",
+    programTargetFinishDate: latestUpdate?.programTargetFinishDate ?? review.programTargetFinishDate ?? "",
+    progressSinceLastReview: latestUpdate?.progressSinceLastReview ?? "",
+    publicationNote: latestUpdate?.publicationNote ?? "",
+    supportNeeded: latestUpdate?.supportNeeded ?? "",
+    timelineMonth: latestUpdate?.timelineMonth ?? review.timelineMonth ?? "",
+    timelineScale: latestUpdate?.timelineScale ?? review.timelineScale ?? "year",
+    timelineWeek: latestUpdate?.timelineWeek ?? review.timelineWeek ?? "",
+    timelineYear: latestUpdate?.timelineYear ?? review.timelineYear ?? "",
+    upcomingWork: latestUpdate?.upcomingWork ?? ""
   };
 }
 
@@ -97,7 +117,7 @@ export function ActiveProgramClientUpdateCard({
   selectedProgramId,
   teamRoleUpdates
 }: ActiveProgramClientUpdateCardProps) {
-  const [draft, setDraft] = useState<ClientUpdateDraft>(() => buildInitialDraft(review, teamRoleUpdates));
+  const [draft, setDraft] = useState<ClientUpdateDraft>(() => buildInitialClientUpdateDraft(review, teamRoleUpdates));
   const [publishState, setPublishState] = useState<PublishState>("idle");
   const [confirmation, setConfirmation] = useState("");
   const canPublish = selectedProgramId && hasClientReadyContent(draft) && publishState !== "publishing";
@@ -107,9 +127,48 @@ export function ActiveProgramClientUpdateCard({
   );
 
   useEffect(() => {
-    setDraft(buildInitialDraft(review, teamRoleUpdates));
+    let cancelled = false;
+
+    async function loadLatestClientUpdate() {
+      if (!selectedProgramId) {
+        setDraft(buildInitialClientUpdateDraft(review, teamRoleUpdates));
+        setPublishState("idle");
+        setConfirmation("");
+        return;
+      }
+
+      setPublishState("idle");
+      setConfirmation("Loading latest published client update...");
+
+      try {
+        const response = await fetch(`/api/programs/${encodeURIComponent(selectedProgramId)}/client-updates`, {
+          cache: "no-store"
+        });
+        if (!response.ok) throw new Error("latest-load");
+
+        const payload = (await response.json()) as { updates?: ClientPortalUpdateRecord[] };
+        if (cancelled) return;
+
+        const latestUpdate = payload.updates?.[0] ?? null;
+        setDraft(buildInitialClientUpdateDraft(review, teamRoleUpdates, latestUpdate));
+        setConfirmation(
+          latestUpdate
+            ? `Loaded latest published client update from ${new Date(latestUpdate.updatedAt ?? latestUpdate.createdAt).toLocaleString()}.`
+            : ""
+        );
+      } catch {
+        if (cancelled) return;
+        setDraft(buildInitialClientUpdateDraft(review, teamRoleUpdates));
+        setConfirmation("Could not load the latest published client update. You can still draft a new snapshot.");
+      }
+    }
+
+    void loadLatestClientUpdate();
     setPublishState("idle");
-    setConfirmation("");
+
+    return () => {
+      cancelled = true;
+    };
   }, [review.programName, selectedProgramId, teamRoleUpdates]);
 
   function updateField(field: keyof Omit<ClientUpdateDraft, "domainUpdates" | "deliveryBoardItems" | "programMilestones">, value: string) {
@@ -171,8 +230,12 @@ export function ActiveProgramClientUpdateCard({
         throw new Error(`${payload.error ?? "Client update could not be published."}${issueDetail}`);
       }
 
+      const payload = (await response.json()) as { update?: ClientPortalUpdateRecord };
+      if (payload.update) {
+        setDraft(buildInitialClientUpdateDraft(review, teamRoleUpdates, payload.update));
+      }
       setPublishState("published");
-      setConfirmation("Client update published. Client Portal now reflects this reviewed update.");
+      setConfirmation("Client update published. This latest snapshot stays loaded for iteration.");
     } catch (error) {
       setPublishState("error");
       setConfirmation(error instanceof Error ? error.message : "Client update could not be published. Review the content and try again.");
