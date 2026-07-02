@@ -628,7 +628,61 @@ function getScheduleCompletionPercent(input: {
   };
 }
 
+function parseRoadmapMonthStart(value: string | undefined | null) {
+  const cleaned = clean(value);
+  const monthMatch = cleaned.match(/^(\d{4})-(\d{2})$/);
+  if (!monthMatch) return parseClientDate(cleaned);
+  return new Date(Date.UTC(Number(monthMatch[1]), Number(monthMatch[2]) - 1, 1));
+}
+
+function parseRoadmapMonthEnd(value: string | undefined | null) {
+  const cleaned = clean(value);
+  const monthMatch = cleaned.match(/^(\d{4})-(\d{2})$/);
+  if (!monthMatch) return parseClientDate(cleaned);
+  return new Date(Date.UTC(Number(monthMatch[1]), Number(monthMatch[2]), 0));
+}
+
+function roadmapItemDateProgress(item: ClientPortalComponentRoadmapItem, basisDate: Date) {
+  const startDate = parseRoadmapMonthStart(item.startMonth);
+  const finishDate = parseRoadmapMonthEnd(item.endMonth);
+  if (!startDate || !finishDate || finishDate.getTime() <= startDate.getTime()) return null;
+
+  if (basisDate.getTime() <= startDate.getTime()) return 0;
+  if (basisDate.getTime() >= finishDate.getTime()) return 95;
+
+  const elapsed = basisDate.getTime() - startDate.getTime();
+  const duration = finishDate.getTime() - startDate.getTime();
+  return Math.max(5, Math.min(95, Math.round((elapsed / duration) * 100)));
+}
+
+function roadmapItemProgress(item: ClientPortalComponentRoadmapItem, basisDate: Date) {
+  if (item.status === "complete") return 100;
+  if (item.status === "planned") return 0;
+  return roadmapItemDateProgress(item, basisDate) ?? 50;
+}
+
+function getRoadmapCompletionPercent(input: {
+  clientRoadmapItems?: ClientPortalComponentRoadmapItem[];
+  generatedAt?: string;
+  updateTimestamp?: string;
+}) {
+  const items = input.clientRoadmapItems?.filter((item) => item.title && item.startMonth && item.endMonth) ?? [];
+  if (!items.length) return null;
+
+  const basisDate = parseClientDate(input.generatedAt) ?? parseClientDate(input.updateTimestamp) ?? new Date();
+  const itemProgress = items.map((item) => roadmapItemProgress(item, basisDate));
+  const completeCount = items.filter((item) => item.status === "complete").length;
+  const activeCount = items.filter((item) => item.status === "in-progress" || item.status === "at-risk" || item.status === "blocked").length;
+
+  return {
+    basis: "Roadmap items",
+    percent: Math.max(0, Math.min(100, Math.round(itemProgress.reduce((sum, value) => sum + value, 0) / items.length))),
+    scheduleLabel: `${completeCount}/${items.length} complete${activeCount ? ` · ${activeCount} active` : ""}`
+  };
+}
+
 function getCompletionMetrics(input: {
+  clientRoadmapItems?: ClientPortalComponentRoadmapItem[];
   currentPhase: string;
   generatedAt?: string;
   manualCompletionPercent?: string | null;
@@ -640,6 +694,16 @@ function getCompletionMetrics(input: {
   const { currentPhase, posture } = input;
   const phaseIndex = getCurrentPhaseIndex(currentPhase);
   const phaseCompletionPercent = phaseIndex >= 0 ? Math.round(((phaseIndex + 1) / timelinePhases.length) * 100) : 0;
+  const roadmapCompletion = getRoadmapCompletionPercent(input);
+  if (roadmapCompletion) {
+    return {
+      completionBasis: roadmapCompletion.basis,
+      completionScheduleLabel: roadmapCompletion.scheduleLabel,
+      phaseCompletionPercent,
+      programCompletionPercent: roadmapCompletion.percent
+    };
+  }
+
   const scheduleCompletion = getScheduleCompletionPercent(input);
   if (scheduleCompletion) {
     return {
@@ -1184,7 +1248,9 @@ export function buildClientPortalProgram(input: ClientPortalProgramInput): Clien
     roleUpdates
   });
   const updateTimestamp = clientUpdate?.updatedAt ?? clientUpdate?.createdAt;
+  const clientRoadmapItems = buildClientRoadmapItems(clientUpdate);
   const completion = getCompletionMetrics({
+    clientRoadmapItems,
     currentPhase,
     generatedAt: input.generatedAt,
     manualCompletionPercent: review?.programCompletionPercent,
@@ -1215,7 +1281,6 @@ export function buildClientPortalProgram(input: ClientPortalProgramInput): Clien
     decisions,
     intakeStatus: clientUpdate ? intake.currentStatus : undefined
   });
-  const clientRoadmapItems = buildClientRoadmapItems(clientUpdate);
   const executiveOverview = buildClientExecutiveOverview({
     phase: currentPhase,
     postureLabel: postureLabel(posture),

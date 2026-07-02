@@ -910,8 +910,8 @@ async function verifyClientPortalExecutiveFields(session, program, smokeText) {
           return {
             detailFound: Boolean(detail),
             detailHasSponsor: detailText.includes("Smoke Sponsor"),
-            detailHasLead: detailText.includes("Smoke Program Lead"),
-            detailHasPmo: detailText.includes("Smoke PMO"),
+            detailHidesLead: !detailText.includes("Smoke Program Lead"),
+            detailHidesPmo: !detailText.includes("Smoke PMO"),
             detailHasPercent: detailText.includes("100%"),
             detailHasDelta: detailText.includes("+4%"),
             detailHasTag: detailText.includes(arguments[1]) &&

@@ -295,7 +295,7 @@ async function seedProgramUpdate(session, program, smokeText) {
 
 async function verifyClientPortal(session, program, smokeText) {
   const primaryRole = program.intake.teamRoles?.[0] ?? "Delivery Lead";
-  const expectedProgramPercent = `${buildScheduleWindow().expectedPercent}%`;
+  const expectedProgramPercent = "95%";
   const expectedClientName = program.intake.clientName?.trim() || "Unassigned client";
 
   await session.navigate(`${baseUrl}/client?smoke=client-portal-seeded-update`);
@@ -377,8 +377,8 @@ async function verifyClientPortal(session, program, smokeText) {
             roadmapText.includes("Client Portal smoke roadmap item") &&
             roadmapText.includes("In progress") &&
             detailText.includes("Client Portal Smoke Sponsor") &&
-            detailText.includes("Client Portal Smoke Lead") &&
-            detailText.includes("Client Portal Smoke PMO") &&
+            !detailText.includes("Client Portal Smoke Lead") &&
+            !detailText.includes("Client Portal Smoke PMO") &&
             detailText.includes(arguments[3]) &&
             detailText.includes("+5%") &&
             detailText.includes("Execute") &&

@@ -53,6 +53,9 @@ test("Client Portal frames executive overview and domain progress", () => {
   assert.match(source, /MetricBasisLabel/);
   assert.match(source, /grid grid-cols-3 gap-2 sm:gap-3/);
   assert.match(source, /grid min-w-0 max-w-full gap-6 overflow-hidden/);
+  assert.match(source, /data-client-executive-sponsor/);
+  assert.doesNotMatch(source, /data-client-program-lead/);
+  assert.doesNotMatch(source, /data-client-pmo/);
   assert.doesNotMatch(source, /xl:grid-cols-\[minmax\(0,1fr\)_minmax\(22rem,0\.5fr\)\]/);
   assert.doesNotMatch(source, /Averaged from each program's shown completion basis/);
   assert.doesNotMatch(source, /MetricTile label="Total Programs"/);
@@ -88,6 +91,8 @@ test("Client Portal frames executive overview and domain progress", () => {
   assert.match(modelSource, /buildPortfolioRisks/);
   assert.match(modelSource, /buildPortfolioRoadmap/);
   assert.match(modelSource, /buildRoadmapWindow/);
+  assert.match(modelSource, /getRoadmapCompletionPercent/);
+  assert.match(modelSource, /completionBasis: roadmapCompletion\.basis/);
   assert.match(modelSource, /deriveMonthWindowLabels/);
   assert.match(modelSource, /formatShortDateLabel/);
   assert.match(modelSource, /function clientPhaseLabel/);

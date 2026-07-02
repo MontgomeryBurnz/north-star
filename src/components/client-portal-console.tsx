@@ -201,10 +201,8 @@ function ProgramHero({ program }: { program: ClientPortalProgram }) {
           />
           <HeroMetric label="Current Phase" metricId="current-phase" value={program.phase} />
         </div>
-        <div className="grid gap-2 border-t border-white/15 pt-4 text-sm text-slate-300 sm:gap-3 sm:pt-5 sm:text-base md:grid-cols-3">
+        <div className="border-t border-white/15 pt-4 text-sm text-slate-300 sm:pt-5 sm:text-base">
           <span data-client-executive-sponsor>Executive Sponsor: <strong className="text-white">{program.executiveSponsor}</strong></span>
-          <span data-client-program-lead>Program Lead: <strong className="text-white">{program.programLead}</strong></span>
-          <span data-client-pmo>PMO: <strong className="text-white">{program.pmo}</strong></span>
         </div>
         <div className="rounded-lg border border-slate-200 bg-white p-4 text-slate-950 shadow-[0_18px_45px_rgba(15,23,42,0.16)] sm:p-5">
           <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.16em] text-sky-700">

@@ -266,6 +266,47 @@ test("Client Portal exposes client-update roadmap rows as client-visible work", 
   assert.equal(portalProgram.clientRoadmapItems[1]?.status, "planned");
 });
 
+test("Client Portal completion prefers client roadmap values over schedule and manual percent", () => {
+  const roadmapUpdate: ClientPortalUpdateRecord = {
+    ...clientUpdate,
+    clientRoadmapItems: [
+      {
+        category: "Components",
+        endMonth: "2026-06",
+        id: "product-requests",
+        note: "Mass Add request intake through readiness validation.",
+        owner: "Product Lead",
+        startMonth: "2026-05",
+        status: "complete",
+        title: "Product Requests"
+      },
+      {
+        category: "Reporting & Insights",
+        endMonth: "2026-12",
+        id: "hub-reporting",
+        note: "Dashboards and compliance insight reporting.",
+        owner: "Data Lead",
+        startMonth: "2026-09",
+        status: "planned",
+        title: "Hub Insights / Reporting"
+      }
+    ],
+    programCompletionPercent: "99",
+    programStartDate: "2026-04-01",
+    programTargetFinishDate: "2026-04-21"
+  };
+
+  const portalProgram = buildClientPortalProgram({
+    generatedAt: "2026-04-11T00:00:00.000Z",
+    latestClientUpdate: roadmapUpdate,
+    program
+  });
+
+  assert.equal(portalProgram.metrics.programCompletionPercent, 50);
+  assert.equal(portalProgram.metrics.completionBasis, "Roadmap items");
+  assert.equal(portalProgram.metrics.completionScheduleLabel, "1/2 complete");
+});
+
 test("buildClientPortalProgram uses team footprint owner and responsibility for domain summaries", () => {
   const portalProgram = buildClientPortalProgram({
     program: {
@@ -585,7 +626,7 @@ test("buildClientPortalPortfolio separates programs into client portfolios", () 
   assert.equal(portfolio.clients.find((client) => client.clientName === "Impower")?.metrics.atRisk, 1);
 });
 
-test("Client Portal completion prefers program schedule over manual percent", () => {
+test("Client Portal completion prefers program schedule over manual percent when client roadmap is absent", () => {
   const scheduledUpdate: StoredProgramUpdate = {
     ...update,
     updatedAt: "2026-04-11T00:00:00.000Z",
