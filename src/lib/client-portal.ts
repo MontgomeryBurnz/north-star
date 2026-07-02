@@ -7,7 +7,7 @@ import type {
   TeamRoleUpdate,
   TeamRoleUpdateStatus
 } from "./active-program-types.ts";
-import type { ClientPortalUpdateRecord } from "./client-portal-update-types.ts";
+import type { ClientPortalRoadmapItem, ClientPortalUpdateRecord } from "./client-portal-update-types.ts";
 import type { GuidedPlan } from "./guided-plan-types.ts";
 import type { ClientDecisionRequest } from "./program-intelligence-types.ts";
 import type { ProgramTeamFootprintRole, StoredProgram } from "./program-intake-types.ts";
@@ -30,6 +30,11 @@ export type ClientPortalDomainSummary = {
   statusLabel: string;
   attachments: number;
   updatedAt?: string;
+};
+
+export type ClientPortalComponentRoadmapItem = ClientPortalRoadmapItem & {
+  endLabel: string;
+  startLabel: string;
 };
 
 export type ClientPortalProgram = {
@@ -73,6 +78,7 @@ export type ClientPortalProgram = {
   };
   outcomes: string[];
   progressUpdates: string[];
+  clientRoadmapItems: ClientPortalComponentRoadmapItem[];
   domainSummaries: ClientPortalDomainSummary[];
   executiveStatusHighlights: string[];
   recentAccomplishments: string[];
@@ -702,6 +708,25 @@ function formatMonthLabel(value: string | undefined | null) {
   return new Intl.DateTimeFormat("en-US", { month: "long", year: "numeric" }).format(date);
 }
 
+function buildClientRoadmapItems(update: ClientPortalUpdateRecord | null | undefined): ClientPortalComponentRoadmapItem[] {
+  if (!update) return [];
+  const safeUpdate = sanitizeClientPortalUpdateForDisplay(update);
+
+  return (safeUpdate.clientRoadmapItems ?? [])
+    .map((item, index) => ({
+      ...item,
+      category: clean(item.category) || "Client Roadmap",
+      endLabel: formatMonthLabel(item.endMonth) || clean(item.endMonth),
+      id: clean(item.id) || `${safeUpdate.programId}-client-roadmap-${index}`,
+      note: clean(item.note),
+      owner: clean(item.owner),
+      startLabel: formatMonthLabel(item.startMonth) || clean(item.startMonth),
+      title: clean(item.title)
+    }))
+    .filter((item) => item.category && item.title && item.startMonth && item.endMonth)
+    .slice(0, 24);
+}
+
 function formatShortDateLabel(date: Date) {
   return new Intl.DateTimeFormat("en-US", { day: "numeric", month: "short" }).format(date);
 }
@@ -1248,6 +1273,7 @@ export function buildClientPortalProgram(input: ClientPortalProgramInput): Clien
     decisions,
     intakeStatus: clientUpdate ? intake.currentStatus : undefined
   });
+  const clientRoadmapItems = buildClientRoadmapItems(clientUpdate);
   const executiveOverview = buildClientExecutiveOverview({
     phase: currentPhase,
     postureLabel: postureLabel(posture),
@@ -1376,6 +1402,7 @@ export function buildClientPortalProgram(input: ClientPortalProgramInput): Clien
     },
     outcomes,
     progressUpdates,
+    clientRoadmapItems,
     domainSummaries,
     executiveStatusHighlights,
     recentAccomplishments,

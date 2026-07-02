@@ -2,10 +2,14 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { ArrowUpRight, CheckCircle2, SendHorizonal, ShieldCheck } from "lucide-react";
+import { ArrowUpRight, CheckCircle2, Plus, SendHorizonal, ShieldCheck, Trash2 } from "lucide-react";
 import { ProgramSlicer } from "@/components/program-slicer";
 import { Button } from "@/components/ui/button";
-import type { ClientPortalDomainUpdate, ClientPortalUpdateInput } from "@/lib/client-portal-update-types";
+import type {
+  ClientPortalDomainUpdate,
+  ClientPortalRoadmapItem,
+  ClientPortalUpdateInput
+} from "@/lib/client-portal-update-types";
 import type { StoredProgram } from "@/lib/program-intake-types";
 import { programsToSlicerOptions } from "@/lib/program-slicer";
 import { getProgramTeamFootprint } from "@/lib/team-roles";
@@ -28,6 +32,27 @@ const statusOptions = [
   { label: "Blocked", value: "blocked" }
 ] as const;
 
+const roadmapStatusOptions = [
+  { label: "Planned", value: "planned" },
+  { label: "In progress", value: "in-progress" },
+  { label: "At risk", value: "at-risk" },
+  { label: "Blocked", value: "blocked" },
+  { label: "Complete", value: "complete" }
+] as const;
+
+function createRoadmapItem(): ClientPortalRoadmapItem {
+  return {
+    category: "",
+    endMonth: "",
+    id: globalThis.crypto?.randomUUID?.() ?? `roadmap-${Date.now()}`,
+    note: "",
+    owner: "",
+    startMonth: "",
+    status: "planned",
+    title: ""
+  };
+}
+
 function buildDraft(program: StoredProgram | undefined): ClientDashboardDraft {
   const intake = program?.intake;
   const footprint = program ? getProgramTeamFootprint(intake).filter((item) => item.active !== false) : [];
@@ -35,6 +60,7 @@ function buildDraft(program: StoredProgram | undefined): ClientDashboardDraft {
   return {
     activeRisks: "",
     clientStatusNote: "",
+    clientRoadmapItems: [],
     completionDelta: "",
     currentPhase: intake?.currentStatus ?? "",
     decisionsPending: intake?.decisionsNeeded ?? "",
@@ -80,6 +106,9 @@ function hasPublishableContent(draft: ClientDashboardDraft) {
       draft.upcomingWork.trim() ||
       draft.activeRisks.trim() ||
       draft.decisionsPending.trim() ||
+      (draft.clientRoadmapItems ?? []).some(
+        (item) => item.category.trim() && item.title.trim() && item.startMonth.trim() && item.endMonth.trim()
+      ) ||
       draft.domainUpdates.some((domain) =>
         [domain.owner, domain.pursuit, domain.risksOrBlockers, domain.decisionsOrOutcomes].some((value) => value.trim())
       )
@@ -89,6 +118,9 @@ function hasPublishableContent(draft: ClientDashboardDraft) {
 function toPayload(draft: ClientDashboardDraft): ClientPortalUpdateInput {
   return {
     ...draft,
+    clientRoadmapItems: (draft.clientRoadmapItems ?? []).filter((item) =>
+      item.category.trim() && item.title.trim() && item.startMonth.trim() && item.endMonth.trim()
+    ),
     domainUpdates: draft.domainUpdates.filter((domain) =>
       domain.role.trim() &&
       [domain.owner, domain.pursuit, domain.risksOrBlockers, domain.decisionsOrOutcomes].some((value) => value.trim())
@@ -119,7 +151,10 @@ export function ClientDashboardUpdatesConsole({
     setStatus("");
   }, [selectedProgram]);
 
-  function updateField(field: keyof Omit<ClientDashboardDraft, "domainUpdates" | "deliveryBoardItems" | "programMilestones">, value: string) {
+  function updateField(
+    field: keyof Omit<ClientDashboardDraft, "clientRoadmapItems" | "deliveryBoardItems" | "domainUpdates" | "programMilestones">,
+    value: string
+  ) {
     setDraft((current) => ({ ...current, [field]: value }));
     setPublishState("idle");
   }
@@ -134,6 +169,37 @@ export function ClientDashboardUpdatesConsole({
               [field]: field === "status" ? (value as ClientPortalDomainUpdate["status"]) : value
             }
           : domain
+      )
+    }));
+    setPublishState("idle");
+  }
+
+  function addRoadmapItem() {
+    setDraft((current) => ({
+      ...current,
+      clientRoadmapItems: [...(current.clientRoadmapItems ?? []), createRoadmapItem()]
+    }));
+    setPublishState("idle");
+  }
+
+  function removeRoadmapItem(index: number) {
+    setDraft((current) => ({
+      ...current,
+      clientRoadmapItems: (current.clientRoadmapItems ?? []).filter((_, currentIndex) => currentIndex !== index)
+    }));
+    setPublishState("idle");
+  }
+
+  function updateRoadmapItem(index: number, field: keyof ClientPortalRoadmapItem, value: string) {
+    setDraft((current) => ({
+      ...current,
+      clientRoadmapItems: (current.clientRoadmapItems ?? []).map((item, currentIndex) =>
+        currentIndex === index
+          ? {
+              ...item,
+              [field]: field === "status" ? (value as ClientPortalRoadmapItem["status"]) : value
+            }
+          : item
       )
     }));
     setPublishState("idle");
@@ -311,6 +377,131 @@ export function ClientDashboardUpdatesConsole({
                   className="min-h-[104px] resize-none rounded-md border border-white/10 bg-zinc-950 px-3 py-3 text-sm leading-6 text-zinc-100 outline-none transition-colors placeholder:text-zinc-500 focus:border-emerald-300/50"
                 />
               </label>
+            </div>
+          </div>
+
+          <div className="rounded-lg border border-white/10 bg-zinc-950/80 p-4 md:p-5">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <p className="text-xs font-medium uppercase tracking-[0.18em] text-sky-200">Client roadmap</p>
+                <h2 className="mt-2 text-2xl font-semibold text-zinc-50">What active work should the client track?</h2>
+                <p className="mt-2 max-w-3xl text-sm leading-6 text-zinc-500">
+                  Add client-visible work items by category and month range. These rows power the roadmap view in the Client Portal.
+                </p>
+              </div>
+              <button
+                type="button"
+                data-client-dashboard-roadmap-add
+                onClick={addRoadmapItem}
+                className="inline-flex min-h-10 items-center justify-center gap-2 rounded-md border border-sky-300/25 bg-sky-300/[0.08] px-3 text-sm font-semibold text-sky-100 transition-colors hover:border-sky-300/45 hover:bg-sky-300/[0.12]"
+              >
+                <Plus className="h-4 w-4" />
+                Add roadmap row
+              </button>
+            </div>
+
+            <div className="mt-5 grid gap-3">
+              {(draft.clientRoadmapItems ?? []).length ? (
+                (draft.clientRoadmapItems ?? []).map((item, index) => (
+                  <div
+                    key={item.id ?? `roadmap-${index}`}
+                    data-client-dashboard-roadmap-row
+                    className="rounded-md border border-white/10 bg-white/[0.025] p-3"
+                  >
+                    <div className="grid gap-3 xl:grid-cols-[minmax(10rem,0.75fr)_minmax(14rem,1.25fr)_repeat(2,minmax(8rem,0.75fr))_minmax(9rem,0.8fr)_auto]">
+                      <label className="grid gap-2">
+                        <span className="text-[11px] font-medium uppercase tracking-[0.14em] text-zinc-400">Category</span>
+                        <input
+                          data-client-dashboard-roadmap-category
+                          value={item.category}
+                          onChange={(event) => updateRoadmapItem(index, "category", event.target.value)}
+                          placeholder="Components"
+                          className="min-h-10 rounded-md border border-white/10 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 outline-none transition-colors placeholder:text-zinc-500 focus:border-sky-300/50"
+                        />
+                      </label>
+                      <label className="grid gap-2">
+                        <span className="text-[11px] font-medium uppercase tracking-[0.14em] text-zinc-400">Work item</span>
+                        <input
+                          data-client-dashboard-roadmap-title
+                          value={item.title}
+                          onChange={(event) => updateRoadmapItem(index, "title", event.target.value)}
+                          placeholder="Product Requests"
+                          className="min-h-10 rounded-md border border-white/10 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 outline-none transition-colors placeholder:text-zinc-500 focus:border-sky-300/50"
+                        />
+                      </label>
+                      <label className="grid gap-2">
+                        <span className="text-[11px] font-medium uppercase tracking-[0.14em] text-zinc-400">Start</span>
+                        <input
+                          type="month"
+                          data-client-dashboard-roadmap-start
+                          value={item.startMonth}
+                          onChange={(event) => updateRoadmapItem(index, "startMonth", event.target.value)}
+                          className="min-h-10 rounded-md border border-white/10 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 outline-none transition-colors focus:border-sky-300/50"
+                        />
+                      </label>
+                      <label className="grid gap-2">
+                        <span className="text-[11px] font-medium uppercase tracking-[0.14em] text-zinc-400">End</span>
+                        <input
+                          type="month"
+                          data-client-dashboard-roadmap-end
+                          value={item.endMonth}
+                          onChange={(event) => updateRoadmapItem(index, "endMonth", event.target.value)}
+                          className="min-h-10 rounded-md border border-white/10 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 outline-none transition-colors focus:border-sky-300/50"
+                        />
+                      </label>
+                      <label className="grid gap-2">
+                        <span className="text-[11px] font-medium uppercase tracking-[0.14em] text-zinc-400">Status</span>
+                        <select
+                          data-client-dashboard-roadmap-status
+                          value={item.status}
+                          onChange={(event) => updateRoadmapItem(index, "status", event.target.value)}
+                          className="min-h-10 rounded-md border border-white/10 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 outline-none transition-colors focus:border-sky-300/50"
+                        >
+                          {roadmapStatusOptions.map((option) => (
+                            <option key={option.value} value={option.value}>
+                              {option.label}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                      <button
+                        type="button"
+                        aria-label="Remove roadmap row"
+                        onClick={() => removeRoadmapItem(index)}
+                        className="self-end inline-flex min-h-10 items-center justify-center rounded-md border border-white/10 bg-zinc-950 px-3 text-zinc-400 transition-colors hover:border-rose-300/35 hover:text-rose-100"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </div>
+                    <div className="mt-3 grid gap-3 md:grid-cols-[minmax(10rem,0.4fr)_minmax(0,1fr)]">
+                      <label className="grid gap-2">
+                        <span className="text-[11px] font-medium uppercase tracking-[0.14em] text-zinc-400">Owner</span>
+                        <input
+                          data-client-dashboard-roadmap-owner
+                          value={item.owner}
+                          onChange={(event) => updateRoadmapItem(index, "owner", event.target.value)}
+                          placeholder="Product lead"
+                          className="min-h-10 rounded-md border border-white/10 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 outline-none transition-colors placeholder:text-zinc-500 focus:border-sky-300/50"
+                        />
+                      </label>
+                      <label className="grid gap-2">
+                        <span className="text-[11px] font-medium uppercase tracking-[0.14em] text-zinc-400">Client-facing note</span>
+                        <input
+                          data-client-dashboard-roadmap-note
+                          value={item.note}
+                          onChange={(event) => updateRoadmapItem(index, "note", event.target.value)}
+                          placeholder="What progress or dependency should the client understand?"
+                          className="min-h-10 rounded-md border border-white/10 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 outline-none transition-colors placeholder:text-zinc-500 focus:border-sky-300/50"
+                        />
+                      </label>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div className="rounded-md border border-dashed border-sky-300/25 bg-sky-300/[0.04] p-4 text-sm leading-6 text-zinc-400">
+                  No roadmap rows yet. Add the client-visible components, workstreams, or initiatives your customer should track over time.
+                </div>
+              )}
             </div>
           </div>
 

@@ -4,7 +4,7 @@ import { canAccessClientDashboardUpdateSurface } from "@/lib/admin-user-types";
 import { auditActorFromManagedUser } from "@/lib/audit-event-service";
 import type { TeamRoleUpdateStatus } from "@/lib/active-program-types";
 import { validateClientPortalUpdateInput } from "@/lib/client-safe-copy";
-import type { ClientPortalUpdateInput } from "@/lib/client-portal-update-types";
+import type { ClientPortalRoadmapItemStatus, ClientPortalUpdateInput } from "@/lib/client-portal-update-types";
 import {
   createAuditEvent,
   createClientPortalUpdate,
@@ -20,10 +20,38 @@ function normalizeDomainStatus(value: unknown): TeamRoleUpdateStatus {
   return value === "blocked" || value === "at-risk" ? value : "on-track";
 }
 
+function normalizeRoadmapStatus(value: unknown): ClientPortalRoadmapItemStatus {
+  if (
+    value === "complete" ||
+    value === "blocked" ||
+    value === "at-risk" ||
+    value === "in-progress" ||
+    value === "planned"
+  ) {
+    return value;
+  }
+
+  return "planned";
+}
+
 function normalizeClientUpdateInput(body: Partial<ClientPortalUpdateInput>): ClientPortalUpdateInput {
   return {
     activeRisks: clean(body.activeRisks),
     clientStatusNote: clean(body.clientStatusNote),
+    clientRoadmapItems: Array.isArray(body.clientRoadmapItems)
+      ? body.clientRoadmapItems
+          .map((item) => ({
+            category: clean(item.category),
+            endMonth: clean(item.endMonth),
+            id: clean(item.id),
+            note: clean(item.note),
+            owner: clean(item.owner),
+            startMonth: clean(item.startMonth),
+            status: normalizeRoadmapStatus(item.status),
+            title: clean(item.title)
+          }))
+          .filter((item) => item.category || item.title)
+      : [],
     completionDelta: clean(body.completionDelta),
     createdBy: clean(body.createdBy),
     currentPhase: clean(body.currentPhase),
@@ -74,6 +102,7 @@ function hasClientVisibleContent(input: ClientPortalUpdateInput) {
       input.upcomingWork ||
       input.activeRisks ||
       input.decisionsPending ||
+      (input.clientRoadmapItems ?? []).some((item) => item.category || item.title || item.note || item.owner) ||
       input.domainUpdates.some(
         (domain) => domain.pursuit || domain.risksOrBlockers || domain.decisionsOrOutcomes || domain.owner
       )
@@ -128,6 +157,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     eventType: "client.update.publish",
     metadata: {
       domainCount: update.domainUpdates.length,
+      roadmapItemCount: update.clientRoadmapItems?.length ?? 0,
       hasRisks: Boolean(update.activeRisks),
       hasDecisions: Boolean(update.decisionsPending)
     },

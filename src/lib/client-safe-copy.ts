@@ -76,6 +76,15 @@ function inspectMilestone(milestone: ProgramTimelineMilestone, index: number) {
   ];
 }
 
+function inspectRoadmapItem(item: NonNullable<ClientPortalUpdateInput["clientRoadmapItems"]>[number], index: number) {
+  return [
+    ...inspectClientVisibleText(`clientRoadmapItems[${index}].category`, item.category),
+    ...inspectClientVisibleText(`clientRoadmapItems[${index}].title`, item.title),
+    ...inspectClientVisibleText(`clientRoadmapItems[${index}].note`, item.note),
+    ...inspectClientVisibleText(`clientRoadmapItems[${index}].owner`, item.owner)
+  ];
+}
+
 export function validateClientPortalUpdateInput(input: ClientPortalUpdateInput): ClientSafeCopyValidation {
   const issues: ClientSafeCopyIssue[] = [
     ...inspectClientVisibleText("activeRisks", input.activeRisks),
@@ -95,7 +104,8 @@ export function validateClientPortalUpdateInput(input: ClientPortalUpdateInput):
       ...inspectClientVisibleText(`domainUpdates[${index}].decisionsOrOutcomes`, domain.decisionsOrOutcomes)
     ]),
     ...(input.deliveryBoardItems ?? []).flatMap(inspectDeliveryBoardItem),
-    ...(input.programMilestones ?? []).flatMap(inspectMilestone)
+    ...(input.programMilestones ?? []).flatMap(inspectMilestone),
+    ...(input.clientRoadmapItems ?? []).flatMap(inspectRoadmapItem)
   ];
 
   return { issues, ok: issues.length === 0 };
@@ -125,6 +135,13 @@ export function sanitizeClientPortalUpdateForDisplay(update: ClientPortalUpdateR
     name: sanitizeClientVisibleText(milestone.name, "Client-visible milestone"),
     note: sanitizeClientVisibleText(milestone.note)
   }));
+  const sanitizedRoadmapItems = (update.clientRoadmapItems ?? []).map((item) => ({
+    ...item,
+    category: sanitizeClientVisibleText(item.category, "Client roadmap"),
+    note: sanitizeClientVisibleText(item.note),
+    owner: sanitizeClientVisibleText(item.owner),
+    title: sanitizeClientVisibleText(item.title, "Client-visible roadmap item")
+  }));
 
   return {
     ...update,
@@ -137,6 +154,7 @@ export function sanitizeClientPortalUpdateForDisplay(update: ClientPortalUpdateR
     domainUpdates: sanitizedDomainUpdates,
     executiveOverview: sanitizeClientVisibleText(update.executiveOverview),
     originalNorthStar: sanitizeClientVisibleText(update.originalNorthStar),
+    clientRoadmapItems: sanitizedRoadmapItems,
     programMilestones: sanitizedMilestones,
     progressSinceLastReview: sanitizeClientVisibleText(update.progressSinceLastReview),
     publicationNote: sanitizeClientVisibleText(update.publicationNote),

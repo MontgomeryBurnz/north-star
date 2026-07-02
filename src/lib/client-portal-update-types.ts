@@ -15,9 +15,23 @@ export type ClientPortalDomainUpdate = {
   status: TeamRoleUpdateStatus;
 };
 
+export type ClientPortalRoadmapItemStatus = "planned" | "in-progress" | "at-risk" | "blocked" | "complete";
+
+export type ClientPortalRoadmapItem = {
+  category: string;
+  endMonth: string;
+  id?: string;
+  note: string;
+  owner: string;
+  startMonth: string;
+  status: ClientPortalRoadmapItemStatus;
+  title: string;
+};
+
 export type ClientPortalUpdateInput = {
   activeRisks: string;
   clientStatusNote: string;
+  clientRoadmapItems?: ClientPortalRoadmapItem[];
   completionDelta?: string;
   createdBy?: string;
   currentPhase: string;

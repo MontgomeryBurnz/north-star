@@ -18,6 +18,7 @@ import {
   type LucideIcon
 } from "lucide-react";
 import type {
+  ClientPortalComponentRoadmapItem,
   ClientPortalPortfolio,
   ClientPortalPortfolioMilestone,
   ClientPortalPortfolioRisk,
@@ -86,6 +87,22 @@ const priorityStyles = {
   Low: "border border-emerald-200 bg-emerald-50 text-emerald-800"
 } as const;
 
+const clientRoadmapStatusStyles: Record<ClientPortalComponentRoadmapItem["status"], string> = {
+  "at-risk": "bg-amber-500 text-white shadow-[0_10px_24px_rgba(245,158,11,0.28)]",
+  blocked: "bg-rose-500 text-white shadow-[0_10px_24px_rgba(244,63,94,0.26)]",
+  complete: "bg-emerald-600 text-white shadow-[0_10px_24px_rgba(5,150,105,0.22)]",
+  "in-progress": "bg-sky-700 text-white shadow-[0_10px_24px_rgba(3,105,161,0.26)]",
+  planned: "bg-slate-700 text-white shadow-[0_10px_24px_rgba(15,23,42,0.18)]"
+};
+
+const clientRoadmapStatusLabels: Record<ClientPortalComponentRoadmapItem["status"], string> = {
+  "at-risk": "At risk",
+  blocked: "Blocked",
+  complete: "Complete",
+  "in-progress": "In progress",
+  planned: "Planned"
+};
+
 type RoadmapSegmentState = ClientPortalRoadmapRow["segments"][number]["state"];
 type RoadmapWindowMode = ClientPortalRoadmapRow["windowMode"];
 
@@ -124,6 +141,54 @@ function formatRefreshTime(value: string) {
     minute: "2-digit",
     timeZone: "America/New_York"
   }).format(date);
+}
+
+function parseRoadmapMonth(value: string) {
+  const match = value.match(/^(\d{4})-(\d{2})$/);
+  if (!match) return null;
+  const date = new Date(Number(match[1]), Number(match[2]) - 1, 1);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function roadmapMonthKey(date: Date) {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+}
+
+function roadmapMonthLabel(date: Date) {
+  return new Intl.DateTimeFormat("en-US", { month: "short", timeZone: "America/New_York" }).format(date).toUpperCase();
+}
+
+function buildClientRoadmapMonths(items: ClientPortalComponentRoadmapItem[]) {
+  const dates = items
+    .flatMap((item) => [parseRoadmapMonth(item.startMonth), parseRoadmapMonth(item.endMonth)])
+    .filter((date): date is Date => Boolean(date))
+    .sort((a, b) => a.getTime() - b.getTime());
+
+  if (!dates.length) return [];
+
+  const start = new Date(dates[0].getFullYear(), dates[0].getMonth(), 1);
+  const end = new Date(dates[dates.length - 1].getFullYear(), dates[dates.length - 1].getMonth(), 1);
+  const months: Array<{ key: string; label: string }> = [];
+  const cursor = new Date(start);
+
+  while (cursor <= end && months.length < 12) {
+    months.push({ key: roadmapMonthKey(cursor), label: roadmapMonthLabel(cursor) });
+    cursor.setMonth(cursor.getMonth() + 1);
+  }
+
+  return months;
+}
+
+function clientRoadmapRange(item: ClientPortalComponentRoadmapItem, months: Array<{ key: string; label: string }>) {
+  const startIndex = months.findIndex((month) => month.key === item.startMonth);
+  const endIndex = months.findIndex((month) => month.key === item.endMonth);
+  const safeStart = startIndex >= 0 ? startIndex : 0;
+  const safeEnd = endIndex >= 0 ? endIndex : safeStart;
+
+  return {
+    end: Math.max(safeStart, safeEnd),
+    start: Math.min(safeStart, safeEnd)
+  };
 }
 
 function PortfolioLogoutForm() {
@@ -572,6 +637,93 @@ function ProgramMilestoneTimeline({ program }: { program: ClientPortalProgram })
   );
 }
 
+function ClientWorkRoadmap({ program }: { program: ClientPortalProgram }) {
+  const items = program.clientRoadmapItems;
+  const months = buildClientRoadmapMonths(items);
+  const groupedItems = items.reduce<Record<string, ClientPortalComponentRoadmapItem[]>>((groups, item) => {
+    const category = item.category.trim() || "Client Roadmap";
+    groups[category] = [...(groups[category] ?? []), item];
+    return groups;
+  }, {});
+  const gridTemplateColumns = `minmax(14rem, 0.38fr) repeat(${Math.max(months.length, 1)}, minmax(5.25rem, 1fr))`;
+
+  return (
+    <ExecutiveCard icon={BriefcaseBusiness} title="Client Work Roadmap">
+      <div className="mt-2 flex flex-wrap items-center justify-between gap-3">
+        <p className="max-w-3xl text-base leading-7 text-slate-600">
+          Client-visible work by category and month range, maintained from the governed Client Updates lane.
+        </p>
+        <span className="rounded-full border border-sky-200 bg-sky-50 px-3 py-1 text-xs font-semibold uppercase tracking-[0.12em] text-sky-800">
+          {items.length} item{items.length === 1 ? "" : "s"}
+        </span>
+      </div>
+
+      {items.length > 0 && months.length > 0 ? (
+        <div className="mt-6 overflow-x-auto rounded-lg border border-slate-200">
+          <div className="min-w-[54rem]">
+            <div className="grid border-b border-slate-200 bg-slate-950 text-white" style={{ gridTemplateColumns }}>
+              <div className="border-r border-slate-700 px-4 py-3 text-xs font-semibold uppercase tracking-[0.12em] text-slate-300">
+                Work item
+              </div>
+              {months.map((month) => (
+                <div key={month.key} className="border-r border-slate-700 px-3 py-3 text-center text-sm font-semibold last:border-r-0">
+                  {month.label}
+                </div>
+              ))}
+            </div>
+
+            {Object.entries(groupedItems).map(([category, categoryItems]) => (
+              <div key={category}>
+                <div className="border-b border-sky-200 bg-sky-50 px-4 py-2 text-sm font-semibold uppercase tracking-[0.12em] text-sky-800">
+                  {category}
+                </div>
+                {categoryItems.map((item) => {
+                  const range = clientRoadmapRange(item, months);
+                  return (
+                    <div
+                      key={item.id ?? `${category}-${item.title}`}
+                      data-client-work-roadmap-item={item.title}
+                      className="grid min-h-[4.75rem] border-b border-slate-200 last:border-b-0"
+                      style={{ gridTemplateColumns }}
+                    >
+                      <div className="border-r border-slate-200 bg-white px-4 py-3">
+                        <p className="text-base font-semibold leading-6 text-slate-950">{item.title}</p>
+                        <p className="mt-1 text-xs font-medium text-slate-500">
+                          {item.owner ? `Owner: ${item.owner}` : "Owner not set"}
+                        </p>
+                        {item.note ? <p className="mt-2 line-clamp-2 text-sm leading-5 text-slate-600">{item.note}</p> : null}
+                      </div>
+                      {months.map((month) => (
+                        <div key={`${item.id}-${month.key}`} className="border-r border-slate-200 bg-white last:border-r-0" />
+                      ))}
+                      <div
+                        className={cn(
+                          "z-10 mx-1 self-center rounded-md px-3 py-2 text-center text-xs font-semibold uppercase tracking-[0.1em]",
+                          clientRoadmapStatusStyles[item.status]
+                        )}
+                        style={{
+                          gridColumn: `${range.start + 2} / ${range.end + 3}`,
+                          gridRow: 1
+                        }}
+                      >
+                        {clientRoadmapStatusLabels[item.status]}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : (
+        <p className="mt-6 rounded-lg border border-slate-200 bg-slate-50 p-5 text-base font-medium leading-7 text-slate-600">
+          Publish roadmap rows from Client Updates to show component, workstream, or feature movement over time.
+        </p>
+      )}
+    </ExecutiveCard>
+  );
+}
+
 function ExecutiveListCard({ icon, items, title }: { icon: LucideIcon; items: string[]; title: string }) {
   return (
     <ExecutiveCard icon={icon} title={title}>
@@ -804,6 +956,7 @@ function ProgramOnePager({ program }: { program: ClientPortalProgram }) {
       </ExecutiveCard>
 
       <ProgramMilestoneTimeline program={program} />
+      <ClientWorkRoadmap program={program} />
 
       <div className="grid min-w-0 gap-6 xl:grid-cols-2">
         <ExecutiveListCard icon={CheckCircle2} title="Recent Accomplishments" items={program.recentAccomplishments} />

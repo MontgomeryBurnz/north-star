@@ -129,6 +129,7 @@ function clientPortalUpdateFromStoredUpdate(source: StoredProgramUpdate): Client
     updatedAt: source.updatedAt ?? source.createdAt,
     activeRisks: review.activeRisks,
     clientStatusNote: review.clientStatusNote ?? "",
+    clientRoadmapItems: [],
     completionDelta: review.completionDelta,
     currentPhase: review.currentPhase,
     decisionsPending: review.decisionsPending,
@@ -225,6 +226,45 @@ test("buildClientPortalProgram creates executive posture from program signals", 
   assert.equal(portalProgram.roadmapCurrentWindowIndex, 2);
 });
 
+test("Client Portal exposes client-update roadmap rows as client-visible work", () => {
+  const roadmapUpdate: ClientPortalUpdateRecord = {
+    ...clientUpdate,
+    clientRoadmapItems: [
+      {
+        category: "Components",
+        endMonth: "2026-09",
+        id: "product-requests",
+        note: "Mass Add request intake through readiness validation.",
+        owner: "Product Lead",
+        startMonth: "2026-06",
+        status: "in-progress",
+        title: "Product Requests"
+      },
+      {
+        category: "Reporting & Insights",
+        endMonth: "2026-12",
+        id: "hub-reporting",
+        note: "Dashboards and compliance insight reporting.",
+        owner: "Data Lead",
+        startMonth: "2026-09",
+        status: "planned",
+        title: "Hub Insights / Reporting"
+      }
+    ]
+  };
+
+  const portalProgram = buildClientPortalProgram({
+    latestClientUpdate: roadmapUpdate,
+    program
+  });
+
+  assert.equal(portalProgram.clientRoadmapItems.length, 2);
+  assert.equal(portalProgram.clientRoadmapItems[0]?.category, "Components");
+  assert.equal(portalProgram.clientRoadmapItems[0]?.startLabel, "June 2026");
+  assert.equal(portalProgram.clientRoadmapItems[0]?.endLabel, "September 2026");
+  assert.equal(portalProgram.clientRoadmapItems[1]?.status, "planned");
+});
+
 test("buildClientPortalProgram uses team footprint owner and responsibility for domain summaries", () => {
   const portalProgram = buildClientPortalProgram({
     program: {
@@ -309,6 +349,18 @@ test("Client Portal blocks and scrubs unsafe client-facing copy", () => {
       }
     ],
     executiveOverview: "Our team internally is triaging client frustration.",
+    clientRoadmapItems: [
+      {
+        category: "Internal only roadmap",
+        endMonth: "2026-08",
+        id: "unsafe-roadmap",
+        note: "Behind the scenes client frustration should not be visible.",
+        owner: "Internal team",
+        startMonth: "2026-06",
+        status: "at-risk",
+        title: "Do not share roadmap"
+      }
+    ],
     progressSinceLastReview: "Architecture review moved forward.",
     upcomingWork: "Prepare sponsor readout."
   };
