@@ -424,7 +424,10 @@ async function verifyClientPortalPdfExport(session, program, smokeText) {
           contentType: response.headers.get("content-type") ?? "",
           includesExecutiveSummary: text.includes("EXECUTIVE SUMMARY"),
           includesRoadmap: text.includes("Roadmap") && text.includes(arguments[1]),
-          includesRoadmapGrid: text.includes("WORK ITEM") && text.includes("JUN") && text.includes("IN PROGRESS"),
+          includesRoadmapGrid:
+            text.includes("WORK ITEM") &&
+            /\b(JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC)\b/.test(text) &&
+            text.includes("IN PROGRESS"),
           includesSmokeText: text.includes(arguments[2]),
           includesUpcomingWork: text.includes("Upcoming Work"),
           hasReportBasis: /Report Basis/i.test(text),

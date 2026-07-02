@@ -115,16 +115,16 @@ function formatRefreshTime(value: string) {
 function parseRoadmapMonth(value: string) {
   const match = value.match(/^(\d{4})-(\d{2})$/);
   if (!match) return null;
-  const date = new Date(Number(match[1]), Number(match[2]) - 1, 1);
+  const date = new Date(Date.UTC(Number(match[1]), Number(match[2]) - 1, 1));
   return Number.isNaN(date.getTime()) ? null : date;
 }
 
 function roadmapMonthKey(date: Date) {
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+  return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}`;
 }
 
 function roadmapMonthLabel(date: Date) {
-  return new Intl.DateTimeFormat("en-US", { month: "short", timeZone: "America/New_York" }).format(date).toUpperCase();
+  return new Intl.DateTimeFormat("en-US", { month: "short", timeZone: "UTC" }).format(date).toUpperCase();
 }
 
 function buildClientRoadmapMonths(items: ClientPortalComponentRoadmapItem[]) {
@@ -135,14 +135,14 @@ function buildClientRoadmapMonths(items: ClientPortalComponentRoadmapItem[]) {
 
   if (!dates.length) return [];
 
-  const start = new Date(dates[0].getFullYear(), dates[0].getMonth(), 1);
-  const end = new Date(dates[dates.length - 1].getFullYear(), dates[dates.length - 1].getMonth(), 1);
+  const start = new Date(Date.UTC(dates[0].getUTCFullYear(), dates[0].getUTCMonth(), 1));
+  const end = new Date(Date.UTC(dates[dates.length - 1].getUTCFullYear(), dates[dates.length - 1].getUTCMonth(), 1));
   const months: Array<{ key: string; label: string }> = [];
   const cursor = new Date(start);
 
   while (cursor <= end && months.length < 12) {
     months.push({ key: roadmapMonthKey(cursor), label: roadmapMonthLabel(cursor) });
-    cursor.setMonth(cursor.getMonth() + 1);
+    cursor.setUTCMonth(cursor.getUTCMonth() + 1);
   }
 
   return months;
