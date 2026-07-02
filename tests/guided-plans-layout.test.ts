@@ -1066,6 +1066,7 @@ test("Client Dashboard Contributor has a scoped publication lane", () => {
   assert.match(clientUpdatesConsoleSource, /data-client-dashboard-roadmap-row/);
   assert.match(clientUpdatesConsoleSource, /data-client-dashboard-roadmap-start/);
   assert.match(clientUpdatesConsoleSource, /data-client-dashboard-roadmap-end/);
+  assert.match(clientUpdatesConsoleSource, /data-client-dashboard-current-phase/);
   assert.match(clientUpdatesConsoleSource, /Publish to Client Portal/);
   assert.match(navSource, /Client Updates/);
   assert.match(navSource, /getVisibleNavItems/);

@@ -316,6 +316,27 @@ test("Client Portal does not expose internal updates without a published client 
   assert.equal(internalOnlyProgram.northStar, "Publish a reviewed client update to show the north star.");
 });
 
+test("Client Portal does not fall back to internal phase after a client update is published", () => {
+  const portalProgram = buildClientPortalProgram({
+    latestClientUpdate: {
+      ...clientUpdate,
+      clientStatusNote: "Client-ready roadmap update is published.",
+      currentPhase: ""
+    },
+    program: {
+      ...program,
+      intake: {
+        ...program.intake,
+        currentStatus: "Our team internally is working through tactical blockers."
+      }
+    }
+  });
+  const serialized = JSON.stringify(portalProgram);
+
+  assert.equal(portalProgram.phase, "Phase not set");
+  assert.doesNotMatch(serialized, /internally|tactical blockers/i);
+});
+
 test("Client Portal blocks and scrubs unsafe client-facing copy", () => {
   const unsafeClientUpdate: ClientPortalUpdateRecord = {
     ...clientUpdate,

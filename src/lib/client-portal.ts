@@ -1234,7 +1234,9 @@ export function buildClientPortalProgram(input: ClientPortalProgramInput): Clien
     ? visibleSignals(firstNonEmpty(review?.supportNeeded, review?.progressSinceLastReview), "", 4).filter(Boolean)
     : [];
   const recommendedPath = clientUpdate ? visibleSignals(review?.supportNeeded, "", 4).filter(Boolean) : [];
-  const currentPhase = clientPhaseLabel(firstNonEmpty(review?.currentPhase, intake.currentStatus, "Phase not set"));
+  const currentPhase = clientPhaseLabel(
+    firstNonEmpty(review?.currentPhase, clientUpdate ? "Phase not set" : intake.currentStatus, "Phase not set")
+  );
   const { atRiskRoles, blockedRoles } = deriveRoleStatusCounts(roleUpdates);
   const posture = derivePosture({
     deliveryHealth: firstNonEmpty(review?.deliveryHealth, intake.currentStatus),

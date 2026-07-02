@@ -40,6 +40,8 @@ const roadmapStatusOptions = [
   { label: "Complete", value: "complete" }
 ] as const;
 
+const clientPhaseOptions = ["", "Intake", "Plan", "Execute", "Stabilize", "Value"] as const;
+
 function createRoadmapItem(): ClientPortalRoadmapItem {
   return {
     category: "",
@@ -62,7 +64,7 @@ function buildDraft(program: StoredProgram | undefined): ClientDashboardDraft {
     clientStatusNote: "",
     clientRoadmapItems: [],
     completionDelta: "",
-    currentPhase: intake?.currentStatus ?? "",
+    currentPhase: "",
     decisionsPending: intake?.decisionsNeeded ?? "",
     deliveryBoardItems: [],
     deliveryHealth: "",
@@ -318,6 +320,25 @@ export function ClientDashboardUpdatesConsole({
             </div>
 
             <div className="mt-5 grid gap-3 lg:grid-cols-2">
+              <label className="grid gap-2 lg:col-span-2">
+                <span className="text-xs font-medium uppercase tracking-[0.16em] text-zinc-300">Client phase</span>
+                <select
+                  data-client-dashboard-current-phase
+                  value={draft.currentPhase}
+                  onChange={(event) => updateField("currentPhase", event.target.value)}
+                  className="min-h-11 rounded-md border border-white/10 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 outline-none transition-colors focus:border-emerald-300/50"
+                >
+                  {clientPhaseOptions.map((phase) => (
+                    <option key={phase || "none"} value={phase}>
+                      {phase || "Select the client-facing phase..."}
+                    </option>
+                  ))}
+                </select>
+                <span className="text-xs leading-5 text-zinc-500">
+                  This is published to the Client Portal. It intentionally does not inherit internal program status text.
+                </span>
+              </label>
+
               <label className="grid gap-2 lg:col-span-2">
                 <span className="text-xs font-medium uppercase tracking-[0.16em] text-zinc-300">Executive overview</span>
                 <textarea
