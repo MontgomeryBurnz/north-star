@@ -20,6 +20,22 @@ const program: StoredProgram = {
     decisionsNeeded: "Confirm the next checkpoint owner.",
     blockers: "",
     teamRoles: ["Product Management", "Delivery Lead"],
+    teamFootprint: [
+      {
+        active: true,
+        id: "product-management",
+        owner: "Priya Product",
+        responsibility: "Own roadmap scope and prioritization.",
+        role: "Product Management"
+      },
+      {
+        active: true,
+        id: "delivery-lead",
+        owner: "Dylan Delivery",
+        responsibility: "Own delivery cadence, blockers, and sponsor-ready execution path.",
+        role: "Delivery Lead"
+      }
+    ],
     artifacts: []
   }
 };
@@ -34,7 +50,10 @@ test("generateLocalGuidedPlan includes custom team roles in Team Action Plans", 
     plan.rolePlans.roles.map((rolePlan) => rolePlan.role),
     ["Product Management", "Delivery Lead"]
   );
-  assert.ok(plan.rolePlans.roles.find((rolePlan) => rolePlan.role === "Delivery Lead")?.actionPlan.length);
+  const deliveryLeadPlan = plan.rolePlans.roles.find((rolePlan) => rolePlan.role === "Delivery Lead");
+  assert.ok(deliveryLeadPlan?.actionPlan.length);
+  assert.match(deliveryLeadPlan.keyFocusAreas.join("\n"), /Owner: Dylan Delivery/);
+  assert.match(deliveryLeadPlan.keyFocusAreas.join("\n"), /Responsibility: Own delivery cadence/);
 });
 
 test("generateLocalGuidedPlan treats role update attachments as role-level signal", () => {

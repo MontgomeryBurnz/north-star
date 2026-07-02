@@ -5,7 +5,7 @@ import type { LeadershipReviewRecord } from "./leadership-feedback-types.ts";
 import { buildDeliveryLeadershipSignal } from "./leadership-signal.ts";
 import type { ProgramMeetingInput } from "./program-intelligence-types.ts";
 import type { StoredProgram } from "./program-intake-types.ts";
-import { getProgramRoleNames } from "./team-roles.ts";
+import { getProgramRoleNames, getProgramTeamFootprint } from "./team-roles.ts";
 
 function splitItems(value: string, fallback: string[]) {
   const items = value
@@ -150,6 +150,7 @@ function buildRolePlans(
   const outputFocus = firstAvailable(reviewedContext?.outputs ?? "", "Updated delivery plan, decision log, and risk posture.");
   const mitigationFocus = firstAvailable(review?.planChanges ?? "", "Tighten ownership, sequence key decisions, and reduce ambiguity early.");
   const roleNames = getProgramRoleNames(intake);
+  const roleFootprintMap = new Map(getProgramTeamFootprint(intake).map((item) => [item.role.toLowerCase(), item]));
   const roleUpdateMap = new Map(
     getTeamRoleUpdates(latestUpdate).map((roleUpdate) => [roleUpdate.role.toLowerCase(), roleUpdate])
   );
@@ -185,9 +186,23 @@ function buildRolePlans(
     const roleEscalation = roleUpdate?.needsLeadershipAttention
       ? "Leadership attention is requested from this role's current signal."
       : "No leadership escalation is currently requested from this role.";
+    const roleFootprint = roleFootprintMap.get(role.toLowerCase());
+    const roleOwnershipFocus = [
+      roleFootprint?.owner.trim() ? `Owner: ${roleFootprint.owner.trim()}` : "",
+      roleFootprint?.responsibility.trim() ? `Responsibility: ${roleFootprint.responsibility.trim()}` : ""
+    ]
+      .filter(Boolean)
+      .join(". ");
+    const withRoleOwnership = (plan: GuidedPlanRolePlan): GuidedPlanRolePlan =>
+      roleOwnershipFocus
+        ? {
+            ...plan,
+            keyFocusAreas: [roleOwnershipFocus, ...plan.keyFocusAreas]
+          }
+        : plan;
 
     if (role === "Product Management") {
-      return {
+      return withRoleOwnership({
         role,
         actionPlan: [
           `Lock the product path around: ${excerpt(outcomeFocus, 110)}`,
@@ -204,11 +219,11 @@ function buildRolePlans(
           `Clear decision framing for the next stage of work: ${excerpt(roleDecision || "next unresolved decision.", 110)}`
         ],
         risksAndMitigations: [`Risk: ${excerpt(roleRisk || "scope and delivery ambiguity.", 110)}`, `Mitigation: ${excerpt(roleChange, 110)}`]
-      };
+      });
     }
 
     if (role === "Business Analysis") {
-      return {
+      return withRoleOwnership({
         role,
         actionPlan: [
           `Translate ambiguity into structured requirements for: ${excerpt(roleSupport || "critical requirements and constraints.", 110)}`,
@@ -229,11 +244,11 @@ function buildRolePlans(
           `Risk: hidden requirement gaps or unresolved ownership in ${excerpt(roleRisk || stakeholderFocus || "stakeholder expectations.", 110)}`,
           "Mitigation: tighten requirement reviews, decision logs, and traceability before execution expands."
         ]
-      };
+      });
     }
 
     if (role === "User Experience") {
-      return {
+      return withRoleOwnership({
         role,
         actionPlan: [
           `Translate the desired outcome into a usable workflow and experience path for: ${excerpt(outcomeFocus || "the target outcome.", 110)}`,
@@ -253,11 +268,11 @@ function buildRolePlans(
           "Risk: the team optimizes for delivery speed while experience friction remains unresolved.",
           "Mitigation: define explicit validation checkpoints and workflow success criteria before scale."
         ]
-      };
+      });
     }
 
     if (role === "Application Development") {
-      return {
+      return withRoleOwnership({
         role,
         actionPlan: [
           `Frame implementation sequencing and dependency handling for: ${excerpt(roleSupport || "the current scope and constraints.", 110)}`,
@@ -278,11 +293,11 @@ function buildRolePlans(
           `Risk: technical execution stalls on unresolved dependencies or unclear ownership in ${excerpt(roleDecision || "the build path.", 110)}`,
           "Mitigation: isolate decision gates, confirm owners early, and sequence work to produce evidence fast."
         ]
-      };
+      });
     }
 
     if (role === "Data Engineering") {
-      return {
+      return withRoleOwnership({
         role,
         actionPlan: [
           `Clarify data movement, data quality, and integration dependencies for: ${excerpt(roleSupport || "the scoped solution path.", 110)}`,
@@ -302,11 +317,11 @@ function buildRolePlans(
           "Risk: downstream teams execute against incomplete or unstable data assumptions.",
           "Mitigation: expose data dependencies early, assign ownership, and verify quality before expansion."
         ]
-      };
+      });
     }
 
     if (role === "Change Management") {
-      return {
+      return withRoleOwnership({
         role,
         actionPlan: [
           `Shape the communication and adoption path around: ${excerpt(stakeholderFocus || "the stakeholder landscape.", 110)}`,
@@ -326,10 +341,10 @@ function buildRolePlans(
           "Risk: the program path changes faster than stakeholder understanding and adoption.",
           "Mitigation: maintain targeted updates, readiness checkpoints, and role-specific communications."
         ]
-      };
+      });
     }
 
-    return {
+    return withRoleOwnership({
       role,
       actionPlan: [
         `Define how ${role} contributes to the current delivery path around: ${excerpt(outcomeFocus || "the current program outcome.", 110)}`,
@@ -349,7 +364,7 @@ function buildRolePlans(
         `Risk: ${excerpt(roleRisk || `${role} is present in the team shape but not yet translated into explicit guidance.`, 110)}`,
         `Mitigation: ${excerpt(roleChange || `define ${role}'s ownership, expected outputs, and decision checkpoints before the next review.`, 110)}`
       ]
-    };
+    });
   });
 }
 
