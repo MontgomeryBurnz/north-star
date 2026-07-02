@@ -42,15 +42,20 @@ const roadmapStatusOptions = [
 
 const clientPhaseOptions = ["", "Intake", "Plan", "Execute", "Stabilize", "Value"] as const;
 
-const roadmapMonthFormatter = new Intl.DateTimeFormat("en-US", {
-  month: "long",
-  timeZone: "UTC",
-  year: "numeric"
-});
-
-function monthKeyFromDate(date: Date) {
-  return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}`;
-}
+const roadmapMonthOptions = [
+  { label: "January", value: "01" },
+  { label: "February", value: "02" },
+  { label: "March", value: "03" },
+  { label: "April", value: "04" },
+  { label: "May", value: "05" },
+  { label: "June", value: "06" },
+  { label: "July", value: "07" },
+  { label: "August", value: "08" },
+  { label: "September", value: "09" },
+  { label: "October", value: "10" },
+  { label: "November", value: "11" },
+  { label: "December", value: "12" }
+] as const;
 
 function parseRoadmapMonth(value: string | undefined) {
   const match = value?.match(/^(\d{4})-(\d{2})$/);
@@ -63,38 +68,60 @@ function parseRoadmapMonth(value: string | undefined) {
   return new Date(Date.UTC(year, monthIndex, 1));
 }
 
-function addMonths(date: Date, monthOffset: number) {
-  return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth() + monthOffset, 1));
-}
-
-function formatRoadmapMonth(value: string) {
+function getRoadmapMonthPart(value: string | undefined) {
   const date = parseRoadmapMonth(value);
-  return date ? roadmapMonthFormatter.format(date) : value;
+  return date ? String(date.getUTCMonth() + 1).padStart(2, "0") : "";
 }
 
-function buildRoadmapMonthOptions(program: StoredProgram | undefined, items: ClientPortalRoadmapItem[]) {
+function getRoadmapYearPart(value: string | undefined) {
+  const date = parseRoadmapMonth(value);
+  return date ? String(date.getUTCFullYear()) : "";
+}
+
+function getRoadmapAnchorDate(program: StoredProgram | undefined) {
+  const fallback = new Date(Date.UTC(new Date().getUTCFullYear(), 0, 1));
+  const rawDate = program?.createdAt ?? program?.updatedAt;
+  const date = rawDate ? new Date(rawDate) : fallback;
+
+  return Number.isNaN(date.getTime()) ? fallback : date;
+}
+
+function buildRoadmapYearOptions(program: StoredProgram | undefined, items: ClientPortalRoadmapItem[]) {
   const existingMonths = items
     .flatMap((item) => [parseRoadmapMonth(item.startMonth), parseRoadmapMonth(item.endMonth)])
     .filter((date): date is Date => Boolean(date));
-  const programAnchor = new Date(program?.createdAt ?? program?.updatedAt ?? Date.UTC(new Date().getUTCFullYear(), 0, 1));
+  const programAnchor = getRoadmapAnchorDate(program);
   const anchor = existingMonths.length
     ? new Date(Math.min(...existingMonths.map((date) => date.getTime()), programAnchor.getTime()))
     : programAnchor;
-  const firstMonth = addMonths(new Date(Date.UTC(anchor.getUTCFullYear(), anchor.getUTCMonth(), 1)), -2);
   const optionValues = new Set<string>();
+  const anchorYear = anchor.getUTCFullYear();
 
-  for (let offset = 0; offset < 30; offset += 1) {
-    optionValues.add(monthKeyFromDate(addMonths(firstMonth, offset)));
+  for (let offset = -1; offset <= 5; offset += 1) {
+    optionValues.add(String(anchorYear + offset));
   }
 
   for (const date of existingMonths) {
-    optionValues.add(monthKeyFromDate(date));
+    optionValues.add(String(date.getUTCFullYear()));
   }
 
-  return [...optionValues].sort().map((value) => ({
-    label: formatRoadmapMonth(value),
-    value
-  }));
+  return [...optionValues].sort((a, b) => Number(a) - Number(b));
+}
+
+function mergeRoadmapMonthYear(
+  currentValue: string | undefined,
+  part: "month" | "year",
+  value: string,
+  fallbackYear: string
+) {
+  if (!value) return "";
+
+  const currentMonth = getRoadmapMonthPart(currentValue);
+  const currentYear = getRoadmapYearPart(currentValue);
+  const nextMonth = part === "month" ? value : currentMonth || "01";
+  const nextYear = part === "year" ? value : currentYear || fallbackYear;
+
+  return `${nextYear}-${nextMonth}`;
 }
 
 function createRoadmapItem(): ClientPortalRoadmapItem {
@@ -198,10 +225,14 @@ export function ClientDashboardUpdatesConsole({
   );
   const programOptions = useMemo(() => programsToSlicerOptions(programs, "signal"), [programs]);
   const [draft, setDraft] = useState<ClientDashboardDraft>(() => buildDraft(undefined));
-  const roadmapMonthOptions = useMemo(
-    () => buildRoadmapMonthOptions(selectedProgram, draft.clientRoadmapItems ?? []),
+  const roadmapYearOptions = useMemo(
+    () => buildRoadmapYearOptions(selectedProgram, draft.clientRoadmapItems ?? []),
     [draft.clientRoadmapItems, selectedProgram]
   );
+  const roadmapDefaultYear =
+    roadmapYearOptions.find((year) => year === String(new Date().getUTCFullYear())) ??
+    roadmapYearOptions[0] ??
+    String(new Date().getUTCFullYear());
   const [publishState, setPublishState] = useState<PublishState>("idle");
   const [status, setStatus] = useState("");
   const canPublish = Boolean(selectedProgramId && hasPublishableContent(draft) && publishState !== "publishing");
@@ -264,6 +295,16 @@ export function ClientDashboardUpdatesConsole({
       )
     }));
     setPublishState("idle");
+  }
+
+  function updateRoadmapDatePart(
+    index: number,
+    field: "startMonth" | "endMonth",
+    currentValue: string | undefined,
+    part: "month" | "year",
+    value: string
+  ) {
+    updateRoadmapItem(index, field, mergeRoadmapMonthYear(currentValue, part, value, roadmapDefaultYear));
   }
 
   async function publishUpdate() {
@@ -509,38 +550,80 @@ export function ClientDashboardUpdatesConsole({
                           className="min-h-10 rounded-md border border-white/10 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 outline-none transition-colors placeholder:text-zinc-500 focus:border-sky-300/50"
                         />
                       </label>
-                      <label className="grid gap-2">
+                      <div className="grid gap-2" data-client-dashboard-roadmap-start>
                         <span className="text-[11px] font-medium uppercase tracking-[0.14em] text-zinc-400">Start</span>
-                        <select
-                          data-client-dashboard-roadmap-start
-                          value={item.startMonth}
-                          onChange={(event) => updateRoadmapItem(index, "startMonth", event.target.value)}
-                          className="min-h-10 rounded-md border border-white/10 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 outline-none transition-colors focus:border-sky-300/50"
-                        >
-                          <option value="">Select month...</option>
-                          {roadmapMonthOptions.map((option) => (
-                            <option key={option.value} value={option.value}>
-                              {option.label}
-                            </option>
-                          ))}
-                        </select>
-                      </label>
-                      <label className="grid gap-2">
+                        <div className="grid grid-cols-2 gap-2">
+                          <select
+                            aria-label="Start month"
+                            data-client-dashboard-roadmap-start-month
+                            value={getRoadmapMonthPart(item.startMonth)}
+                            onChange={(event) =>
+                              updateRoadmapDatePart(index, "startMonth", item.startMonth, "month", event.target.value)
+                            }
+                            className="min-h-10 rounded-md border border-white/10 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 outline-none transition-colors focus:border-sky-300/50"
+                          >
+                            <option value="">Month</option>
+                            {roadmapMonthOptions.map((option) => (
+                              <option key={option.value} value={option.value}>
+                                {option.label}
+                              </option>
+                            ))}
+                          </select>
+                          <select
+                            aria-label="Start year"
+                            data-client-dashboard-roadmap-start-year
+                            value={getRoadmapYearPart(item.startMonth)}
+                            onChange={(event) =>
+                              updateRoadmapDatePart(index, "startMonth", item.startMonth, "year", event.target.value)
+                            }
+                            className="min-h-10 rounded-md border border-white/10 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 outline-none transition-colors focus:border-sky-300/50"
+                          >
+                            <option value="">Year</option>
+                            {roadmapYearOptions.map((year) => (
+                              <option key={year} value={year}>
+                                {year}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      </div>
+                      <div className="grid gap-2" data-client-dashboard-roadmap-end>
                         <span className="text-[11px] font-medium uppercase tracking-[0.14em] text-zinc-400">End</span>
-                        <select
-                          data-client-dashboard-roadmap-end
-                          value={item.endMonth}
-                          onChange={(event) => updateRoadmapItem(index, "endMonth", event.target.value)}
-                          className="min-h-10 rounded-md border border-white/10 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 outline-none transition-colors focus:border-sky-300/50"
-                        >
-                          <option value="">Select month...</option>
-                          {roadmapMonthOptions.map((option) => (
-                            <option key={option.value} value={option.value}>
-                              {option.label}
-                            </option>
-                          ))}
-                        </select>
-                      </label>
+                        <div className="grid grid-cols-2 gap-2">
+                          <select
+                            aria-label="End month"
+                            data-client-dashboard-roadmap-end-month
+                            value={getRoadmapMonthPart(item.endMonth)}
+                            onChange={(event) =>
+                              updateRoadmapDatePart(index, "endMonth", item.endMonth, "month", event.target.value)
+                            }
+                            className="min-h-10 rounded-md border border-white/10 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 outline-none transition-colors focus:border-sky-300/50"
+                          >
+                            <option value="">Month</option>
+                            {roadmapMonthOptions.map((option) => (
+                              <option key={option.value} value={option.value}>
+                                {option.label}
+                              </option>
+                            ))}
+                          </select>
+                          <select
+                            aria-label="End year"
+                            data-client-dashboard-roadmap-end-year
+                            value={getRoadmapYearPart(item.endMonth)}
+                            onChange={(event) =>
+                              updateRoadmapDatePart(index, "endMonth", item.endMonth, "year", event.target.value)
+                            }
+                            className="min-h-10 rounded-md border border-white/10 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 outline-none transition-colors focus:border-sky-300/50"
+                          >
+                            <option value="">Year</option>
+                            {roadmapYearOptions.map((year) => (
+                              <option key={year} value={year}>
+                                {year}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      </div>
                       <label className="grid gap-2">
                         <span className="text-[11px] font-medium uppercase tracking-[0.14em] text-zinc-400">Status</span>
                         <select

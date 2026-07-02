@@ -1077,9 +1077,15 @@ test("Client Dashboard Contributor has a scoped publication lane", () => {
   assert.match(clientUpdatesConsoleSource, /data-client-dashboard-roadmap-row/);
   assert.match(clientUpdatesConsoleSource, /data-client-dashboard-roadmap-start/);
   assert.match(clientUpdatesConsoleSource, /data-client-dashboard-roadmap-end/);
-  assert.match(clientUpdatesConsoleSource, /buildRoadmapMonthOptions/);
+  assert.match(clientUpdatesConsoleSource, /data-client-dashboard-roadmap-start-month/);
+  assert.match(clientUpdatesConsoleSource, /data-client-dashboard-roadmap-start-year/);
+  assert.match(clientUpdatesConsoleSource, /data-client-dashboard-roadmap-end-month/);
+  assert.match(clientUpdatesConsoleSource, /data-client-dashboard-roadmap-end-year/);
+  assert.match(clientUpdatesConsoleSource, /buildRoadmapYearOptions/);
   assert.match(clientUpdatesConsoleSource, /roadmapMonthOptions\.map/);
-  assert.match(clientUpdatesConsoleSource, /Select month\.\.\./);
+  assert.match(clientUpdatesConsoleSource, /roadmapYearOptions\.map/);
+  assert.match(clientUpdatesConsoleSource, />Month</);
+  assert.match(clientUpdatesConsoleSource, />Year</);
   assert.doesNotMatch(clientUpdatesConsoleSource, /type="month"/);
   assert.match(clientUpdatesConsoleSource, /data-client-dashboard-current-phase/);
   assert.match(clientUpdatesConsoleSource, /Publish to Client Portal/);
