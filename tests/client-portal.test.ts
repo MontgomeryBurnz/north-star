@@ -244,6 +244,23 @@ test("buildClientPortalProgram uses explicit client-facing overall status when p
   assert.equal(portalProgram.statusSignal, "RED");
 });
 
+test("Client Portal preserves the published executive overview verbatim", () => {
+  const executiveOverview =
+    "Executive overview entered by the program lead: component refinement is progressing through feature-level decomposition and sponsor alignment remains the current focus.";
+  const portalProgram = buildClientPortalProgram({
+    latestClientUpdate: {
+      ...clientUpdate,
+      clientStatusNote: "Short status note should not replace the executive overview.",
+      executiveOverview
+    },
+    program
+  });
+
+  assert.equal(portalProgram.executiveOverview, executiveOverview);
+  assert.equal(portalProgram.executiveSummary, executiveOverview);
+  assert.doesNotMatch(portalProgram.executiveOverview, /At risk in Execute/);
+});
+
 test("Client Portal exposes client-update roadmap rows from Client Updates", () => {
   const roadmapUpdate: ClientPortalUpdateRecord = {
     ...clientUpdate,

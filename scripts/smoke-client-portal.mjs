@@ -294,9 +294,10 @@ async function seedProgramUpdate(session, program, smokeText) {
   return { review, update };
 }
 
-async function verifyClientPortal(session, program, smokeText) {
+async function verifyClientPortal(session, program, smokeText, review) {
   const primaryRole = program.intake.teamRoles?.[0] ?? "Delivery Lead";
   const expectedClientName = program.intake.clientName?.trim() || "Unassigned client";
+  const expectedExecutiveOverview = review.executiveOverview;
 
   await session.navigate(`${baseUrl}/client?smoke=client-portal-seeded-update`);
   await session.waitFor("Client Portal portfolio loaded", async () => {
@@ -380,13 +381,14 @@ async function verifyClientPortal(session, program, smokeText) {
             !detailText.includes("Client Portal Smoke Lead") &&
             !detailText.includes("Client Portal Smoke PMO") &&
             !detailText.includes("% Complete") &&
+            !detailText.includes("At risk in Execute. Focus:") &&
             detailText.includes("Execute") &&
-            detailText.includes(arguments[1]) &&
+            detailText.includes(arguments[3]) &&
             detailText.includes("approve milestone protection path") &&
             functionText.includes("Client Portal smoke role progress")
         };
       `,
-      [program.id, smokeText, primaryRole]
+      [program.id, smokeText, primaryRole, expectedExecutiveOverview]
     );
 
     return state.ok ? state : false;
@@ -578,8 +580,8 @@ async function main() {
     await authenticate(session);
     const program = await selectProgram(session);
     await cleanupStaleClientPortalUpdates(session, program);
-    await seedProgramUpdate(session, program, smokeText);
-    await verifyClientPortal(session, program, smokeText);
+    const { review } = await seedProgramUpdate(session, program, smokeText);
+    await verifyClientPortal(session, program, smokeText, review);
     await cleanupProgramUpdate(session, program, smokeText);
   });
 

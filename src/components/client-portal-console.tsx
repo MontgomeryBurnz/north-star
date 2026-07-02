@@ -202,7 +202,7 @@ function ProgramHero({ program }: { program: ClientPortalProgram }) {
             <Compass className="h-4 w-4" />
             Executive Summary
           </p>
-          <p className="mt-3 line-clamp-5 text-sm font-medium leading-7 text-slate-700 sm:line-clamp-none sm:text-lg sm:leading-9">{program.executiveOverview}</p>
+          <p className="mt-3 text-sm font-medium leading-7 text-slate-700 sm:text-lg sm:leading-9">{program.executiveOverview}</p>
         </div>
       </div>
     </section>

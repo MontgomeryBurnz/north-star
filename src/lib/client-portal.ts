@@ -520,6 +520,9 @@ function buildClientExecutiveOverview(input: {
   leadershipSummary: string;
   intakeSummary: string | undefined;
 }) {
+  const publishedExecutiveOverview = clean(input.review?.programSynthesisNote);
+  if (publishedExecutiveOverview) return publishedExecutiveOverview;
+
   const focus = firstMeaningful(
     input.review?.clientStatusNote,
     input.plan?.programGuide?.focus,
@@ -1384,10 +1387,10 @@ export function buildClientPortalProgram(input: ClientPortalProgramInput): Clien
     executiveOverview,
     executiveSummary: clean(
       firstNonEmpty(
+        review?.programSynthesisNote,
         review?.clientStatusNote,
         plan?.programGuide?.sponsorReadout,
         plan?.summary,
-        review?.programSynthesisNote,
         "Publish a reviewed client update to show the executive summary."
       )
     ),
