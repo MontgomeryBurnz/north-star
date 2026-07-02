@@ -880,46 +880,40 @@ async function verifyClientPortalExecutiveFields(session, program, smokeText) {
       return session.execute(`
         const bodyText = document.body.textContent ?? "";
         return bodyText.includes("North Star Client Portal") &&
-          Boolean(document.querySelector("[data-client-program-card]"));
+          Boolean(document.querySelector("[data-client-program-detail]"));
       `);
     }, 20_000);
 
     const selected = await session.execute(
       `
-        const cards = Array.from(document.querySelectorAll("[data-client-program-card]"));
-        const card = cards.find((element) => element.getAttribute("data-client-program-card") === arguments[0]);
-        card?.click();
-        return Boolean(card);
+        const detail = Array.from(document.querySelectorAll("[data-client-program-detail]"))
+          .find((element) => element.getAttribute("data-client-program-detail") === arguments[0]);
+        if (detail) return true;
+        const option = Array.from(document.querySelectorAll("[data-client-program-option]"))
+          .find((element) => element.getAttribute("data-client-program-option") === arguments[0]);
+        option?.click();
+        return Boolean(option);
       `,
       [program.id]
     );
 
     if (!selected) {
-      throw new Error(`Client Portal smoke could not find program card for ${program.label}.`);
+      throw new Error(`Client Portal smoke could not find program detail or selector for ${program.label}.`);
     }
 
     const rendered = await session.waitFor("Client Portal executive fields rendered", async () => {
       lastState = await session.execute(
         `
-          const cards = Array.from(document.querySelectorAll("[data-client-program-card]"));
           const details = Array.from(document.querySelectorAll("[data-client-program-detail]"));
-          const card = cards.find((element) => element.getAttribute("data-client-program-card") === arguments[0]);
           const detail = details.find((element) => element.getAttribute("data-client-program-detail") === arguments[0]);
-          const cardText = card?.textContent ?? "";
           const detailText = detail?.textContent ?? "";
           return {
-            cardFound: Boolean(card),
             detailFound: Boolean(detail),
-            cardHasMilestone: cardText.includes("Smoke executive milestone"),
-            cardHasPercent: cardText.includes("100%"),
             detailHasSponsor: detailText.includes("Smoke Sponsor"),
             detailHasLead: detailText.includes("Smoke Program Lead"),
             detailHasPmo: detailText.includes("Smoke PMO"),
             detailHasPercent: detailText.includes("100%"),
-            detailHasScheduleBasis: detailText.includes("Schedule") && detailText.includes("May 01 -> May 31"),
             detailHasDelta: detailText.includes("+4%"),
-            detailHasTimeline: detailText.includes("FY99"),
-            detailHasMilestone: detailText.includes("Smoke custom timeline milestone"),
             detailHasTag: detailText.includes(arguments[1]) &&
               detailText.includes("Client-facing executive narrative") &&
               detailText.includes("Client-facing accomplishment") &&
@@ -933,7 +927,7 @@ async function verifyClientPortalExecutiveFields(session, program, smokeText) {
     }, 15_000).catch(() => false);
 
     if (rendered) {
-      console.log("✓ Client Portal: executive fields rendered in portfolio card and program detail view.");
+      console.log("✓ Client Portal: executive fields rendered in the selected program detail view.");
       return;
     }
 

@@ -169,6 +169,18 @@ function buildSeededReview(program, smokeText) {
     activeRisks: `Client Portal smoke top risk ${smokeText}: dependency pressure requires executive visibility.`,
     artifacts: [],
     clientStatusNote: `Client Portal smoke status ${smokeText}: executive dashboard should render this update.`,
+    clientRoadmapItems: [
+      {
+        category: "Component",
+        endMonth: "2026-06",
+        id: `client-portal-smoke-roadmap-${Date.now()}`,
+        note: `Client Portal smoke roadmap note ${smokeText}.`,
+        owner: "Client Portal Smoke",
+        startMonth: "2026-05",
+        status: "in-progress",
+        title: `Client Portal smoke roadmap item ${smokeText}`
+      }
+    ],
     completionDelta: "+5%",
     currentPhase: "Execute",
     decisionsPending: `Client Portal smoke decision ${smokeText}: approve milestone protection path.`,
@@ -292,7 +304,7 @@ async function verifyClientPortal(session, program, smokeText) {
       const bodyText = document.body.textContent ?? "";
       return bodyText.includes("North Star Client Portal") &&
         bodyText.includes("Portfolio Dashboard") &&
-        Boolean(document.querySelector("[data-client-program-card]"));
+        Boolean(document.querySelector("[data-client-program-detail]"));
     `);
   }, 20_000);
 
@@ -314,8 +326,11 @@ async function verifyClientPortal(session, program, smokeText) {
   await session.waitFor("Client Portal selected client program visible", () =>
     session.execute(
       `
-        return Array.from(document.querySelectorAll("[data-client-program-card]"))
-          .some((element) => element.getAttribute("data-client-program-card") === arguments[0]);
+        const detail = Array.from(document.querySelectorAll("[data-client-program-detail]"))
+          .some((element) => element.getAttribute("data-client-program-detail") === arguments[0]);
+        const option = Array.from(document.querySelectorAll("[data-client-program-option]"))
+          .some((element) => element.getAttribute("data-client-program-option") === arguments[0]);
+        return detail || option;
       `,
       [program.id]
     )
@@ -323,10 +338,13 @@ async function verifyClientPortal(session, program, smokeText) {
 
   const selected = await session.execute(
     `
-      const cards = Array.from(document.querySelectorAll("[data-client-program-card]"));
-      const card = cards.find((element) => element.getAttribute("data-client-program-card") === arguments[0]);
-      card?.click();
-      return Boolean(card);
+      const detail = Array.from(document.querySelectorAll("[data-client-program-detail]"))
+        .find((element) => element.getAttribute("data-client-program-detail") === arguments[0]);
+      if (detail) return true;
+      const option = Array.from(document.querySelectorAll("[data-client-program-option]"))
+        .find((element) => element.getAttribute("data-client-program-option") === arguments[0]);
+      option?.click();
+      return Boolean(option);
     `,
     [program.id]
   );
@@ -338,56 +356,35 @@ async function verifyClientPortal(session, program, smokeText) {
   const rendered = await session.waitFor("Client Portal seeded executive fields rendered", async () => {
     const state = await session.execute(
       `
-        const card = Array.from(document.querySelectorAll("[data-client-program-card]"))
-          .find((element) => element.getAttribute("data-client-program-card") === arguments[0]);
         const detail = Array.from(document.querySelectorAll("[data-client-program-detail]"))
           .find((element) => element.getAttribute("data-client-program-detail") === arguments[0]);
-        const roadmapRow = Array.from(document.querySelectorAll("[data-client-roadmap-row]"))
-          .find((element) => element.getAttribute("data-client-roadmap-row") === arguments[0]);
-        const currentRoadmapSegment = roadmapRow?.querySelector("[data-client-roadmap-segment-state='current']");
-        const roadmapMarker = roadmapRow?.querySelector("[data-client-roadmap-marker]");
-        const workstreamCard = Array.from(detail?.querySelectorAll("[data-client-workstream-card]") ?? [])
+        const roadmapItem = detail?.querySelector("[data-client-work-roadmap-item]");
+        const functionCard = Array.from(detail?.querySelectorAll("[data-client-function-update-card]") ?? [])
           .find((element) => (element.textContent ?? "").includes(arguments[2]));
-        const cardText = card?.textContent ?? "";
         const detailText = detail?.textContent ?? "";
-        const workstreamText = workstreamCard?.textContent ?? "";
-        const workstreamPercent = workstreamCard?.getAttribute("data-client-workstream-percent") ?? "";
-        const currentRoadmapSegmentText = currentRoadmapSegment?.textContent ?? "";
-        const markerPosition = roadmapMarker?.getAttribute("data-client-roadmap-marker-position") ?? "";
+        const roadmapText = roadmapItem?.textContent ?? "";
+        const functionText = functionCard?.textContent ?? "";
 
         return {
-          card: Boolean(card),
           detail: Boolean(detail),
-          currentRoadmapSegmentText,
-          markerPosition,
-          roadmap: Boolean(roadmapRow),
-          workstreamPercent,
-          workstreamText,
-          cardText,
+          functionText,
+          roadmap: Boolean(roadmapItem),
+          roadmapText,
           detailText,
-          ok: Boolean(card) &&
-            Boolean(detail) &&
-            Boolean(roadmapRow) &&
-            Boolean(workstreamCard) &&
-            currentRoadmapSegmentText.includes("Execute") &&
-            markerPosition === "50" &&
-            cardText.includes(arguments[3]) &&
-            cardText.includes("Client Portal smoke milestone") &&
+          ok: Boolean(detail) &&
+            Boolean(roadmapItem) &&
+            Boolean(functionCard) &&
+            roadmapText.includes("Client Portal smoke roadmap item") &&
+            roadmapText.includes("In progress") &&
             detailText.includes("Client Portal Smoke Sponsor") &&
             detailText.includes("Client Portal Smoke Lead") &&
             detailText.includes("Client Portal Smoke PMO") &&
             detailText.includes(arguments[3]) &&
             detailText.includes("+5%") &&
-            detailText.includes("Schedule") &&
             detailText.includes("Execute") &&
-            detailText.includes("FY99") &&
-            detailText.includes("Client Portal smoke milestone") &&
-            detailText.includes("Client Portal smoke value gate") &&
             detailText.includes(arguments[1]) &&
             detailText.includes("approve milestone protection path") &&
-            workstreamPercent === "90" &&
-            workstreamText.includes("0/1 tasks done") &&
-            workstreamText.includes("May 01 -> May 08")
+            functionText.includes("Client Portal smoke role progress")
         };
       `,
       [program.id, smokeText, primaryRole, expectedProgramPercent]

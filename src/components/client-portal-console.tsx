@@ -3,14 +3,11 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
 import {
-  ArrowRight,
   ArrowUpRight,
   BriefcaseBusiness,
-  CheckCircle2,
   ClipboardCheck,
   Compass,
   Download,
-  Flag,
   LogOut,
   Plus,
   TriangleAlert,
@@ -19,10 +16,7 @@ import {
 import type {
   ClientPortalComponentRoadmapItem,
   ClientPortalPortfolio,
-  ClientPortalPortfolioMilestone,
-  ClientPortalPortfolioRisk,
   ClientPortalProgram,
-  ClientPortalRoadmapRow,
   ClientProgramPosture
 } from "@/lib/client-portal";
 import type { ClientDecisionRequest } from "@/lib/program-intelligence-types";
@@ -80,12 +74,6 @@ const postureStyles: Record<
   }
 };
 
-const priorityStyles = {
-  High: "border border-rose-200 bg-rose-50 text-rose-800",
-  Medium: "border border-amber-200 bg-amber-50 text-amber-800",
-  Low: "border border-emerald-200 bg-emerald-50 text-emerald-800"
-} as const;
-
 const clientRoadmapStatusStyles: Record<ClientPortalComponentRoadmapItem["status"], string> = {
   "at-risk": "bg-amber-500 text-white shadow-[0_10px_24px_rgba(245,158,11,0.28)]",
   blocked: "bg-rose-500 text-white shadow-[0_10px_24px_rgba(244,63,94,0.26)]",
@@ -101,25 +89,6 @@ const clientRoadmapStatusLabels: Record<ClientPortalComponentRoadmapItem["status
   "in-progress": "In progress",
   planned: "Planned"
 };
-
-type RoadmapSegmentState = ClientPortalRoadmapRow["segments"][number]["state"];
-type RoadmapWindowMode = ClientPortalRoadmapRow["windowMode"];
-
-const roadmapPhaseSegmentStyles: Record<RoadmapSegmentState, string> = {
-  complete: "border-r border-white/30 bg-emerald-100 text-emerald-900",
-  current: "border-r border-white/30 bg-emerald-500 text-white",
-  next: "border-r border-slate-200 bg-slate-100 text-slate-500"
-} as const;
-
-function roadmapSegmentClass(label: string, state: RoadmapSegmentState, windowMode: RoadmapWindowMode) {
-  if (windowMode === "year") {
-    return cn(roadmapPhaseSegmentStyles[state], label === "Value" ? "border-r-0" : "");
-  }
-
-  if (state === "complete") return "border-r border-white/30 bg-emerald-100 text-emerald-900";
-  if (state === "current") return "border-r border-white/30 bg-sky-600 text-white";
-  return "border-r border-slate-200 bg-slate-100 text-slate-500";
-}
 
 function formatDate(value: string) {
   const date = new Date(value);
@@ -201,243 +170,25 @@ function PortfolioLogoutForm() {
   );
 }
 
-function ProgramGridRow({
-  onSelect,
-  program,
-  selected
-}: {
-  onSelect: () => void;
-  program: ClientPortalProgram;
-  selected: boolean;
-}) {
-  const styles = postureStyles[program.posture];
+function clientRoadmapTitle(programName: string) {
+  const cleaned = programName
+    .replace(/\b(application|app)\s+build\b/gi, "")
+    .replace(/\bbuild\b/gi, "")
+    .replace(/\s+/g, " ")
+    .trim();
 
-  return (
-    <button
-      type="button"
-      data-client-program-card={program.id}
-      onClick={onSelect}
-      className={cn(
-        "grid w-full gap-5 rounded-lg border bg-white p-5 text-left shadow-[0_12px_32px_rgba(15,23,42,0.06)] transition-colors",
-        selected
-          ? "border-sky-300 ring-2 ring-sky-100"
-          : "border-slate-200 hover:border-sky-300 hover:bg-sky-50/40"
-      )}
-    >
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <span className="min-w-0">
-          <span className="block text-xl font-semibold leading-7 text-slate-950">{program.name}</span>
-          <span className="mt-1 block text-xs font-semibold uppercase tracking-[0.14em] text-sky-700">{program.clientName}</span>
-        </span>
-        <span className="flex flex-wrap items-center gap-3">
-          <span className={cn("inline-flex rounded-full px-3 py-1 text-sm font-semibold", styles.badge)}>{program.postureLabel}</span>
-          <span className="text-2xl font-semibold text-slate-950">
-            {program.metrics.programCompletionPercent}%
-            {program.completionDelta ? <span className={cn("ml-2 text-base", styles.text)}>{program.completionDelta}</span> : null}
-          </span>
-        </span>
-      </div>
-      <div className="rounded-md border border-slate-200 bg-slate-50 px-4 py-3">
-        <p className="text-base leading-7 text-slate-700">{program.statusNote}</p>
-      </div>
-      <div className="grid gap-4 text-slate-700 md:grid-cols-3">
-        <span>
-          <span className="block text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Owner</span>
-          <span className="mt-2 block font-medium">{program.owner}</span>
-        </span>
-        <span>
-          <span className="block text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Phase</span>
-          <span className="mt-2 block font-medium">{program.phase}</span>
-        </span>
-        <span>
-          <span className="block text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Next Milestone</span>
-          <span className="mt-2 block font-semibold text-slate-950">{program.nextMilestone.name}</span>
-          <span className="text-sm">{program.nextMilestone.dateLabel}</span>
-        </span>
-      </div>
-      <MetricBasisLabel>
-        {`Progress basis: ${program.metrics.completionBasis} · ${program.metrics.completionScheduleLabel}`}
-      </MetricBasisLabel>
-    </button>
-  );
-}
-
-function SectionLabel({ children }: { children: ReactNode }) {
-  return <p className="text-sm font-semibold uppercase tracking-[0.18em] text-sky-700">{children}</p>;
-}
-
-function UpcomingMilestonesPanel({ milestones }: { milestones: ClientPortalPortfolioMilestone[] }) {
-  return (
-    <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-[0_18px_45px_rgba(15,23,42,0.08)]">
-      <div className="flex items-center justify-between gap-3">
-        <h3 className="text-lg font-semibold text-slate-950">Upcoming Milestones</h3>
-        <span className="rounded-full border border-sky-200 bg-sky-50 px-3 py-1 text-xs font-semibold uppercase tracking-[0.12em] text-sky-800">
-          {milestones.length}
-        </span>
-      </div>
-      <div className="mt-4 grid gap-3">
-        {milestones.length ? milestones.map((milestone) => (
-          <div key={milestone.id} className="grid grid-cols-[3.25rem_minmax(0,1fr)_auto] gap-3 rounded-md border border-slate-200 bg-slate-50 p-3">
-            <div className="rounded-md border border-slate-200 bg-white px-2 py-2 text-center text-slate-950">
-              <span className="block text-lg font-semibold">{milestone.dateLabel.split(" ")[0] ?? "Next"}</span>
-              <span className="block text-xs font-semibold uppercase tracking-[0.08em] text-slate-500">{milestone.dateLabel.split(" ")[1] ?? ""}</span>
-            </div>
-            <div className="min-w-0">
-              <p className="text-base font-semibold text-slate-950">{milestone.title}</p>
-              <p className="mt-1 truncate text-sm font-medium text-slate-600">{milestone.programName}</p>
-            </div>
-            <span className={cn("h-fit rounded-full px-3 py-1 text-sm font-medium", priorityStyles[milestone.priority])}>
-              {milestone.priority}
-            </span>
-          </div>
-        )) : (
-          <p className="rounded-md border border-slate-200 bg-slate-50 p-4 text-base font-medium leading-7 text-slate-600">
-            Upcoming milestones will appear after a reviewed Client Update publishes milestone details.
-          </p>
-        )}
-      </div>
-    </section>
-  );
-}
-
-function PortfolioRisksPanel({ risks }: { risks: ClientPortalPortfolioRisk[] }) {
-  return (
-    <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-[0_18px_45px_rgba(15,23,42,0.08)]">
-      <div className="flex items-center justify-between gap-3">
-        <h3 className="text-lg font-semibold text-slate-950">Key Risks Across Portfolio</h3>
-        <span className="rounded-full border border-slate-300 bg-slate-50 px-3 py-1 text-xs font-semibold uppercase tracking-[0.12em] text-slate-700">
-          {risks.length}
-        </span>
-      </div>
-      <div className="mt-4 grid gap-3">
-        {risks.length ? risks.map((risk) => (
-          <div key={risk.id} className="rounded-md border border-slate-200 bg-slate-50 p-4 text-slate-900">
-            <div className="flex items-start justify-between gap-4">
-              <p className="text-base font-semibold leading-7 text-slate-950">{risk.description}</p>
-            </div>
-            <p className="mt-4 text-sm font-medium text-slate-700">
-              {risk.programName}
-            </p>
-          </div>
-        )) : (
-          <p className="rounded-md border border-slate-200 bg-slate-50 p-4 text-base font-medium leading-7 text-slate-600">
-            No executive risks are currently visible across the selected portfolio.
-          </p>
-        )}
-      </div>
-    </section>
-  );
-}
-
-function PortfolioRoadmap({ roadmap }: { roadmap: ClientPortalRoadmapRow[] }) {
-  if (!roadmap.length) return null;
-
-  const activeWindowLabels = roadmap[0]?.windowLabels?.length
-    ? roadmap[0].windowLabels
-    : ["Window 1", "Window 2", "Window 3", "Window 4", "Window 5"];
-  const timeframeLabel = roadmap[0]?.timeframeLabel;
-  const currentWindowIndex = roadmap[0]?.currentWindowIndex ?? 2;
-  const windowMode = roadmap[0]?.windowMode ?? "year";
-  const isShortWindow = windowMode === "month" || windowMode === "week";
-
-  return (
-    <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-[0_18px_45px_rgba(15,23,42,0.08)]">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <SectionLabel>{timeframeLabel ? `Portfolio Roadmap - ${timeframeLabel}` : "Portfolio Roadmap"}</SectionLabel>
-          <h2 className="mt-3 text-2xl font-semibold text-slate-950">Program Timeline</h2>
-        </div>
-        <span className="inline-flex rounded-full border border-sky-200 bg-sky-50 px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.14em] text-sky-800">
-          {windowMode} view
-        </span>
-      </div>
-      <div className={cn("mt-5 flex flex-wrap font-semibold", isShortWindow ? "gap-2 text-sm" : "gap-6 text-lg text-slate-400")}>
-        {activeWindowLabels.map((windowLabel, index) => (
-          <span
-            key={windowLabel}
-            className={cn(
-              isShortWindow ? "rounded-full border px-3 py-1.5" : "",
-              index === currentWindowIndex
-                ? isShortWindow
-                  ? "border-sky-200 bg-sky-50 text-sky-800"
-                  : "text-sky-800"
-                : isShortWindow
-                  ? "border-slate-200 bg-slate-50 text-slate-500"
-                  : undefined
-            )}
-          >
-            {windowLabel}
-          </span>
-        ))}
-      </div>
-      <div className="mt-7 grid gap-7">
-        {roadmap.map((row) => {
-          const markerStyle = postureStyles[row.markerTone];
-          const rowIsShortWindow = row.windowMode === "month" || row.windowMode === "week";
-          return (
-            <div
-              key={row.programId}
-              data-client-roadmap-current-index={row.currentWindowIndex}
-              data-client-roadmap-row={row.programId}
-              data-client-roadmap-window-mode={row.windowMode}
-            >
-              <div className="mb-4 flex flex-wrap items-end justify-between gap-2">
-                <p className="text-lg font-semibold text-slate-950">{row.programName}</p>
-                {row.timeframeLabel && row.timeframeLabel !== timeframeLabel ? (
-                  <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">{row.timeframeLabel}</p>
-                ) : null}
-              </div>
-              <div className="relative">
-                <div
-                  className={cn("grid overflow-hidden rounded-full border border-slate-200", rowIsShortWindow ? "" : "bg-slate-100")}
-                  style={{ gridTemplateColumns: `repeat(${row.segments.length}, minmax(0, 1fr))` }}
-                >
-                  {row.segments.map((segment) => (
-                    <div
-                      key={`${row.programId}-${segment.label}`}
-                      data-client-roadmap-segment={segment.label}
-                      data-client-roadmap-segment-state={segment.state}
-                      className={cn(
-                        "px-3 text-center font-semibold",
-                        rowIsShortWindow ? "py-3 text-xs sm:text-sm" : "py-3.5 text-sm",
-                        roadmapSegmentClass(segment.label, segment.state, row.windowMode)
-                      )}
-                    >
-                      {segment.label}
-                    </div>
-                  ))}
-                </div>
-                <div
-                  data-client-roadmap-marker={row.programId}
-                  data-client-roadmap-marker-position={row.markerPosition}
-                  className={cn("absolute -top-2 h-14 w-4 rounded-md shadow-[0_12px_24px_rgba(15,23,42,0.18)]", markerStyle.marker)}
-                  style={{ left: `calc(${row.markerPosition}% - 0.5rem)` }}
-                />
-                <p className={cn("mt-4 text-sm font-semibold", markerStyle.text)} style={{ marginLeft: `max(0rem, calc(${row.markerPosition}% - 5rem))` }}>
-                  {row.markerLabel}
-                </p>
-              </div>
-            </div>
-          );
-        })}
-      </div>
-    </section>
-  );
+  return `${cleaned || programName} Roadmap`;
 }
 
 function ProgramHero({ program }: { program: ClientPortalProgram }) {
   const styles = postureStyles[program.posture];
-  const highlights = program.executiveStatusHighlights.slice(0, 3);
 
   return (
-    <section data-client-program-hero className="min-w-0 max-w-full overflow-hidden rounded-lg border border-slate-800 bg-slate-950 px-4 py-5 text-white shadow-[0_22px_60px_rgba(15,23,42,0.28)] sm:px-5 sm:py-6 md:px-8 md:py-7">
+    <section data-client-program-hero className="min-w-0 max-w-full overflow-hidden rounded-lg border border-slate-800 bg-slate-950 px-4 py-5 text-white shadow-[0_22px_60px_rgba(15,23,42,0.28)] sm:px-6 sm:py-7 md:px-8 md:py-8">
       <div className="grid gap-6">
-        <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(26rem,0.62fr)] xl:items-start">
-          <div className="min-w-0">
-            <p className="text-sm font-semibold uppercase tracking-[0.16em] text-sky-200">{program.clientName}</p>
-            <h2 className="mt-3 break-words text-2xl font-semibold tracking-normal sm:text-3xl md:text-4xl">{program.name}</h2>
-          </div>
-          <p className="max-w-3xl text-sm font-medium leading-6 text-sky-100 sm:text-base sm:leading-7 xl:justify-self-end">{program.primaryOutcome}</p>
+        <div className="min-w-0">
+          <p className="text-sm font-semibold uppercase tracking-[0.16em] text-sky-200">{program.clientName}</p>
+          <h2 className="mt-3 break-words text-2xl font-semibold tracking-normal sm:text-3xl md:text-4xl">{program.name}</h2>
         </div>
         <div className="grid grid-cols-3 gap-2 sm:gap-3">
           <HeroMetric label="Overall Status" metricId="overall-status" value={program.statusSignal} dot={styles.heroDot} />
@@ -455,17 +206,12 @@ function ProgramHero({ program }: { program: ClientPortalProgram }) {
           <span data-client-program-lead>Program Lead: <strong className="text-white">{program.programLead}</strong></span>
           <span data-client-pmo>PMO: <strong className="text-white">{program.pmo}</strong></span>
         </div>
-      </div>
-      <div className="mt-6 border-t border-white/15 pt-5">
-        <div className="grid gap-3 text-sm font-medium text-slate-200 sm:text-base sm:leading-7 md:grid-cols-2">
-          {highlights.map((highlight, index) => (
-            <StatusBullet
-              key={`${highlight}-${index}`}
-              tone={highlight.toLowerCase().includes("risk") || program.posture === "blocked" ? "risk" : index === 1 ? "good" : "neutral"}
-            >
-              {highlight}
-            </StatusBullet>
-          ))}
+        <div className="rounded-lg border border-slate-200 bg-white p-5 text-slate-950 shadow-[0_18px_45px_rgba(15,23,42,0.16)]">
+          <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.16em] text-sky-700">
+            <Compass className="h-4 w-4" />
+            Executive Summary
+          </p>
+          <p className="mt-3 text-base font-medium leading-8 text-slate-700 sm:text-lg sm:leading-9">{program.executiveOverview}</p>
         </div>
       </div>
     </section>
@@ -500,15 +246,6 @@ function HeroMetric({
   );
 }
 
-function StatusBullet({ children, tone }: { children: ReactNode; tone: "neutral" | "good" | "risk" }) {
-  return (
-    <p className="flex gap-3 leading-7">
-      <span className={cn("mt-2.5 h-2.5 w-2.5 shrink-0 rounded-full", tone === "good" ? "bg-emerald-300" : tone === "risk" ? "bg-rose-300" : "bg-slate-400")} />
-      <span>{children}</span>
-    </p>
-  );
-}
-
 function ExecutiveCard({ children, icon: Icon, title }: { children: ReactNode; icon: LucideIcon; title: string }) {
   return (
     <section className="min-w-0 max-w-full overflow-hidden rounded-lg border border-slate-200 bg-white p-5 shadow-[0_18px_45px_rgba(15,23,42,0.08)] sm:p-7">
@@ -521,66 +258,6 @@ function ExecutiveCard({ children, icon: Icon, title }: { children: ReactNode; i
   );
 }
 
-function ProgramMilestoneTimeline({ program }: { program: ClientPortalProgram }) {
-  const compactTimeline = program.timelineScale === "month" || program.timelineScale === "week";
-
-  return (
-    <ExecutiveCard icon={Flag} title="Milestone Timeline">
-      {program.milestones.length ? (
-        <div className={cn("overflow-x-auto pb-3", compactTimeline ? "mt-8" : "mt-10")}>
-          <p className="-mt-4 mb-8 inline-flex rounded-full border border-sky-200 bg-sky-50 px-4 py-2 text-sm font-semibold text-sky-800">
-            {program.timelineScaleLabel} view · {program.timelineWindowLabel}
-          </p>
-          <div
-            className={cn("grid items-start gap-0", compactTimeline ? "min-w-[44rem]" : "min-w-[58rem]")}
-            style={{ gridTemplateColumns: `repeat(${program.milestones.length}, minmax(${compactTimeline ? "7.5rem" : "9rem"}, 1fr))` }}
-          >
-            {program.milestones.map((milestone, index) => {
-              const isComplete = milestone.status === "complete";
-              const isCurrent = milestone.status === "current";
-              return (
-                <div key={`${milestone.name}-${index}`} className="relative text-center">
-                  <div
-                    className={cn(
-                      "absolute left-0 right-0 top-7 h-2",
-                      index === 0 ? "left-1/2" : "",
-                      index === program.milestones.length - 1 ? "right-1/2" : "",
-                      isComplete || isCurrent ? "bg-emerald-500" : "bg-slate-200"
-                    )}
-                  />
-                  <div
-                    className={cn(
-                      "relative mx-auto flex h-14 w-14 items-center justify-center rounded-full border-4 text-xl font-semibold shadow-sm",
-                      isComplete
-                        ? "border-emerald-100 bg-emerald-500 text-white"
-                        : isCurrent
-                          ? "border-amber-100 bg-amber-500 text-white"
-                          : "border-slate-200 bg-slate-100 text-slate-500"
-                    )}
-                  >
-                    {isComplete ? <CheckCircle2 className="h-7 w-7" /> : isCurrent ? <Compass className="h-7 w-7" /> : <Flag className="h-6 w-6" />}
-                  </div>
-                  <p className={cn("mt-4 text-base font-semibold", isComplete ? "text-emerald-700" : isCurrent ? "text-amber-700" : "text-slate-500")}>
-                    {milestone.name}
-                  </p>
-                  <p className="mt-5 text-sm font-medium text-slate-600">{milestone.dateLabel}</p>
-                  <p className={cn("mt-2 text-sm font-semibold", isComplete ? "text-emerald-700" : isCurrent ? "text-emerald-700" : "text-slate-500")}>
-                    {isComplete ? "On time" : isCurrent ? "Current checkpoint" : "On track"}
-                  </p>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      ) : (
-        <p className="mt-6 rounded-lg border border-slate-200 bg-slate-50 p-5 text-base font-medium leading-7 text-slate-600">
-          Milestones will appear after the team saves a next milestone or delivery board due date in Program Hub.
-        </p>
-      )}
-    </ExecutiveCard>
-  );
-}
-
 function ClientWorkRoadmap({ program }: { program: ClientPortalProgram }) {
   const items = program.clientRoadmapItems;
   const months = buildClientRoadmapMonths(items);
@@ -589,10 +266,10 @@ function ClientWorkRoadmap({ program }: { program: ClientPortalProgram }) {
     groups[category] = [...(groups[category] ?? []), item];
     return groups;
   }, {});
-  const gridTemplateColumns = `minmax(14rem, 0.38fr) repeat(${Math.max(months.length, 1)}, minmax(5.25rem, 1fr))`;
+  const gridTemplateColumns = `minmax(20rem, 24rem) repeat(${Math.max(months.length, 1)}, minmax(7.25rem, 1fr))`;
 
   return (
-    <ExecutiveCard icon={BriefcaseBusiness} title="Client Work Roadmap">
+    <ExecutiveCard icon={BriefcaseBusiness} title={clientRoadmapTitle(program.name)}>
       <div className="mt-2 flex flex-wrap items-center justify-between gap-3">
         <p className="max-w-3xl text-base leading-7 text-slate-600">
           Client-visible work by category and month range, maintained from the governed Client Updates lane.
@@ -604,7 +281,7 @@ function ClientWorkRoadmap({ program }: { program: ClientPortalProgram }) {
 
       {items.length > 0 && months.length > 0 ? (
         <div className="mt-6 overflow-x-auto rounded-lg border border-slate-200">
-          <div className="min-w-[54rem]">
+          <div className="min-w-[76rem]">
             <div className="grid border-b border-slate-200 bg-slate-950 text-white" style={{ gridTemplateColumns }}>
               <div className="border-r border-slate-700 px-4 py-3 text-xs font-semibold uppercase tracking-[0.12em] text-slate-300">
                 Work item
@@ -627,22 +304,22 @@ function ClientWorkRoadmap({ program }: { program: ClientPortalProgram }) {
                     <div
                       key={item.id ?? `${category}-${item.title}`}
                       data-client-work-roadmap-item={item.title}
-                      className="grid min-h-[4.75rem] border-b border-slate-200 last:border-b-0"
+                      className="grid min-h-[7.25rem] border-b border-slate-200 last:border-b-0"
                       style={{ gridTemplateColumns }}
                     >
-                      <div className="border-r border-slate-200 bg-white px-4 py-3">
-                        <p className="text-base font-semibold leading-6 text-slate-950">{item.title}</p>
-                        <p className="mt-1 text-xs font-medium text-slate-500">
+                      <div className="border-r border-slate-200 bg-white px-5 py-4">
+                        <p className="text-lg font-semibold leading-7 text-slate-950">{item.title}</p>
+                        <p className="mt-1 text-sm font-semibold text-slate-500">
                           {item.owner ? `Owner: ${item.owner}` : "Owner not set"}
                         </p>
-                        {item.note ? <p className="mt-2 line-clamp-2 text-sm leading-5 text-slate-600">{item.note}</p> : null}
+                        {item.note ? <p className="mt-2 line-clamp-3 text-base leading-6 text-slate-600">{item.note}</p> : null}
                       </div>
                       {months.map((month) => (
                         <div key={`${item.id}-${month.key}`} className="border-r border-slate-200 bg-white last:border-r-0" />
                       ))}
                       <div
                         className={cn(
-                          "z-10 mx-1 self-center rounded-md px-3 py-2 text-center text-xs font-semibold uppercase tracking-[0.1em]",
+                          "z-10 mx-2 self-center rounded-full px-5 py-3 text-center text-sm font-semibold uppercase tracking-[0.14em]",
                           clientRoadmapStatusStyles[item.status]
                         )}
                         style={{
@@ -668,17 +345,94 @@ function ClientWorkRoadmap({ program }: { program: ClientPortalProgram }) {
   );
 }
 
-function ExecutiveListCard({ icon, items, title }: { icon: LucideIcon; items: string[]; title: string }) {
+function isClientFunctionSignal(value: string) {
+  const cleaned = value.trim();
+
+  if (!cleaned) return false;
+  if (/^no\s+/i.test(cleaned)) return false;
+  if (/not captured|not published|will appear|will populate|will sharpen/i.test(cleaned)) return false;
+
+  return true;
+}
+
+function buildFunctionRows(program: ClientPortalProgram, mode: "accomplishments" | "upcoming") {
+  const rows = program.domainSummaries
+    .map((domain) => {
+      const text = mode === "accomplishments" ? domain.pursuit : domain.decisionsOrOutcomes;
+
+      return {
+        attachments: domain.attachments,
+        owner: domain.owner,
+        role: domain.role,
+        statusLabel: domain.statusLabel,
+        text
+      };
+    })
+    .filter((row) => isClientFunctionSignal(row.text));
+
+  if (rows.length) return rows;
+
+  const fallbackItems = mode === "accomplishments" ? program.recentAccomplishments : program.upcomingWork;
+
+  return fallbackItems
+    .filter(isClientFunctionSignal)
+    .map((item, index) => ({
+      attachments: 0,
+      owner: program.owner,
+      role: index === 0 ? "Program team" : `Program team ${index + 1}`,
+      statusLabel: "Published",
+      text: item
+    }));
+}
+
+function FunctionUpdateCard({
+  icon,
+  mode,
+  program,
+  title
+}: {
+  icon: LucideIcon;
+  mode: "accomplishments" | "upcoming";
+  program: ClientPortalProgram;
+  title: string;
+}) {
+  const rows = buildFunctionRows(program, mode);
+
   return (
     <ExecutiveCard icon={icon} title={title}>
-      <ul className="mt-6 grid gap-4 text-lg leading-8 text-slate-700">
-        {items.map((item, index) => (
-          <li key={`${title}-${index}`} className="flex gap-4">
-            <span className="mt-3 h-2 w-2 shrink-0 rounded-full bg-emerald-500" />
-            <span>{item}</span>
-          </li>
-        ))}
-      </ul>
+      {rows.length ? (
+        <div className="mt-6 grid gap-4">
+          {rows.map((row, index) => (
+            <article
+              key={`${title}-${row.role}-${index}`}
+              data-client-function-update-card={row.role}
+              className="rounded-lg border border-slate-200 bg-slate-50 p-4"
+            >
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-xs font-semibold uppercase tracking-[0.14em] text-sky-700">{row.role}</p>
+                  <p className="mt-2 text-base font-semibold leading-6 text-slate-950">{row.owner}</p>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <span className="rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-700">
+                    {row.statusLabel}
+                  </span>
+                  {row.attachments > 0 ? (
+                    <span className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-800">
+                      {row.attachments} attachment{row.attachments === 1 ? "" : "s"}
+                    </span>
+                  ) : null}
+                </div>
+              </div>
+              <p className="mt-4 text-base font-medium leading-7 text-slate-700">{row.text}</p>
+            </article>
+          ))}
+        </div>
+      ) : (
+        <p className="mt-6 rounded-lg border border-slate-200 bg-slate-50 p-5 text-base font-medium leading-7 text-slate-600">
+          No client-facing {mode === "accomplishments" ? "accomplishments" : "upcoming work"} have been published yet.
+        </p>
+      )}
     </ExecutiveCard>
   );
 }
@@ -727,57 +481,6 @@ function RiskDecisionSection({ program }: { program: ClientPortalProgram }) {
         </div>
       </section>
     </div>
-  );
-}
-
-function WorkstreamStatus({ program }: { program: ClientPortalProgram }) {
-  return (
-    <ExecutiveCard icon={BriefcaseBusiness} title="Workstream Status">
-      <div className="mt-6 grid gap-5 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-5">
-        {program.workstreams.slice(0, 5).map((workstream) => {
-          const normalizedStatus = workstream.status.toLowerCase();
-          const riskStyle = normalizedStatus.includes("blocked")
-            ? "bg-rose-500"
-            : normalizedStatus.includes("review")
-              ? "bg-amber-500"
-              : normalizedStatus.includes("no linked") || normalizedStatus.includes("not started")
-                ? "bg-slate-400"
-                : "bg-emerald-500";
-          return (
-            <div
-              key={workstream.name}
-              data-client-workstream-card={workstream.name}
-              data-client-workstream-percent={workstream.percent}
-              className="rounded-lg border border-slate-200 bg-slate-50 p-5"
-            >
-              <div className="flex items-start justify-between gap-3">
-                <h4 className="text-lg font-semibold leading-7 text-slate-950">{workstream.name}</h4>
-                <span className={cn("mt-1 h-4 w-4 rounded-full", riskStyle)} />
-              </div>
-              <div className="mt-5">
-                <div className="h-3 rounded-full bg-slate-200">
-                  <div className={cn("h-full rounded-full", riskStyle)} style={{ width: `${workstream.percent}%` }} />
-                </div>
-                <p className="mt-2 text-right text-lg font-semibold text-slate-700">{workstream.percent}%</p>
-              </div>
-              <div className="mt-4 flex flex-wrap gap-2">
-                <span className="rounded-full border border-slate-200 bg-white px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-700">
-                  Task basis: {workstream.taskCount ? workstream.percentBasis : "No tasks linked"}
-                </span>
-                <span className="rounded-full border border-sky-200 bg-sky-50 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-sky-800">
-                  Schedule: {workstream.scheduleLabel}
-                </span>
-              </div>
-              <p className="mt-4 text-base font-medium leading-7 text-slate-700">{workstream.note}</p>
-              <p className="mt-4 text-sm font-medium text-slate-600">
-                Owner: {workstream.owner}
-                {workstream.blockedTaskCount ? ` · ${workstream.blockedTaskCount} blocked` : ""}
-              </p>
-            </div>
-          );
-        })}
-      </div>
-    </ExecutiveCard>
   );
 }
 
@@ -869,21 +572,14 @@ function ProgramOnePager({ program }: { program: ClientPortalProgram }) {
   return (
     <section data-client-program-detail={program.id} className="grid min-w-0 max-w-full gap-6 overflow-hidden">
       <ProgramHero program={program} />
-
-      <ExecutiveCard icon={Compass} title="Executive Summary">
-        <p className="mt-6 text-lg leading-9 text-slate-700">{program.executiveOverview}</p>
-      </ExecutiveCard>
-
-      <ProgramMilestoneTimeline program={program} />
       <ClientWorkRoadmap program={program} />
 
       <div className="grid min-w-0 gap-6 xl:grid-cols-2">
-        <ExecutiveListCard icon={CheckCircle2} title="Recent Accomplishments" items={program.recentAccomplishments} />
-        <ExecutiveListCard icon={ArrowRight} title="Upcoming Work (Next 2 Weeks)" items={program.upcomingWork} />
+        <FunctionUpdateCard icon={ClipboardCheck} mode="accomplishments" program={program} title="Recent Accomplishments" />
+        <FunctionUpdateCard icon={ArrowUpRight} mode="upcoming" program={program} title="Upcoming Work (Next 2 Weeks)" />
       </div>
 
       <RiskDecisionSection program={program} />
-      <WorkstreamStatus program={program} />
       <ClientDecisionPanel program={program} />
     </section>
   );
@@ -901,7 +597,6 @@ export function ClientPortalConsole({
   const [selectedClientName, setSelectedClientName] = useState(portfolio.clients[0]?.clientName ?? "");
   const initialClientProgramIds = portfolio.clients[0]?.programIds ?? portfolio.programs.map((program) => program.id);
   const [selectedProgramId, setSelectedProgramId] = useState(initialClientProgramIds[0] ?? "");
-  const [visibleProgramIds, setVisibleProgramIds] = useState(() => new Set(initialClientProgramIds));
   const detailRef = useRef<HTMLDivElement>(null);
   const selectedClient = useMemo(
     () => portfolio.clients.find((client) => client.clientName === selectedClientName) ?? portfolio.clients[0] ?? null,
@@ -913,20 +608,17 @@ export function ClientPortalConsole({
     () => portfolio.programs.filter((program) => selectedClientProgramIds.includes(program.id)),
     [portfolio.programs, selectedClientProgramIds]
   );
-  const visiblePrograms = useMemo(
-    () => clientPrograms.filter((program) => visibleProgramIds.has(program.id)),
-    [clientPrograms, visibleProgramIds]
-  );
   const selectedProgram = useMemo(
-    () => visiblePrograms.find((program) => program.id === selectedProgramId) ?? visiblePrograms[0] ?? null,
-    [selectedProgramId, visiblePrograms]
+    () => clientPrograms.find((program) => program.id === selectedProgramId) ?? clientPrograms[0] ?? null,
+    [clientPrograms, selectedProgramId]
   );
-  const visibleIds = useMemo(() => new Set(visiblePrograms.map((program) => program.id)), [visiblePrograms]);
-  const visibleMilestones = portfolio.upcomingMilestones.filter((milestone) => visibleIds.has(milestone.programId));
-  const visibleRisks = portfolio.keyRisks.filter((risk) => visibleIds.has(risk.programId));
-  const visibleRoadmap = portfolio.roadmap.filter((row) => visibleIds.has(row.programId));
   const showClientSelector = portfolio.clients.length > 1;
   const showProgramScope = clientPrograms.length > 1;
+  const exportHref = selectedProgram
+    ? `/api/client-portal/export/pdf?scope=program&programId=${encodeURIComponent(selectedProgram.id)}`
+    : selectedClient
+      ? `/api/client-portal/export/pdf?scope=portfolio&client=${encodeURIComponent(selectedClient.clientName)}`
+      : "/api/client-portal/export/pdf";
 
   useEffect(() => {
     if (!portfolio.clients.length) return;
@@ -935,31 +627,18 @@ export function ClientPortalConsole({
   }, [portfolio.clients, selectedClientName]);
 
   useEffect(() => {
-    setVisibleProgramIds(new Set(selectedClientProgramIds));
     setSelectedProgramId(selectedClientProgramIds[0] ?? "");
   }, [selectedClientName, selectedClientProgramIdsKey, selectedClientProgramIds]);
 
   useEffect(() => {
-    if (!selectedProgram && visiblePrograms[0]) {
-      setSelectedProgramId(visiblePrograms[0].id);
+    if (!selectedProgram && clientPrograms[0]) {
+      setSelectedProgramId(clientPrograms[0].id);
     }
 
     if (selectedProgram && selectedProgram.id !== selectedProgramId) {
       setSelectedProgramId(selectedProgram.id);
     }
-  }, [selectedProgram, selectedProgramId, visiblePrograms]);
-
-  function toggleProgram(programId: string) {
-    setVisibleProgramIds((current) => {
-      const next = new Set(current);
-      if (next.has(programId) && next.size > 1) {
-        next.delete(programId);
-      } else {
-        next.add(programId);
-      }
-      return next;
-    });
-  }
+  }, [clientPrograms, selectedProgram, selectedProgramId]);
 
   function selectClient(clientName: string) {
     setSelectedClientName(clientName);
@@ -1010,7 +689,7 @@ export function ClientPortalConsole({
           {selectedClient ? (
             <Button asChild className="rounded-md bg-slate-950 px-5 py-3 text-white shadow-sm hover:bg-slate-800">
               <Link
-                href={`/api/client-portal/export/pdf?scope=portfolio&client=${encodeURIComponent(selectedClient.clientName)}`}
+                href={exportHref}
                 data-client-export-portfolio
               >
                 <Download className="h-4 w-4" />
@@ -1063,29 +742,26 @@ export function ClientPortalConsole({
               <section className="mt-8 rounded-lg border border-slate-200 bg-white p-5 shadow-[0_18px_45px_rgba(15,23,42,0.08)]">
                 <div className="flex flex-wrap items-center justify-between gap-4">
                   <div>
-                    <p className="text-xs font-semibold uppercase tracking-[0.16em] text-sky-700">Portfolio scope</p>
+                    <p className="text-xs font-semibold uppercase tracking-[0.16em] text-sky-700">Program view</p>
                     <p className="mt-1 text-sm font-medium text-slate-600">
-                      Toggle which {selectedClient?.clientName ?? "client"} programs appear in the executive view.
+                      Select the {selectedClient?.clientName ?? "client"} program to review.
                     </p>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => setVisibleProgramIds(new Set(selectedClientProgramIds))}
-                    className="rounded-full border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-sky-800 transition-colors hover:border-sky-400 hover:bg-sky-50"
-                  >
-                    All {selectedClient?.clientName ?? "client"} programs
-                  </button>
+                  <span className="rounded-full border border-slate-200 bg-slate-50 px-4 py-2 text-sm font-semibold text-slate-700">
+                    {clientPrograms.length} program{clientPrograms.length === 1 ? "" : "s"}
+                  </span>
                 </div>
                 <div className="mt-4 flex flex-wrap gap-2">
                   {clientPrograms.map((program) => (
                     <button
                       key={program.id}
                       type="button"
-                      aria-pressed={visibleProgramIds.has(program.id)}
-                      onClick={() => toggleProgram(program.id)}
+                      aria-pressed={program.id === selectedProgram?.id}
+                      data-client-program-option={program.id}
+                      onClick={() => selectProgram(program.id)}
                       className={cn(
                         "rounded-full border px-4 py-2 text-sm font-medium transition-colors",
-                        visibleProgramIds.has(program.id)
+                        program.id === selectedProgram?.id
                           ? "border-emerald-600 bg-emerald-600 text-white"
                           : "border-slate-300 bg-white text-slate-700 hover:border-sky-400 hover:text-sky-800"
                       )}
@@ -1097,35 +773,8 @@ export function ClientPortalConsole({
               </section>
             ) : null}
 
-            <section className="mt-8 grid gap-8 xl:grid-cols-[minmax(0,1fr)_minmax(24rem,0.52fr)]">
-              <div className="min-w-0">
-                <SectionLabel>Portfolio Program Grid</SectionLabel>
-                <h2 className="mt-4 text-2xl font-semibold text-slate-950">Weekly Updates</h2>
-                <p className="mt-2 text-lg font-medium text-slate-600">
-                  Program, owner, phase, health, progress, next milestone, and current delivery note.
-                </p>
-                <div className="mt-7 grid gap-6">
-                  {visiblePrograms.map((program) => (
-                    <ProgramGridRow
-                      key={program.id}
-                      program={program}
-                      selected={program.id === selectedProgram?.id}
-                      onSelect={() => selectProgram(program.id)}
-                    />
-                  ))}
-                </div>
-                <div className="mt-8">
-                  <PortfolioRoadmap roadmap={visibleRoadmap} />
-                </div>
-              </div>
-              <aside className="grid content-start gap-6 xl:sticky xl:top-6">
-                <UpcomingMilestonesPanel milestones={visibleMilestones} />
-                <PortfolioRisksPanel risks={visibleRisks} />
-              </aside>
-            </section>
-
             {selectedProgram ? (
-              <div ref={detailRef} className="mt-12 scroll-mt-8">
+              <div ref={detailRef} className="mt-8 scroll-mt-8">
                 <ProgramOnePager program={selectedProgram} />
               </div>
             ) : null}
