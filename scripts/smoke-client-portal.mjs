@@ -296,7 +296,6 @@ async function seedProgramUpdate(session, program, smokeText) {
 
 async function verifyClientPortal(session, program, smokeText) {
   const primaryRole = program.intake.teamRoles?.[0] ?? "Delivery Lead";
-  const expectedProgramPercent = "95%";
   const expectedClientName = program.intake.clientName?.trim() || "Unassigned client";
 
   await session.navigate(`${baseUrl}/client?smoke=client-portal-seeded-update`);
@@ -380,15 +379,14 @@ async function verifyClientPortal(session, program, smokeText) {
             detailText.includes("Client Portal Smoke Sponsor") &&
             !detailText.includes("Client Portal Smoke Lead") &&
             !detailText.includes("Client Portal Smoke PMO") &&
-            detailText.includes(arguments[3]) &&
-            detailText.includes("+5%") &&
+            !detailText.includes("% Complete") &&
             detailText.includes("Execute") &&
             detailText.includes(arguments[1]) &&
             detailText.includes("approve milestone protection path") &&
             functionText.includes("Client Portal smoke role progress")
         };
       `,
-      [program.id, smokeText, primaryRole, expectedProgramPercent]
+      [program.id, smokeText, primaryRole]
     );
 
     return state.ok ? state : false;
