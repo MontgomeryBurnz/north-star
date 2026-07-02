@@ -61,10 +61,14 @@ test("Client Portal frames executive overview and domain progress", () => {
   assert.doesNotMatch(source, /Averaged from each program's shown completion basis/);
   assert.doesNotMatch(source, /MetricTile label="Total Programs"/);
   assert.match(source, /Executive Summary/);
+  assert.match(source, /whitespace-pre-line/);
   assert.match(source, /ClientWorkRoadmap/);
   assert.match(source, /data-client-work-roadmap-item/);
   assert.match(source, /FunctionUpdateCard/);
   assert.match(source, /data-client-function-update-card/);
+  assert.match(source, /data-client-function-bullet/);
+  assert.match(source, /splitClientPortalListText/);
+  assert.match(source, /shouldRenderClientPortalList/);
   assert.match(source, /buildFunctionRows/);
   assert.match(source, /Recent Accomplishments/);
   assert.match(source, /Upcoming Work \(Next 2 Weeks\)/);
@@ -88,6 +92,9 @@ test("Client Portal frames executive overview and domain progress", () => {
   assert.match(modelSource, /buildDomainSummaries/);
   assert.match(modelSource, /programGuide\?\.sponsorReadout/);
   assert.match(modelSource, /buildClientExecutiveOverview/);
+  assert.match(modelSource, /firstNonEmpty\(input\.review\?\.programSynthesisNote, input\.review\?\.clientStatusNote\)/);
+  assert.match(modelSource, /function cleanMultiline/);
+  assert.match(modelSource, /executiveSummary: cleanMultiline\(firstNonEmpty\(executiveOverview/);
   assert.match(modelSource, /buildPortfolioMilestones/);
   assert.match(modelSource, /buildPortfolioRisks/);
   assert.match(modelSource, /buildPortfolioRoadmap/);
@@ -810,6 +817,9 @@ test("Active Program review is split into state, cockpit, and team signal flows"
   assert.match(clientUpdateCardSource, /Client-safe copy rules block/);
   assert.match(clientUpdateCardSource, /data-active-client-update-confirmation/);
   assert.match(clientUpdateCardSource, /buildInitialClientUpdateDraft/);
+  assert.match(clientUpdateCardSource, /data-active-client-update-overview[\s\S]*value=\{draft\.executiveOverview\}/);
+  assert.match(clientUpdateCardSource, /data-active-client-update-overview[\s\S]*updateField\("executiveOverview"/);
+  assert.match(clientUpdateCardSource, /data-active-client-update-narrative[\s\S]*value=\{draft\.clientStatusNote\}/);
   assert.match(clientUpdateCardSource, /Loaded latest published client update/);
   assert.match(clientUpdateCardSource, /This latest snapshot stays loaded for iteration/);
   assert.match(clientUpdateCardSource, /clientRoadmapItems: latestUpdate\?\.clientRoadmapItems/);
@@ -835,6 +845,10 @@ test("Active Program review is split into state, cockpit, and team signal flows"
   assert.match(clientPortalPdfRouteSource, /client\.portal\.export/);
   assert.match(clientPortalPdfSource, /%PDF-1\.4/);
   assert.match(clientPortalPdfSource, /clientRoadmapTitle/);
+  assert.match(clientPortalPdfSource, /buildClientRoadmapMonths/);
+  assert.match(clientPortalPdfSource, /roadmapStatusColors/);
+  assert.match(clientPortalPdfSource, /WORK ITEM/);
+  assert.match(clientPortalPdfSource, /roadmapStatusLabels\[item\.status\]\.toUpperCase\(\)/);
   assert.doesNotMatch(clientPortalPdfSource, /Client-visible work/);
   assert.match(clientPortalPdfSource, /Upcoming Work \(Next 2 Weeks\)/);
   assert.doesNotMatch(clientPortalPdfSource, /Report Basis/);
@@ -1089,6 +1103,8 @@ test("Client Dashboard Contributor has a scoped publication lane", () => {
   assert.match(clientUpdatesPageSource, /loadClientPortalData/);
   assert.match(clientUpdatesPageSource, /canAccessClientDashboardUpdateSurface/);
   assert.match(clientUpdatesConsoleSource, /data-client-dashboard-updates-console/);
+  assert.match(clientUpdatesConsoleSource, /data-client-dashboard-overview[\s\S]*value=\{draft\.executiveOverview\}/);
+  assert.match(clientUpdatesConsoleSource, /data-client-dashboard-overview[\s\S]*updateField\("executiveOverview"/);
   assert.match(clientUpdatesConsoleSource, /data-client-dashboard-roadmap-add/);
   assert.match(clientUpdatesConsoleSource, /data-client-dashboard-roadmap-row/);
   assert.match(clientUpdatesConsoleSource, /data-client-dashboard-roadmap-start/);

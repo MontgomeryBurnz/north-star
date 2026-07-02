@@ -41,6 +41,18 @@ function clean(value: unknown) {
   return typeof value === "string" ? normalizeWhitespace(value) : "";
 }
 
+function cleanPreservingLineBreaks(value: unknown) {
+  if (typeof value !== "string") return "";
+
+  return value
+    .replace(/\r\n?/g, "\n")
+    .split("\n")
+    .map((line) => normalizeWhitespace(line))
+    .join("\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
 function excerpt(value: string) {
   const cleaned = clean(value);
   if (cleaned.length <= 120) return cleaned;
@@ -111,8 +123,12 @@ export function validateClientPortalUpdateInput(input: ClientPortalUpdateInput):
   return { issues, ok: issues.length === 0 };
 }
 
-export function sanitizeClientVisibleText(value: string | undefined | null, fallback = "") {
-  const cleaned = clean(value);
+export function sanitizeClientVisibleText(
+  value: string | undefined | null,
+  fallback = "",
+  options: { preserveLineBreaks?: boolean } = {}
+) {
+  const cleaned = options.preserveLineBreaks ? cleanPreservingLineBreaks(value) : clean(value);
   if (!cleaned) return "";
   return inspectClientVisibleText("value", cleaned).length ? fallback : cleaned;
 }
@@ -146,13 +162,13 @@ export function sanitizeClientPortalUpdateForDisplay(update: ClientPortalUpdateR
   return {
     ...update,
     activeRisks: sanitizeClientVisibleText(update.activeRisks),
-    clientStatusNote: sanitizeClientVisibleText(update.clientStatusNote),
+    clientStatusNote: sanitizeClientVisibleText(update.clientStatusNote, "", { preserveLineBreaks: true }),
     currentPhase: sanitizeClientVisibleText(update.currentPhase, "Phase not set"),
     decisionsPending: sanitizeClientVisibleText(update.decisionsPending),
     deliveryBoardItems: sanitizedDeliveryBoardItems,
     deliveryHealth: sanitizeClientVisibleText(update.deliveryHealth),
     domainUpdates: sanitizedDomainUpdates,
-    executiveOverview: sanitizeClientVisibleText(update.executiveOverview),
+    executiveOverview: sanitizeClientVisibleText(update.executiveOverview, "", { preserveLineBreaks: true }),
     originalNorthStar: sanitizeClientVisibleText(update.originalNorthStar),
     clientRoadmapItems: sanitizedRoadmapItems,
     programMilestones: sanitizedMilestones,

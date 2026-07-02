@@ -221,6 +221,16 @@ function clean(value: string | undefined | null) {
   return normalizeWhitespace(value ?? "");
 }
 
+function cleanMultiline(value: string | undefined | null) {
+  return (value ?? "")
+    .replace(/\r\n?/g, "\n")
+    .split("\n")
+    .map((line) => normalizeWhitespace(line))
+    .join("\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
 const weakSignalPatterns = [
   /^no\s+/i,
   /not captured/i,
@@ -520,7 +530,7 @@ function buildClientExecutiveOverview(input: {
   leadershipSummary: string;
   intakeSummary: string | undefined;
 }) {
-  const publishedExecutiveOverview = clean(input.review?.programSynthesisNote);
+  const publishedExecutiveOverview = cleanMultiline(firstNonEmpty(input.review?.programSynthesisNote, input.review?.clientStatusNote));
   if (publishedExecutiveOverview) return publishedExecutiveOverview;
 
   const focus = firstMeaningful(
@@ -1385,15 +1395,7 @@ export function buildClientPortalProgram(input: ClientPortalProgramInput): Clien
     statusNote,
     updatedAt: clientUpdate?.updatedAt ?? clientUpdate?.createdAt ?? input.program.updatedAt,
     executiveOverview,
-    executiveSummary: clean(
-      firstNonEmpty(
-        review?.programSynthesisNote,
-        review?.clientStatusNote,
-        plan?.programGuide?.sponsorReadout,
-        plan?.summary,
-        "Publish a reviewed client update to show the executive summary."
-      )
-    ),
+    executiveSummary: cleanMultiline(firstNonEmpty(executiveOverview, "Publish a reviewed client update to show the executive summary.")),
     nextMilestone: {
       dateLabel: nextMilestone.dateLabel,
       name: nextMilestone.name,

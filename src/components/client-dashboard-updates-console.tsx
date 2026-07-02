@@ -535,8 +535,8 @@ export function ClientDashboardUpdatesConsole({
                 <span className="text-xs font-medium uppercase tracking-[0.16em] text-zinc-300">Executive overview</span>
                 <textarea
                   data-client-dashboard-overview
-                  value={draft.clientStatusNote}
-                  onChange={(event) => updateField("clientStatusNote", event.target.value)}
+                  value={draft.executiveOverview}
+                  onChange={(event) => updateField("executiveOverview", event.target.value)}
                   placeholder="A concise, client-ready summary of current posture, progress, and what matters now."
                   rows={4}
                   className="min-h-[126px] resize-none rounded-md border border-white/10 bg-zinc-950 px-3 py-3 text-sm leading-6 text-zinc-100 outline-none transition-colors placeholder:text-zinc-500 focus:border-emerald-300/50"

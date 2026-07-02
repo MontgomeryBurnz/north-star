@@ -252,7 +252,7 @@ function buildSeededReview(program, smokeText) {
         attachments: 0,
         decisionsOrOutcomes: `Client Portal smoke role decision ${smokeText}.`,
         owner: "Client Portal Smoke",
-        pursuit: `Client Portal smoke role progress ${smokeText}.`,
+        pursuit: `- Client Portal smoke role progress ${smokeText}.\n- Client Portal smoke second role progress ${smokeText}.`,
         risksOrBlockers: `Client Portal smoke role risk ${smokeText}.`,
         role: primaryRole,
         status: "at-risk"
@@ -365,8 +365,10 @@ async function verifyClientPortal(session, program, smokeText, review) {
         const detailText = detail?.textContent ?? "";
         const roadmapText = roadmapItem?.textContent ?? "";
         const functionText = functionCard?.textContent ?? "";
+        const bulletCount = functionCard?.querySelectorAll("[data-client-function-bullet]").length ?? 0;
 
         return {
+          bulletCount,
           detail: Boolean(detail),
           functionText,
           roadmap: Boolean(roadmapItem),
@@ -385,7 +387,9 @@ async function verifyClientPortal(session, program, smokeText, review) {
             detailText.includes("Execute") &&
             detailText.includes(arguments[3]) &&
             detailText.includes("approve milestone protection path") &&
-            functionText.includes("Client Portal smoke role progress")
+            bulletCount >= 2 &&
+            functionText.includes("Client Portal smoke role progress") &&
+            functionText.includes("Client Portal smoke second role progress")
         };
       `,
       [program.id, smokeText, primaryRole, expectedExecutiveOverview]
@@ -420,6 +424,7 @@ async function verifyClientPortalPdfExport(session, program, smokeText) {
           contentType: response.headers.get("content-type") ?? "",
           includesExecutiveSummary: text.includes("EXECUTIVE SUMMARY"),
           includesRoadmap: text.includes("Roadmap") && text.includes(arguments[1]),
+          includesRoadmapGrid: text.includes("WORK ITEM") && text.includes("JUN") && text.includes("IN PROGRESS"),
           includesSmokeText: text.includes(arguments[2]),
           includesUpcomingWork: text.includes("Upcoming Work"),
           hasReportBasis: /Report Basis/i.test(text),
@@ -441,6 +446,7 @@ async function verifyClientPortalPdfExport(session, program, smokeText) {
     !state.contentDisposition.includes(".pdf") ||
     !state.includesExecutiveSummary ||
     !state.includesRoadmap ||
+    !state.includesRoadmapGrid ||
     !state.includesSmokeText ||
     !state.includesUpcomingWork ||
     state.hasReportBasis

@@ -3,6 +3,7 @@ import test from "node:test";
 import { validateClientPortalUpdateInput } from "../src/lib/client-safe-copy.ts";
 import { buildClientPortalPortfolio, buildClientPortalProgram } from "../src/lib/client-portal.ts";
 import { buildClientPortalPdf, clientPortalPdfFilename } from "../src/lib/client-portal-pdf.ts";
+import { shouldRenderClientPortalList, splitClientPortalListText } from "../src/lib/client-portal-text.ts";
 import type { StoredProgramUpdate } from "../src/lib/active-program-types.ts";
 import type { ClientPortalUpdateRecord } from "../src/lib/client-portal-update-types.ts";
 import type { StoredProgram } from "../src/lib/program-intake-types.ts";
@@ -196,10 +197,8 @@ test("buildClientPortalProgram creates executive posture from program signals", 
   assert.match(portalProgram.progressUpdates.join(" "), /Risk:/);
   assert.match(portalProgram.progressUpdates.join(" "), /Decision:/);
   assert.ok(portalProgram.progressUpdates.every((signal) => signal.length <= 130));
-  assert.ok(portalProgram.executiveOverview.length <= 260);
-  assert.match(portalProgram.executiveOverview, /At risk in Execute/);
-  assert.match(portalProgram.executiveOverview, /Discovery remains stable/);
-  assert.match(portalProgram.executiveOverview, /Confirm launch readiness owner/);
+  assert.equal(portalProgram.executiveOverview, "Discovery remains stable and aligned to baseline.");
+  assert.doesNotMatch(portalProgram.executiveOverview, /At risk in Execute/);
   assert.equal(portalProgram.domainSummaries[0]?.role, "Engineering");
   assert.equal(portalProgram.domainSummaries[0]?.pursuit, "Dependency remains open.");
   assert.equal(portalProgram.domainSummaries[0]?.risksOrBlockers, "API timing");
@@ -259,6 +258,36 @@ test("Client Portal preserves the published executive overview verbatim", () => 
   assert.equal(portalProgram.executiveOverview, executiveOverview);
   assert.equal(portalProgram.executiveSummary, executiveOverview);
   assert.doesNotMatch(portalProgram.executiveOverview, /At risk in Execute/);
+});
+
+test("Client Portal preserves legacy executive overview text saved as status note", () => {
+  const executiveOverview =
+    "Breaking down feature-level requirements with Compass SMEs\nEnsuring the team can create a functional iteration plan and backlog.\n\nThis work positions the team to follow a refinement, design, build cycle.";
+  const portalProgram = buildClientPortalProgram({
+    latestClientUpdate: {
+      ...clientUpdate,
+      clientStatusNote: executiveOverview,
+      executiveOverview: ""
+    },
+    program
+  });
+
+  assert.equal(portalProgram.executiveOverview, executiveOverview);
+  assert.equal(portalProgram.executiveSummary, executiveOverview);
+  assert.doesNotMatch(portalProgram.executiveOverview, /Focus:/);
+});
+
+test("Client Portal parses dash-separated client function updates as list items", () => {
+  const inlineList =
+    "- Completed draft version of alternate item procedure - Completed substitution insights - BuySmart data integration";
+
+  assert.equal(shouldRenderClientPortalList(inlineList), true);
+  assert.deepEqual(splitClientPortalListText(inlineList), [
+    "Completed draft version of alternate item procedure",
+    "Completed substitution insights",
+    "BuySmart data integration"
+  ]);
+  assert.deepEqual(splitClientPortalListText("- First update\n- Second update"), ["First update", "Second update"]);
 });
 
 test("Client Portal exposes client-update roadmap rows from Client Updates", () => {
@@ -586,9 +615,34 @@ test("buildClientPortalPortfolio rolls program posture into portfolio metrics", 
 });
 
 test("Client Portal PDF builder returns a downloadable PDF buffer", () => {
+  const pdfClientUpdate: ClientPortalUpdateRecord = {
+    ...clientUpdate,
+    clientRoadmapItems: [
+      {
+        category: "Component",
+        endMonth: "2026-09",
+        id: "pdf-roadmap-product-requests",
+        note: "Mass Add request intake through readiness validation.",
+        owner: "Product Lead",
+        startMonth: "2026-06",
+        status: "in-progress",
+        title: "Product Requests"
+      },
+      {
+        category: "Reporting & Insights",
+        endMonth: "2026-12",
+        id: "pdf-roadmap-hub-reporting",
+        note: "Dashboards and compliance insight reporting.",
+        owner: "Data Lead",
+        startMonth: "2026-09",
+        status: "planned",
+        title: "Hub Insights / Reporting"
+      }
+    ]
+  };
   const portfolio = buildClientPortalPortfolio({
     generatedAt: "2026-04-30T00:00:00.000Z",
-    programs: [{ latestClientUpdate: clientUpdate, program }]
+    programs: [{ latestClientUpdate: pdfClientUpdate, program }]
   });
   const pdf = buildClientPortalPdf({
     clientName: "Impower",
@@ -604,6 +658,13 @@ test("Client Portal PDF builder returns a downloadable PDF buffer", () => {
   const pdfSource = pdf.toString("latin1");
   assert.match(pdfSource, /EXECUTIVE SUMMARY/);
   assert.match(pdfSource, /Compliance Hub Roadmap/);
+  assert.match(pdfSource, /WORK ITEM/);
+  assert.match(pdfSource, /JUN/);
+  assert.match(pdfSource, /SEP/);
+  assert.match(pdfSource, /DEC/);
+  assert.match(pdfSource, /Product Requests/);
+  assert.match(pdfSource, /IN PROGRESS/);
+  assert.match(pdfSource, /Hub Insights \/ Reporting/);
   assert.match(pdfSource, /Recent Accomplishments/);
   assert.match(pdfSource, /Upcoming Work/);
   assert.doesNotMatch(pdfSource, /Report Basis/i);

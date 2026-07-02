@@ -144,8 +144,15 @@ async function publishClientDashboardUpdate(session, program, smokeText) {
 
 async function verifyClientPortal(session, smokeText) {
   await session.navigate(`${baseUrl}/client?clientDashboardSmoke=${Date.now()}`);
-  await session.waitFor("Client Portal smoke text", () =>
-    session.execute("return document.body.innerText.includes(arguments[0]);", [smokeText])
+  await session.waitFor("Client Portal exact executive overview", () =>
+    session.execute(
+      `
+        const heroText = document.querySelector("[data-client-program-hero]")?.textContent ?? "";
+        return heroText.includes(arguments[0] + ": executive dashboard publication verified.") &&
+          !heroText.includes("Focus:");
+      `,
+      [smokeText]
+    )
   );
   console.log("✓ Client Updates: Client Portal renders the published dashboard input.");
 }

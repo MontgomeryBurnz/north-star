@@ -325,8 +325,8 @@ export function ActiveProgramClientUpdateCard({
             <span className="text-xs font-medium uppercase tracking-[0.18em] text-emerald-100">Executive overview</span>
             <textarea
               data-active-client-update-overview
-              value={draft.clientStatusNote}
-              onChange={(event) => updateField("clientStatusNote", event.target.value)}
+              value={draft.executiveOverview}
+              onChange={(event) => updateField("executiveOverview", event.target.value)}
               placeholder="Concise client-ready summary of current posture, progress, and what matters now."
               rows={4}
               className="min-h-[132px] resize-none rounded-md border border-white/10 bg-zinc-950 px-3 py-3 text-sm leading-6 text-zinc-100 outline-none transition-colors placeholder:text-zinc-500 focus:border-emerald-300/50"
@@ -334,12 +334,12 @@ export function ActiveProgramClientUpdateCard({
           </label>
 
           <label className="grid gap-2">
-            <span className="text-xs font-medium uppercase tracking-[0.18em] text-emerald-100">Program narrative</span>
+            <span className="text-xs font-medium uppercase tracking-[0.18em] text-emerald-100">Status note</span>
             <textarea
               data-active-client-update-narrative
-              value={draft.executiveOverview}
-              onChange={(event) => updateField("executiveOverview", event.target.value)}
-              placeholder="Expanded client-facing context. Keep it factual, diplomatic, and outcome-focused."
+              value={draft.clientStatusNote}
+              onChange={(event) => updateField("clientStatusNote", event.target.value)}
+              placeholder="Short client-facing status note for the portfolio card."
               rows={4}
               className="min-h-[132px] resize-none rounded-md border border-white/10 bg-zinc-950 px-3 py-3 text-sm leading-6 text-zinc-100 outline-none transition-colors placeholder:text-zinc-500 focus:border-emerald-300/50"
             />

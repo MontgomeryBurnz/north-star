@@ -20,6 +20,7 @@ import type {
   ClientProgramPosture
 } from "@/lib/client-portal";
 import type { ClientDecisionRequest } from "@/lib/program-intelligence-types";
+import { shouldRenderClientPortalList, splitClientPortalListText } from "@/lib/client-portal-text";
 import { cn } from "@/lib/utils";
 import { MetricBasisLabel } from "@/components/metric-basis-label";
 import { Button } from "@/components/ui/button";
@@ -202,7 +203,7 @@ function ProgramHero({ program }: { program: ClientPortalProgram }) {
             <Compass className="h-4 w-4" />
             Executive Summary
           </p>
-          <p className="mt-3 text-sm font-medium leading-7 text-slate-700 sm:text-lg sm:leading-9">{program.executiveOverview}</p>
+          <p className="mt-3 whitespace-pre-line text-sm font-medium leading-7 text-slate-700 sm:text-lg sm:leading-9">{program.executiveOverview}</p>
         </div>
       </div>
     </section>
@@ -393,31 +394,47 @@ function FunctionUpdateCard({
     <ExecutiveCard icon={icon} title={title}>
       {rows.length ? (
         <div className="mt-6 grid gap-4">
-          {rows.map((row, index) => (
-            <article
-              key={`${title}-${row.role}-${index}`}
-              data-client-function-update-card={row.role}
-              className="rounded-lg border border-slate-200 bg-slate-50 p-4"
-            >
-              <div className="flex flex-wrap items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <p className="text-xs font-semibold uppercase tracking-[0.14em] text-sky-700">{row.role}</p>
-                  <p className="mt-2 text-base font-semibold leading-6 text-slate-950">{row.owner}</p>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  <span className="rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-700">
-                    {row.statusLabel}
-                  </span>
-                  {row.attachments > 0 ? (
-                    <span className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-800">
-                      {row.attachments} attachment{row.attachments === 1 ? "" : "s"}
+          {rows.map((row, index) => {
+            const listItems = splitClientPortalListText(row.text);
+            const renderList = shouldRenderClientPortalList(row.text);
+
+            return (
+              <article
+                key={`${title}-${row.role}-${index}`}
+                data-client-function-update-card={row.role}
+                className="rounded-lg border border-slate-200 bg-slate-50 p-4"
+              >
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="text-xs font-semibold uppercase tracking-[0.14em] text-sky-700">{row.role}</p>
+                    <p className="mt-2 text-base font-semibold leading-6 text-slate-950">{row.owner}</p>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <span className="rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-700">
+                      {row.statusLabel}
                     </span>
-                  ) : null}
+                    {row.attachments > 0 ? (
+                      <span className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-800">
+                        {row.attachments} attachment{row.attachments === 1 ? "" : "s"}
+                      </span>
+                    ) : null}
+                  </div>
                 </div>
-              </div>
-              <p className="mt-4 text-base font-medium leading-7 text-slate-700">{row.text}</p>
-            </article>
-          ))}
+                {renderList ? (
+                  <ul className="mt-4 space-y-2 text-base font-medium leading-7 text-slate-700">
+                    {listItems.map((item, itemIndex) => (
+                      <li key={`${row.role}-item-${itemIndex}`} data-client-function-bullet className="grid grid-cols-[0.85rem_minmax(0,1fr)] gap-2">
+                        <span className="mt-[0.7em] h-1.5 w-1.5 rounded-full bg-sky-600" />
+                        <span>{item}</span>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="mt-4 whitespace-pre-line text-base font-medium leading-7 text-slate-700">{row.text}</p>
+                )}
+              </article>
+            );
+          })}
         </div>
       ) : (
         <p className="mt-6 rounded-lg border border-slate-200 bg-slate-50 p-5 text-base font-medium leading-7 text-slate-600">

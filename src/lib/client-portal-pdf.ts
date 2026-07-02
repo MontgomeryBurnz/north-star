@@ -1,5 +1,6 @@
 import { Buffer } from "node:buffer";
 import type { ClientPortalPortfolio, ClientPortalProgram } from "./client-portal.ts";
+import { shouldRenderClientPortalList, splitClientPortalListText } from "./client-portal-text.ts";
 
 type PdfFont = "regular" | "bold";
 
@@ -112,9 +113,60 @@ const roadmapStatusLabels: Record<ClientPortalProgram["clientRoadmapItems"][numb
   planned: "Planned"
 };
 
-function formatRoadmapRange(item: ClientPortalProgram["clientRoadmapItems"][number]) {
-  if (item.startLabel && item.endLabel && item.startLabel !== item.endLabel) return `${item.startLabel} to ${item.endLabel}`;
-  return item.startLabel || item.endLabel || "Timeline not set";
+const roadmapStatusColors: Record<ClientPortalProgram["clientRoadmapItems"][number]["status"], string> = {
+  "at-risk": "245 158 11",
+  blocked: "244 63 94",
+  complete: "5 150 105",
+  "in-progress": "3 105 161",
+  planned: "51 65 85"
+};
+
+function parseRoadmapMonth(value: string) {
+  const match = value.match(/^(\d{4})-(\d{2})$/);
+  if (!match) return null;
+  const date = new Date(Number(match[1]), Number(match[2]) - 1, 1);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function roadmapMonthKey(date: Date) {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+}
+
+function roadmapMonthLabel(date: Date) {
+  return new Intl.DateTimeFormat("en-US", { month: "short", timeZone: "America/New_York" }).format(date).toUpperCase();
+}
+
+function buildClientRoadmapMonths(items: ClientPortalProgram["clientRoadmapItems"]) {
+  const dates = items
+    .flatMap((item) => [parseRoadmapMonth(item.startMonth), parseRoadmapMonth(item.endMonth)])
+    .filter((date): date is Date => Boolean(date))
+    .sort((a, b) => a.getTime() - b.getTime());
+
+  if (!dates.length) return [];
+
+  const start = new Date(dates[0].getFullYear(), dates[0].getMonth(), 1);
+  const end = new Date(dates[dates.length - 1].getFullYear(), dates[dates.length - 1].getMonth(), 1);
+  const months: Array<{ key: string; label: string }> = [];
+  const cursor = new Date(start);
+
+  while (cursor <= end && months.length < 12) {
+    months.push({ key: roadmapMonthKey(cursor), label: roadmapMonthLabel(cursor) });
+    cursor.setMonth(cursor.getMonth() + 1);
+  }
+
+  return months;
+}
+
+function clientRoadmapRange(item: ClientPortalProgram["clientRoadmapItems"][number], months: Array<{ key: string; label: string }>) {
+  const startIndex = months.findIndex((month) => month.key === item.startMonth);
+  const endIndex = months.findIndex((month) => month.key === item.endMonth);
+  const safeStart = startIndex >= 0 ? startIndex : 0;
+  const safeEnd = endIndex >= 0 ? endIndex : safeStart;
+
+  return {
+    end: Math.max(safeStart, safeEnd),
+    start: Math.min(safeStart, safeEnd)
+  };
 }
 
 function wrapText(value: string, fontSize: number, width: number) {
@@ -138,6 +190,16 @@ function wrapText(value: string, fontSize: number, width: number) {
 
   if (line) lines.push(line);
   return lines;
+}
+
+function wrapMultilineText(value: string, fontSize: number, width: number) {
+  return value
+    .replace(/\r\n?/g, "\n")
+    .split("\n")
+    .flatMap((line) => {
+      const trimmed = line.trim();
+      return trimmed ? wrapText(trimmed, fontSize, width) : [""];
+    });
 }
 
 class PdfReport {
@@ -243,7 +305,7 @@ class PdfReport {
   }
 
   programHero(program: ClientPortalProgram, generatedLabel: string) {
-    const heroHeight = 286;
+    const heroHeight = 312;
     this.ensureSpace(heroHeight + 20);
     const top = this.y;
     const heroY = top - heroHeight;
@@ -276,22 +338,22 @@ class PdfReport {
     });
 
     this.textLine(`Executive Sponsor: ${program.executiveSponsor}`, margin + 18, top - 188, { color: "203 213 225", size: 9 });
-    this.rect(margin + 18, top - 270, contentWidth - 36, 64, "255 255 255");
-    this.strokeRect(margin + 18, top - 270, contentWidth - 36, 64, "226 232 240");
+    this.rect(margin + 18, top - 296, contentWidth - 36, 90, "255 255 255");
+    this.strokeRect(margin + 18, top - 296, contentWidth - 36, 90, "226 232 240");
     this.textLine("EXECUTIVE SUMMARY", margin + 30, top - 224, { color: "3 105 161", font: "bold", size: 8 });
-    wrapText(program.executiveOverview, 9, contentWidth - 60)
-      .slice(0, 3)
-      .forEach((line, index) => this.textLine(line, margin + 30, top - 241 - index * 12, { color: "51 65 85", size: 9 }));
+    wrapMultilineText(program.executiveOverview, 9, contentWidth - 60)
+      .slice(0, 5)
+      .forEach((line, index) => {
+        if (!line) return;
+        this.textLine(line, margin + 30, top - 241 - index * 12, { color: "51 65 85", size: 9 });
+      });
 
     this.y -= heroHeight + 18;
   }
 
   clientRoadmap(program: ClientPortalProgram) {
     this.section(clientRoadmapTitle(program.name));
-    this.paragraph("Roadmap items are organized by category and month range.", {
-      maxLines: 2
-    });
-
+    const months = buildClientRoadmapMonths(program.clientRoadmapItems);
     const groupedItems = program.clientRoadmapItems.reduce<Record<string, ClientPortalProgram["clientRoadmapItems"]>>((groups, item) => {
       const category = item.category.trim() || "Roadmap";
       groups[category] = [...(groups[category] ?? []), item];
@@ -305,23 +367,59 @@ class PdfReport {
       return;
     }
 
+    if (!months.length) {
+      this.paragraph("Publish roadmap rows with start and end months to show the roadmap timeline.", {
+        maxLines: 3
+      });
+      return;
+    }
+
+    const itemColumnWidth = 150;
+    const monthWidth = (contentWidth - itemColumnWidth) / months.length;
+    const tableWidth = itemColumnWidth + monthWidth * months.length;
+
+    this.ensureSpace(36);
+    const headerTop = this.y;
+    this.rect(margin, headerTop - 26, tableWidth, 26, "2 6 23");
+    this.textLine("WORK ITEM", margin + 10, headerTop - 17, { color: "203 213 225", font: "bold", size: 7 });
+    months.forEach((month, index) => {
+      const x = margin + itemColumnWidth + index * monthWidth;
+      this.strokeRect(x, headerTop - 26, monthWidth, 26, "30 41 59");
+      this.textLine(month.label, x + monthWidth / 2 - 11, headerTop - 17, { color: "255 255 255", font: "bold", size: 8 });
+    });
+    this.y -= 28;
+
     for (const [category, items] of Object.entries(groupedItems)) {
       this.ensureSpace(28);
-      this.rect(margin, this.y - 20, contentWidth, 20, "239 246 255");
+      this.rect(margin, this.y - 20, tableWidth, 20, "239 246 255");
       this.textLine(category.toUpperCase(), margin + 10, this.y - 14, { color: "3 105 161", font: "bold", size: 8 });
       this.y -= 28;
 
       for (const item of items.slice(0, 12)) {
-        const lines = wrapText(item.note, 8, contentWidth - 220).slice(0, 2);
-        const rowHeight = 58 + Math.max(0, lines.length - 1) * 10;
+        const noteLines = wrapText(item.note, 8, itemColumnWidth - 22).slice(0, 2);
+        const titleLines = wrapText(item.title, 9, itemColumnWidth - 22).slice(0, 2);
+        const rowHeight = 72 + Math.max(0, noteLines.length - 1) * 10 + Math.max(0, titleLines.length - 1) * 10;
+        const range = clientRoadmapRange(item, months);
         this.ensureSpace(rowHeight + 8);
         const rowTop = this.y;
-        this.strokeRect(margin, rowTop - rowHeight, contentWidth, rowHeight, "226 232 240");
-        this.textLine(item.title, margin + 12, rowTop - 18, { font: "bold", size: 10 });
-        this.textLine(item.owner ? `Owner: ${item.owner}` : "Owner not set", margin + 12, rowTop - 34, { color: "100 116 139", size: 8 });
-        lines.forEach((line, index) => this.textLine(line, margin + 12, rowTop - 48 - index * 10, { color: "71 85 105", size: 8 }));
-        this.textLine(formatRoadmapRange(item), margin + 330, rowTop - 18, { color: "15 23 42", font: "bold", size: 9 });
-        this.textLine(roadmapStatusLabels[item.status], margin + 330, rowTop - 36, { color: "3 105 161", font: "bold", size: 8 });
+        this.strokeRect(margin, rowTop - rowHeight, tableWidth, rowHeight, "226 232 240");
+        months.forEach((_, index) => {
+          const x = margin + itemColumnWidth + index * monthWidth;
+          this.strokeRect(x, rowTop - rowHeight, monthWidth, rowHeight, "226 232 240");
+        });
+        titleLines.forEach((line, index) => this.textLine(line, margin + 10, rowTop - 17 - index * 10, { font: "bold", size: 9 }));
+        this.textLine(item.owner ? `Owner: ${item.owner}` : "Owner not set", margin + 10, rowTop - 40, { color: "100 116 139", size: 7 });
+        noteLines.forEach((line, index) => this.textLine(line, margin + 10, rowTop - 54 - index * 10, { color: "71 85 105", size: 8 }));
+
+        const barX = margin + itemColumnWidth + range.start * monthWidth + 4;
+        const barWidth = Math.max(34, (range.end - range.start + 1) * monthWidth - 8);
+        const barY = rowTop - Math.min(48, Math.max(34, rowHeight * 0.58));
+        this.rect(barX, barY, barWidth, 18, roadmapStatusColors[item.status]);
+        this.textLine(roadmapStatusLabels[item.status].toUpperCase(), barX + Math.max(8, barWidth / 2 - 24), barY + 6, {
+          color: "255 255 255",
+          font: "bold",
+          size: 7
+        });
         this.y -= rowHeight + 14;
       }
     }
@@ -340,8 +438,12 @@ class PdfReport {
     }
 
     for (const row of rows.slice(0, 8)) {
-      const textLines = wrapText(row.text, 9, contentWidth - 28).slice(0, 3);
-      const height = 64 + textLines.length * 12;
+      const renderList = shouldRenderClientPortalList(row.text);
+      const textGroups = (renderList ? splitClientPortalListText(row.text) : [row.text])
+        .slice(0, 5)
+        .map((item) => wrapText(item, 9, contentWidth - (renderList ? 42 : 28)).slice(0, 2));
+      const textLineCount = textGroups.reduce((count, lines) => count + Math.max(lines.length, 1), 0);
+      const height = 64 + textLineCount * 12 + (renderList ? textGroups.length * 3 : 0);
       this.ensureSpace(height + 8);
       const top = this.y;
       this.strokeRect(margin, top - height, contentWidth, height, "226 232 240");
@@ -349,7 +451,14 @@ class PdfReport {
       this.textLine(row.owner || "Owner not set", margin + 12, top - 36, { font: "bold", size: 10 });
       this.textLine(row.statusLabel, margin + 385, top - 18, { color: "51 65 85", font: "bold", size: 8 });
       if (row.attachments > 0) this.textLine(`${row.attachments} attachment${row.attachments === 1 ? "" : "s"}`, margin + 385, top - 34, { color: "16 185 129", size: 8 });
-      textLines.forEach((line, index) => this.textLine(line, margin + 12, top - 58 - index * 12, { color: "51 65 85", size: 9 }));
+      let textY = top - 58;
+      textGroups.forEach((lines) => {
+        if (renderList) this.textLine("-", margin + 12, textY, { color: "3 105 161", font: "bold", size: 9 });
+        lines.forEach((line, index) => {
+          this.textLine(line, margin + (renderList ? 26 : 12), textY - index * 12, { color: "51 65 85", size: 9 });
+        });
+        textY -= Math.max(lines.length, 1) * 12 + (renderList ? 3 : 0);
+      });
       this.y -= height + 14;
     }
   }
