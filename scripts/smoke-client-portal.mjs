@@ -426,7 +426,7 @@ async function verifyClientPortalPdfExport(session, program, smokeText) {
           includesRoadmap: text.includes("Roadmap") && text.includes(arguments[1]),
           includesRoadmapGrid:
             text.includes("WORK ITEM") &&
-            /\b(JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC)\b/.test(text) &&
+            ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"].some((month) => text.includes(month)) &&
             text.includes("IN PROGRESS"),
           includesSmokeText: text.includes(arguments[2]),
           includesUpcomingWork: text.includes("Upcoming Work"),
