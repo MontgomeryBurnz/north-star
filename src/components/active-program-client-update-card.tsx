@@ -3,7 +3,12 @@
 import { useEffect, useMemo, useState } from "react";
 import { ArrowUpRight, SendHorizonal, ShieldCheck } from "lucide-react";
 import type { ActiveProgramReview, TeamRoleUpdate } from "@/lib/active-program-types";
-import type { ClientPortalDomainUpdate, ClientPortalUpdateInput, ClientPortalUpdateRecord } from "@/lib/client-portal-update-types";
+import type {
+  ClientPortalDomainUpdate,
+  ClientPortalOverallStatus,
+  ClientPortalUpdateInput,
+  ClientPortalUpdateRecord
+} from "@/lib/client-portal-update-types";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 
@@ -20,6 +25,11 @@ type ActiveProgramClientUpdateCardProps = {
 };
 
 const clientPhaseOptions = ["", "Intake", "Plan", "Execute", "Stabilize", "Value"] as const;
+const overallStatusOptions: Array<{ label: string; value: ClientPortalOverallStatus }> = [
+  { label: "Green", value: "green" },
+  { label: "Amber", value: "amber" },
+  { label: "Red", value: "red" }
+];
 
 function roleStatusLabel(status: TeamRoleUpdate["status"]) {
   if (status === "blocked") return "Blocked";
@@ -76,6 +86,7 @@ export function buildInitialClientUpdateDraft(
     nextMilestoneDate: latestUpdate?.nextMilestoneDate ?? "",
     nextMilestoneName: latestUpdate?.nextMilestoneName ?? "",
     nextMilestonePriority: latestUpdate?.nextMilestonePriority ?? "",
+    overallStatus: latestUpdate?.overallStatus,
     originalNorthStar: latestUpdate?.originalNorthStar ?? review.originalNorthStar ?? "",
     pmo: latestUpdate?.pmo ?? review.pmo ?? "",
     programCompletionPercent: latestUpdate?.programCompletionPercent ?? review.programCompletionPercent ?? "",
@@ -97,6 +108,8 @@ export function buildInitialClientUpdateDraft(
 function hasClientReadyContent(draft: ClientUpdateDraft) {
   return Boolean(
     draft.clientStatusNote.trim() ||
+      draft.currentPhase.trim() ||
+      draft.overallStatus ||
       draft.executiveOverview.trim() ||
       draft.progressSinceLastReview.trim() ||
       draft.upcomingWork.trim() ||
@@ -269,7 +282,7 @@ export function ActiveProgramClientUpdateCard({
         </div>
 
         <div className="grid gap-3 lg:grid-cols-2">
-          <label className="grid gap-2 lg:col-span-2">
+          <label className="grid gap-2">
             <span className="text-xs font-medium uppercase tracking-[0.18em] text-emerald-100">Client phase</span>
             <select
               data-active-client-update-current-phase
@@ -285,6 +298,26 @@ export function ActiveProgramClientUpdateCard({
             </select>
             <span className="text-xs leading-5 text-zinc-500">
               This phase is client-facing and does not inherit internal program status text.
+            </span>
+          </label>
+
+          <label className="grid gap-2">
+            <span className="text-xs font-medium uppercase tracking-[0.18em] text-emerald-100">Overall status</span>
+            <select
+              data-active-client-update-overall-status
+              value={draft.overallStatus ?? ""}
+              onChange={(event) => updateField("overallStatus", event.target.value)}
+              className="min-h-11 rounded-md border border-white/10 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 outline-none transition-colors focus:border-emerald-300/50"
+            >
+              <option value="">Select the client-facing status...</option>
+              {overallStatusOptions.map((statusOption) => (
+                <option key={statusOption.value} value={statusOption.value}>
+                  {statusOption.label}
+                </option>
+              ))}
+            </select>
+            <span className="text-xs leading-5 text-zinc-500">
+              Controls the top Client Portal status after this update is published.
             </span>
           </label>
 

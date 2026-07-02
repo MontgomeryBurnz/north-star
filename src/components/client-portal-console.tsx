@@ -190,15 +190,8 @@ function ProgramHero({ program }: { program: ClientPortalProgram }) {
           <p className="text-sm font-semibold uppercase tracking-[0.16em] text-sky-200">{program.clientName}</p>
           <h2 className="mt-3 break-words text-2xl font-semibold tracking-normal sm:text-3xl md:text-4xl">{program.name}</h2>
         </div>
-        <div className="grid grid-cols-3 gap-2 sm:gap-3">
+        <div className="grid gap-2 sm:grid-cols-2 sm:gap-3">
           <HeroMetric label="Overall Status" metricId="overall-status" value={program.statusSignal} dot={styles.heroDot} />
-          <HeroMetric
-            label="% Complete"
-            metricId="percent-complete"
-            value={`${program.metrics.programCompletionPercent}%`}
-            delta={program.completionDelta}
-            helper={`Basis: ${program.metrics.completionBasis} · ${program.metrics.completionScheduleLabel}`}
-          />
           <HeroMetric label="Current Phase" metricId="current-phase" value={program.phase} />
         </div>
         <div className="border-t border-white/15 pt-4 text-sm text-slate-300 sm:pt-5 sm:text-base">
@@ -270,7 +263,7 @@ function ClientWorkRoadmap({ program }: { program: ClientPortalProgram }) {
     <ExecutiveCard icon={BriefcaseBusiness} title={clientRoadmapTitle(program.name)}>
       <div className="mt-2 flex flex-wrap items-center justify-between gap-3">
         <p className="max-w-3xl text-base leading-7 text-slate-600">
-          Client-visible work by category and month range, maintained from the governed Client Updates lane.
+          Roadmap items are maintained from Client Updates and organized by category and month range.
         </p>
         <span className="rounded-full border border-sky-200 bg-sky-50 px-3 py-1 text-xs font-semibold uppercase tracking-[0.12em] text-sky-800">
           {items.length} item{items.length === 1 ? "" : "s"}

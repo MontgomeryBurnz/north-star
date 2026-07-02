@@ -256,15 +256,10 @@ class PdfReport {
     const metricTop = top - 108;
     const metricHeight = 66;
     const gap = 10;
-    const metricWidth = (contentWidth - gap * 2 - 36) / 3;
+    const metricWidth = (contentWidth - gap - 36) / 2;
     const metricX = margin + 18;
     const metrics = [
       { label: "Overall Status", helper: program.postureLabel, value: statusLabel(program) },
-      {
-        label: "% Complete",
-        helper: `Basis: ${program.metrics.completionBasis} - ${program.metrics.completionScheduleLabel}`,
-        value: `${program.metrics.programCompletionPercent}%${program.completionDelta ? ` ${program.completionDelta}` : ""}`
-      },
       { label: "Current Phase", helper: "", value: program.phase }
     ];
 
@@ -293,7 +288,7 @@ class PdfReport {
 
   clientRoadmap(program: ClientPortalProgram) {
     this.section(clientRoadmapTitle(program.name));
-    this.paragraph("Client-visible work by category and month range, maintained from the governed Client Updates lane.", {
+    this.paragraph("Roadmap items are maintained from Client Updates and organized by category and month range.", {
       maxLines: 2
     });
 

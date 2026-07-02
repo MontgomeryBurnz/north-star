@@ -206,6 +206,7 @@ function buildSeededReview(program, smokeText) {
     nextMilestoneDate: "2026-05-08",
     nextMilestoneName: `Client Portal smoke milestone ${smokeText}`,
     nextMilestonePriority: "High",
+    overallStatus: "amber",
     originalNorthStar: program.intake.vision || `Client Portal smoke north star ${smokeText}.`,
     pmo: "Client Portal Smoke PMO",
     programCompletionPercent: "",
@@ -479,7 +480,7 @@ async function assertClientPortalLayout(session, program, label) {
         metricCount: metrics.length,
         metricInsideHero,
         ok: Boolean(hero) &&
-          metrics.length === 3 &&
+          metrics.length === 2 &&
           metricInsideHero &&
           !phaseText.includes("Right now") &&
           !phaseText.includes("working to") &&

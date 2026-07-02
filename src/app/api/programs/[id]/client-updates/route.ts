@@ -4,7 +4,11 @@ import { canAccessClientDashboardUpdateSurface } from "@/lib/admin-user-types";
 import { auditActorFromManagedUser } from "@/lib/audit-event-service";
 import type { TeamRoleUpdateStatus } from "@/lib/active-program-types";
 import { validateClientPortalUpdateInput } from "@/lib/client-safe-copy";
-import type { ClientPortalRoadmapItemStatus, ClientPortalUpdateInput } from "@/lib/client-portal-update-types";
+import type {
+  ClientPortalOverallStatus,
+  ClientPortalRoadmapItemStatus,
+  ClientPortalUpdateInput
+} from "@/lib/client-portal-update-types";
 import {
   createAuditEvent,
   createClientPortalUpdate,
@@ -32,6 +36,11 @@ function normalizeRoadmapStatus(value: unknown): ClientPortalRoadmapItemStatus {
   }
 
   return "planned";
+}
+
+function normalizeOverallStatus(value: unknown): ClientPortalOverallStatus | undefined {
+  if (value === "green" || value === "amber" || value === "red") return value;
+  return undefined;
 }
 
 function normalizeClientUpdateInput(body: Partial<ClientPortalUpdateInput>): ClientPortalUpdateInput {
@@ -76,6 +85,7 @@ function normalizeClientUpdateInput(body: Partial<ClientPortalUpdateInput>): Cli
     nextMilestoneDate: clean(body.nextMilestoneDate),
     nextMilestoneName: clean(body.nextMilestoneName),
     nextMilestonePriority: clean(body.nextMilestonePriority),
+    overallStatus: normalizeOverallStatus(body.overallStatus),
     originalNorthStar: clean(body.originalNorthStar),
     pmo: clean(body.pmo),
     programCompletionPercent: clean(body.programCompletionPercent),
@@ -97,6 +107,8 @@ function normalizeClientUpdateInput(body: Partial<ClientPortalUpdateInput>): Cli
 function hasClientVisibleContent(input: ClientPortalUpdateInput) {
   return Boolean(
     input.clientStatusNote ||
+      input.currentPhase ||
+      input.overallStatus ||
       input.executiveOverview ||
       input.progressSinceLastReview ||
       input.upcomingWork ||

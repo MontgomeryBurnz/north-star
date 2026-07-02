@@ -51,7 +51,8 @@ test("Client Portal frames executive overview and domain progress", () => {
   assert.match(source, /data-client-program-hero/);
   assert.match(source, /data-client-hero-metric/);
   assert.match(source, /MetricBasisLabel/);
-  assert.match(source, /grid grid-cols-3 gap-2 sm:gap-3/);
+  assert.match(source, /grid gap-2 sm:grid-cols-2 sm:gap-3/);
+  assert.doesNotMatch(source, /metricId="percent-complete"/);
   assert.match(source, /grid min-w-0 max-w-full gap-6 overflow-hidden/);
   assert.match(source, /data-client-executive-sponsor/);
   assert.doesNotMatch(source, /data-client-program-lead/);
@@ -795,6 +796,7 @@ test("Active Program review is split into state, cockpit, and team signal flows"
   assert.match(clientPortalSmokeSource, /captureClientPortalScreenshots/);
   assert.match(clientPortalSmokeSource, /Client Portal desktop screenshot layout/);
   assert.match(clientPortalSmokeSource, /data-client-hero-metric='current-phase'/);
+  assert.match(clientPortalSmokeSource, /metrics\.length === 2/);
   assert.match(clientPortalSmokeSource, /client-portal-desktop\.png/);
   assert.match(clientPortalSmokeSource, /client-portal-mobile\.png/);
   assert.match(clientPortalSmokeSource, /verifyClientPortalPdfExport/);
@@ -802,6 +804,7 @@ test("Active Program review is split into state, cockpit, and team signal flows"
   assert.match(clientPortalSmokeSource, /method: "DELETE"/);
   assert.match(clientPortalSmokeSource, /NORTHSTAR_CLIENT_PORTAL_SMOKE_CLEANUP/);
   assert.match(clientUpdateCardSource, /data-active-client-update-builder/);
+  assert.match(clientUpdateCardSource, /data-active-client-update-overall-status/);
   assert.match(clientUpdateCardSource, /Governed client publication layer/);
   assert.match(clientUpdateCardSource, /Internal role updates, blockers, and working notes remain private/);
   assert.match(clientUpdateCardSource, /Client-safe copy rules block/);
@@ -821,6 +824,8 @@ test("Active Program review is split into state, cockpit, and team signal flows"
   assert.doesNotMatch(clientPortalDataSource, /listProgramUpdates/);
   assert.match(clientPortalConsoleSource, /data-client-export-portfolio/);
   assert.doesNotMatch(clientPortalConsoleSource, /data-client-export-program/);
+  assert.doesNotMatch(clientPortalConsoleSource, /metricId="percent-complete"/);
+  assert.doesNotMatch(clientPortalConsoleSource, /Client-visible work/);
   assert.match(clientPortalConsoleSource, /Download PDF/);
   assert.match(clientPortalConsoleSource, /\/api\/client-portal\/export\/pdf/);
   assert.doesNotMatch(clientPortalConsoleSource, /\/client\/export\?scope=portfolio/);
@@ -830,6 +835,7 @@ test("Active Program review is split into state, cockpit, and team signal flows"
   assert.match(clientPortalPdfRouteSource, /client\.portal\.export/);
   assert.match(clientPortalPdfSource, /%PDF-1\.4/);
   assert.match(clientPortalPdfSource, /clientRoadmapTitle/);
+  assert.doesNotMatch(clientPortalPdfSource, /Client-visible work/);
   assert.match(clientPortalPdfSource, /Upcoming Work \(Next 2 Weeks\)/);
   assert.doesNotMatch(clientPortalPdfSource, /Report Basis/);
   assert.match(clientPortalExportPageSource, /loadClientPortalData/);
@@ -1098,6 +1104,7 @@ test("Client Dashboard Contributor has a scoped publication lane", () => {
   assert.match(clientUpdatesConsoleSource, />Year</);
   assert.doesNotMatch(clientUpdatesConsoleSource, /type="month"/);
   assert.match(clientUpdatesConsoleSource, /data-client-dashboard-current-phase/);
+  assert.match(clientUpdatesConsoleSource, /data-client-dashboard-overall-status/);
   assert.match(clientUpdatesConsoleSource, /buildClientDashboardDraft/);
   assert.match(clientUpdatesConsoleSource, /Loaded latest published update/);
   assert.match(clientUpdatesConsoleSource, /\/api\/programs\/\$\{encodeURIComponent\(selectedProgram\.id\)\}\/client-updates/);
@@ -1115,6 +1122,7 @@ test("Client Dashboard Contributor has a scoped publication lane", () => {
   assert.match(packageSource, /smoke:client-updates/);
   assert.match(productionSmokeSource, /smoke-client-dashboard-updates\.mjs/);
   assert.match(clientUpdatesSmokeSource, /data-client-dashboard-publish/);
+  assert.match(clientUpdatesSmokeSource, /data-client-dashboard-overall-status/);
   assert.match(clientUpdatesSmokeSource, /verifyClientUpdateFormHydratesLatestSnapshot/);
   assert.match(clientUpdatesSmokeSource, /latest published snapshot reloads into the edit form/);
   assert.match(clientUpdatesSmokeSource, /client-updates/);

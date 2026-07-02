@@ -16,6 +16,7 @@ export type ClientPortalDomainUpdate = {
 };
 
 export type ClientPortalRoadmapItemStatus = "planned" | "in-progress" | "at-risk" | "blocked" | "complete";
+export type ClientPortalOverallStatus = "green" | "amber" | "red";
 
 export type ClientPortalRoadmapItem = {
   category: string;
@@ -44,6 +45,7 @@ export type ClientPortalUpdateInput = {
   nextMilestoneDate?: string;
   nextMilestoneName?: string;
   nextMilestonePriority?: string;
+  overallStatus?: ClientPortalOverallStatus;
   originalNorthStar?: string;
   pmo?: string;
   programCompletionPercent?: string;

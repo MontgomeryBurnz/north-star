@@ -227,7 +227,24 @@ test("buildClientPortalProgram creates executive posture from program signals", 
   assert.equal(portalProgram.roadmapCurrentWindowIndex, 2);
 });
 
-test("Client Portal exposes client-update roadmap rows as client-visible work", () => {
+test("buildClientPortalProgram uses explicit client-facing overall status when published", () => {
+  const portalProgram = buildClientPortalProgram({
+    latestClientUpdate: {
+      ...clientUpdate,
+      activeRisks: "",
+      deliveryHealth: "",
+      domainUpdates: [],
+      overallStatus: "red"
+    },
+    program
+  });
+
+  assert.equal(portalProgram.posture, "blocked");
+  assert.equal(portalProgram.postureLabel, "Blocked");
+  assert.equal(portalProgram.statusSignal, "RED");
+});
+
+test("Client Portal exposes client-update roadmap rows from Client Updates", () => {
   const roadmapUpdate: ClientPortalUpdateRecord = {
     ...clientUpdate,
     clientRoadmapItems: [

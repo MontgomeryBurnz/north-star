@@ -7,7 +7,11 @@ import type {
   TeamRoleUpdate,
   TeamRoleUpdateStatus
 } from "./active-program-types.ts";
-import type { ClientPortalRoadmapItem, ClientPortalUpdateRecord } from "./client-portal-update-types.ts";
+import type {
+  ClientPortalOverallStatus,
+  ClientPortalRoadmapItem,
+  ClientPortalUpdateRecord
+} from "./client-portal-update-types.ts";
 import type { GuidedPlan } from "./guided-plan-types.ts";
 import type { ClientDecisionRequest } from "./program-intelligence-types.ts";
 import type { ProgramTeamFootprintRole, StoredProgram } from "./program-intake-types.ts";
@@ -306,6 +310,13 @@ function statusSignal(posture: ClientProgramPosture): ClientProgramStatusSignal 
   if (posture === "at-risk") return "AMBER";
   if (posture === "blocked") return "RED";
   return "WATCH";
+}
+
+function postureFromClientOverallStatus(status: ClientPortalOverallStatus | undefined): ClientProgramPosture | null {
+  if (status === "green") return "on-track";
+  if (status === "amber") return "at-risk";
+  if (status === "red") return "blocked";
+  return null;
 }
 
 function parsePercent(value: string | undefined | null) {
@@ -1242,11 +1253,13 @@ export function buildClientPortalProgram(input: ClientPortalProgramInput): Clien
     firstNonEmpty(review?.currentPhase, clientUpdate ? "Phase not set" : intake.currentStatus, "Phase not set")
   );
   const { atRiskRoles, blockedRoles } = deriveRoleStatusCounts(roleUpdates);
-  const posture = derivePosture({
-    deliveryHealth: firstNonEmpty(review?.deliveryHealth, intake.currentStatus),
-    riskText: risks.join(" "),
-    roleUpdates
-  });
+  const posture =
+    postureFromClientOverallStatus(clientUpdate?.overallStatus) ??
+    derivePosture({
+      deliveryHealth: firstNonEmpty(review?.deliveryHealth, intake.currentStatus),
+      riskText: risks.join(" "),
+      roleUpdates
+    });
   const updateTimestamp = clientUpdate?.updatedAt ?? clientUpdate?.createdAt;
   const clientRoadmapItems = buildClientRoadmapItems(clientUpdate);
   const completion = getCompletionMetrics({

@@ -104,7 +104,23 @@ async function setTextarea(session, selector, value) {
   );
 }
 
+async function setSelect(session, selector, value) {
+  await session.execute(
+    `
+      const element = document.querySelector(arguments[0]);
+      if (!element) throw new Error("Missing select " + arguments[0]);
+      const setter = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, "value").set;
+      setter.call(element, arguments[1]);
+      element.dispatchEvent(new Event("change", { bubbles: true }));
+      return true;
+    `,
+    [selector, value]
+  );
+}
+
 async function publishClientDashboardUpdate(session, program, smokeText) {
+  await setSelect(session, "[data-client-dashboard-current-phase]", "Execute");
+  await setSelect(session, "[data-client-dashboard-overall-status]", "amber");
   await setTextarea(session, "[data-client-dashboard-overview]", `${smokeText}: executive dashboard publication verified.`);
   await setTextarea(session, "[data-client-dashboard-progress]", `${smokeText}: recent accomplishment rendered in the portal.`);
   await setTextarea(session, "[data-client-dashboard-upcoming]", `${smokeText}: next client-visible activity rendered.`);
