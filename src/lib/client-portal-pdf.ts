@@ -27,6 +27,21 @@ function byteLength(value: string) {
   return Buffer.byteLength(value, "latin1");
 }
 
+function pdfColor(value: string) {
+  const channels = value
+    .trim()
+    .split(/\s+/)
+    .map((channel) => Number(channel));
+  const normalized = channels.length === 3 && channels.every((channel) => Number.isFinite(channel))
+    ? channels.map((channel) => {
+        const clamped = Math.max(0, Math.min(255, channel));
+        return (clamped / 255).toFixed(3).replace(/0+$/, "").replace(/\.$/, "");
+      })
+    : ["0", "0", "0"];
+
+  return normalized.join(" ");
+}
+
 function formatDateTime(value: string) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return sanitizePdfText(value);
@@ -91,21 +106,21 @@ class PdfReport {
   private textLine(text: string, x: number, y: number, options: { color?: string; font?: PdfFont; size?: number } = {}) {
     const font = options.font === "bold" ? "F2" : "F1";
     const size = options.size ?? 10;
-    const color = options.color ?? "15 23 42";
+    const color = pdfColor(options.color ?? "15 23 42");
     this.add(`BT /${font} ${size} Tf ${color} rg ${x.toFixed(2)} ${y.toFixed(2)} Td (${escapePdfText(text)}) Tj ET`);
   }
 
   private rect(x: number, y: number, width: number, height: number, color: string) {
-    this.add(`q ${color} rg ${x.toFixed(2)} ${y.toFixed(2)} ${width.toFixed(2)} ${height.toFixed(2)} re f Q`);
+    this.add(`q ${pdfColor(color)} rg ${x.toFixed(2)} ${y.toFixed(2)} ${width.toFixed(2)} ${height.toFixed(2)} re f Q`);
   }
 
   private strokeRect(x: number, y: number, width: number, height: number, color = "203 213 225") {
-    this.add(`q ${color} RG 1 w ${x.toFixed(2)} ${y.toFixed(2)} ${width.toFixed(2)} ${height.toFixed(2)} re S Q`);
+    this.add(`q ${pdfColor(color)} RG 1 w ${x.toFixed(2)} ${y.toFixed(2)} ${width.toFixed(2)} ${height.toFixed(2)} re S Q`);
   }
 
   private divider() {
     const y = (this.y - 4).toFixed(2);
-    this.add(`q 226 232 240 RG 1 w ${margin} ${y} m ${margin + contentWidth} ${y} l S Q`);
+    this.add(`q ${pdfColor("226 232 240")} RG 1 w ${margin} ${y} m ${margin + contentWidth} ${y} l S Q`);
     this.y -= 16;
   }
 

@@ -528,6 +528,16 @@ test("Client Portal PDF builder returns a downloadable PDF buffer", () => {
   assert.match(pdf.toString("latin1"), /CLIENT PORTFOLIO REPORT/);
   assert.match(pdf.toString("latin1"), /Internal role updates/);
   assert.match(pdf.toString("latin1"), /tactical notes/);
+  const pdfSource = pdf.toString("latin1");
+  const colorCommands = [...pdfSource.matchAll(/\b(\d*\.?\d+)\s+(\d*\.?\d+)\s+(\d*\.?\d+)\s+(?:rg|RG)\b/g)];
+  assert.ok(colorCommands.length > 0);
+  for (const command of colorCommands) {
+    const values = command.slice(1, 4).map(Number);
+    assert.ok(
+      values.every((value) => value >= 0 && value <= 1),
+      `PDF color command must use normalized RGB values: ${command[0]}`
+    );
+  }
   assert.equal(
     clientPortalPdfFilename({ clientName: "Impower", scope: "portfolio" }),
     "impower-portfolio.pdf"
