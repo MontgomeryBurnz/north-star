@@ -3,7 +3,6 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
 import {
-  ArrowDownRight,
   ArrowRight,
   ArrowUpRight,
   BriefcaseBusiness,
@@ -202,58 +201,6 @@ function PortfolioLogoutForm() {
   );
 }
 
-function MetricTile({ helper, label, value }: { helper?: string; label: string; value: string }) {
-  return (
-    <div className="min-h-32 rounded-lg border border-slate-200 bg-white p-6 shadow-[0_18px_45px_rgba(15,23,42,0.08)]">
-      <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">{label}</p>
-      <p className="mt-8 text-4xl font-semibold tracking-normal text-slate-950">{value}</p>
-      {helper ? <MetricBasisLabel className="mt-3 text-slate-600">{helper}</MetricBasisLabel> : null}
-    </div>
-  );
-}
-
-function deriveVisibleMetrics(programs: ClientPortalProgram[]) {
-  const totalPrograms = programs.length;
-  const weightedHealth = programs.reduce((total, program) => {
-    if (program.posture === "on-track") return total + 100;
-    if (program.posture === "watch") return total + 72;
-    if (program.posture === "at-risk") return total + 46;
-    return total + 18;
-  }, 0);
-
-  return {
-    averageCompletionPercent: totalPrograms
-      ? Math.round(programs.reduce((total, program) => total + program.metrics.programCompletionPercent, 0) / totalPrograms)
-      : 0,
-    atRisk: programs.filter((program) => program.posture === "at-risk" || program.posture === "blocked").length,
-    decisions: programs.reduce((total, program) => total + program.metrics.decisions, 0),
-    delayed: programs.filter(
-      (program) =>
-        program.posture === "blocked" ||
-        program.posture === "watch" ||
-        (program.posture === "at-risk" && program.metrics.programCompletionPercent < 60)
-    ).length,
-    healthScore: totalPrograms ? Math.round(weightedHealth / totalPrograms) : 0,
-    totalPrograms
-  };
-}
-
-function TrendIcon({ trend }: { trend: ClientPortalPortfolioRisk["trend"] }) {
-  if (trend === "Worse") return <ArrowUpRight className="h-4 w-4" />;
-  if (trend === "Better") return <ArrowDownRight className="h-4 w-4" />;
-  return <ArrowRight className="h-4 w-4" />;
-}
-
-function riskTone(risk: ClientPortalPortfolioRisk) {
-  if (risk.trend === "Worse") {
-    return "border-rose-200 bg-rose-50 text-rose-900";
-  }
-  if (risk.trend === "Better") {
-    return "border-emerald-200 bg-emerald-50 text-emerald-900";
-  }
-  return "border-slate-200 bg-white text-slate-800";
-}
-
 function ProgramGridRow({
   onSelect,
   program,
@@ -345,7 +292,7 @@ function UpcomingMilestonesPanel({ milestones }: { milestones: ClientPortalPortf
           </div>
         )) : (
           <p className="rounded-md border border-slate-200 bg-slate-50 p-4 text-base font-medium leading-7 text-slate-600">
-            Upcoming milestones will appear after programs capture delivery checkpoints or board due dates.
+            Upcoming milestones will appear after a reviewed Client Update publishes milestone details.
           </p>
         )}
       </div>
@@ -364,18 +311,13 @@ function PortfolioRisksPanel({ risks }: { risks: ClientPortalPortfolioRisk[] }) 
       </div>
       <div className="mt-4 grid gap-3">
         {risks.length ? risks.map((risk) => (
-          <div key={risk.id} className={cn("rounded-md border p-4", riskTone(risk))}>
+          <div key={risk.id} className="rounded-md border border-slate-200 bg-slate-50 p-4 text-slate-900">
             <div className="flex items-start justify-between gap-4">
               <p className="text-base font-semibold leading-7 text-slate-950">{risk.description}</p>
-              <span className="flex shrink-0 items-center gap-1 text-sm font-semibold">
-                <TrendIcon trend={risk.trend} />
-                {risk.trend}
-              </span>
             </div>
             <p className="mt-4 text-sm font-medium text-slate-700">
-              {risk.programName} <span className="mx-2">Severity: {risk.severity}</span>
+              {risk.programName}
             </p>
-            <p className="mt-3 text-sm font-medium text-slate-700">Mitigation: {risk.mitigationOwner}</p>
           </div>
         )) : (
           <p className="rounded-md border border-slate-200 bg-slate-50 p-4 text-base font-medium leading-7 text-slate-600">
@@ -743,38 +685,14 @@ function RiskDecisionSection({ program }: { program: ClientPortalProgram }) {
   return (
     <div className="grid min-w-0 gap-6 xl:grid-cols-2">
       <ExecutiveCard icon={TriangleAlert} title="Risks / Issues / Dependencies">
-        {program.executiveRisks.length ? (
-          <div className="mt-7 overflow-x-auto">
-            <table className="w-full min-w-[42rem] text-left">
-              <thead>
-                <tr className="border-b border-slate-200 text-xs font-semibold uppercase tracking-[0.1em] text-slate-500">
-                  <th className="py-3 pr-5">Severity</th>
-                  <th className="py-3 pr-5">Description</th>
-                  <th className="py-3 pr-5">Owner</th>
-                  <th className="py-3 pr-5">Mitigation</th>
-                  <th className="py-3">Target Date</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-200 text-sm font-medium leading-6 text-slate-700">
-                {program.executiveRisks.map((risk, index) => (
-                  <tr key={`${risk.description}-${index}`}>
-                    <td
-                      className={cn(
-                        "py-4 pr-5 font-semibold",
-                        risk.severity === "High" ? "text-rose-700" : risk.severity === "Medium" ? "text-amber-700" : "text-emerald-700"
-                      )}
-                    >
-                      {risk.severity}
-                    </td>
-                    <td className="py-4 pr-5">{risk.description}</td>
-                    <td className="py-4 pr-5">{risk.owner}</td>
-                    <td className="py-4 pr-5">{risk.mitigation}</td>
-                    <td className="py-4">{risk.target}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+        {program.risks.length ? (
+          <ul className="mt-6 grid gap-3">
+            {program.risks.map((risk, index) => (
+              <li key={`${risk}-${index}`} className="rounded-lg border border-slate-200 bg-slate-50 p-5 text-base font-medium leading-7 text-slate-700">
+                {risk}
+              </li>
+            ))}
+          </ul>
         ) : (
           <p className="mt-6 rounded-lg border border-slate-200 bg-slate-50 p-5 text-base font-medium leading-7 text-slate-600">
             No executive risks, issues, or dependencies are currently captured for this program.
@@ -788,15 +706,14 @@ function RiskDecisionSection({ program }: { program: ClientPortalProgram }) {
           Leadership Decisions Needed
         </h3>
         <div className="mt-6 grid gap-4">
-          {program.leadershipDecisions.length ? (
-            program.leadershipDecisions.map((decision, index) => (
-              <div key={`${decision.title}-${index}`} className="grid grid-cols-[3rem_minmax(0,1fr)] gap-4 rounded-lg border border-slate-200 bg-white p-5">
+          {program.decisions.length ? (
+            program.decisions.map((decision, index) => (
+              <div key={`${decision}-${index}`} className="grid grid-cols-[3rem_minmax(0,1fr)] gap-4 rounded-lg border border-slate-200 bg-white p-5">
                 <span className={cn("flex h-10 w-10 items-center justify-center rounded-full text-lg font-semibold text-white", index === 0 ? "bg-rose-500" : "bg-amber-500")}>
                   {index + 1}
                 </span>
                 <span>
-                  <span className="block text-lg font-semibold leading-7 text-slate-950">{decision.title}</span>
-                  <span className="mt-1 block text-sm font-medium text-slate-600">{decision.meta}</span>
+                  <span className="block text-lg font-semibold leading-7 text-slate-950">{decision}</span>
                 </span>
               </div>
             ))
@@ -998,7 +915,6 @@ export function ClientPortalConsole({
     () => clientPrograms.filter((program) => visibleProgramIds.has(program.id)),
     [clientPrograms, visibleProgramIds]
   );
-  const visibleMetrics = useMemo(() => deriveVisibleMetrics(visiblePrograms), [visiblePrograms]);
   const selectedProgram = useMemo(
     () => visiblePrograms.find((program) => program.id === selectedProgramId) ?? visiblePrograms[0] ?? null,
     [selectedProgramId, visiblePrograms]
@@ -1102,14 +1018,6 @@ export function ClientPortalConsole({
               </Link>
             </Button>
           ) : null}
-        </section>
-
-        <section className="mt-8 grid gap-5 md:grid-cols-2 xl:grid-cols-5">
-          <MetricTile label="Total Programs" value={String(visibleMetrics.totalPrograms)} />
-          <MetricTile label="At Risk" value={String(visibleMetrics.atRisk)} />
-          <MetricTile label="Delayed" value={String(visibleMetrics.delayed)} />
-          <MetricTile label="Avg % Complete" value={`${visibleMetrics.averageCompletionPercent}%`} helper="Averaged from each program's shown completion basis." />
-          <MetricTile label="Decisions Pending" value={String(visibleMetrics.decisions)} />
         </section>
 
         {portfolio.programs.length ? (

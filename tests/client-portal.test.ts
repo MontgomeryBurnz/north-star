@@ -401,6 +401,30 @@ test("Client Portal blocks and scrubs unsafe client-facing copy", () => {
   assert.match(serialized, /Client-safe dependency review/);
 });
 
+test("Client Portal does not generate portfolio milestones or risk metadata from inferred inputs", () => {
+  const minimalClientUpdate: ClientPortalUpdateRecord = {
+    ...clientUpdate,
+    activeRisks: "Client-visible dependency needs date confirmation.",
+    clientStatusNote: "Client-ready summary only.",
+    deliveryBoardItems: [],
+    domainUpdates: [],
+    nextMilestoneDate: "",
+    nextMilestoneName: "",
+    nextMilestonePriority: "",
+    programMilestones: []
+  };
+  const portfolio = buildClientPortalPortfolio({
+    generatedAt: "2026-04-30T00:00:00.000Z",
+    programs: [{ latestClientUpdate: minimalClientUpdate, program }]
+  });
+
+  assert.equal(portfolio.upcomingMilestones.length, 0);
+  assert.equal(portfolio.keyRisks[0]?.description, "Client-visible dependency needs date confirmation.");
+  assert.equal("severity" in (portfolio.keyRisks[0] ?? {}), false);
+  assert.equal("trend" in (portfolio.keyRisks[0] ?? {}), false);
+  assert.equal("mitigationOwner" in (portfolio.keyRisks[0] ?? {}), false);
+});
+
 test("buildClientPortalPortfolio rolls program posture into portfolio metrics", () => {
   const portfolio = buildClientPortalPortfolio({
     generatedAt: "2026-04-30T00:00:00.000Z",
@@ -417,7 +441,7 @@ test("buildClientPortalPortfolio rolls program posture into portfolio metrics", 
   assert.deepEqual(portfolio.clients[0]?.programIds, ["compliance-hub"]);
   assert.equal(portfolio.clients[0]?.metrics.totalPrograms, 1);
   assert.equal(portfolio.upcomingMilestones[0]?.title, "Scope baseline");
-  assert.equal(portfolio.keyRisks[0]?.trend, "Worse");
+  assert.equal(portfolio.keyRisks[0]?.description, "iTrade API timing could delay release.");
   assert.equal(portfolio.roadmap[0]?.segments.length, 5);
   assert.equal(portfolio.roadmap[0]?.windowMode, "year");
   assert.equal(portfolio.roadmap[0]?.timeframeLabel, "FY25");

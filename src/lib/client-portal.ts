@@ -19,7 +19,6 @@ import { firstNonEmpty, firstSignal, normalizeWhitespace, splitSignals } from ".
 export type ClientProgramPosture = "on-track" | "at-risk" | "blocked" | "watch";
 export type ClientProgramStatusSignal = "GREEN" | "AMBER" | "RED" | "WATCH";
 export type ClientPortalPriority = "High" | "Medium" | "Low";
-export type ClientPortalRiskTrend = "Worse" | "Stable" | "Better";
 
 export type ClientPortalDomainSummary = {
   owner: string;
@@ -143,11 +142,8 @@ export type ClientPortalPortfolioRisk = {
   clientName: string;
   description: string;
   id: string;
-  mitigationOwner: string;
   programId: string;
   programName: string;
-  severity: "High" | "Medium" | "Low" | "Dependency";
-  trend: ClientPortalRiskTrend;
 };
 
 export type ClientPortalRoadmapRow = {
@@ -337,12 +333,6 @@ function priorityFromReview(value: string | undefined | null): ClientPortalPrior
   if (normalized === "medium") return "Medium";
   if (normalized === "low") return "Low";
   return null;
-}
-
-function riskTrend(posture: ClientProgramPosture): ClientPortalRiskTrend {
-  if (posture === "blocked" || posture === "at-risk") return "Worse";
-  if (posture === "watch") return "Stable";
-  return "Better";
 }
 
 function roleStatusLabel(status: TeamRoleUpdateStatus | undefined) {
@@ -919,28 +909,16 @@ function buildExecutiveRisks(input: {
   owner: string;
   posture: ClientProgramPosture;
   risks: string[];
-  review: StoredProgramUpdate["review"] | undefined;
 }) {
   const riskRows = input.risks.filter(isMeaningfulSignal).map((risk, index) => ({
     severity: (input.posture === "blocked" || (input.posture === "at-risk" && index === 0) ? "High" : "Medium") as "High" | "Medium",
     description: risk,
-    mitigation: firstMeaningful(input.review?.supportNeeded, input.review?.programSynthesisNote, "Mitigation not captured yet."),
+    mitigation: "",
     owner: input.owner,
-    target: formatDateLabel(input.review?.nextMilestoneDate) || "Not captured"
+    target: ""
   }));
 
-  const blockedBoardRows = (input.review?.deliveryBoardItems ?? [])
-    .filter((item) => item.status === "blocked")
-    .slice(0, 2)
-    .map((item) => ({
-      severity: "Dependency" as const,
-      description: `${item.role || "Team"} blocked on ${item.title}.`,
-      mitigation: firstMeaningful(item.latestNote, item.description, "Resolve blocker and confirm dependency path."),
-      owner: firstNonEmpty(item.owner, input.owner),
-      target: formatDateLabel(item.dueDate) || "Next checkpoint"
-    }));
-
-  return [...riskRows, ...blockedBoardRows].slice(0, 4);
+  return riskRows.slice(0, 4);
 }
 
 function buildLeadershipDecisions(input: {
@@ -1068,19 +1046,11 @@ function buildWorkstreams(
   });
 }
 
-function buildMilestones(input: {
-  completion: { phaseCompletionPercent: number; programCompletionPercent: number };
-  decisions: string[];
-  phase: string;
-  program: StoredProgram;
-  recommendedPath: string[];
-  review: StoredProgramUpdate["review"] | undefined;
-  updateTimestamp: string | undefined;
-}) {
-  const reviewMilestones = buildReviewMilestones(input.review?.programMilestones);
-  const explicitMilestoneName = clean(input.review?.nextMilestoneName);
-  const explicitMilestoneDate = formatDateLabel(input.review?.nextMilestoneDate);
-  const explicitMilestonePriority = priorityFromReview(input.review?.nextMilestonePriority);
+function buildMilestones(review: StoredProgramUpdate["review"] | undefined) {
+  const reviewMilestones = buildReviewMilestones(review?.programMilestones);
+  const explicitMilestoneName = clean(review?.nextMilestoneName);
+  const explicitMilestoneDate = formatDateLabel(review?.nextMilestoneDate);
+  const explicitMilestonePriority = priorityFromReview(review?.nextMilestonePriority);
   const explicitMilestone = explicitMilestoneName
     ? {
         dateLabel: explicitMilestoneDate || "Date not captured",
@@ -1102,54 +1072,7 @@ function buildMilestones(input: {
     return (explicitMilestone && !hasExplicitMilestone ? [...reviewMilestones, explicitMilestone] : reviewMilestones).slice(0, 6);
   }
 
-  const boardMilestones = (input.review?.deliveryBoardItems ?? [])
-    .filter((item) => item.dueDate && isMeaningfulSignal(item.title))
-    .sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime())
-    .slice(0, 4)
-    .map((item) => ({
-      dateLabel: formatDateLabel(item.dueDate) || "Due date",
-      name: item.title,
-      note: `${item.role || "Team"} · ${deliveryBoardStatusLabel(item.status)}`,
-      priority: undefined,
-      status: item.status === "done" ? "complete" as const : item.status === "in-progress" || item.status === "needs-review" ? "current" as const : "next" as const
-    }));
-  const createdLabel = formatDateLabel(input.program.createdAt) || "Captured";
-  const updatedLabel = formatDateLabel(input.updateTimestamp) || "";
-  const milestones: ClientPortalProgram["milestones"] = [
-    {
-      dateLabel: createdLabel,
-      name: "Program intake captured",
-      note: firstSignal(input.program.intake.outcomes, input.program.intake.sowSummary || "Initial program setup saved."),
-      priority: undefined,
-      status: "complete" as const
-    }
-  ];
-
-  if (updatedLabel && firstMeaningful(input.review?.clientStatusNote, input.review?.programSynthesisNote, input.review?.progressSinceLastReview)) {
-    milestones.push({
-      dateLabel: updatedLabel,
-      name: input.phase && input.phase !== "Phase not set" ? `${input.phase} update` : "Latest program update",
-      note: firstMeaningful(input.review?.clientStatusNote, input.review?.programSynthesisNote, input.review?.progressSinceLastReview),
-      priority: undefined,
-      status: "current" as const
-    });
-  }
-
-  if (explicitMilestone) {
-    milestones.push(explicitMilestone);
-  }
-
-  milestones.push(...boardMilestones);
-
-  const seen = new Set<string>();
-  return milestones
-    .filter((milestone) => {
-      const key = `${milestone.name.toLowerCase()}-${milestone.dateLabel.toLowerCase()}`;
-      if (seen.has(key)) return false;
-      seen.add(key);
-      return true;
-    })
-    .slice(0, 6);
+  return explicitMilestone ? [explicitMilestone] : [];
 }
 
 function buildReviewMilestones(programMilestones: ProgramTimelineMilestone[] | undefined): ClientPortalProgram["milestones"] {
@@ -1323,15 +1246,7 @@ export function buildClientPortalProgram(input: ClientPortalProgramInput): Clien
     review
   });
   const workstreams = buildWorkstreams(domainSummaries, review?.deliveryBoardItems, updateTimestamp);
-  const milestones = buildMilestones({
-    completion,
-    decisions,
-    phase: currentPhase,
-    program: input.program,
-    recommendedPath,
-    review,
-    updateTimestamp
-  });
+  const milestones = buildMilestones(review);
   const explicitMilestoneName = clean(review?.nextMilestoneName);
   const nextMilestone = (explicitMilestoneName
     ? milestones.find((milestone) => milestone.name === explicitMilestoneName)
@@ -1412,8 +1327,7 @@ export function buildClientPortalProgram(input: ClientPortalProgramInput): Clien
     executiveRisks: buildExecutiveRisks({
       owner: firstNonEmpty(intake.programOwner, "Program owner"),
       posture,
-      risks,
-      review
+      risks
     }),
     leadershipDecisions: buildLeadershipDecisions({
       decisions,
@@ -1494,21 +1408,14 @@ function buildPortfolioMilestones(programs: ClientPortalProgram[]): ClientPortal
 function buildPortfolioRisks(programs: ClientPortalProgram[]): ClientPortalPortfolioRisk[] {
   return programs
     .flatMap((program) =>
-      program.executiveRisks.slice(0, 2).map((risk, index) => ({
+      program.risks.slice(0, 2).map((risk, index) => ({
         clientName: program.clientName,
-        description: risk.description,
+        description: risk,
         id: `${program.id}-risk-${index}`,
-        mitigationOwner: risk.owner,
         programId: program.id,
-        programName: program.name,
-        severity: risk.severity,
-        trend: riskTrend(program.posture)
+        programName: program.name
       }))
     )
-    .sort((a, b) => {
-      const severityWeight = { High: 0, Dependency: 1, Medium: 2, Low: 3 };
-      return severityWeight[a.severity] - severityWeight[b.severity];
-    })
     .slice(0, 6);
 }
 

@@ -103,12 +103,7 @@ function ProgramSummaryCard({ program }: { program: ClientPortalProgram }) {
 }
 
 function PortfolioReport({ clientName, portfolio, programs }: { clientName: string; portfolio: ClientPortalPortfolio; programs: ClientPortalProgram[] }) {
-  const averageCompletion = programs.length
-    ? Math.round(programs.reduce((total, program) => total + program.metrics.programCompletionPercent, 0) / programs.length)
-    : 0;
-  const decisions = programs.reduce((total, program) => total + program.metrics.decisions, 0);
   const risks = programs.reduce((total, program) => total + program.metrics.risks, 0);
-  const atRisk = programs.filter((program) => program.posture === "at-risk" || program.posture === "blocked").length;
   const programIds = new Set(programs.map((program) => program.id));
   const milestones = portfolio.upcomingMilestones.filter((milestone) => programIds.has(milestone.programId)).slice(0, 6);
   const risksAcrossPortfolio = portfolio.keyRisks.filter((risk) => programIds.has(risk.programId)).slice(0, 6);
@@ -121,13 +116,6 @@ function PortfolioReport({ clientName, portfolio, programs }: { clientName: stri
         <p className="mt-3 text-base font-medium text-slate-300">
           Executive portfolio snapshot generated from published client-facing North Star updates.
         </p>
-      </section>
-
-      <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <ReportMetric label="Programs" value={String(programs.length)} />
-        <ReportMetric label="At Risk" value={String(atRisk)} />
-        <ReportMetric label="Avg % Complete" value={`${averageCompletion}%`} helper="Averaged from each program's shown completion basis." />
-        <ReportMetric label="Decisions Pending" value={String(decisions)} />
       </section>
 
       <ReportSection icon={FileText} title="Program Updates">
@@ -153,7 +141,7 @@ function PortfolioReport({ clientName, portfolio, programs }: { clientName: stri
             {risksAcrossPortfolio.length ? risksAcrossPortfolio.map((risk) => (
               <div key={risk.id} className="rounded-lg border border-slate-200 bg-slate-50 p-4">
                 <p className="text-base font-semibold text-slate-950">{risk.description}</p>
-                <p className="mt-1 text-sm font-medium text-slate-600">{risk.programName} · {risk.severity} · {risk.trend}</p>
+                <p className="mt-1 text-sm font-medium text-slate-600">{risk.programName}</p>
               </div>
             )) : <p className="text-sm font-medium text-slate-600">No executive risks are currently visible.</p>}
           </div>
@@ -232,21 +220,18 @@ function ProgramReport({ program }: { program: ClientPortalProgram }) {
       <div className="grid gap-5 lg:grid-cols-2">
         <ReportSection icon={TriangleAlert} title="Risks / Issues / Dependencies">
           <div className="mt-5 grid gap-3">
-            {program.executiveRisks.length ? program.executiveRisks.map((risk, index) => (
-              <div key={`${risk.description}-${index}`} className="rounded-lg border border-slate-200 bg-slate-50 p-4">
-                <p className="text-sm font-semibold uppercase tracking-[0.1em] text-slate-600">{risk.severity} · {risk.target}</p>
-                <p className="mt-2 text-base font-semibold text-slate-950">{risk.description}</p>
-                <p className="mt-2 text-sm font-medium leading-6 text-slate-700">Mitigation: {risk.mitigation}</p>
+            {program.risks.length ? program.risks.map((risk, index) => (
+              <div key={`${risk}-${index}`} className="rounded-lg border border-slate-200 bg-slate-50 p-4">
+                <p className="text-base font-semibold text-slate-950">{risk}</p>
               </div>
             )) : <p className="text-sm font-medium text-slate-600">No executive risks are currently captured.</p>}
           </div>
         </ReportSection>
         <ReportSection icon={ShieldCheck} title="Leadership Decisions Needed">
           <div className="mt-5 grid gap-3">
-            {program.leadershipDecisions.length ? program.leadershipDecisions.map((decision, index) => (
-              <div key={`${decision.title}-${index}`} className="rounded-lg border border-slate-200 bg-slate-50 p-4">
-                <p className="text-base font-semibold text-slate-950">{index + 1}. {decision.title}</p>
-                <p className="mt-2 text-sm font-medium text-slate-600">{decision.meta}</p>
+            {program.decisions.length ? program.decisions.map((decision, index) => (
+              <div key={`${decision}-${index}`} className="rounded-lg border border-slate-200 bg-slate-50 p-4">
+                <p className="text-base font-semibold text-slate-950">{index + 1}. {decision}</p>
               </div>
             )) : <p className="text-sm font-medium text-slate-600">No executive decision is currently pending.</p>}
           </div>
