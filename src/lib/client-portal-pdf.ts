@@ -56,7 +56,65 @@ function formatDateTime(value: string) {
 }
 
 function statusLabel(program: ClientPortalProgram) {
-  return `${program.statusSignal} - ${program.postureLabel}`;
+  return program.statusSignal;
+}
+
+function clientRoadmapTitle(programName: string) {
+  const cleaned = programName
+    .replace(/\b(application|app)\s+build\b/gi, "")
+    .replace(/\bbuild\b/gi, "")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  return `${cleaned || programName} Roadmap`;
+}
+
+function isClientFunctionSignal(value: string) {
+  const cleaned = value.trim();
+
+  if (!cleaned) return false;
+  if (/^no\s+/i.test(cleaned)) return false;
+  if (/not captured|not published|will appear|will populate|will sharpen/i.test(cleaned)) return false;
+
+  return true;
+}
+
+function functionRows(program: ClientPortalProgram, mode: "accomplishments" | "upcoming") {
+  const rows = program.domainSummaries
+    .map((domain) => ({
+      attachments: domain.attachments,
+      owner: domain.owner,
+      role: domain.role,
+      statusLabel: domain.statusLabel,
+      text: mode === "accomplishments" ? domain.pursuit : domain.decisionsOrOutcomes
+    }))
+    .filter((row) => isClientFunctionSignal(row.text));
+
+  if (rows.length) return rows;
+
+  const fallbackItems = mode === "accomplishments" ? program.recentAccomplishments : program.upcomingWork;
+  return fallbackItems
+    .filter(isClientFunctionSignal)
+    .map((item, index) => ({
+      attachments: 0,
+      owner: program.owner,
+      role: index === 0 ? "Program team" : `Program team ${index + 1}`,
+      statusLabel: "Published",
+      text: item
+    }));
+}
+
+const roadmapStatusLabels: Record<ClientPortalProgram["clientRoadmapItems"][number]["status"], string> = {
+  "at-risk": "At risk",
+  blocked: "Blocked",
+  complete: "Complete",
+  "in-progress": "In progress",
+  planned: "Planned"
+};
+
+function formatRoadmapRange(item: ClientPortalProgram["clientRoadmapItems"][number]) {
+  if (item.startLabel && item.endLabel && item.startLabel !== item.endLabel) return `${item.startLabel} to ${item.endLabel}`;
+  return item.startLabel || item.endLabel || "Timeline not set";
 }
 
 function wrapText(value: string, fontSize: number, width: number) {
@@ -134,6 +192,7 @@ class PdfReport {
   }
 
   section(title: string) {
+    this.y -= 10;
     this.ensureSpace(42);
     this.textLine(title, margin, this.y, { font: "bold", size: 15 });
     this.y -= 18;
@@ -165,21 +224,147 @@ class PdfReport {
   }
 
   programCard(program: ClientPortalProgram) {
-    const cardHeight = 126;
+    const cardHeight = 118;
     this.ensureSpace(cardHeight + 10);
     const top = this.y;
     this.strokeRect(margin, top - cardHeight, contentWidth, cardHeight);
     this.textLine(program.name, margin + 16, top - 22, { font: "bold", size: 13 });
     this.textLine(program.clientName, margin + 16, top - 40, { color: "71 85 105", size: 9 });
-    this.textLine(statusLabel(program), margin + 330, top - 22, { font: "bold", size: 10 });
+    this.textLine(program.postureLabel, margin + 330, top - 22, { font: "bold", size: 10 });
     this.textLine(`${program.metrics.programCompletionPercent}% complete`, margin + 330, top - 40, { color: "71 85 105", size: 9 });
     this.textLine("Phase", margin + 16, top - 70, { color: "100 116 139", font: "bold", size: 8 });
     this.textLine(program.phase, margin + 16, top - 87, { font: "bold", size: 10 });
-    this.textLine("Next Milestone", margin + 180, top - 70, { color: "100 116 139", font: "bold", size: 8 });
-    this.textLine(program.nextMilestone.name, margin + 180, top - 87, { font: "bold", size: 10 });
+    this.textLine("Executive Summary", margin + 180, top - 70, { color: "100 116 139", font: "bold", size: 8 });
     const note = wrapText(program.statusNote, 9, contentWidth - 32).slice(0, 2);
-    note.forEach((line, index) => this.textLine(line, margin + 16, top - 108 - index * 13, { color: "51 65 85", size: 9 }));
+    const summary = wrapText(program.executiveOverview, 9, 300).slice(0, 2);
+    summary.forEach((line, index) => this.textLine(line, margin + 180, top - 87 - index * 13, { color: "51 65 85", size: 9 }));
+    note.forEach((line, index) => this.textLine(line, margin + 16, top - 105 - index * 13, { color: "51 65 85", size: 9 }));
     this.y -= cardHeight + 12;
+  }
+
+  programHero(program: ClientPortalProgram, generatedLabel: string) {
+    const heroHeight = 286;
+    this.ensureSpace(heroHeight + 20);
+    const top = this.y;
+    const heroY = top - heroHeight;
+
+    this.rect(margin, heroY, contentWidth, heroHeight, "2 6 23");
+    this.textLine(program.clientName.toUpperCase(), margin + 18, top - 28, { color: "186 230 253", font: "bold", size: 9 });
+    this.textLine(program.name, margin + 18, top - 60, { color: "255 255 255", font: "bold", size: 21 });
+    this.textLine(generatedLabel, margin + 18, top - 80, { color: "148 163 184", size: 8 });
+
+    const metricTop = top - 108;
+    const metricHeight = 66;
+    const gap = 10;
+    const metricWidth = (contentWidth - gap * 2 - 36) / 3;
+    const metricX = margin + 18;
+    const metrics = [
+      { label: "Overall Status", helper: program.postureLabel, value: statusLabel(program) },
+      {
+        label: "% Complete",
+        helper: `Basis: ${program.metrics.completionBasis} - ${program.metrics.completionScheduleLabel}`,
+        value: `${program.metrics.programCompletionPercent}%${program.completionDelta ? ` ${program.completionDelta}` : ""}`
+      },
+      { label: "Current Phase", helper: "", value: program.phase }
+    ];
+
+    metrics.forEach((metric, index) => {
+      const x = metricX + index * (metricWidth + gap);
+      this.strokeRect(x, metricTop - metricHeight, metricWidth, metricHeight, "30 41 59");
+      this.textLine(metric.label.toUpperCase(), x + 10, metricTop - 17, { color: "148 163 184", font: "bold", size: 7 });
+      wrapText(metric.value, 12, metricWidth - 20)
+        .slice(0, 2)
+        .forEach((line, lineIndex) => this.textLine(line, x + 10, metricTop - 34 - lineIndex * 13, { color: "255 255 255", font: "bold", size: 12 }));
+      wrapText(metric.helper, 6, metricWidth - 20)
+        .slice(0, 2)
+        .forEach((line, lineIndex) => this.textLine(line, x + 10, metricTop - 52 - lineIndex * 8, { color: "186 230 253", size: 6 }));
+    });
+
+    this.textLine(`Executive Sponsor: ${program.executiveSponsor}`, margin + 18, top - 188, { color: "203 213 225", size: 9 });
+    this.rect(margin + 18, top - 270, contentWidth - 36, 64, "255 255 255");
+    this.strokeRect(margin + 18, top - 270, contentWidth - 36, 64, "226 232 240");
+    this.textLine("EXECUTIVE SUMMARY", margin + 30, top - 224, { color: "3 105 161", font: "bold", size: 8 });
+    wrapText(program.executiveOverview, 9, contentWidth - 60)
+      .slice(0, 3)
+      .forEach((line, index) => this.textLine(line, margin + 30, top - 241 - index * 12, { color: "51 65 85", size: 9 }));
+
+    this.y -= heroHeight + 18;
+  }
+
+  clientRoadmap(program: ClientPortalProgram) {
+    this.section(clientRoadmapTitle(program.name));
+    this.paragraph("Client-visible work by category and month range, maintained from the governed Client Updates lane.", {
+      maxLines: 2
+    });
+
+    const groupedItems = program.clientRoadmapItems.reduce<Record<string, ClientPortalProgram["clientRoadmapItems"]>>((groups, item) => {
+      const category = item.category.trim() || "Client Roadmap";
+      groups[category] = [...(groups[category] ?? []), item];
+      return groups;
+    }, {});
+
+    if (!program.clientRoadmapItems.length) {
+      this.paragraph("Publish roadmap rows from Client Updates to show component, workstream, or feature movement over time.", {
+        maxLines: 3
+      });
+      return;
+    }
+
+    for (const [category, items] of Object.entries(groupedItems)) {
+      this.ensureSpace(28);
+      this.rect(margin, this.y - 20, contentWidth, 20, "239 246 255");
+      this.textLine(category.toUpperCase(), margin + 10, this.y - 14, { color: "3 105 161", font: "bold", size: 8 });
+      this.y -= 28;
+
+      for (const item of items.slice(0, 12)) {
+        const lines = wrapText(item.note, 8, contentWidth - 220).slice(0, 2);
+        const rowHeight = 58 + Math.max(0, lines.length - 1) * 10;
+        this.ensureSpace(rowHeight + 8);
+        const rowTop = this.y;
+        this.strokeRect(margin, rowTop - rowHeight, contentWidth, rowHeight, "226 232 240");
+        this.textLine(item.title, margin + 12, rowTop - 18, { font: "bold", size: 10 });
+        this.textLine(item.owner ? `Owner: ${item.owner}` : "Owner not set", margin + 12, rowTop - 34, { color: "100 116 139", size: 8 });
+        lines.forEach((line, index) => this.textLine(line, margin + 12, rowTop - 48 - index * 10, { color: "71 85 105", size: 8 }));
+        this.textLine(formatRoadmapRange(item), margin + 330, rowTop - 18, { color: "15 23 42", font: "bold", size: 9 });
+        this.textLine(roadmapStatusLabels[item.status], margin + 330, rowTop - 36, { color: "3 105 161", font: "bold", size: 8 });
+        this.y -= rowHeight + 14;
+      }
+    }
+    this.y -= 4;
+  }
+
+  functionUpdates(title: string, program: ClientPortalProgram, mode: "accomplishments" | "upcoming") {
+    this.section(title);
+    const rows = functionRows(program, mode);
+
+    if (!rows.length) {
+      this.paragraph(`No client-facing ${mode === "accomplishments" ? "accomplishments" : "upcoming work"} have been published yet.`, {
+        maxLines: 2
+      });
+      return;
+    }
+
+    for (const row of rows.slice(0, 8)) {
+      const textLines = wrapText(row.text, 9, contentWidth - 28).slice(0, 3);
+      const height = 64 + textLines.length * 12;
+      this.ensureSpace(height + 8);
+      const top = this.y;
+      this.strokeRect(margin, top - height, contentWidth, height, "226 232 240");
+      this.textLine(row.role.toUpperCase(), margin + 12, top - 18, { color: "3 105 161", font: "bold", size: 8 });
+      this.textLine(row.owner || "Owner not set", margin + 12, top - 36, { font: "bold", size: 10 });
+      this.textLine(row.statusLabel, margin + 385, top - 18, { color: "51 65 85", font: "bold", size: 8 });
+      if (row.attachments > 0) this.textLine(`${row.attachments} attachment${row.attachments === 1 ? "" : "s"}`, margin + 385, top - 34, { color: "16 185 129", size: 8 });
+      textLines.forEach((line, index) => this.textLine(line, margin + 12, top - 58 - index * 12, { color: "51 65 85", size: 9 }));
+      this.y -= height + 14;
+    }
+  }
+
+  riskDecisionSection(program: ClientPortalProgram) {
+    this.section("Risks / Issues / Dependencies");
+    this.bulletList(program.risks, "No executive risks, issues, or dependencies are currently captured for this program.");
+
+    this.section("Leadership Decisions Needed");
+    this.bulletList(program.decisions, "No executive decision is currently pending from saved program updates or client requests.");
   }
 
   toBuffer() {
@@ -237,47 +422,24 @@ export function buildClientPortalPdf(input: {
 
   if (input.scope === "program" && input.selectedProgram) {
     const program = input.selectedProgram;
-    report.heading("Program executive report", program.name, `${program.clientName} - ${generatedLabel}`);
-    report.section("Executive Summary");
-    report.paragraph(program.executiveSummary, { maxLines: 7 });
-    report.section("Program Posture");
-    report.bulletList(
-      [
-        `Status: ${statusLabel(program)}`,
-        `Completion: ${program.metrics.programCompletionPercent}% (${program.metrics.completionBasis})`,
-        `Current phase: ${program.phase}`,
-        `Next milestone: ${program.nextMilestone.name}${program.nextMilestone.dateLabel ? ` - ${program.nextMilestone.dateLabel}` : ""}`
-      ],
-      "No client-facing posture has been published yet."
-    );
-    report.section("Recent Accomplishments");
-    report.bulletList(program.recentAccomplishments, "No accomplishments have been published yet.");
-    report.section("Upcoming Work");
-    report.bulletList(program.upcomingWork, "No upcoming work has been published yet.");
-    report.section("Risks And Decisions");
-    report.bulletList([...program.risks, ...program.decisions], "No executive risks or decisions are currently visible.");
+    report.programHero(program, generatedLabel);
+    report.clientRoadmap(program);
+    report.functionUpdates("Recent Accomplishments", program, "accomplishments");
+    report.functionUpdates("Upcoming Work (Next 2 Weeks)", program, "upcoming");
+    report.riskDecisionSection(program);
   } else {
-    report.heading("Client portfolio report", input.clientName, generatedLabel);
-    report.section("Program Updates");
+    report.heading("North Star Client Portal", "Portfolio Dashboard", `${input.clientName} - ${generatedLabel}`);
+    report.section("Program View");
     input.programs.forEach((program) => report.programCard(program));
-    report.section("Upcoming Milestones");
-    const programIds = new Set(input.programs.map((program) => program.id));
-    const milestones = input.portfolio.upcomingMilestones
-      .filter((milestone) => programIds.has(milestone.programId))
-      .map((milestone) => `${milestone.title} - ${milestone.programName}${milestone.dateLabel ? ` - ${milestone.dateLabel}` : ""}`);
-    report.bulletList(milestones, "No published milestones are currently visible.");
-    report.section("Key Risks");
-    const risks = input.portfolio.keyRisks
-      .filter((risk) => programIds.has(risk.programId))
-      .map((risk) => `${risk.programName}: ${risk.description}`);
-    report.bulletList(risks, "No executive risks are currently visible.");
-  }
 
-  report.section("Report Basis");
-  report.paragraph(
-    "This report uses only published client-facing updates and client decisions. Internal role updates, tactical notes, private blockers, and working-team commentary are excluded from this client report path.",
-    { maxLines: 5 }
-  );
+    for (const program of input.programs.slice(0, 4)) {
+      report.programHero(program, generatedLabel);
+      report.clientRoadmap(program);
+      report.functionUpdates("Recent Accomplishments", program, "accomplishments");
+      report.functionUpdates("Upcoming Work (Next 2 Weeks)", program, "upcoming");
+      report.riskDecisionSection(program);
+    }
+  }
 
   return report.toBuffer();
 }

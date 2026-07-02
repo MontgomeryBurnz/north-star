@@ -103,7 +103,6 @@ function ProgramSummaryCard({ program }: { program: ClientPortalProgram }) {
 }
 
 function PortfolioReport({ clientName, portfolio, programs }: { clientName: string; portfolio: ClientPortalPortfolio; programs: ClientPortalProgram[] }) {
-  const risks = programs.reduce((total, program) => total + program.metrics.risks, 0);
   const programIds = new Set(programs.map((program) => program.id));
   const milestones = portfolio.upcomingMilestones.filter((milestone) => programIds.has(milestone.programId)).slice(0, 6);
   const risksAcrossPortfolio = portfolio.keyRisks.filter((risk) => programIds.has(risk.programId)).slice(0, 6);
@@ -148,13 +147,6 @@ function PortfolioReport({ clientName, portfolio, programs }: { clientName: stri
         </ReportSection>
       </div>
 
-      <ReportSection icon={ShieldCheck} title="Report Basis">
-        <p className="mt-5 text-sm font-medium leading-7 text-slate-700">
-          This PDF view uses only published client-facing updates and client decisions. Internal role updates, tactical notes,
-          private blockers, and working-team commentary are excluded from this client report path.
-        </p>
-        <p className="mt-3 text-sm font-medium text-slate-600">Portfolio risk count: {risks}. Generated {formatDateTime(portfolio.generatedAt)}.</p>
-      </ReportSection>
     </>
   );
 }
@@ -238,12 +230,6 @@ function ProgramReport({ program }: { program: ClientPortalProgram }) {
         </ReportSection>
       </div>
 
-      <ReportSection icon={ShieldCheck} title="Report Basis">
-        <p className="mt-5 text-sm font-medium leading-7 text-slate-700">
-          This report is generated from the latest published client-facing update for {program.name}. Internal working-team updates
-          are not included unless a lead has intentionally rewritten and published the information for client consumption.
-        </p>
-      </ReportSection>
     </>
   );
 }

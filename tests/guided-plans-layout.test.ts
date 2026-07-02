@@ -797,6 +797,8 @@ test("Active Program review is split into state, cockpit, and team signal flows"
   assert.match(clientPortalSmokeSource, /data-client-hero-metric='current-phase'/);
   assert.match(clientPortalSmokeSource, /client-portal-desktop\.png/);
   assert.match(clientPortalSmokeSource, /client-portal-mobile\.png/);
+  assert.match(clientPortalSmokeSource, /verifyClientPortalPdfExport/);
+  assert.match(clientPortalSmokeSource, /PDF export is nonblank/);
   assert.match(clientPortalSmokeSource, /method: "DELETE"/);
   assert.match(clientPortalSmokeSource, /NORTHSTAR_CLIENT_PORTAL_SMOKE_CLEANUP/);
   assert.match(clientUpdateCardSource, /data-active-client-update-builder/);
@@ -827,11 +829,14 @@ test("Active Program review is split into state, cockpit, and team signal flows"
   assert.match(clientPortalPdfRouteSource, /after\(\(\) =>/);
   assert.match(clientPortalPdfRouteSource, /client\.portal\.export/);
   assert.match(clientPortalPdfSource, /%PDF-1\.4/);
-  assert.match(clientPortalPdfSource, /Internal role updates, tactical notes/);
+  assert.match(clientPortalPdfSource, /clientRoadmapTitle/);
+  assert.match(clientPortalPdfSource, /Upcoming Work \(Next 2 Weeks\)/);
+  assert.doesNotMatch(clientPortalPdfSource, /Report Basis/);
   assert.match(clientPortalExportPageSource, /loadClientPortalData/);
   assert.match(clientPortalExportPageSource, /client\.portal\.export/);
   assert.match(clientPortalExportPageSource, /Print \/ Save PDF/);
-  assert.match(clientPortalExportPageSource, /Internal working-team updates/);
+  assert.doesNotMatch(clientPortalExportPageSource, /Report Basis/);
+  assert.doesNotMatch(clientPortalExportPageSource, /Internal working-team updates/);
   assert.doesNotMatch(clientPortalPageSource, /listProgramUpdates/);
   assert.match(productionSmokeSource, /active program save \+ client portal/);
   assert.match(productionSmokeSource, /client portal seeded update/);

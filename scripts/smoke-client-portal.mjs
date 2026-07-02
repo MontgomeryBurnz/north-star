@@ -398,7 +398,56 @@ async function verifyClientPortal(session, program, smokeText) {
   }
 
   await captureClientPortalScreenshots(session, program, smokeText);
+  await verifyClientPortalPdfExport(session, program, smokeText);
   console.log("✓ Client Portal: portfolio and program detail rendered executive fields from the seeded update.");
+}
+
+async function verifyClientPortalPdfExport(session, program, smokeText) {
+  const state = await session.execute(
+    `
+      return fetch("/api/client-portal/export/pdf?scope=program&programId=" + encodeURIComponent(arguments[0]), {
+        cache: "no-store"
+      }).then(async (response) => {
+        const buffer = await response.arrayBuffer();
+        const bytes = new Uint8Array(buffer);
+        let text = "";
+        for (let index = 0; index < bytes.length; index += 8192) {
+          text += String.fromCharCode(...bytes.slice(index, Math.min(index + 8192, bytes.length)));
+        }
+        return {
+          contentDisposition: response.headers.get("content-disposition") ?? "",
+          contentType: response.headers.get("content-type") ?? "",
+          includesExecutiveSummary: text.includes("EXECUTIVE SUMMARY"),
+          includesRoadmap: text.includes("Roadmap") && text.includes(arguments[1]),
+          includesSmokeText: text.includes(arguments[2]),
+          includesUpcomingWork: text.includes("Upcoming Work"),
+          hasReportBasis: /Report Basis/i.test(text),
+          ok: response.ok,
+          signature: text.slice(0, 5),
+          size: bytes.length,
+          status: response.status
+        };
+      });
+    `,
+    [program.id, program.intake.programName.replace(/\b(application|app)\s+build\b/gi, "").replace(/\bbuild\b/gi, "").trim() || program.intake.programName, smokeText]
+  );
+
+  if (
+    !state.ok ||
+    state.signature !== "%PDF-" ||
+    state.size < 1000 ||
+    !state.contentType.includes("application/pdf") ||
+    !state.contentDisposition.includes(".pdf") ||
+    !state.includesExecutiveSummary ||
+    !state.includesRoadmap ||
+    !state.includesSmokeText ||
+    !state.includesUpcomingWork ||
+    state.hasReportBasis
+  ) {
+    throw new Error(`Client Portal PDF export smoke failed: ${JSON.stringify(state)}`);
+  }
+
+  console.log("✓ Client Portal: PDF export is nonblank and aligned to the visible portal sections.");
 }
 
 async function assertClientPortalLayout(session, program, label) {

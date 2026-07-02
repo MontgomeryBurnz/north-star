@@ -561,15 +561,20 @@ test("Client Portal PDF builder returns a downloadable PDF buffer", () => {
     generatedAt: portfolio.generatedAt,
     portfolio,
     programs: portfolio.programs,
-    scope: "portfolio",
+    scope: "program",
+    selectedProgram: portfolio.programs[0],
     viewerLabel: "Codex QA"
   });
 
   assert.equal(pdf.subarray(0, 5).toString("utf8"), "%PDF-");
-  assert.match(pdf.toString("latin1"), /CLIENT PORTFOLIO REPORT/);
-  assert.match(pdf.toString("latin1"), /Internal role updates/);
-  assert.match(pdf.toString("latin1"), /tactical notes/);
   const pdfSource = pdf.toString("latin1");
+  assert.match(pdfSource, /EXECUTIVE SUMMARY/);
+  assert.match(pdfSource, /Compliance Hub Roadmap/);
+  assert.match(pdfSource, /Recent Accomplishments/);
+  assert.match(pdfSource, /Upcoming Work/);
+  assert.doesNotMatch(pdfSource, /Report Basis/i);
+  assert.doesNotMatch(pdfSource, /Internal role updates/i);
+  assert.doesNotMatch(pdfSource, /tactical notes/i);
   const colorCommands = [...pdfSource.matchAll(/\b(\d*\.?\d+)\s+(\d*\.?\d+)\s+(\d*\.?\d+)\s+(?:rg|RG)\b/g)];
   assert.ok(colorCommands.length > 0);
   for (const command of colorCommands) {
