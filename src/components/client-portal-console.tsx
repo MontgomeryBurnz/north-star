@@ -253,7 +253,7 @@ function ClientWorkRoadmap({ program }: { program: ClientPortalProgram }) {
   const items = program.clientRoadmapItems;
   const months = buildClientRoadmapMonths(items);
   const groupedItems = items.reduce<Record<string, ClientPortalComponentRoadmapItem[]>>((groups, item) => {
-    const category = item.category.trim() || "Client Roadmap";
+    const category = item.category.trim() || "Roadmap";
     groups[category] = [...(groups[category] ?? []), item];
     return groups;
   }, {});
@@ -263,7 +263,7 @@ function ClientWorkRoadmap({ program }: { program: ClientPortalProgram }) {
     <ExecutiveCard icon={BriefcaseBusiness} title={clientRoadmapTitle(program.name)}>
       <div className="mt-2 flex flex-wrap items-center justify-between gap-3">
         <p className="max-w-3xl text-base leading-7 text-slate-600">
-          Roadmap items are maintained from Client Updates and organized by category and month range.
+          Roadmap items are organized by category and month range.
         </p>
         <span className="rounded-full border border-sky-200 bg-sky-50 px-3 py-1 text-xs font-semibold uppercase tracking-[0.12em] text-sky-800">
           {items.length} item{items.length === 1 ? "" : "s"}
@@ -329,7 +329,7 @@ function ClientWorkRoadmap({ program }: { program: ClientPortalProgram }) {
         </div>
       ) : (
         <p className="mt-6 rounded-lg border border-slate-200 bg-slate-50 p-5 text-base font-medium leading-7 text-slate-600">
-          Publish roadmap rows from Client Updates to show component, workstream, or feature movement over time.
+          Publish roadmap rows to show component, workstream, or feature movement over time.
         </p>
       )}
     </ExecutiveCard>

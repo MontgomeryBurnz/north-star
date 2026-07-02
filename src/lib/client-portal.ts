@@ -790,7 +790,7 @@ function buildClientRoadmapItems(update: ClientPortalUpdateRecord | null | undef
   return (safeUpdate.clientRoadmapItems ?? [])
     .map((item, index) => ({
       ...item,
-      category: clean(item.category) || "Client Roadmap",
+      category: clean(item.category) || "Roadmap",
       endLabel: formatMonthLabel(item.endMonth) || clean(item.endMonth),
       id: clean(item.id) || `${safeUpdate.programId}-client-roadmap-${index}`,
       note: clean(item.note),

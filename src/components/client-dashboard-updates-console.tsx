@@ -599,7 +599,7 @@ export function ClientDashboardUpdatesConsole({
                 <p className="text-xs font-medium uppercase tracking-[0.18em] text-sky-200">Client roadmap</p>
                 <h2 className="mt-2 text-2xl font-semibold text-zinc-50">What active work should the client track?</h2>
                 <p className="mt-2 max-w-3xl text-sm leading-6 text-zinc-500">
-                  Add client-visible work items by category and month range. These rows power the roadmap view in the Client Portal.
+                  Add roadmap work items by category and month range. These rows power the roadmap view.
                 </p>
               </div>
               <button

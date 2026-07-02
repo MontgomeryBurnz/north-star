@@ -288,18 +288,18 @@ class PdfReport {
 
   clientRoadmap(program: ClientPortalProgram) {
     this.section(clientRoadmapTitle(program.name));
-    this.paragraph("Roadmap items are maintained from Client Updates and organized by category and month range.", {
+    this.paragraph("Roadmap items are organized by category and month range.", {
       maxLines: 2
     });
 
     const groupedItems = program.clientRoadmapItems.reduce<Record<string, ClientPortalProgram["clientRoadmapItems"]>>((groups, item) => {
-      const category = item.category.trim() || "Client Roadmap";
+      const category = item.category.trim() || "Roadmap";
       groups[category] = [...(groups[category] ?? []), item];
       return groups;
     }, {});
 
     if (!program.clientRoadmapItems.length) {
-      this.paragraph("Publish roadmap rows from Client Updates to show component, workstream, or feature movement over time.", {
+      this.paragraph("Publish roadmap rows to show component, workstream, or feature movement over time.", {
         maxLines: 3
       });
       return;
