@@ -184,8 +184,8 @@ function ProgramHero({ program }: { program: ClientPortalProgram }) {
   const styles = postureStyles[program.posture];
 
   return (
-    <section data-client-program-hero className="min-w-0 max-w-full overflow-hidden rounded-lg border border-slate-800 bg-slate-950 px-4 py-5 text-white shadow-[0_22px_60px_rgba(15,23,42,0.28)] sm:px-6 sm:py-7 md:px-8 md:py-8">
-      <div className="grid gap-6">
+    <section data-client-program-hero className="min-w-0 max-w-full overflow-hidden rounded-lg border border-slate-800 bg-slate-950 px-4 py-4 text-white shadow-[0_22px_60px_rgba(15,23,42,0.28)] sm:px-6 sm:py-7 md:px-8 md:py-8">
+      <div className="grid gap-4 sm:gap-6">
         <div className="min-w-0">
           <p className="text-sm font-semibold uppercase tracking-[0.16em] text-sky-200">{program.clientName}</p>
           <h2 className="mt-3 break-words text-2xl font-semibold tracking-normal sm:text-3xl md:text-4xl">{program.name}</h2>
@@ -201,17 +201,17 @@ function ProgramHero({ program }: { program: ClientPortalProgram }) {
           />
           <HeroMetric label="Current Phase" metricId="current-phase" value={program.phase} />
         </div>
-        <div className="grid gap-3 border-t border-white/15 pt-5 text-base text-slate-300 md:grid-cols-3">
+        <div className="grid gap-2 border-t border-white/15 pt-4 text-sm text-slate-300 sm:gap-3 sm:pt-5 sm:text-base md:grid-cols-3">
           <span data-client-executive-sponsor>Executive Sponsor: <strong className="text-white">{program.executiveSponsor}</strong></span>
           <span data-client-program-lead>Program Lead: <strong className="text-white">{program.programLead}</strong></span>
           <span data-client-pmo>PMO: <strong className="text-white">{program.pmo}</strong></span>
         </div>
-        <div className="rounded-lg border border-slate-200 bg-white p-5 text-slate-950 shadow-[0_18px_45px_rgba(15,23,42,0.16)]">
+        <div className="rounded-lg border border-slate-200 bg-white p-4 text-slate-950 shadow-[0_18px_45px_rgba(15,23,42,0.16)] sm:p-5">
           <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.16em] text-sky-700">
             <Compass className="h-4 w-4" />
             Executive Summary
           </p>
-          <p className="mt-3 text-base font-medium leading-8 text-slate-700 sm:text-lg sm:leading-9">{program.executiveOverview}</p>
+          <p className="mt-3 line-clamp-5 text-sm font-medium leading-7 text-slate-700 sm:line-clamp-none sm:text-lg sm:leading-9">{program.executiveOverview}</p>
         </div>
       </div>
     </section>
