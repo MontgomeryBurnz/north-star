@@ -330,6 +330,8 @@ function PortfolioRisksPanel({ risks }: { risks: ClientPortalPortfolioRisk[] }) 
 }
 
 function PortfolioRoadmap({ roadmap }: { roadmap: ClientPortalRoadmapRow[] }) {
+  if (!roadmap.length) return null;
+
   const activeWindowLabels = roadmap[0]?.windowLabels?.length
     ? roadmap[0].windowLabels
     : ["Window 1", "Window 2", "Window 3", "Window 4", "Window 5"];

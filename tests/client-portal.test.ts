@@ -411,7 +411,11 @@ test("Client Portal does not generate portfolio milestones or risk metadata from
     nextMilestoneDate: "",
     nextMilestoneName: "",
     nextMilestonePriority: "",
-    programMilestones: []
+    programMilestones: [],
+    timelineMonth: "",
+    timelineScale: "year",
+    timelineWeek: "",
+    timelineYear: ""
   };
   const portfolio = buildClientPortalPortfolio({
     generatedAt: "2026-04-30T00:00:00.000Z",
@@ -419,6 +423,7 @@ test("Client Portal does not generate portfolio milestones or risk metadata from
   });
 
   assert.equal(portfolio.upcomingMilestones.length, 0);
+  assert.equal(portfolio.roadmap.length, 0);
   assert.equal(portfolio.keyRisks[0]?.description, "Client-visible dependency needs date confirmation.");
   assert.equal("severity" in (portfolio.keyRisks[0] ?? {}), false);
   assert.equal("trend" in (portfolio.keyRisks[0] ?? {}), false);

@@ -112,6 +112,7 @@ export type ClientPortalProgram = {
     priority?: ClientPortalPriority;
     status: "complete" | "current" | "next";
   }>;
+  hasPublishedTimeline: boolean;
   timelineScale: ProgramTimelineScale;
   timelineScaleLabel: string;
   timelineWindowLabel: string;
@@ -822,6 +823,16 @@ function buildRoadmapWindow(review: StoredProgramUpdate["review"] | undefined, c
   };
 }
 
+function hasPublishedTimeline(review: StoredProgramUpdate["review"] | undefined) {
+  const explicitWindow = Boolean(clean(review?.timelineYear) || clean(review?.timelineMonth) || clean(review?.timelineWeek));
+  const explicitNextMilestone = Boolean(clean(review?.nextMilestoneName) || clean(review?.nextMilestoneDate));
+  const explicitProgramMilestone = (review?.programMilestones ?? []).some(
+    (milestone) => clean(milestone.name) || clean(milestone.date) || clean(milestone.note)
+  );
+
+  return explicitWindow || explicitNextMilestone || explicitProgramMilestone;
+}
+
 function stakeholderByKeyword(stakeholders: string | undefined, keyword: string, fallback: string) {
   const signals = splitSignals(stakeholders ?? "", "")
     .map(clean)
@@ -1269,6 +1280,7 @@ export function buildClientPortalProgram(input: ClientPortalProgramInput): Clien
   const roadmapWindow = buildRoadmapWindow(review, currentMilestoneDate);
   const roadmapCurrentWindowIndex =
     roadmapWindow.scale === "year" ? roadmapPhaseIndex(currentPhase) : roadmapWindow.currentWindowIndex;
+  const hasTimeline = hasPublishedTimeline(review);
 
   return {
     id: input.program.id,
@@ -1336,6 +1348,7 @@ export function buildClientPortalProgram(input: ClientPortalProgramInput): Clien
     }),
     workstreams,
     milestones,
+    hasPublishedTimeline: hasTimeline,
     timelineScale: roadmapWindow.scale,
     timelineScaleLabel: roadmapWindow.scaleLabel,
     timelineWindowLabel: roadmapWindow.timeframeLabel,
@@ -1367,7 +1380,7 @@ function roadmapStateForIndex(currentIndex: number, index: number) {
 function buildPortfolioRoadmap(programs: ClientPortalProgram[]): ClientPortalRoadmapRow[] {
   const phaseSegmentLabels = ["Discover", "Plan", "Execute", "Stabilize", "Value"] as const;
 
-  return programs.map((program) => {
+  return programs.filter((program) => program.hasPublishedTimeline).map((program) => {
     const segmentLabels = program.timelineScale === "year" ? [...phaseSegmentLabels] : program.roadmapWindowLabels;
     const currentWindowIndex = clampRoadmapIndex(program.roadmapCurrentWindowIndex, segmentLabels.length);
 
