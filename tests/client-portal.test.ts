@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { validateClientPortalUpdateInput } from "../src/lib/client-safe-copy.ts";
 import { buildClientPortalPortfolio, buildClientPortalProgram } from "../src/lib/client-portal.ts";
+import { buildClientPortalPdf, clientPortalPdfFilename } from "../src/lib/client-portal-pdf.ts";
 import type { StoredProgramUpdate } from "../src/lib/active-program-types.ts";
 import type { ClientPortalUpdateRecord } from "../src/lib/client-portal-update-types.ts";
 import type { StoredProgram } from "../src/lib/program-intake-types.ts";
@@ -460,6 +461,30 @@ test("buildClientPortalPortfolio rolls program posture into portfolio metrics", 
     "next",
     "next"
   ]);
+});
+
+test("Client Portal PDF builder returns a downloadable PDF buffer", () => {
+  const portfolio = buildClientPortalPortfolio({
+    generatedAt: "2026-04-30T00:00:00.000Z",
+    programs: [{ latestClientUpdate: clientUpdate, program }]
+  });
+  const pdf = buildClientPortalPdf({
+    clientName: "Impower",
+    generatedAt: portfolio.generatedAt,
+    portfolio,
+    programs: portfolio.programs,
+    scope: "portfolio",
+    viewerLabel: "Codex QA"
+  });
+
+  assert.equal(pdf.subarray(0, 5).toString("utf8"), "%PDF-");
+  assert.match(pdf.toString("latin1"), /CLIENT PORTFOLIO REPORT/);
+  assert.match(pdf.toString("latin1"), /Internal role updates/);
+  assert.match(pdf.toString("latin1"), /tactical notes/);
+  assert.equal(
+    clientPortalPdfFilename({ clientName: "Impower", scope: "portfolio" }),
+    "impower-portfolio.pdf"
+  );
 });
 
 test("buildClientPortalPortfolio separates programs into client portfolios", () => {

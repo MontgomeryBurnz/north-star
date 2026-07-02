@@ -1010,9 +1010,7 @@ export function ClientPortalConsole({
           {selectedClient ? (
             <Button asChild className="rounded-md bg-slate-950 px-5 py-3 text-white shadow-sm hover:bg-slate-800">
               <Link
-                href={`/client/export?scope=portfolio&client=${encodeURIComponent(selectedClient.clientName)}`}
-                target="_blank"
-                rel="noreferrer"
+                href={`/api/client-portal/export/pdf?scope=portfolio&client=${encodeURIComponent(selectedClient.clientName)}`}
                 data-client-export-portfolio
               >
                 <Download className="h-4 w-4" />

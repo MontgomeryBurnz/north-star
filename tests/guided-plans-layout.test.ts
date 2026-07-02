@@ -552,6 +552,8 @@ test("Active Program review is split into state, cockpit, and team signal flows"
   const clientPortalPageSource = readFileSync(new URL("../src/app/client/page.tsx", import.meta.url), "utf8");
   const clientPortalDataSource = readFileSync(new URL("../src/lib/client-portal-data.ts", import.meta.url), "utf8");
   const clientPortalExportPageSource = readFileSync(new URL("../src/app/client/export/page.tsx", import.meta.url), "utf8");
+  const clientPortalPdfRouteSource = readFileSync(new URL("../src/app/api/client-portal/export/pdf/route.ts", import.meta.url), "utf8");
+  const clientPortalPdfSource = readFileSync(new URL("../src/lib/client-portal-pdf.ts", import.meta.url), "utf8");
   const clientPortalConsoleSource = readFileSync(new URL("../src/components/client-portal-console.tsx", import.meta.url), "utf8");
   const clientUpdatesRouteSource = readFileSync(new URL("../src/app/api/programs/[id]/client-updates/route.ts", import.meta.url), "utf8");
   const clientSafetySource = readFileSync(new URL("../src/lib/client-safe-copy.ts", import.meta.url), "utf8");
@@ -813,6 +815,14 @@ test("Active Program review is split into state, cockpit, and team signal flows"
   assert.match(clientPortalConsoleSource, /data-client-export-portfolio/);
   assert.doesNotMatch(clientPortalConsoleSource, /data-client-export-program/);
   assert.match(clientPortalConsoleSource, /Download PDF/);
+  assert.match(clientPortalConsoleSource, /\/api\/client-portal\/export\/pdf/);
+  assert.doesNotMatch(clientPortalConsoleSource, /\/client\/export\?scope=portfolio/);
+  assert.match(clientPortalPdfRouteSource, /"content-type": "application\/pdf"/);
+  assert.match(clientPortalPdfRouteSource, /"content-disposition": `attachment; filename="\$\{filename\}"/);
+  assert.match(clientPortalPdfRouteSource, /after\(\(\) =>/);
+  assert.match(clientPortalPdfRouteSource, /client\.portal\.export/);
+  assert.match(clientPortalPdfSource, /%PDF-1\.4/);
+  assert.match(clientPortalPdfSource, /Internal role updates, tactical notes/);
   assert.match(clientPortalExportPageSource, /loadClientPortalData/);
   assert.match(clientPortalExportPageSource, /client\.portal\.export/);
   assert.match(clientPortalExportPageSource, /Print \/ Save PDF/);
