@@ -1,14 +1,10 @@
 import "server-only";
 import { redirect } from "next/navigation";
 import { hasSiteAccessPageSession } from "@/lib/app-page-access";
-import { isExternalOnlyUserType } from "@/lib/admin-user-types";
+import { getAssignedProgramIdSet, isExternalOnlyUserType, shouldScopeManagedUserPrograms } from "@/lib/admin-user-types";
 import { buildClientPortalPortfolio, type ClientPortalProgramInput } from "@/lib/client-portal";
 import { getCurrentManagedUser } from "@/lib/current-managed-user";
 import { listClientDecisionRequests, listClientPortalUpdates, listPrograms } from "@/lib/program-store";
-
-function assignedProgramIds(assignments: Array<{ programId: string }>) {
-  return new Set(assignments.map((assignment) => assignment.programId));
-}
 
 export async function loadClientPortalData(redirectTo = "/client") {
   const [currentUser, hasInternalSession] = await Promise.all([
@@ -21,8 +17,8 @@ export async function loadClientPortalData(redirectTo = "/client") {
   }
 
   const allPrograms = await listPrograms();
-  const visibleProgramIds = currentUser && isExternalOnlyUserType(currentUser.userType)
-    ? assignedProgramIds(currentUser.assignments)
+  const visibleProgramIds = currentUser && shouldScopeManagedUserPrograms(currentUser)
+    ? getAssignedProgramIdSet(currentUser)
     : null;
   const programs = visibleProgramIds
     ? allPrograms.filter((program) => visibleProgramIds.has(program.id))

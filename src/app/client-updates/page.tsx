@@ -2,7 +2,7 @@ export const dynamic = "force-dynamic";
 
 import { ClientDashboardUpdatesConsole } from "@/components/client-dashboard-updates-console";
 import { ProductPageHeader } from "@/components/product-page-header";
-import { canAccessClientDashboardUpdateSurface, isExternalOnlyUserType } from "@/lib/admin-user-types";
+import { canAccessClientDashboardUpdateSurface, getAssignedProgramIdSet, shouldScopeManagedUserPrograms } from "@/lib/admin-user-types";
 import { loadClientPortalData } from "@/lib/client-portal-data";
 import { listPrograms } from "@/lib/program-store";
 import { redirect } from "next/navigation";
@@ -20,8 +20,8 @@ export default async function ClientUpdatesPage() {
     redirect("/client");
   }
   const programs = await listPrograms();
-  const visiblePrograms = currentUser && isExternalOnlyUserType(currentUser.userType)
-    ? programs.filter((program) => currentUser.assignments.some((assignment) => assignment.programId === program.id))
+  const visiblePrograms = currentUser && shouldScopeManagedUserPrograms(currentUser)
+    ? programs.filter((program) => getAssignedProgramIdSet(currentUser).has(program.id))
     : programs;
 
   return (

@@ -48,32 +48,35 @@ export async function requireProgramRouteAccess(
   options: ProgramRouteAccessOptions = {}
 ): Promise<{ currentUser: ManagedAppUser | null; response: NextResponse | null }> {
   const scope = options.scope ?? "internal";
+  const currentUser = await getCurrentManagedUser();
 
-  if (isSiteAccessRequestAuthorized(request)) {
-    const authenticatedUser = await getCurrentManagedUser();
-    if (authenticatedUser && isClientDashboardOnlyUserType(authenticatedUser.userType) && scope !== "client-dashboard") {
+  if (currentUser) {
+    if (isClientDashboardOnlyUserType(currentUser.userType) && scope !== "client-dashboard") {
       return {
-        currentUser: authenticatedUser,
+        currentUser,
         response: NextResponse.json({ error: "Program access denied." }, { status: 403 })
       };
     }
-    return { currentUser: options.loadCurrentUser ? authenticatedUser : null, response: null };
+
+    const canAccess =
+      scope === "client-dashboard"
+        ? canAccessClientDashboardScope(currentUser, programId)
+        : canAccessProgramScope(currentUser, programId);
+
+    return canAccess
+      ? { currentUser: options.loadCurrentUser ? currentUser : null, response: null }
+      : {
+          currentUser,
+          response: NextResponse.json({ error: "Program access denied." }, { status: 403 })
+        };
   }
 
-  const currentUser = await getCurrentManagedUser();
-  const canAccess =
-    scope === "client-dashboard"
-      ? canAccessClientDashboardScope(currentUser, programId)
-      : canAccessProgramScope(currentUser, programId);
-
-  if (canAccess) {
-    return { currentUser, response: null };
+  if (isSiteAccessRequestAuthorized(request)) {
+    return { currentUser: null, response: null };
   }
 
   return {
-    currentUser,
-    response: currentUser
-      ? NextResponse.json({ error: "Program access denied." }, { status: 403 })
-      : createSiteAccessDeniedResponse()
+    currentUser: null,
+    response: createSiteAccessDeniedResponse()
   };
 }

@@ -88,6 +88,23 @@ export function isExternalOnlyUserType(userType: AppUserType) {
   return userType === "client" || isClientDashboardOnlyUserType(userType);
 }
 
+export function shouldScopeManagedUserPrograms(
+  user: Pick<ManagedAppUser, "credentialStatus" | "userType"> | null | undefined
+) {
+  return Boolean(user && user.userType !== "admin");
+}
+
+export function getAssignedProgramIdSet(user: Pick<ManagedAppUser, "assignments"> | null | undefined) {
+  return new Set((user?.assignments ?? []).map((assignment) => assignment.programId));
+}
+
+export function hasAssignedProgram(
+  user: Pick<ManagedAppUser, "assignments"> | null | undefined,
+  programId: string
+) {
+  return getAssignedProgramIdSet(user).has(programId);
+}
+
 export function canAccessAdminSurface(user: Pick<ManagedAppUser, "credentialStatus" | "userType"> | null | undefined) {
   return Boolean(user && user.credentialStatus === "active" && user.userType === "admin");
 }
@@ -112,10 +129,10 @@ export function canAccessProgramScope(
   user: Pick<ManagedAppUser, "assignments" | "credentialStatus" | "userType"> | null | undefined,
   programId: string
 ) {
-  if (!user || user.credentialStatus === "disabled") return false;
-  if (isClientDashboardOnlyUserType(user.userType)) return false;
-  if (user.userType !== "client") return true;
-  return user.assignments.some((assignment) => assignment.programId === programId);
+  if (!user || user.credentialStatus !== "active") return false;
+  if (user.userType === "admin") return true;
+  if (isExternalOnlyUserType(user.userType)) return false;
+  return hasAssignedProgram(user, programId);
 }
 
 export function canAccessClientDashboardScope(
@@ -123,13 +140,8 @@ export function canAccessClientDashboardScope(
   programId: string
 ) {
   if (!user || user.credentialStatus !== "active") return false;
-  if (user.userType === "admin" || user.userType === "leadership" || user.userType === "delivery-lead" || user.userType === "team-member") {
-    return true;
-  }
-  if (user.userType === "client" || isClientDashboardOnlyUserType(user.userType)) {
-    return user.assignments.some((assignment) => assignment.programId === programId);
-  }
-  return false;
+  if (user.userType === "admin") return true;
+  return hasAssignedProgram(user, programId);
 }
 
 export function canAccessClientDashboardUpdateSurface(

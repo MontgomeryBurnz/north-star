@@ -5,7 +5,8 @@ import {
   canAccessClientDashboardScope,
   canAccessClientDashboardUpdateSurface,
   canAccessLeadershipSurface,
-  canAccessProgramScope
+  canAccessProgramScope,
+  shouldScopeManagedUserPrograms
 } from "../src/lib/admin-user-types.ts";
 import { buildManagedAppUserRecord } from "../src/lib/admin-user-service.ts";
 import type { StoredProgram } from "../src/lib/program-intake-types.ts";
@@ -285,10 +286,16 @@ test("managed user program scope keeps client access assignment-bound", () => {
     userType: "client" as const
   };
 
-  assert.equal(canAccessProgramScope(clientUser, "compliance-hub"), true);
+  assert.equal(canAccessProgramScope(clientUser, "compliance-hub"), false);
   assert.equal(canAccessProgramScope(clientUser, "platform-modernization"), false);
+  assert.equal(canAccessClientDashboardScope(clientUser, "compliance-hub"), true);
+  assert.equal(canAccessClientDashboardScope(clientUser, "platform-modernization"), false);
   assert.equal(canAccessProgramScope({ ...clientUser, credentialStatus: "disabled" }, "compliance-hub"), false);
-  assert.equal(canAccessProgramScope({ ...clientUser, userType: "delivery-lead" }, "platform-modernization"), true);
+  assert.equal(canAccessProgramScope({ ...clientUser, userType: "delivery-lead" }, "compliance-hub"), true);
+  assert.equal(canAccessProgramScope({ ...clientUser, userType: "delivery-lead" }, "platform-modernization"), false);
+  assert.equal(canAccessProgramScope({ ...clientUser, userType: "admin", assignments: [] }, "platform-modernization"), true);
+  assert.equal(shouldScopeManagedUserPrograms({ credentialStatus: "active", userType: "admin" }), false);
+  assert.equal(shouldScopeManagedUserPrograms({ credentialStatus: "active", userType: "delivery-lead" }), true);
 });
 
 test("client dashboard contributors are scoped to client dashboard surfaces", () => {
@@ -311,6 +318,9 @@ test("client dashboard contributors are scoped to client dashboard surfaces", ()
   assert.equal(canAccessProgramScope(dashboardUser, "compliance-hub"), false);
   assert.equal(canAccessClientDashboardScope(dashboardUser, "compliance-hub"), true);
   assert.equal(canAccessClientDashboardScope(dashboardUser, "platform-modernization"), false);
+  assert.equal(canAccessClientDashboardScope({ ...dashboardUser, userType: "delivery-lead" }, "compliance-hub"), true);
+  assert.equal(canAccessClientDashboardScope({ ...dashboardUser, userType: "delivery-lead" }, "platform-modernization"), false);
+  assert.equal(canAccessClientDashboardScope({ ...dashboardUser, userType: "admin", assignments: [] }, "platform-modernization"), true);
   assert.equal(canAccessClientDashboardUpdateSurface(dashboardUser), true);
   assert.equal(canAccessClientDashboardUpdateSurface({ ...dashboardUser, userType: "client" }), false);
 });

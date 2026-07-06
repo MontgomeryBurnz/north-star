@@ -1084,6 +1084,7 @@ test("Client Dashboard Contributor has a scoped publication lane", () => {
     new URL("../src/app/api/programs/[id]/client-decisions/route.ts", import.meta.url),
     "utf8"
   );
+  const clientPortalDataSource = readFileSync(new URL("../src/lib/client-portal-data.ts", import.meta.url), "utf8");
   const clientUpdatesPageSource = readFileSync(new URL("../src/app/client-updates/page.tsx", import.meta.url), "utf8");
   const appPageAccessSource = readFileSync(new URL("../src/lib/app-page-access.ts", import.meta.url), "utf8");
   const clientUpdatesConsoleSource = readFileSync(
@@ -1101,8 +1102,11 @@ test("Client Dashboard Contributor has a scoped publication lane", () => {
   assert.match(userTypesSource, /"client-dashboard-contributor"/);
   assert.match(userTypesSource, /canAccessClientDashboardScope/);
   assert.match(userTypesSource, /canAccessClientDashboardUpdateSurface/);
+  assert.match(userTypesSource, /shouldScopeManagedUserPrograms/);
+  assert.match(userTypesSource, /user\.userType === "admin"/);
   assert.match(routeAccessSource, /scope\?: "internal" \| "client-dashboard"/);
   assert.match(routeAccessSource, /isClientDashboardOnlyUserType/);
+  assert.match(routeAccessSource, /canAccessProgramScope\(currentUser, programId\)/);
   assert.match(clientUpdatesRouteSource, /scope: "client-dashboard"/);
   assert.match(clientUpdatesRouteSource, /canAccessClientDashboardUpdateSurface/);
   assert.match(clientUpdatesRouteSource, /clientRoadmapItems/);
@@ -1110,6 +1114,10 @@ test("Client Dashboard Contributor has a scoped publication lane", () => {
   assert.match(clientDecisionsRouteSource, /scope: "client-dashboard"/);
   assert.match(clientUpdatesPageSource, /loadClientPortalData/);
   assert.match(clientUpdatesPageSource, /canAccessClientDashboardUpdateSurface/);
+  assert.match(clientUpdatesPageSource, /shouldScopeManagedUserPrograms/);
+  assert.match(clientUpdatesPageSource, /getAssignedProgramIdSet/);
+  assert.match(clientPortalDataSource, /shouldScopeManagedUserPrograms/);
+  assert.match(clientPortalDataSource, /getAssignedProgramIdSet/);
   assert.match(clientUpdatesConsoleSource, /data-client-dashboard-updates-console/);
   assert.match(clientUpdatesConsoleSource, /data-client-dashboard-overview[\s\S]*value=\{draft\.executiveOverview\}/);
   assert.match(clientUpdatesConsoleSource, /data-client-dashboard-overview[\s\S]*updateField\("executiveOverview"/);
@@ -1139,6 +1147,8 @@ test("Client Dashboard Contributor has a scoped publication lane", () => {
   assert.match(navSource, /pathname === "\/client-updates"/);
   assert.match(navSource, /const showAdminLink = currentUser\?\.userType === "admin"/);
   assert.match(authLoginSource, /\/client-updates/);
+  assert.match(programRouteSource, /shouldScopeManagedUserPrograms/);
+  assert.match(programRouteSource, /getAssignedProgramIdSet/);
   assert.match(programRouteSource, /isExternalOnlyUserType/);
   assert.match(middlewareSource, /pathname === "\/client-updates"/);
   assert.match(middlewareSource, /hasSupabaseAuthSession\(request\)/);
