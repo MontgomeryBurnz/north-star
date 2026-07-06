@@ -6,7 +6,14 @@ import { buildClientPortalPortfolio, type ClientPortalProgramInput } from "@/lib
 import { getCurrentManagedUser } from "@/lib/current-managed-user";
 import { listClientDecisionRequests, listClientPortalUpdates, listPrograms } from "@/lib/program-store";
 
-export async function loadClientPortalData(redirectTo = "/client") {
+function normalizeClientScope(value: string | null | undefined) {
+  return value?.trim().toLowerCase() ?? "";
+}
+
+export async function loadClientPortalData(
+  redirectTo = "/client",
+  options: { clientName?: string | null } = {}
+) {
   const [currentUser, hasInternalSession] = await Promise.all([
     getCurrentManagedUser(),
     hasSiteAccessPageSession()
@@ -23,9 +30,13 @@ export async function loadClientPortalData(redirectTo = "/client") {
   const programs = visibleProgramIds
     ? allPrograms.filter((program) => visibleProgramIds.has(program.id))
     : allPrograms;
+  const requestedClientName = normalizeClientScope(options.clientName);
+  const scopedPrograms = requestedClientName
+    ? programs.filter((program) => normalizeClientScope(program.intake.clientName) === requestedClientName)
+    : programs;
 
   const programInputs = await Promise.all<ClientPortalProgramInput>(
-    programs.map(async (program) => {
+    scopedPrograms.map(async (program) => {
       const [clientUpdates, clientDecisions] = await Promise.all([
         listClientPortalUpdates(program.id),
         listClientDecisionRequests(program.id)

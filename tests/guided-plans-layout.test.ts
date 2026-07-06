@@ -46,7 +46,7 @@ test("Client Portal frames executive overview and domain progress", () => {
   assert.doesNotMatch(source, /Client Work Roadmap/);
   assert.match(source, /clientRoadmapTitle/);
   assert.match(source, /title=\{clientRoadmapTitle\(program\.name\)\}/);
-  assert.match(source, /showClientSelector = portfolio\.clients\.length > 1/);
+  assert.match(source, /showClientSelector = false/);
   assert.match(source, /showProgramScope = clientPrograms\.length > 1/);
   assert.match(source, /data-client-program-hero/);
   assert.match(source, /data-client-hero-metric/);

@@ -620,7 +620,7 @@ export function ClientPortalConsole({
     () => clientPrograms.find((program) => program.id === selectedProgramId) ?? clientPrograms[0] ?? null,
     [clientPrograms, selectedProgramId]
   );
-  const showClientSelector = portfolio.clients.length > 1;
+  const showClientSelector = false;
   const showProgramScope = clientPrograms.length > 1;
   const exportHref = selectedProgram
     ? `/api/client-portal/export/pdf?scope=program&programId=${encodeURIComponent(selectedProgram.id)}`
