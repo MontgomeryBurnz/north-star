@@ -203,7 +203,7 @@ function ProgramHero({ program }: { program: ClientPortalProgram }) {
             <Compass className="h-4 w-4" />
             Executive Summary
           </p>
-          <p className="mt-3 whitespace-pre-line text-sm font-medium leading-7 text-slate-700 sm:text-lg sm:leading-9">{program.executiveOverview}</p>
+          <p data-client-executive-summary className="mt-3 whitespace-pre-line text-sm font-medium leading-7 text-slate-700 sm:text-lg sm:leading-9">{program.executiveOverview}</p>
         </div>
       </div>
     </section>
@@ -393,7 +393,7 @@ function FunctionUpdateCard({
   return (
     <ExecutiveCard icon={icon} title={title}>
       {rows.length ? (
-        <div className="mt-6 grid gap-4">
+        <div data-client-function-section={mode} className="mt-6 grid gap-4">
           {rows.map((row, index) => {
             const listItems = splitClientPortalListText(row.text);
             const renderList = shouldRenderClientPortalList(row.text);
@@ -401,7 +401,7 @@ function FunctionUpdateCard({
             return (
               <article
                 key={`${title}-${row.role}-${index}`}
-                data-client-function-update-card={row.role}
+                data-client-function-update-card={`${mode}:${row.role}`}
                 className="rounded-lg border border-slate-200 bg-slate-50 p-4"
               >
                 <div className="flex flex-wrap items-start justify-between gap-3">
@@ -437,7 +437,7 @@ function FunctionUpdateCard({
           })}
         </div>
       ) : (
-        <p className="mt-6 rounded-lg border border-slate-200 bg-slate-50 p-5 text-base font-medium leading-7 text-slate-600">
+        <p data-client-function-section={mode} className="mt-6 rounded-lg border border-slate-200 bg-slate-50 p-5 text-base font-medium leading-7 text-slate-600">
           No client-facing {mode === "accomplishments" ? "accomplishments" : "upcoming work"} have been published yet.
         </p>
       )}

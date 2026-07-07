@@ -907,17 +907,17 @@ async function verifyClientPortalExecutiveFields(session, program, smokeText) {
           const details = Array.from(document.querySelectorAll("[data-client-program-detail]"));
           const detail = details.find((element) => element.getAttribute("data-client-program-detail") === arguments[0]);
           const detailText = detail?.textContent ?? "";
+          const summaryText = detail?.querySelector("[data-client-executive-summary]")?.textContent ?? "";
+          const accomplishmentsText = detail?.querySelector('[data-client-function-section="accomplishments"]')?.textContent ?? "";
+          const upcomingText = detail?.querySelector('[data-client-function-section="upcoming"]')?.textContent ?? "";
           return {
             detailFound: Boolean(detail),
-            detailHasSponsor: detailText.includes("Smoke Sponsor"),
             detailHidesLead: !detailText.includes("Smoke Program Lead"),
             detailHidesPmo: !detailText.includes("Smoke PMO"),
-            detailHasPercent: detailText.includes("100%"),
-            detailHasDelta: detailText.includes("+4%"),
-            detailHasTag: detailText.includes(arguments[1]) &&
-              detailText.includes("Client-facing executive narrative") &&
-              detailText.includes("Client-facing accomplishment") &&
-              detailText.includes("Client-facing upcoming work")
+            detailHasPublishedOverview: summaryText.includes("Client portal smoke status: " + arguments[1]),
+            detailHasDomainAccomplishment: accomplishmentsText.includes("Client-facing domain pursuit " + arguments[1]),
+            detailHasDomainUpcoming: upcomingText.includes("Client-facing domain decision " + arguments[1]),
+            detailHasPublishedRisk: detailText.includes("Client-facing top risk " + arguments[1])
           };
         `,
         [program.id, smokeText]

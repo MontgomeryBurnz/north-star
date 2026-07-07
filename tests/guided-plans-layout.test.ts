@@ -55,6 +55,7 @@ test("Client Portal frames executive overview and domain progress", () => {
   assert.doesNotMatch(source, /metricId="percent-complete"/);
   assert.match(source, /grid min-w-0 max-w-full gap-6 overflow-hidden/);
   assert.match(source, /data-client-executive-sponsor/);
+  assert.match(source, /data-client-executive-summary/);
   assert.doesNotMatch(source, /data-client-program-lead/);
   assert.doesNotMatch(source, /data-client-pmo/);
   assert.doesNotMatch(source, /xl:grid-cols-\[minmax\(0,1fr\)_minmax\(22rem,0\.5fr\)\]/);
@@ -65,6 +66,7 @@ test("Client Portal frames executive overview and domain progress", () => {
   assert.match(source, /ClientWorkRoadmap/);
   assert.match(source, /data-client-work-roadmap-item/);
   assert.match(source, /FunctionUpdateCard/);
+  assert.match(source, /data-client-function-section/);
   assert.match(source, /data-client-function-update-card/);
   assert.match(source, /data-client-function-bullet/);
   assert.match(source, /splitClientPortalListText/);
