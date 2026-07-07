@@ -555,6 +555,7 @@ test("Active Program review is split into state, cockpit, and team signal flows"
   const packageSource = readFileSync(new URL("../package.json", import.meta.url), "utf8");
   const activeProgramSaveSmokeSource = readFileSync(new URL("../scripts/smoke-active-program-save.mjs", import.meta.url), "utf8");
   const clientPortalSmokeSource = readFileSync(new URL("../scripts/smoke-client-portal.mjs", import.meta.url), "utf8");
+  const clientIsolationSmokeSource = readFileSync(new URL("../scripts/smoke-client-isolation.mjs", import.meta.url), "utf8");
   const teamFootprintSmokeSource = readFileSync(new URL("../scripts/smoke-team-footprint.mjs", import.meta.url), "utf8");
   const productionSmokeSource = readFileSync(new URL("../scripts/smoke-production.mjs", import.meta.url), "utf8");
   const browserWebdriverSource = readFileSync(new URL("../scripts/browser-webdriver.mjs", import.meta.url), "utf8");
@@ -868,7 +869,12 @@ test("Active Program review is split into state, cockpit, and team signal flows"
   assert.doesNotMatch(clientPortalPageSource, /listProgramUpdates/);
   assert.match(productionSmokeSource, /active program save \+ client portal/);
   assert.match(productionSmokeSource, /client portal seeded update/);
+  assert.match(productionSmokeSource, /client portal isolation/);
+  assert.match(clientIsolationSmokeSource, /data-client-portfolio-option/);
+  assert.match(clientIsolationSmokeSource, /leaked non-selected client portfolio name/);
+  assert.match(clientIsolationSmokeSource, /NORTHSTAR_CLIENT_ISOLATION_FORBIDDEN_CLIENTS/);
   assert.match(productionSmokeSource, /team footprint propagation/);
+  assert.match(packageSource, /smoke:client-isolation/);
   assert.match(packageSource, /smoke:team-footprint/);
 });
 

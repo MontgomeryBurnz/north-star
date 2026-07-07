@@ -12,6 +12,10 @@ const smokeSteps = [
   { name: "admin audit export", script: "smoke-admin-audit-export.mjs" },
   { name: "team footprint propagation", script: "smoke-team-footprint.mjs" },
   {
+    name: "client portal isolation",
+    script: "smoke-client-isolation.mjs"
+  },
+  {
     env: {
       NORTHSTAR_CLIENT_DASHBOARD_SMOKE_CLEANUP: process.env.NORTHSTAR_CLIENT_DASHBOARD_SMOKE_CLEANUP ?? "prune"
     },
