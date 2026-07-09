@@ -24,14 +24,14 @@ async function findSupabaseAuthUserIdByEmail(email: string) {
 
 async function deleteLinkedAuthUser(user: ManagedAppUser) {
   if (!isSupabaseAdminConfigured()) {
-    return { deleted: false, skipped: true };
+    return { deleted: false, skipped: true, error: "" };
   }
 
   const supabase = createSupabaseAdminClient();
   const authUserId = user.authUserId ?? (await findSupabaseAuthUserIdByEmail(user.email));
 
   if (!authUserId) {
-    return { deleted: false, skipped: false };
+    return { deleted: false, skipped: false, error: "" };
   }
 
   const { error } = await supabase.auth.admin.deleteUser(authUserId);
@@ -40,7 +40,7 @@ async function deleteLinkedAuthUser(user: ManagedAppUser) {
     throw new Error(error.message);
   }
 
-  return { deleted: !error, skipped: false };
+  return { deleted: !error, skipped: false, error: "" };
 }
 
 export async function GET(request: Request) {
@@ -143,28 +143,50 @@ export async function DELETE(request: Request) {
   }
 
   try {
-    const authDeletion = await deleteLinkedAuthUser(user);
     const deletedUser = await deleteManagedUser(userId);
-    await createAuditEvent({
-      actor: auditActorFromAccess(access),
-      entityId: user.id,
-      entityLabel: user.name,
-      entityType: "managed-user",
-      eventType: "user.access.remove",
-      metadata: {
-        authDeleted: authDeletion.deleted,
-        authSkipped: authDeletion.skipped,
-        email: user.email,
-        userType: user.userType
-      },
-      summary: `${user.name} access was removed.`,
-      surface: "Admin"
-    });
+
+    if (!deletedUser) {
+      throw new Error("Managed user was not found.");
+    }
+
+    let authDeletion: Awaited<ReturnType<typeof deleteLinkedAuthUser>>;
+    try {
+      authDeletion = await deleteLinkedAuthUser(user);
+    } catch (error) {
+      authDeletion = {
+        deleted: false,
+        skipped: false,
+        error: error instanceof Error ? error.message : "Supabase Auth cleanup failed."
+      };
+    }
+
+    let auditError = "";
+    try {
+      await createAuditEvent({
+        actor: auditActorFromAccess(access),
+        entityId: user.id,
+        entityLabel: user.name,
+        entityType: "managed-user",
+        eventType: "user.access.remove",
+        metadata: {
+          authDeleted: authDeletion.deleted,
+          authError: authDeletion.error,
+          authSkipped: authDeletion.skipped,
+          email: user.email,
+          userType: user.userType
+        },
+        summary: `${user.name} access was removed.`,
+        surface: "Admin"
+      });
+    } catch (error) {
+      auditError = error instanceof Error ? error.message : "Audit event could not be recorded.";
+    }
 
     return NextResponse.json({
+      auditError,
       authDeletion,
       invitationProvider: getInvitationProviderStatus(),
-      user: deletedUser ?? user
+      user: deletedUser
     });
   } catch (error) {
     return NextResponse.json(

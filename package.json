@@ -22,6 +22,7 @@
     "smoke:slicers": "node scripts/smoke-program-slicers.mjs",
     "smoke:admin-model": "node scripts/smoke-admin-model-settings.mjs",
     "smoke:admin-audit": "node scripts/smoke-admin-audit-export.mjs",
+    "smoke:admin-user-removal": "node scripts/smoke-admin-user-removal.mjs",
     "profile:active-program": "node scripts/profile-active-program.mjs",
     "security:supabase-logs": "node scripts/review-supabase-api-logs.mjs",
     "security:supabase-rls": "node scripts/check-supabase-rls.mjs",

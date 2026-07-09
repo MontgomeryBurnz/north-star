@@ -10,6 +10,7 @@ const smokeSteps = [
   { name: "studio", script: "smoke-studio.mjs" },
   { name: "admin model settings", script: "smoke-admin-model-settings.mjs" },
   { name: "admin audit export", script: "smoke-admin-audit-export.mjs" },
+  { name: "admin user removal", script: "smoke-admin-user-removal.mjs" },
   { name: "team footprint propagation", script: "smoke-team-footprint.mjs" },
   {
     name: "client portal isolation",

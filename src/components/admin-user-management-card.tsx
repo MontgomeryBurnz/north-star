@@ -549,10 +549,12 @@ export function AdminUserManagementCard({
       const response = await fetch("/api/admin/users", {
         method: "DELETE",
         headers: { "content-type": "application/json" },
+        credentials: "same-origin",
         body: JSON.stringify({ id: user.id })
       });
-      const payload = (await response.json()) as {
-        authDeletion?: { deleted: boolean; skipped: boolean };
+      const payload = (await response.json().catch(() => ({}))) as {
+        auditError?: string;
+        authDeletion?: { deleted: boolean; error?: string; skipped: boolean };
         error?: string;
         invitationProvider?: InvitationProviderStatus;
         user?: ManagedAppUser;
@@ -566,7 +568,14 @@ export function AdminUserManagementCard({
         setInvitationProvider(payload.invitationProvider);
       }
 
-      setUsers((current) => current.filter((item) => item.id !== payload.user?.id));
+      const removedUser = payload.user;
+      setUsers((current) =>
+        current.filter(
+          (item) =>
+            item.id !== removedUser.id &&
+            item.email.trim().toLowerCase() !== removedUser.email.trim().toLowerCase()
+        )
+      );
       setExpandedUsers((current) => {
         const nextExpandedUsers = { ...current };
         delete nextExpandedUsers[user.id];
@@ -583,14 +592,19 @@ export function AdminUserManagementCard({
         setSaveState("idle");
       }
 
+      let removedStatus = `${removedUser.name} was removed from Admin. No linked login account was found.`;
+      if (payload.authDeletion?.error) {
+        removedStatus = `${removedUser.name} was removed from Admin. Linked login cleanup needs review: ${payload.authDeletion.error}`;
+      } else if (payload.auditError) {
+        removedStatus = `${removedUser.name} was removed from Admin. Audit logging needs review: ${payload.auditError}`;
+      } else if (payload.authDeletion?.deleted) {
+        removedStatus = `${removedUser.name} was removed from Admin and their linked login account was deleted. You can send a fresh invite to this email.`;
+      } else if (payload.authDeletion?.skipped) {
+        removedStatus = `${removedUser.name} was removed from Admin. Supabase Auth cleanup was skipped because service-role access is not configured.`;
+      }
+
       setStatusTone("success");
-      setStatus(
-        payload.authDeletion?.deleted
-          ? `${payload.user.name} was removed from Admin and their linked login account was deleted. You can send a fresh invite to this email.`
-          : payload.authDeletion?.skipped
-            ? `${payload.user.name} was removed from Admin. Supabase Auth cleanup was skipped because service-role access is not configured.`
-            : `${payload.user.name} was removed from Admin. No linked login account was found.`
-      );
+      setStatus(removedStatus);
     } catch (error) {
       setStatusTone("error");
       setStatus(error instanceof Error ? error.message : "Could not remove user.");
@@ -610,6 +624,8 @@ export function AdminUserManagementCard({
       <CardContent className="grid gap-5 p-5">
         {status ? (
           <div
+            data-admin-user-management-status
+            data-admin-user-management-status-tone={statusTone}
             className={`rounded-md border p-3 text-sm leading-6 ${
               statusTone === "error"
                 ? "border-amber-300/25 bg-amber-300/[0.065] text-amber-100"
@@ -1088,7 +1104,12 @@ export function AdminUserManagementCard({
                 const otherAssignments = user.assignments.filter((assignment) => assignment.id !== primaryAssignment?.id);
 
                 return (
-                  <div key={user.id} className="rounded-md border border-white/10 bg-white/[0.035] p-4">
+                  <div
+                    key={user.id}
+                    data-admin-user-row={user.id}
+                    data-admin-user-email={user.email}
+                    className="rounded-md border border-white/10 bg-white/[0.035] p-4"
+                  >
                     <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-start">
                       <div className="min-w-0">
                         <div className="flex flex-wrap items-center gap-2">
@@ -1138,6 +1159,7 @@ export function AdminUserManagementCard({
                         <Button
                           type="button"
                           variant="outline"
+                          data-admin-user-remove={user.id}
                           onClick={() => void removeManagedUser(user)}
                           disabled={deletingUserId === user.id}
                           className="border-rose-300/25 text-rose-100 hover:border-rose-300/45 hover:bg-rose-300/[0.08]"

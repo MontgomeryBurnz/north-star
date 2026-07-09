@@ -1024,6 +1024,31 @@ test("Admin can manage OpenAI guidance model settings", () => {
   assert.match(artifactProviderSource, /getGuidanceModelSettings/);
 });
 
+test("Admin user removal is resilient and covered by production smoke", () => {
+  const adminUsersRouteSource = readFileSync(new URL("../src/app/api/admin/users/route.ts", import.meta.url), "utf8");
+  const adminUserManagementSource = readFileSync(new URL("../src/components/admin-user-management-card.tsx", import.meta.url), "utf8");
+  const adminRemovalSmokeSource = readFileSync(new URL("../scripts/smoke-admin-user-removal.mjs", import.meta.url), "utf8");
+  const productionSmokeSource = readFileSync(new URL("../scripts/smoke-production.mjs", import.meta.url), "utf8");
+  const packageSource = readFileSync(new URL("../package.json", import.meta.url), "utf8");
+
+  assert.match(adminUsersRouteSource, /const deletedUser = await deleteManagedUser\(userId\)/);
+  assert.match(adminUsersRouteSource, /authDeletion = await deleteLinkedAuthUser\(user\)/);
+  assert.match(adminUsersRouteSource, /authError: authDeletion\.error/);
+  assert.match(adminUsersRouteSource, /auditError/);
+  assert.match(adminUserManagementSource, /data-admin-user-management-status/);
+  assert.match(adminUserManagementSource, /data-admin-user-row/);
+  assert.match(adminUserManagementSource, /data-admin-user-remove/);
+  assert.match(adminUserManagementSource, /credentials: "same-origin"/);
+  assert.match(adminUserManagementSource, /item\.email\.trim\(\)\.toLowerCase\(\) !== removedUser\.email\.trim\(\)\.toLowerCase\(\)/);
+  assert.match(adminRemovalSmokeSource, /codex-remove-smoke-/);
+  assert.match(adminRemovalSmokeSource, /data-admin-user-row/);
+  assert.match(adminRemovalSmokeSource, /data-admin-user-remove/);
+  assert.match(adminRemovalSmokeSource, /was removed from Admin/);
+  assert.match(adminRemovalSmokeSource, /cleanupDisposableUsers/);
+  assert.match(productionSmokeSource, /admin user removal/);
+  assert.match(packageSource, /smoke:admin-user-removal/);
+});
+
 test("API routes use shared access helpers instead of one-off site checks", () => {
   const routeAccessSource = readFileSync(new URL("../src/lib/api-route-access.ts", import.meta.url), "utf8");
   const adminUserTypesSource = readFileSync(new URL("../src/lib/admin-user-types.ts", import.meta.url), "utf8");
