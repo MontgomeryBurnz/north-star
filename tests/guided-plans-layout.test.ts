@@ -1043,6 +1043,8 @@ test("Admin user removal is resilient and covered by production smoke", () => {
   assert.match(adminUserManagementSource, /data-admin-user-cancel-remove/);
   assert.match(adminUserManagementSource, /credentials: "same-origin"/);
   assert.doesNotMatch(adminUserManagementSource, /window\.confirm/);
+  assert.doesNotMatch(adminUserManagementSource, /Intl\.DateTimeFormat\(undefined/);
+  assert.match(adminUserManagementSource, /timeZone: "America\/New_York"/);
   assert.match(adminUserManagementSource, /item\.email\.trim\(\)\.toLowerCase\(\) !== removedUser\.email\.trim\(\)\.toLowerCase\(\)/);
   assert.match(adminRemovalSmokeSource, /codex-remove-smoke-/);
   assert.match(adminRemovalSmokeSource, /data-admin-user-row/);
@@ -1054,6 +1056,21 @@ test("Admin user removal is resilient and covered by production smoke", () => {
   assert.match(adminRemovalSmokeSource, /cleanupDisposableUsers/);
   assert.match(productionSmokeSource, /admin user removal/);
   assert.match(packageSource, /smoke:admin-user-removal/);
+});
+
+test("Admin surfaces use deterministic date formatting for hydration-safe actions", () => {
+  const adminDateSources = [
+    readFileSync(new URL("../src/components/admin-user-management-card.tsx", import.meta.url), "utf8"),
+    readFileSync(new URL("../src/components/admin-audit-history-panel.tsx", import.meta.url), "utf8"),
+    readFileSync(new URL("../src/components/admin-guidance-model-settings-card.tsx", import.meta.url), "utf8"),
+    readFileSync(new URL("../src/components/admin-operating-cost-center.tsx", import.meta.url), "utf8"),
+    readFileSync(new URL("../src/components/governance-dashboard.tsx", import.meta.url), "utf8")
+  ];
+
+  for (const source of adminDateSources) {
+    assert.doesNotMatch(source, /Intl\.DateTimeFormat\(undefined/);
+    assert.match(source, /timeZone: "America\/New_York"/);
+  }
 });
 
 test("API routes use shared access helpers instead of one-off site checks", () => {

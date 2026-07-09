@@ -31,11 +31,12 @@ type SaveStatus = {
 
 function formatDate(value: string | undefined) {
   if (!value) return "Using environment defaults";
-  return new Intl.DateTimeFormat(undefined, {
+  return new Intl.DateTimeFormat("en-US", {
     month: "short",
     day: "numeric",
     hour: "numeric",
-    minute: "2-digit"
+    minute: "2-digit",
+    timeZone: "America/New_York"
   }).format(new Date(value));
 }
 

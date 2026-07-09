@@ -47,11 +47,12 @@ function formatPercent(value: number | null | undefined) {
 
 function formatDate(value: string | undefined) {
   if (!value) return "Not synced";
-  return new Intl.DateTimeFormat(undefined, {
+  return new Intl.DateTimeFormat("en-US", {
     month: "short",
     day: "numeric",
     hour: "numeric",
-    minute: "2-digit"
+    minute: "2-digit",
+    timeZone: "America/New_York"
   }).format(new Date(value));
 }
 
