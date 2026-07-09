@@ -646,49 +646,6 @@ export function AdminUserManagementCard({
           </div>
         ) : null}
 
-        {pendingRemovalUser ? (
-          <div
-            data-admin-user-remove-confirmation={pendingRemovalUser.id}
-            className="grid gap-3 rounded-md border border-rose-300/30 bg-rose-300/[0.065] p-4"
-            aria-live="polite"
-          >
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-              <div>
-                <p className="text-sm font-semibold text-rose-50">Remove {pendingRemovalUser.name}?</p>
-                <p className="mt-1 text-sm leading-6 text-rose-100/80">
-                  This removes their North Star app access immediately. If a linked Supabase login exists, the system will also attempt to delete that login account.
-                </p>
-                <p className="mt-1 text-xs text-rose-100/60">{pendingRemovalUser.email}</p>
-              </div>
-              <div className="flex flex-wrap gap-2 sm:justify-end">
-                <Button
-                  type="button"
-                  variant="outline"
-                  data-admin-user-cancel-remove={pendingRemovalUser.id}
-                  onClick={() => {
-                    setPendingRemovalUser(null);
-                    setStatus(null);
-                    setStatusTone("neutral");
-                  }}
-                  disabled={deletingUserId === pendingRemovalUser.id}
-                >
-                  Cancel
-                </Button>
-                <Button
-                  type="button"
-                  data-admin-user-confirm-remove={pendingRemovalUser.id}
-                  onClick={() => void removeManagedUser(pendingRemovalUser)}
-                  disabled={deletingUserId === pendingRemovalUser.id}
-                  className="bg-rose-300 text-rose-950 hover:bg-rose-200"
-                >
-                  {deletingUserId === pendingRemovalUser.id ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
-                  Confirm remove
-                </Button>
-              </div>
-            </div>
-          </div>
-        ) : null}
-
         {setupLink ? (
           <div className="grid gap-3 rounded-md border border-cyan-300/25 bg-cyan-300/[0.055] p-3">
             <p className="flex items-center gap-2 text-xs font-medium uppercase tracking-[0.16em] text-cyan-100">
@@ -1218,6 +1175,49 @@ export function AdminUserManagementCard({
                         </Button>
                       </div>
                     </div>
+
+                    {pendingRemovalUser?.id === user.id ? (
+                      <div
+                        data-admin-user-remove-confirmation={user.id}
+                        className="mt-4 grid gap-3 rounded-md border border-rose-300/30 bg-rose-300/[0.065] p-4"
+                        aria-live="polite"
+                      >
+                        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                          <div>
+                            <p className="text-sm font-semibold text-rose-50">Remove {user.name}?</p>
+                            <p className="mt-1 text-sm leading-6 text-rose-100/80">
+                              This removes their North Star app access immediately. If a linked Supabase login exists, the system will also attempt to delete that login account.
+                            </p>
+                            <p className="mt-1 text-xs text-rose-100/60">{user.email}</p>
+                          </div>
+                          <div className="flex flex-wrap gap-2 sm:justify-end">
+                            <Button
+                              type="button"
+                              variant="outline"
+                              data-admin-user-cancel-remove={user.id}
+                              onClick={() => {
+                                setPendingRemovalUser(null);
+                                setStatus(null);
+                                setStatusTone("neutral");
+                              }}
+                              disabled={deletingUserId === user.id}
+                            >
+                              Cancel
+                            </Button>
+                            <Button
+                              type="button"
+                              data-admin-user-confirm-remove={user.id}
+                              onClick={() => void removeManagedUser(user)}
+                              disabled={deletingUserId === user.id}
+                              className="bg-rose-300 text-rose-950 hover:bg-rose-200"
+                            >
+                              {deletingUserId === user.id ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+                              Confirm remove
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                    ) : null}
 
                     {hasGlobalAdminAccess ? (
                       <div className="mt-4 rounded-md border border-emerald-300/20 bg-emerald-300/[0.055] p-3">

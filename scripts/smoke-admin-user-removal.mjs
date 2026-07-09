@@ -156,9 +156,10 @@ async function main() {
       await session.waitFor("Admin user removal confirmation visible", () =>
         session.execute(
           `
+            const row = document.querySelector(\`[data-admin-user-row="\${arguments[0]}"]\`);
             return Boolean(
-              document.querySelector(\`[data-admin-user-remove-confirmation="\${arguments[0]}"]\`)
-              && document.querySelector(\`[data-admin-user-confirm-remove="\${arguments[0]}"]\`)
+              row?.querySelector(\`[data-admin-user-remove-confirmation="\${arguments[0]}"]\`)
+              && row?.querySelector(\`[data-admin-user-confirm-remove="\${arguments[0]}"]\`)
             );
           `,
           [user.id]
