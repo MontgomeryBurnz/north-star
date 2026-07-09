@@ -142,7 +142,6 @@ async function main() {
 
       const clicked = await session.execute(
         `
-          window.confirm = () => true;
           const button = document.querySelector(\`[data-admin-user-remove="\${arguments[0]}"]\`);
           button?.click();
           return Boolean(button);
@@ -152,6 +151,32 @@ async function main() {
 
       if (!clicked) {
         throw new Error("Admin remove user button was not clickable.");
+      }
+
+      await session.waitFor("Admin user removal confirmation visible", () =>
+        session.execute(
+          `
+            return Boolean(
+              document.querySelector(\`[data-admin-user-remove-confirmation="\${arguments[0]}"]\`)
+              && document.querySelector(\`[data-admin-user-confirm-remove="\${arguments[0]}"]\`)
+            );
+          `,
+          [user.id]
+        ),
+        30_000
+      );
+
+      const confirmed = await session.execute(
+        `
+          const button = document.querySelector(\`[data-admin-user-confirm-remove="\${arguments[0]}"]\`);
+          button?.click();
+          return Boolean(button);
+        `,
+        [user.id]
+      );
+
+      if (!confirmed) {
+        throw new Error("Admin remove confirmation button was not clickable.");
       }
 
       await session.waitFor("Admin user row removed", () =>

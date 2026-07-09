@@ -1,5 +1,5 @@
+import { createRequire } from "node:module";
 import JSZip from "jszip";
-import mammoth from "mammoth";
 import pdfParse from "pdf-parse/lib/pdf-parse.js";
 import type { ProgramArtifact } from "@/lib/program-intake-types";
 
@@ -7,6 +7,12 @@ export type ArtifactExtractionResult = Pick<
   ProgramArtifact,
   "extractedText" | "extractionStatus" | "extractionSummary" | "extractionMethod" | "sourceKind"
 >;
+
+type MammothRuntime = {
+  extractRawText(input: { buffer: Buffer }): Promise<{ value: string }>;
+};
+
+const serverRequire = createRequire(import.meta.url);
 
 function compactText(value: string, limit = 160) {
   const compacted = value.replace(/\s+/g, " ").trim();
@@ -103,6 +109,7 @@ export async function extractArtifactText(buffer: Buffer, fileFormat: ProgramArt
     }
 
     if (fileFormat === "docx") {
+      const mammoth = serverRequire("mammoth") as MammothRuntime;
       const parsed = await mammoth.extractRawText({ buffer });
       const text = parsed.value.trim();
       return text

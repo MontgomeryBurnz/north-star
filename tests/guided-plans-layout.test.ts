@@ -1038,11 +1038,18 @@ test("Admin user removal is resilient and covered by production smoke", () => {
   assert.match(adminUserManagementSource, /data-admin-user-management-status/);
   assert.match(adminUserManagementSource, /data-admin-user-row/);
   assert.match(adminUserManagementSource, /data-admin-user-remove/);
+  assert.match(adminUserManagementSource, /data-admin-user-remove-confirmation/);
+  assert.match(adminUserManagementSource, /data-admin-user-confirm-remove/);
+  assert.match(adminUserManagementSource, /data-admin-user-cancel-remove/);
   assert.match(adminUserManagementSource, /credentials: "same-origin"/);
+  assert.doesNotMatch(adminUserManagementSource, /window\.confirm/);
   assert.match(adminUserManagementSource, /item\.email\.trim\(\)\.toLowerCase\(\) !== removedUser\.email\.trim\(\)\.toLowerCase\(\)/);
   assert.match(adminRemovalSmokeSource, /codex-remove-smoke-/);
   assert.match(adminRemovalSmokeSource, /data-admin-user-row/);
   assert.match(adminRemovalSmokeSource, /data-admin-user-remove/);
+  assert.match(adminRemovalSmokeSource, /data-admin-user-remove-confirmation/);
+  assert.match(adminRemovalSmokeSource, /data-admin-user-confirm-remove/);
+  assert.doesNotMatch(adminRemovalSmokeSource, /window\.confirm/);
   assert.match(adminRemovalSmokeSource, /was removed from Admin/);
   assert.match(adminRemovalSmokeSource, /cleanupDisposableUsers/);
   assert.match(productionSmokeSource, /admin user removal/);
@@ -1197,9 +1204,14 @@ test("Client Dashboard Contributor has a scoped publication lane", () => {
 
 test("release checks are wired for local deployment hardening", () => {
   const packageSource = readFileSync(new URL("../package.json", import.meta.url), "utf8");
+  const nextConfigSource = readFileSync(new URL("../next.config.mjs", import.meta.url), "utf8");
+  const artifactExtractionSource = readFileSync(new URL("../src/lib/artifact-extraction.ts", import.meta.url), "utf8");
   const intakeSource = readFileSync(new URL("../src/components/program-intake-section.tsx", import.meta.url), "utf8");
 
   assert.match(packageSource, /"check:release": "npm run test && npm run lint && npm run build"/);
   assert.match(packageSource, /"lint": "node scripts\/lint\.mjs"/);
+  assert.match(nextConfigSource, /serverExternalPackages: \["mammoth"\]/);
+  assert.doesNotMatch(artifactExtractionSource, /import mammoth from "mammoth"/);
+  assert.match(artifactExtractionSource, /serverRequire\("mammoth"\)/);
   assert.match(intakeSource, /Basis: required intake fields plus at least one uploaded artifact\./);
 });
