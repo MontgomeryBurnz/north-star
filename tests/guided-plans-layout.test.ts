@@ -1041,6 +1041,8 @@ test("Admin user removal is resilient and covered by production smoke", () => {
   assert.match(adminUserManagementSource, /data-admin-user-remove-confirmation/);
   assert.match(adminUserManagementSource, /data-admin-user-confirm-remove/);
   assert.match(adminUserManagementSource, /data-admin-user-cancel-remove/);
+  assert.match(adminUserManagementSource, /data-admin-user-removal-toast/);
+  assert.match(adminUserManagementSource, /Access list updated/);
   assert.match(adminUserManagementSource, /pendingRemovalUser\?\.id === user\.id/);
   assert.match(adminUserManagementSource, /credentials: "same-origin"/);
   assert.doesNotMatch(adminUserManagementSource, /window\.confirm/);
@@ -1052,6 +1054,7 @@ test("Admin user removal is resilient and covered by production smoke", () => {
   assert.match(adminRemovalSmokeSource, /data-admin-user-remove/);
   assert.match(adminRemovalSmokeSource, /data-admin-user-remove-confirmation/);
   assert.match(adminRemovalSmokeSource, /data-admin-user-confirm-remove/);
+  assert.match(adminRemovalSmokeSource, /data-admin-user-removal-toast/);
   assert.match(adminRemovalSmokeSource, /row\?\.querySelector/);
   assert.doesNotMatch(adminRemovalSmokeSource, /window\.confirm/);
   assert.match(adminRemovalSmokeSource, /was removed from Admin/);

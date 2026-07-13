@@ -50,6 +50,12 @@ type SetupLinkState = {
   url: string;
 };
 
+type AdminToastState = {
+  id: string;
+  message: string;
+  tone: "success";
+};
+
 type InvitationProviderStatus = {
   brandedEmail?: {
     configured: boolean;
@@ -133,6 +139,7 @@ export function AdminUserManagementCard({
   const [pendingRemovalUser, setPendingRemovalUser] = useState<ManagedAppUser | null>(null);
   const [copyingSetupLinkUserId, setCopyingSetupLinkUserId] = useState<string | null>(null);
   const [setupLink, setSetupLink] = useState<SetupLinkState | null>(null);
+  const [toast, setToast] = useState<AdminToastState | null>(null);
 
   const selectedProgram = useMemo(
     () => programs.find((program) => program.id === form.programId),
@@ -176,6 +183,13 @@ export function AdminUserManagementCard({
   );
   const editingUser = form.id ? users.find((user) => user.id === form.id) : undefined;
   const isEditingUser = Boolean(form.id);
+
+  useEffect(() => {
+    if (!toast) return undefined;
+
+    const timeout = window.setTimeout(() => setToast(null), 5000);
+    return () => window.clearTimeout(timeout);
+  }, [toast]);
 
   const loadAdminUsers = useCallback(async () => {
     setStatus("Loading users and programs...");
@@ -541,6 +555,7 @@ export function AdminUserManagementCard({
   function requestManagedUserRemoval(user: ManagedAppUser) {
     setPendingRemovalUser(user);
     setSetupLink(null);
+    setToast(null);
     setStatusTone("neutral");
     setStatus(`Confirm removal for ${user.name}. This removes app access immediately.`);
   }
@@ -611,7 +626,13 @@ export function AdminUserManagementCard({
 
       setStatusTone("success");
       setStatus(removedStatus);
+      setToast({
+        id: `user-removed-${removedUser.id}-${Date.now()}`,
+        message: `${removedUser.name} removed. Access list updated.`,
+        tone: "success"
+      });
     } catch (error) {
+      setToast(null);
       setStatusTone("error");
       setStatus(error instanceof Error ? error.message : "Could not remove user.");
     } finally {
@@ -621,6 +642,28 @@ export function AdminUserManagementCard({
 
   return (
     <Card className="bg-zinc-950/80">
+      {toast ? (
+        <div
+          data-admin-user-removal-toast={toast.id}
+          className="fixed bottom-5 right-5 z-50 flex max-w-sm items-start gap-3 rounded-md border border-emerald-300/30 bg-emerald-950/95 p-4 text-emerald-50 shadow-2xl shadow-black/40"
+          role="status"
+          aria-live="polite"
+        >
+          <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-200" />
+          <div className="min-w-0">
+            <p className="text-sm font-semibold">User removed</p>
+            <p className="mt-1 text-sm leading-5 text-emerald-100/80">{toast.message}</p>
+          </div>
+          <button
+            type="button"
+            className="ml-1 rounded-full border border-white/10 px-2 py-1 text-xs uppercase tracking-[0.12em] text-emerald-100/70 hover:border-emerald-200/40 hover:text-emerald-50"
+            onClick={() => setToast(null)}
+            aria-label="Dismiss removal confirmation"
+          >
+            Close
+          </button>
+        </div>
+      ) : null}
       <CardHeader className="border-b border-white/10">
         <CardTitle className="flex items-center gap-2 text-zinc-50">
           <UsersRound className="h-4 w-4 text-emerald-200" />

@@ -185,10 +185,13 @@ async function main() {
           `
             const row = document.querySelector(\`[data-admin-user-row="\${arguments[0]}"]\`);
             const status = document.querySelector("[data-admin-user-management-status]");
+            const toast = document.querySelector("[data-admin-user-removal-toast]");
             const statusText = status?.textContent || "";
+            const toastText = toast?.textContent || "";
             return !row
               && status?.dataset.adminUserManagementStatusTone === "success"
-              && statusText.includes("was removed from Admin");
+              && statusText.includes("was removed from Admin")
+              && toastText.includes("Access list updated");
           `,
           [user.id]
         ),
