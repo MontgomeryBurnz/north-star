@@ -16,6 +16,7 @@ type ActiveProgramStateFlowProps = {
   clientPortfolioDraft: string;
   clientPortfolioSaveState: "idle" | "saving" | "saved" | "error";
   programOptions: ProgramSlicerOption[];
+  presentation?: "full" | "compact";
   review: ActiveProgramReview;
   onAddTimelineMilestone: () => void;
   onClientPortfolioChange: (value: string) => void;
@@ -36,6 +37,7 @@ export function ActiveProgramStateFlow({
   clientPortfolioDraft,
   clientPortfolioSaveState,
   programOptions,
+  presentation = "full",
   review,
   onAddTimelineMilestone,
   onClientPortfolioChange,
@@ -52,13 +54,15 @@ export function ActiveProgramStateFlow({
 }: ActiveProgramStateFlowProps) {
   return (
     <>
-      <div className="mb-8 max-w-3xl">
-        <p className="mb-3 text-xs font-medium uppercase tracking-[0.22em] text-cyan-300">Active program review</p>
-        <h2 className="text-3xl font-semibold text-zinc-50 md:text-4xl">Keep the program aligned as reality changes.</h2>
-        <p className="mt-4 text-sm leading-7 text-zinc-400">
-          Select a program, then use the cockpit, role updates, and progress board to manage the weekly execution picture.
-        </p>
-      </div>
+      {presentation === "full" ? (
+        <div className="mb-8 max-w-3xl">
+          <p className="mb-3 text-xs font-medium uppercase tracking-[0.22em] text-cyan-300">Active program review</p>
+          <h2 className="text-3xl font-semibold text-zinc-50 md:text-4xl">Keep the program aligned as reality changes.</h2>
+          <p className="mt-4 text-sm leading-7 text-zinc-400">
+            Select a program, then use the cockpit, role updates, and progress board to manage the weekly execution picture.
+          </p>
+        </div>
+      ) : null}
 
       <ActiveProgramStateCard
         selectedProgramId={selectedProgramId}

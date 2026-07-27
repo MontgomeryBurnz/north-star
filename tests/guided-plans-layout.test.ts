@@ -581,7 +581,14 @@ test("Active Program review is split into state, cockpit, and team signal flows"
   const clientSafetySource = readFileSync(new URL("../src/lib/client-safe-copy.ts", import.meta.url), "utf8");
 
   assert.match(reviewSectionSource, /useActiveProgramReviewController/);
+  assert.match(reviewSectionSource, /ManageFlowBlock/);
+  assert.match(reviewSectionSource, /data-active-program-manage-step/);
+  assert.match(reviewSectionSource, /01 Context/);
+  assert.match(reviewSectionSource, /02 Cockpit/);
+  assert.match(reviewSectionSource, /03 Client Update/);
+  assert.match(reviewSectionSource, /04 Team Execution/);
   assert.match(reviewSectionSource, /ActiveProgramStateFlow/);
+  assert.match(reviewSectionSource, /presentation="compact"/);
   assert.match(reviewSectionSource, /ActiveProgramCockpitFlow/);
   assert.match(reviewSectionSource, /ActiveProgramClientUpdateCard/);
   assert.match(reviewSectionSource, /ActiveProgramTeamSignalFlow/);
@@ -631,9 +638,13 @@ test("Active Program review is split into state, cockpit, and team signal flows"
   assert.match(storeSource, /export async function deleteProgramUpdatesByTag/);
   assert.match(reviewModelSource, /export function normalizeReview/);
   assert.match(stateFlowSource, /ActiveProgramStateCard/);
+  assert.match(stateFlowSource, /presentation\?: "full" \| "compact"/);
   assert.match(stateFlowSource, /Keep the program aligned as reality changes/);
   assert.match(stateFlowSource, /Select a program, then use the cockpit, role updates, and progress board/);
   assert.match(stateCardSource, /Select a program to manage the live operating view/);
+  assert.match(stateCardSource, /Program context/);
+  assert.match(stateCardSource, /data-active-program-context-summary/);
+  assert.match(stateCardSource, /Edit baseline/);
   assert.match(stateCardSource, /Profile fields should change only when the program baseline changes/);
   assert.match(stateCardSource, /Client \/ executive update fields/);
   assert.match(stateCardSource, /The Client Portal changes only after a reviewed update is published/);

@@ -112,17 +112,18 @@ export function ActiveProgramStateCard({
         <CardTitle className="flex flex-wrap items-center justify-between gap-3 text-zinc-50">
           <span className="flex items-center gap-2">
             <Activity className="h-4 w-4 text-cyan-200" />
-            Program profile
+            Program context
           </span>
           {hasSelectedProgram ? (
             <button
               type="button"
               onClick={() => setIsSetupOpen((current) => !current)}
               data-active-program-profile-toggle
+              aria-expanded={isSetupOpen}
               className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.035] px-3 py-1.5 text-xs font-medium text-zinc-300 transition-colors hover:border-cyan-300/30 hover:text-cyan-100"
             >
               <SlidersHorizontal className="h-3.5 w-3.5" />
-              {isSetupOpen ? "Close profile" : "Edit profile"}
+              {isSetupOpen ? "Close baseline" : "Edit baseline"}
               <ChevronDown className={`h-3.5 w-3.5 transition-transform ${isSetupOpen ? "rotate-180" : ""}`} />
             </button>
           ) : null}
@@ -136,7 +137,7 @@ export function ActiveProgramStateCard({
           onSelectProgram={onSelectProgram}
           placeholder="Choose a program to review..."
           emptyLabel="No saved programs yet"
-          helperText="Selecting a program prefills the review with its north star, current risks, decisions, and delivery context."
+          helperText="Choose the active program before updating the cockpit, role signal, delivery board, or client-facing snapshot."
           tone="cyan"
         />
 
@@ -154,7 +155,7 @@ export function ActiveProgramStateCard({
         ) : null}
 
         {hasSelectedProgram ? (
-          <div className="grid gap-3 rounded-lg border border-cyan-300/15 bg-cyan-300/[0.035] p-4 md:grid-cols-4 xl:grid-cols-7">
+          <div data-active-program-context-summary className="grid gap-3 rounded-lg border border-cyan-300/15 bg-cyan-300/[0.035] p-4 md:grid-cols-4 xl:grid-cols-7">
             <div className="min-w-0">
               <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-cyan-100">Client</p>
               <p className="mt-2 truncate text-sm font-semibold text-zinc-50">{selectedClientName}</p>
