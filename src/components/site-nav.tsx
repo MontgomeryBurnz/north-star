@@ -16,15 +16,23 @@ type NavItem = {
   label: string;
 };
 
-const navItems: NavItem[] = [
+const primaryNavItems: NavItem[] = [
   { label: "Quick Start", href: "/" },
   { label: "Program Hub", href: "/active-program", activePaths: ["/active-program", "/new-program"] },
   { label: "Guided Plans", href: "/systems" },
   { label: "Studio", href: "/artifacts" },
-  { label: "Client Updates", href: "/client-updates" },
   { label: "Client Portal", href: "/client" },
   { label: "Leadership", href: "/leadership" },
   { label: "Knowledge", href: "/knowledge" }
+];
+
+const dashboardContributorNavItems: NavItem[] = [
+  { label: "Client Updates", href: "/client-updates" },
+  { label: "Client Portal", href: "/client" }
+];
+
+const clientNavItems: NavItem[] = [
+  { label: "Client Portal", href: "/client" }
 ];
 
 const userTypeLabels: Record<AppUserType, string> = {
@@ -39,12 +47,12 @@ const userTypeLabels: Record<AppUserType, string> = {
 
 function getVisibleNavItems(userType: AppUserType | null | undefined) {
   if (userType === "client-dashboard-contributor") {
-    return navItems.filter((item) => item.href === "/client-updates" || item.href === "/client");
+    return dashboardContributorNavItems;
   }
   if (userType === "client") {
-    return navItems.filter((item) => item.href === "/client");
+    return clientNavItems;
   }
-  return navItems;
+  return primaryNavItems;
 }
 
 function LogoutForm({ className, compact = false }: { className?: string; compact?: boolean }) {

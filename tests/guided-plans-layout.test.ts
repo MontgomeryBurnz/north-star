@@ -356,10 +356,17 @@ test("Studio includes a governed delivery agent workbench with UX coverage", () 
 test("Navigation presents Quick Start and keeps Admin as settings access", () => {
   const navSource = readFileSync(new URL("../src/components/site-nav.tsx", import.meta.url), "utf8");
   const loginSource = readFileSync(new URL("../src/components/site-access-login-form.tsx", import.meta.url), "utf8");
+  const primaryNavBlock = navSource.slice(
+    navSource.indexOf("const primaryNavItems"),
+    navSource.indexOf("const dashboardContributorNavItems")
+  );
 
   assert.match(navSource, /Quick Start/);
   assert.match(navSource, /Program Hub/);
   assert.match(navSource, /Settings/);
+  assert.match(navSource, /const primaryNavItems/);
+  assert.match(navSource, /const dashboardContributorNavItems/);
+  assert.doesNotMatch(primaryNavBlock, /Client Updates/);
   assert.doesNotMatch(navSource, /label: "Admin"/);
   assert.match(loginSource, /Welcome to North Star/);
 });
@@ -374,9 +381,12 @@ test("Program Hub launches setup and active management as separate paths", () =>
   assert.match(programSource, /data-program-hub-entry=\{entry\.id\}/);
   assert.match(programSource, /Set Up New Program/);
   assert.match(programSource, /Manage Active Program/);
+  assert.match(programSource, /Publish Client Update/);
   assert.match(programSource, /href: "\/active-program\?mode=setup"/);
   assert.match(programSource, /href: "\/active-program\?mode=manage"/);
+  assert.match(programSource, /href: "\/client-updates"/);
   assert.match(programSource, /Program Hub home/);
+  assert.match(programSource, /Publish client update/);
   assert.doesNotMatch(programSource, /useState/);
   assert.match(slicerSmokeSource, /smokeProgramHubLanding/);
   assert.match(slicerSmokeSource, /\/active-program\?mode=manage/);
@@ -1204,7 +1214,9 @@ test("Client Dashboard Contributor has a scoped publication lane", () => {
   assert.match(clientUpdatesConsoleSource, /\/api\/programs\/\$\{encodeURIComponent\(selectedProgram\.id\)\}\/client-updates/);
   assert.match(clientUpdatesConsoleSource, /This latest snapshot stays loaded for iteration/);
   assert.match(clientUpdatesConsoleSource, /Publish to Client Portal/);
+  assert.match(navSource, /dashboardContributorNavItems/);
   assert.match(navSource, /Client Updates/);
+  assert.match(navSource, /primaryNavItems/);
   assert.match(navSource, /getVisibleNavItems/);
   assert.match(navSource, /pathname === "\/client-updates"/);
   assert.match(navSource, /const showAdminLink = currentUser\?\.userType === "admin"/);

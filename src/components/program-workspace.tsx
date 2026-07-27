@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowRight, ClipboardList, FilePlus2, Gauge, Layers3 } from "lucide-react";
+import { ArrowRight, ClipboardList, FilePlus2, Gauge, Layers3, ShieldCheck } from "lucide-react";
 import { ActiveProgramReviewSection } from "@/components/active-program-review-section";
 import { ProductPageHeader } from "@/components/product-page-header";
 import { ProgramIntakeSection } from "@/components/program-intake-section";
@@ -23,6 +23,14 @@ const programHubEntries = [
     href: "/active-program?mode=manage",
     description: "Review delivery posture, capture role signals, inspect risks and decisions, and keep the cockpit current.",
     outcomes: ["Program cockpit", "Role signals", "Risk and decisions", "Weekly timeline"]
+  },
+  {
+    id: "client-update" as const,
+    icon: ShieldCheck,
+    label: "Publish Client Update",
+    href: "/client-updates",
+    description: "Prepare the governed, client-safe status update that powers the Client Portal and PDF export.",
+    outcomes: ["Executive overview", "Client roadmap", "Domain updates", "Published snapshot"]
   }
 ];
 
@@ -57,12 +65,15 @@ export function ProgramWorkspace({ initialMode = null }: { initialMode?: Program
             title={workspaceCopy[mode].title}
             description={workspaceCopy[mode].description}
             actions={
-              <div className="grid gap-2 rounded-md border border-white/10 bg-zinc-950/70 p-2 sm:grid-cols-2">
+              <div className="grid gap-2 rounded-md border border-white/10 bg-zinc-950/70 p-2 sm:grid-cols-3">
                 <Button asChild variant="outline" size="lg" className="justify-start border-white/10 bg-white/[0.03]">
                   <Link href="/active-program">Program Hub home</Link>
                 </Button>
                 <Button asChild size="lg" className="justify-start">
                   <Link href={`/active-program?mode=${alternateMode}`}>{alternateLabel}</Link>
+                </Button>
+                <Button asChild variant="outline" size="lg" className="justify-start border-emerald-300/20 bg-emerald-300/[0.055] text-emerald-100 hover:bg-emerald-300/[0.08]">
+                  <Link href="/client-updates">Publish client update</Link>
                 </Button>
               </div>
             }
@@ -83,13 +94,13 @@ function ProgramHubLanding() {
           <ProductPageHeader
             eyebrow="Program Hub"
             title="Choose the right program path."
-            description="Start with the job you need to do. Set up a new program when the record and source context do not exist yet, or manage an active program when the team is already executing."
+            description="Start with the job you need to do. Set up a new program, manage the team execution cockpit, or publish the reviewed client-safe update that powers the Client Portal."
           />
         </div>
       </section>
 
       <section className="northstar-shell py-10">
-        <div className="grid gap-4 lg:grid-cols-2">
+        <div className="grid gap-4 lg:grid-cols-3">
           {programHubEntries.map((entry) => (
             <Link
               key={entry.id}
@@ -106,7 +117,7 @@ function ProgramHubLanding() {
 
               <div className="mt-8">
                 <p className="text-xs font-medium uppercase tracking-[0.18em] text-emerald-300">
-                  {entry.id === "setup" ? "Program creation" : "Execution cockpit"}
+                  {entry.id === "setup" ? "Program creation" : entry.id === "manage" ? "Execution cockpit" : "Client publication"}
                 </p>
                 <h2 className="mt-3 text-3xl font-semibold tracking-normal text-zinc-50">{entry.label}</h2>
                 <p className="mt-4 max-w-xl text-sm leading-7 text-zinc-400">{entry.description}</p>
@@ -120,6 +131,8 @@ function ProgramHubLanding() {
                   >
                     {entry.id === "setup" ? (
                       <Layers3 className="h-3.5 w-3.5 text-emerald-200" />
+                    ) : entry.id === "client-update" ? (
+                      <ShieldCheck className="h-3.5 w-3.5 text-emerald-200" />
                     ) : (
                       <Gauge className="h-3.5 w-3.5 text-cyan-200" />
                     )}
