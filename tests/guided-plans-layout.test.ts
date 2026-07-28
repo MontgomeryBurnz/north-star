@@ -1058,6 +1058,7 @@ test("Admin can manage OpenAI guidance model settings", () => {
 test("Admin user removal is resilient and covered by production smoke", () => {
   const adminUsersRouteSource = readFileSync(new URL("../src/app/api/admin/users/route.ts", import.meta.url), "utf8");
   const adminUserManagementSource = readFileSync(new URL("../src/components/admin-user-management-card.tsx", import.meta.url), "utf8");
+  const routeAccessSource = readFileSync(new URL("../src/lib/api-route-access.ts", import.meta.url), "utf8");
   const middlewareSource = readFileSync(new URL("../src/middleware.ts", import.meta.url), "utf8");
   const userPersistenceSource = readFileSync(new URL("../src/lib/user-persistence.ts", import.meta.url), "utf8");
   const adminRemovalSmokeSource = readFileSync(new URL("../scripts/smoke-admin-user-removal.mjs", import.meta.url), "utf8");
@@ -1096,6 +1097,14 @@ test("Admin user removal is resilient and covered by production smoke", () => {
   assert.match(adminRemovalSmokeSource, /linkDisposableAuthUser/);
   assert.match(adminRemovalSmokeSource, /linked login account was deleted/);
   assert.match(adminRemovalSmokeSource, /assertAdminAuthorized/);
+  assert.match(adminRemovalSmokeSource, /removeLegacySiteAccessCookie/);
+  assert.match(adminRemovalSmokeSource, /DELETE", "\/cookie\/site_access_session"/);
+  const protectedRouteAccessSource = routeAccessSource.slice(
+    routeAccessSource.indexOf("async function requireProtectedRouteAccess"),
+    routeAccessSource.indexOf("export function requireSiteAccessRequest")
+  );
+  assert.doesNotMatch(protectedRouteAccessSource, /isSiteAccessRequestAuthorized/);
+  assert.match(protectedRouteAccessSource, /const access = await resolveAccess\(\)/);
   assert.doesNotMatch(adminRemovalSmokeSource, /window\.confirm/);
   assert.match(adminRemovalSmokeSource, /was removed from Admin/);
   assert.match(adminRemovalSmokeSource, /cleanupDisposableUsers/);

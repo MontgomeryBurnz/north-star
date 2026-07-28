@@ -17,11 +17,7 @@ type ProgramRouteAccessOptions = {
   scope?: "internal" | "client-dashboard";
 };
 
-async function requireProtectedRouteAccess(request: Request, resolveAccess: AccessResolver) {
-  if (!isSiteAccessRequestAuthorized(request)) {
-    return { access: null, response: createSiteAccessDeniedResponse() };
-  }
-
+async function requireProtectedRouteAccess(resolveAccess: AccessResolver) {
   const access = await resolveAccess();
   if (!access.authorized) {
     return { access: null, response: NextResponse.json({ error: "Unauthorized." }, { status: 401 }) };
@@ -34,12 +30,12 @@ export function requireSiteAccessRequest(request: Request) {
   return isSiteAccessRequestAuthorized(request) ? null : createSiteAccessDeniedResponse();
 }
 
-export async function requireAdminRouteAccess(request: Request) {
-  return requireProtectedRouteAccess(request, getAdminAccessContext);
+export async function requireAdminRouteAccess(_request: Request) {
+  return requireProtectedRouteAccess(getAdminAccessContext);
 }
 
-export async function requireLeadershipRouteAccess(request: Request) {
-  return requireProtectedRouteAccess(request, getLeadershipAccessContext);
+export async function requireLeadershipRouteAccess(_request: Request) {
+  return requireProtectedRouteAccess(getLeadershipAccessContext);
 }
 
 export async function requireProgramRouteAccess(

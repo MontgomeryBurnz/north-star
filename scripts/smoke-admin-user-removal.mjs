@@ -37,6 +37,10 @@ async function authenticate(session) {
   }
 }
 
+async function removeLegacySiteAccessCookie(session) {
+  await session.command("DELETE", "/cookie/site_access_session");
+}
+
 async function assertAdminAuthorized(session, stage) {
   const result = await session.execute(`
     return fetch("/api/admin/users", { cache: "no-store" })
@@ -164,7 +168,8 @@ async function verifyUserAbsent(session, userId, email) {
 async function main() {
   await withSafariBrowser(async (session) => {
     await authenticate(session);
-    await assertAdminAuthorized(session, "after authentication");
+    await removeLegacySiteAccessCookie(session);
+    await assertAdminAuthorized(session, "with only the managed Admin session");
     await cleanupDisposableUsers(session);
 
     const email = `codex-remove-smoke-${Date.now()}@north-star.live`;
