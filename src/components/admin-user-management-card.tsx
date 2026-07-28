@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { CheckCircle2, ChevronDown, Copy, Link2, MailCheck, MailWarning, Pencil, PlusCircle, RefreshCw, ShieldCheck, Trash2, UserPlus, UsersRound, XCircle } from "lucide-react";
 import type {
   AppUserCredentialStatus,
@@ -137,9 +137,11 @@ export function AdminUserManagementCard({
   const [roleStatus, setRoleStatus] = useState<string | null>(null);
   const [deletingUserId, setDeletingUserId] = useState<string | null>(null);
   const [pendingRemovalUser, setPendingRemovalUser] = useState<ManagedAppUser | null>(null);
+  const [removalError, setRemovalError] = useState<string | null>(null);
   const [copyingSetupLinkUserId, setCopyingSetupLinkUserId] = useState<string | null>(null);
   const [setupLink, setSetupLink] = useState<SetupLinkState | null>(null);
   const [toast, setToast] = useState<AdminToastState | null>(null);
+  const removalConfirmButtonRef = useRef<HTMLButtonElement>(null);
 
   const selectedProgram = useMemo(
     () => programs.find((program) => program.id === form.programId),
@@ -190,6 +192,28 @@ export function AdminUserManagementCard({
     const timeout = window.setTimeout(() => setToast(null), 5000);
     return () => window.clearTimeout(timeout);
   }, [toast]);
+
+  useEffect(() => {
+    if (!pendingRemovalUser) return undefined;
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    removalConfirmButtonRef.current?.focus();
+
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key !== "Escape" || deletingUserId) return;
+      setPendingRemovalUser(null);
+      setRemovalError(null);
+      setStatus(null);
+      setStatusTone("neutral");
+    }
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [deletingUserId, pendingRemovalUser]);
 
   const loadAdminUsers = useCallback(async () => {
     setStatus("Loading users and programs...");
@@ -554,15 +578,23 @@ export function AdminUserManagementCard({
 
   function requestManagedUserRemoval(user: ManagedAppUser) {
     setPendingRemovalUser(user);
+    setRemovalError(null);
     setSetupLink(null);
     setToast(null);
     setStatusTone("neutral");
     setStatus(`Confirm removal for ${user.name}. This removes app access immediately.`);
   }
 
-  async function removeManagedUser(user: ManagedAppUser) {
+  function cancelManagedUserRemoval() {
     setPendingRemovalUser(null);
+    setRemovalError(null);
+    setStatus(null);
+    setStatusTone("neutral");
+  }
+
+  async function removeManagedUser(user: ManagedAppUser) {
     setDeletingUserId(user.id);
+    setRemovalError(null);
     setStatusTone("neutral");
     setStatus(`Removing ${user.name}...`);
 
@@ -626,15 +658,18 @@ export function AdminUserManagementCard({
 
       setStatusTone("success");
       setStatus(removedStatus);
+      setPendingRemovalUser(null);
       setToast({
         id: `user-removed-${removedUser.id}-${Date.now()}`,
         message: `${removedUser.name} removed. Access list updated.`,
         tone: "success"
       });
     } catch (error) {
+      const message = error instanceof Error ? error.message : "Could not remove user.";
       setToast(null);
       setStatusTone("error");
-      setStatus(error instanceof Error ? error.message : "Could not remove user.");
+      setStatus(message);
+      setRemovalError(message);
     } finally {
       setDeletingUserId(null);
     }
@@ -642,6 +677,80 @@ export function AdminUserManagementCard({
 
   return (
     <Card className="bg-zinc-950/80">
+      {pendingRemovalUser ? (
+        <div
+          data-admin-user-remove-confirmation={pendingRemovalUser.id}
+          className="fixed inset-0 z-[70] grid place-items-center p-4 sm:p-6"
+          role="presentation"
+        >
+          <button
+            type="button"
+            className="absolute inset-0 bg-black/80 backdrop-blur-sm"
+            onClick={cancelManagedUserRemoval}
+            disabled={deletingUserId === pendingRemovalUser.id}
+            aria-label="Cancel user removal"
+          />
+          <section
+            className="relative z-10 w-full max-w-lg rounded-md border border-rose-300/30 bg-zinc-950 p-5 shadow-2xl shadow-black/60 sm:p-6"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="admin-remove-user-title"
+            aria-describedby="admin-remove-user-description"
+          >
+            <div className="flex items-start gap-3">
+              <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full border border-rose-300/30 bg-rose-300/[0.08] text-rose-100">
+                <Trash2 className="h-4 w-4" />
+              </span>
+              <div className="min-w-0">
+                <p id="admin-remove-user-title" className="text-lg font-semibold text-zinc-50">
+                  Remove {pendingRemovalUser.name}?
+                </p>
+                <p id="admin-remove-user-description" className="mt-2 text-sm leading-6 text-zinc-300">
+                  This immediately removes North Star access. If a linked login exists, North Star will also delete that login account.
+                </p>
+                <p className="mt-2 break-all text-xs text-zinc-500">{pendingRemovalUser.email}</p>
+              </div>
+            </div>
+
+            {removalError ? (
+              <div
+                data-admin-user-removal-error
+                className="mt-4 rounded-md border border-amber-300/30 bg-amber-300/[0.07] p-3 text-sm leading-6 text-amber-100"
+                role="alert"
+              >
+                Removal failed: {removalError}
+              </div>
+            ) : null}
+
+            <div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+              <Button
+                type="button"
+                variant="outline"
+                data-admin-user-cancel-remove={pendingRemovalUser.id}
+                onClick={cancelManagedUserRemoval}
+                disabled={deletingUserId === pendingRemovalUser.id}
+              >
+                Cancel
+              </Button>
+              <Button
+                ref={removalConfirmButtonRef}
+                type="button"
+                data-admin-user-confirm-remove={pendingRemovalUser.id}
+                onClick={() => void removeManagedUser(pendingRemovalUser)}
+                disabled={deletingUserId === pendingRemovalUser.id}
+                className="bg-rose-300 text-rose-950 hover:bg-rose-200"
+              >
+                {deletingUserId === pendingRemovalUser.id ? (
+                  <RefreshCw className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Trash2 className="h-4 w-4" />
+                )}
+                {deletingUserId === pendingRemovalUser.id ? "Removing access..." : "Confirm removal"}
+              </Button>
+            </div>
+          </section>
+        </div>
+      ) : null}
       {toast ? (
         <div
           data-admin-user-removal-toast={toast.id}
@@ -1218,49 +1327,6 @@ export function AdminUserManagementCard({
                         </Button>
                       </div>
                     </div>
-
-                    {pendingRemovalUser?.id === user.id ? (
-                      <div
-                        data-admin-user-remove-confirmation={user.id}
-                        className="mt-4 grid gap-3 rounded-md border border-rose-300/30 bg-rose-300/[0.065] p-4"
-                        aria-live="polite"
-                      >
-                        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                          <div>
-                            <p className="text-sm font-semibold text-rose-50">Remove {user.name}?</p>
-                            <p className="mt-1 text-sm leading-6 text-rose-100/80">
-                              This removes their North Star app access immediately. If a linked Supabase login exists, the system will also attempt to delete that login account.
-                            </p>
-                            <p className="mt-1 text-xs text-rose-100/60">{user.email}</p>
-                          </div>
-                          <div className="flex flex-wrap gap-2 sm:justify-end">
-                            <Button
-                              type="button"
-                              variant="outline"
-                              data-admin-user-cancel-remove={user.id}
-                              onClick={() => {
-                                setPendingRemovalUser(null);
-                                setStatus(null);
-                                setStatusTone("neutral");
-                              }}
-                              disabled={deletingUserId === user.id}
-                            >
-                              Cancel
-                            </Button>
-                            <Button
-                              type="button"
-                              data-admin-user-confirm-remove={user.id}
-                              onClick={() => void removeManagedUser(user)}
-                              disabled={deletingUserId === user.id}
-                              className="bg-rose-300 text-rose-950 hover:bg-rose-200"
-                            >
-                              {deletingUserId === user.id ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
-                              Confirm remove
-                            </Button>
-                          </div>
-                        </div>
-                      </div>
-                    ) : null}
 
                     {hasGlobalAdminAccess ? (
                       <div className="mt-4 rounded-md border border-emerald-300/20 bg-emerald-300/[0.055] p-3">

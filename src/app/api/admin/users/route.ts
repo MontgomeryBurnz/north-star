@@ -149,6 +149,16 @@ export async function DELETE(request: Request) {
       throw new Error("Managed user was not found.");
     }
 
+    const remainingUsers = await listManagedUsers();
+    const normalizedEmail = deletedUser.email.trim().toLowerCase();
+    const lingeringUser = remainingUsers.find(
+      (item) => item.id === deletedUser.id || item.email.trim().toLowerCase() === normalizedEmail
+    );
+
+    if (lingeringUser) {
+      throw new Error("User access could not be removed completely. No login account was changed.");
+    }
+
     let authDeletion: Awaited<ReturnType<typeof deleteLinkedAuthUser>>;
     try {
       authDeletion = await deleteLinkedAuthUser(user);

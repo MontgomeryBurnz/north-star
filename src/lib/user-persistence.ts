@@ -50,7 +50,10 @@ export function createFileUserPersistence(): Pick<
         return null;
       }
 
-      store.managedUsers = store.managedUsers.filter((item) => item.id !== userId);
+      const normalizedEmail = user.email.trim().toLowerCase();
+      store.managedUsers = store.managedUsers.filter(
+        (item) => item.id !== userId && item.email.trim().toLowerCase() !== normalizedEmail
+      );
       await writeFileStore(store);
       return user;
     }
@@ -131,7 +134,14 @@ export function createPostgresUserPersistence(
         return null;
       }
 
-      await getPool().query("DELETE FROM managed_users WHERE id = $1", [userId]);
+      await getPool().query(
+        `
+          DELETE FROM managed_users
+          WHERE id = $1
+             OR LOWER(email) = LOWER($2)
+        `,
+        [userId, user.email]
+      );
       return user;
     }
   };

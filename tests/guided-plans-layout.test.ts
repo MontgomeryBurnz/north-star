@@ -1058,14 +1058,18 @@ test("Admin can manage OpenAI guidance model settings", () => {
 test("Admin user removal is resilient and covered by production smoke", () => {
   const adminUsersRouteSource = readFileSync(new URL("../src/app/api/admin/users/route.ts", import.meta.url), "utf8");
   const adminUserManagementSource = readFileSync(new URL("../src/components/admin-user-management-card.tsx", import.meta.url), "utf8");
+  const middlewareSource = readFileSync(new URL("../src/middleware.ts", import.meta.url), "utf8");
+  const userPersistenceSource = readFileSync(new URL("../src/lib/user-persistence.ts", import.meta.url), "utf8");
   const adminRemovalSmokeSource = readFileSync(new URL("../scripts/smoke-admin-user-removal.mjs", import.meta.url), "utf8");
   const productionSmokeSource = readFileSync(new URL("../scripts/smoke-production.mjs", import.meta.url), "utf8");
   const packageSource = readFileSync(new URL("../package.json", import.meta.url), "utf8");
 
   assert.match(adminUsersRouteSource, /const deletedUser = await deleteManagedUser\(userId\)/);
+  assert.match(adminUsersRouteSource, /const lingeringUser = remainingUsers\.find/);
   assert.match(adminUsersRouteSource, /authDeletion = await deleteLinkedAuthUser\(user\)/);
   assert.match(adminUsersRouteSource, /authError: authDeletion\.error/);
   assert.match(adminUsersRouteSource, /auditError/);
+  assert.match(userPersistenceSource, /LOWER\(email\) = LOWER\(\$2\)/);
   assert.match(adminUserManagementSource, /data-admin-user-management-status/);
   assert.match(adminUserManagementSource, /data-admin-user-row/);
   assert.match(adminUserManagementSource, /data-admin-user-remove/);
@@ -1073,8 +1077,11 @@ test("Admin user removal is resilient and covered by production smoke", () => {
   assert.match(adminUserManagementSource, /data-admin-user-confirm-remove/);
   assert.match(adminUserManagementSource, /data-admin-user-cancel-remove/);
   assert.match(adminUserManagementSource, /data-admin-user-removal-toast/);
+  assert.match(adminUserManagementSource, /data-admin-user-removal-error/);
+  assert.match(adminUserManagementSource, /role="dialog"/);
+  assert.match(adminUserManagementSource, /aria-modal="true"/);
   assert.match(adminUserManagementSource, /Access list updated/);
-  assert.match(adminUserManagementSource, /pendingRemovalUser\?\.id === user\.id/);
+  assert.match(adminUserManagementSource, /pendingRemovalUser \?/);
   assert.match(adminUserManagementSource, /credentials: "same-origin"/);
   assert.doesNotMatch(adminUserManagementSource, /window\.confirm/);
   assert.doesNotMatch(adminUserManagementSource, /Intl\.DateTimeFormat\(undefined/);
@@ -1086,10 +1093,16 @@ test("Admin user removal is resilient and covered by production smoke", () => {
   assert.match(adminRemovalSmokeSource, /data-admin-user-remove-confirmation/);
   assert.match(adminRemovalSmokeSource, /data-admin-user-confirm-remove/);
   assert.match(adminRemovalSmokeSource, /data-admin-user-removal-toast/);
-  assert.match(adminRemovalSmokeSource, /row\?\.querySelector/);
+  assert.match(adminRemovalSmokeSource, /linkDisposableAuthUser/);
+  assert.match(adminRemovalSmokeSource, /linked login account was deleted/);
+  assert.match(adminRemovalSmokeSource, /assertAdminAuthorized/);
   assert.doesNotMatch(adminRemovalSmokeSource, /window\.confirm/);
   assert.match(adminRemovalSmokeSource, /was removed from Admin/);
   assert.match(adminRemovalSmokeSource, /cleanupDisposableUsers/);
+  assert.match(middlewareSource, /refreshSupabaseAuthSession/);
+  assert.match(middlewareSource, /createServerClient/);
+  assert.match(middlewareSource, /await supabase\.auth\.getUser\(\)/);
+  assert.match(middlewareSource, /cookiesToSet\.forEach/);
   assert.match(productionSmokeSource, /admin user removal/);
   assert.match(packageSource, /smoke:admin-user-removal/);
 });

@@ -16,9 +16,10 @@ async function authenticate(session) {
   const password = requireCredential(testUserPassword, "NORTHSTAR_TEST_USER_PASSWORD");
 
   await session.navigate(`${baseUrl}/login?redirect=%2Fadmin`);
-  await session.waitFor("North Star login page", () =>
-    session.execute("return location.origin === arguments[0] && document.body.textContent.includes('North Star access');", [baseUrl])
-  );
+  const origin = await session.execute("return location.origin;");
+  if (origin !== baseUrl) {
+    throw new Error(`Authentication opened the unexpected origin ${origin}.`);
+  }
 
   const loginStatus = await session.execute(
     `
@@ -33,6 +34,23 @@ async function authenticate(session) {
 
   if (loginStatus !== 200) {
     throw new Error(`User authentication failed with HTTP ${loginStatus}.`);
+  }
+}
+
+async function assertAdminAuthorized(session, stage) {
+  const result = await session.execute(`
+    return fetch("/api/admin/users", { cache: "no-store" })
+      .then(async (response) => ({
+        ok: response.ok,
+        status: response.status,
+        payload: await response.json().catch(() => ({}))
+      }));
+  `);
+
+  if (!result.ok) {
+    throw new Error(
+      `Admin session lost ${stage}: HTTP ${result.status} ${result.payload?.error || "Unknown error"}.`
+    );
   }
 }
 
@@ -62,6 +80,29 @@ async function createDisposableUser(session, email) {
 
   if (!result.ok || !result.payload?.user?.id) {
     throw new Error(result.payload?.error || `Disposable user creation failed with HTTP ${result.status}.`);
+  }
+
+  return result.payload.user;
+}
+
+async function linkDisposableAuthUser(session, userId) {
+  const result = await session.execute(
+    `
+      return fetch("/api/admin/users/setup-link", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ id: arguments[0] })
+      }).then(async (response) => ({
+        ok: response.ok,
+        status: response.status,
+        payload: await response.json().catch(() => ({}))
+      }));
+    `,
+    [userId]
+  );
+
+  if (!result.ok || !result.payload?.user?.authUserId) {
+    throw new Error(result.payload?.error || `Disposable Auth user creation failed with HTTP ${result.status}.`);
   }
 
   return result.payload.user;
@@ -102,14 +143,17 @@ async function cleanupDisposableUsers(session) {
   `);
 }
 
-async function verifyUserAbsent(session, userId) {
+async function verifyUserAbsent(session, userId, email) {
   const present = await session.execute(
     `
       return fetch("/api/admin/users", { cache: "no-store" })
         .then((response) => response.json())
-        .then((payload) => (payload.users || []).some((user) => user.id === arguments[0]));
+        .then((payload) => (payload.users || []).some((user) =>
+          user.id === arguments[0]
+          || String(user.email || "").trim().toLowerCase() === String(arguments[1] || "").trim().toLowerCase()
+        ));
     `,
-    [userId]
+    [userId, email]
   );
 
   if (present) {
@@ -120,10 +164,14 @@ async function verifyUserAbsent(session, userId) {
 async function main() {
   await withSafariBrowser(async (session) => {
     await authenticate(session);
+    await assertAdminAuthorized(session, "after authentication");
     await cleanupDisposableUsers(session);
 
     const email = `codex-remove-smoke-${Date.now()}@north-star.live`;
-    const user = await createDisposableUser(session, email);
+    const createdUser = await createDisposableUser(session, email);
+    await assertAdminAuthorized(session, "after disposable user creation");
+    const user = await linkDisposableAuthUser(session, createdUser.id);
+    await assertAdminAuthorized(session, "after disposable Auth linking");
 
     try {
       await session.navigate(`${baseUrl}/admin?smoke=user-removal`);
@@ -139,6 +187,7 @@ async function main() {
         ),
         30_000
       );
+      await assertAdminAuthorized(session, "after Admin page navigation");
 
       const clicked = await session.execute(
         `
@@ -152,14 +201,14 @@ async function main() {
       if (!clicked) {
         throw new Error("Admin remove user button was not clickable.");
       }
+      await assertAdminAuthorized(session, "after opening removal confirmation");
 
       await session.waitFor("Admin user removal confirmation visible", () =>
         session.execute(
           `
-            const row = document.querySelector(\`[data-admin-user-row="\${arguments[0]}"]\`);
             return Boolean(
-              row?.querySelector(\`[data-admin-user-remove-confirmation="\${arguments[0]}"]\`)
-              && row?.querySelector(\`[data-admin-user-confirm-remove="\${arguments[0]}"]\`)
+              document.querySelector(\`[data-admin-user-remove-confirmation="\${arguments[0]}"]\`)
+              && document.querySelector(\`[data-admin-user-confirm-remove="\${arguments[0]}"]\`)
             );
           `,
           [user.id]
@@ -180,25 +229,44 @@ async function main() {
         throw new Error("Admin remove confirmation button was not clickable.");
       }
 
-      await session.waitFor("Admin user row removed", () =>
-        session.execute(
+      try {
+        await session.waitFor("Admin user row removed", () =>
+          session.execute(
+            `
+              const row = document.querySelector(\`[data-admin-user-row="\${arguments[0]}"]\`);
+              const status = document.querySelector("[data-admin-user-management-status]");
+              const toast = document.querySelector("[data-admin-user-removal-toast]");
+              const statusText = status?.textContent || "";
+              const toastText = toast?.textContent || "";
+              return !row
+                && status?.dataset.adminUserManagementStatusTone === "success"
+                && statusText.includes("was removed from Admin")
+                && statusText.includes("linked login account was deleted")
+                && toastText.includes("Access list updated");
+            `,
+            [user.id]
+          ),
+          30_000
+        );
+      } catch (error) {
+        const diagnostics = await session.execute(
           `
             const row = document.querySelector(\`[data-admin-user-row="\${arguments[0]}"]\`);
             const status = document.querySelector("[data-admin-user-management-status]");
             const toast = document.querySelector("[data-admin-user-removal-toast]");
-            const statusText = status?.textContent || "";
-            const toastText = toast?.textContent || "";
-            return !row
-              && status?.dataset.adminUserManagementStatusTone === "success"
-              && statusText.includes("was removed from Admin")
-              && toastText.includes("Access list updated");
+            return {
+              rowPresent: Boolean(row),
+              statusText: status?.textContent?.trim() || "",
+              statusTone: status?.dataset.adminUserManagementStatusTone || "",
+              toastText: toast?.textContent?.trim() || ""
+            };
           `,
           [user.id]
-        ),
-        30_000
-      );
+        );
+        throw new Error(`${error.message} Diagnostics: ${JSON.stringify(diagnostics)}`);
+      }
 
-      await verifyUserAbsent(session, user.id);
+      await verifyUserAbsent(session, user.id, user.email);
     } finally {
       await deleteUserById(session, user.id);
       await cleanupDisposableUsers(session);
