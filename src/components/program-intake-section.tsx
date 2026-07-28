@@ -1,18 +1,15 @@
 "use client";
 
 import { ChangeEvent, FormEvent, useMemo, useState } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   ArrowRight,
   CheckCircle2,
   ClipboardList,
-  FileText,
   FolderUp,
   Gauge,
   ListChecks,
   Save,
-  ShieldAlert,
   Sparkles,
   Trash2
 } from "lucide-react";
@@ -48,110 +45,6 @@ const emptyReviewedContext: ReviewedArtifactContext = {
   decisions: "",
   outputs: "",
   confidence: "low"
-};
-
-const sampleArtifactText = `Statement of Work: Customer Onboarding Modernization
-Outcome: reduce onboarding cycle time, create a visible delivery path, and align sponsor decisions to measurable customer readiness.
-Stakeholders: executive sponsor, delivery lead, CX operations, implementation team, customer success, compliance partner.
-Requirements: define intake fields, map workflow ownership, create decision log, identify readiness criteria, and produce an executive checkpoint view.
-Risks: decision ownership is unclear, implementation teams are carrying too many open questions, and requirements are spread across multiple artifacts.
-Constraints: first release must use local data capture, support artifact upload, and generate useful guidance before the intelligence layer is connected.
-Decision needed: confirm the minimum viable planning output and the owner for sponsor alignment.
-Key outputs: recommended work path, planning approach, critical requirements, risk view, stakeholder checkpoint plan, and next-step owner map.`;
-
-const sampleIntake: ProgramIntake = {
-  clientName: "North Star Demo Client",
-  programName: "Customer Onboarding Modernization",
-  programOwner: "Delivery lead",
-  vision: "Create a clear delivery path that reduces onboarding ambiguity and gives leaders a reliable view of decisions, risks, and next outputs.",
-  sowSummary: "Modernize the intake-to-delivery workflow for customer onboarding using structured program context, artifact evidence, and guided planning outputs.",
-  outcomes: "Reduce onboarding cycle time\nCreate a visible delivery path\nImprove sponsor decision clarity\nDefine readiness criteria before expansion",
-  stakeholders: "Executive sponsor\nDelivery lead\nCX operations\nImplementation team\nCustomer success\nCompliance partner",
-  risks: "Decision ownership is unclear\nImplementation teams are carrying too many open questions\nRequirements are spread across multiple artifacts",
-  constraints: "First release must use local data capture\nArtifact upload must support testable evidence\nGuided plans must work before the intelligence layer is connected",
-  currentStatus: "New program context is being assembled for first guided-plan generation.",
-  decisionsNeeded: "Confirm the minimum viable planning output\nName the owner for sponsor alignment",
-  blockers: "Source context exists, but it needs to be translated into a clear work path.",
-  teamFootprint: [
-    {
-      active: true,
-      id: "product-management",
-      owner: "Product lead",
-      responsibility: "Own roadmap, MVP scope, and feature sequencing.",
-      role: "Product Management"
-    },
-    {
-      active: true,
-      id: "business-analysis",
-      owner: "Business analyst",
-      responsibility: "Own requirements, process detail, traceability, and acceptance clarity.",
-      role: "Business Analysis"
-    },
-    {
-      active: true,
-      id: "user-experience",
-      owner: "UX lead",
-      responsibility: "Own user journeys, flows, and usability risks.",
-      role: "User Experience"
-    },
-    {
-      active: true,
-      id: "application-development",
-      owner: "Engineering lead",
-      responsibility: "Own application build, technical sequencing, and release readiness.",
-      role: "Application Development"
-    },
-    {
-      active: true,
-      id: "data-engineering",
-      owner: "Data lead",
-      responsibility: "Own data readiness, mappings, integrations, and quality controls.",
-      role: "Data Engineering"
-    },
-    {
-      active: true,
-      id: "change-management",
-      owner: "Change lead",
-      responsibility: "Own stakeholder readiness, communications, adoption, and training impacts.",
-      role: "Change Management"
-    }
-  ],
-  teamRoles: [
-    "Product Management",
-    "Business Analysis",
-    "User Experience",
-    "Application Development",
-    "Data Engineering",
-    "Change Management"
-  ],
-  reviewedContext: {
-    outcomes: "Reduce onboarding cycle time\nCreate a visible delivery path\nImprove sponsor decision clarity",
-    stakeholders: "Executive sponsor\nDelivery lead\nCX operations\nImplementation team\nCustomer success\nCompliance partner",
-    risks: "Decision ownership is unclear\nImplementation teams are carrying too many open questions\nRequirements are spread across multiple artifacts",
-    requirements: "Define intake fields\nMap workflow ownership\nCreate decision log\nIdentify readiness criteria\nProduce an executive checkpoint view",
-    decisions: "Confirm the minimum viable planning output\nName the owner for sponsor alignment",
-    outputs: "Recommended work path\nPlanning approach\nCritical requirements\nRisk view\nStakeholder checkpoint plan\nNext-step owner map",
-    confidence: "high",
-    reviewedAt: new Date(1776788559000).toISOString()
-  },
-  artifacts: [
-    {
-      id: "sample-customer-onboarding-sow",
-      name: "customer-onboarding-sow.txt",
-      size: sampleArtifactText.length,
-      type: "text/plain",
-      lastModified: 1776788559000,
-      fileFormat: "txt",
-      artifactType: "sow",
-      sourceQuality: "semi-structured",
-      analysisPriority: "high",
-      sourceKind: "text",
-      extractionStatus: "extracted",
-      extractionMethod: "browser-text",
-      extractionSummary: `${sampleArtifactText.length.toLocaleString()} characters extracted. ${sampleArtifactText.slice(0, 120)}...`,
-      extractedText: sampleArtifactText
-    }
-  ]
 };
 
 const textFields: Array<{
@@ -265,14 +158,6 @@ function formatFileSize(size: number) {
   if (size < 1024) return `${size} B`;
   if (size < 1024 * 1024) return `${Math.round(size / 1024)} KB`;
   return `${(size / (1024 * 1024)).toFixed(1)} MB`;
-}
-
-function splitSignals(value: string) {
-  return value
-    .split(/\n|,/)
-    .map((item) => item.trim())
-    .filter(Boolean)
-    .slice(0, 4);
 }
 
 function isTextFile(file: File) {
@@ -489,58 +374,37 @@ export function ProgramIntakeSection() {
     return Math.round((completed / (values.length + 1)) * 100);
   }, [intake]);
 
-  const guidancePreview = useMemo(() => {
-    const riskSignals = splitSignals(intake.risks || intake.blockers);
-    const outcomeSignals = splitSignals(intake.outcomes || intake.vision);
-    const decisionSignals = splitSignals(intake.decisionsNeeded);
-
-    return [
-      {
-        label: "Tailored guidance",
-        value:
-          intake.vision || intake.sowSummary
-            ? "Clarify the healthiest outcome, then sequence work around the decision that unlocks it."
-            : "Add vision and SoW context to generate useful guidance."
-      },
-      {
-        label: "Key next steps",
-        value: decisionSignals.length
-          ? `Resolve: ${decisionSignals[0]}`
-          : "Name the decision, owner, and next checkpoint."
-      },
-      {
-        label: "Critical requirements",
-        value: outcomeSignals.length
-          ? `Anchor requirements to: ${outcomeSignals[0]}`
-          : "Add key outcomes to identify critical requirements."
-      },
-      {
-        label: "Risk signals",
-        value: riskSignals.length ? riskSignals.join(" / ") : "Add risks or blockers to separate signal from noise."
-      }
-    ];
-  }, [intake]);
-
   const reviewedContext = useMemo(() => {
     return intake.reviewedContext ?? buildReviewedContextFromArtifacts(intake.artifacts);
   }, [intake.artifacts, intake.reviewedContext]);
 
   const readinessModel = useMemo(() => buildProgramReadinessModel(intake, completion), [completion, intake]);
+  const setupChecklist = [
+    {
+      complete: Boolean(intake.clientName?.trim() && intake.programName.trim() && intake.programOwner.trim()),
+      detail: "Client, program name, and delivery owner",
+      label: "Program basics"
+    },
+    {
+      complete: Boolean((intake.vision.trim() || intake.outcomes.trim()) && intake.sowSummary.trim()),
+      detail: "Outcome, scope, and delivery context",
+      label: "Program frame"
+    },
+    {
+      complete: Boolean(intake.teamFootprint?.some((role) => role.active !== false && role.role.trim())),
+      detail: "Participating roles, owners, and responsibilities",
+      label: "Team roster"
+    },
+    {
+      complete: Boolean(intake.artifacts.length),
+      detail: "Plans, requirements, notes, or source evidence",
+      label: "Supporting evidence"
+    }
+  ];
 
   function updateField(field: keyof Omit<ProgramIntake, "artifacts" | "reviewedContext" | "teamFootprint" | "teamRoles">, value: string) {
     if (field === "programName" && saveError) setSaveError(null);
     setIntake((current) => ({ ...current, [field]: value }));
-  }
-
-  function loadSampleProgram() {
-    setIntake(sampleIntake);
-    setSavedProgramId(null);
-    setSaveState("idle");
-    setGenerateState("idle");
-    setSavedAt(null);
-    setSaveError(null);
-    setArtifactStatus("Loaded a sample SoW with extracted context.");
-    setShowReadinessTransition(false);
   }
 
   function scrollToProgramIntakeSection(sectionId: string) {
@@ -1001,28 +865,15 @@ export function ProgramIntakeSection() {
           </p>
           <div className="mt-5 grid gap-3 md:grid-cols-3">
             {[
-              ["1", "Load a demo or enter a live program frame."],
-              ["2", "Upload supporting artifacts and review extracted context."],
-              ["3", "Generate a guided plan and open the working output."]
+              ["1", "Define the program outcome and delivery context."],
+              ["2", "Build the team roster and add available evidence."],
+              ["3", "Save the program and review its readiness."]
             ].map(([step, label]) => (
               <div key={step} className="rounded-md border border-white/10 bg-white/[0.035] p-3">
                 <p className="text-xs font-medium uppercase tracking-[0.16em] text-emerald-300">Step {step}</p>
                 <p className="mt-2 text-sm leading-6 text-zinc-300">{label}</p>
               </div>
             ))}
-          </div>
-          <div className="mt-5 flex flex-wrap gap-3">
-            <Button type="button" variant="outline" onClick={loadSampleProgram}>
-              <FileText className="h-4 w-4" />
-              Load demo program
-            </Button>
-            <Link
-              href="/systems"
-              className="inline-flex h-10 items-center justify-center gap-2 rounded-md border border-white/10 px-4 text-sm font-medium text-zinc-100 transition-colors hover:bg-white/10"
-            >
-              Open guided plans
-              <ArrowRight className="h-4 w-4" />
-            </Link>
           </div>
 
           <form onSubmit={handleSubmit} className="mt-8 grid gap-4">
@@ -1091,8 +942,9 @@ export function ProgramIntakeSection() {
               <TeamFootprintEditor
                 footprint={intake.teamFootprint}
                 fallbackRoles={intake.teamRoles}
+                includeFallbackRoles={false}
                 onChange={(teamFootprint) => setIntake((current) => ({ ...current, teamFootprint }))}
-                description="Set the program role footprint during setup so each surface can center the right owners, responsibilities, guided plans, and client-facing domain summaries."
+                description="Add only the roles participating in this program. Assign owners and responsibilities as the team becomes known."
               />
             </div>
 
@@ -1369,38 +1221,11 @@ export function ProgramIntakeSection() {
         </div>
 
         <aside className="grid gap-4 self-start lg:sticky lg:top-24">
-          <Card className="bg-zinc-950/80">
-            <CardHeader className="border-b border-white/10">
-              <CardTitle className="flex items-center gap-2 text-zinc-50">
-                <Sparkles className="h-4 w-4 text-cyan-200" />
-                Demo path
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="grid gap-3 p-5">
-              <div className="rounded-md border border-white/10 bg-white/[0.035] p-3 text-sm leading-6 text-zinc-300">
-                Use the demo program to walk through intake, artifact grounding, guided planning, and the leadership loop without entering fresh data live.
-              </div>
-              <Button type="button" variant="outline" onClick={loadSampleProgram}>
-                <FileText className="h-4 w-4" />
-                Load demo program
-              </Button>
-                <Button
-                  type="button"
-                  variant="secondary"
-                  onClick={() => void saveAndGeneratePlan()}
-                  disabled={!hasProgramName || generateState === "generating" || saveState === "saving"}
-                >
-                <Sparkles className={`h-4 w-4 ${generateState === "generating" ? "animate-spin" : ""}`} />
-                Open demo guided plan
-              </Button>
-            </CardContent>
-          </Card>
-
-          <Card className="bg-zinc-950/80">
+          <Card className="bg-zinc-950/80" data-program-setup-checklist>
             <CardHeader className="border-b border-white/10">
               <CardTitle className="flex items-center gap-2 text-zinc-50">
                 <ListChecks className="h-4 w-4 text-emerald-200" />
-                Intake readiness
+                Setup checklist
               </CardTitle>
             </CardHeader>
             <CardContent className="grid gap-4 p-5">
@@ -1412,16 +1237,20 @@ export function ProgramIntakeSection() {
                 <div className="h-2 overflow-hidden rounded-full bg-zinc-900">
                   <div className="h-full bg-emerald-300 transition-all" style={{ width: `${completion}%` }} />
                 </div>
-                <MetricBasisLabel>Basis: required intake fields plus at least one uploaded artifact.</MetricBasisLabel>
+                <MetricBasisLabel>Basis: completed program fields and supporting evidence.</MetricBasisLabel>
               </div>
-              <div className="rounded-md border border-amber-300/20 bg-amber-300/[0.055] p-3">
-                <div className="mb-2 flex items-center gap-2 text-sm font-medium text-amber-100">
-                  <ShieldAlert className="h-4 w-4" />
-                  Server persistence active
-                </div>
-                <p className="text-xs leading-5 text-zinc-400">
-                  Program intake saves to the configured server store. Intake artifacts are captured as grounded context for guided plans.
-                </p>
+              <div className="grid gap-1">
+                {setupChecklist.map((item) => (
+                  <div key={item.label} className="flex items-start gap-3 border-b border-white/10 py-3 last:border-0">
+                    <CheckCircle2
+                      className={`mt-0.5 h-4 w-4 shrink-0 ${item.complete ? "text-emerald-200" : "text-zinc-600"}`}
+                    />
+                    <div>
+                      <p className={`text-sm font-medium ${item.complete ? "text-zinc-100" : "text-zinc-300"}`}>{item.label}</p>
+                      <p className="mt-1 text-xs leading-5 text-zinc-500">{item.detail}</p>
+                    </div>
+                  </div>
+                ))}
               </div>
             </CardContent>
           </Card>
@@ -1429,26 +1258,26 @@ export function ProgramIntakeSection() {
           <Card className="bg-zinc-950/80">
             <CardHeader className="border-b border-white/10">
               <CardTitle className="flex items-center gap-2 text-zinc-50">
-                <FileText className="h-4 w-4 text-cyan-200" />
-                Guidance preview
+                <ArrowRight className="h-4 w-4 text-cyan-200" />
+                After save
               </CardTitle>
             </CardHeader>
-            <CardContent className="grid gap-3 p-5">
-              {guidancePreview.map((item) => (
-                <div key={item.label} className="rounded-md border border-white/10 bg-white/[0.035] p-3">
-                  <p className="text-xs font-medium uppercase tracking-[0.16em] text-zinc-500">{item.label}</p>
-                  <p className="mt-2 text-sm leading-6 text-zinc-300">{item.value}</p>
+            <CardContent className="grid gap-0 p-5">
+              {[
+                ["Review readiness", "See what North Star understands and which inputs would strengthen the program."],
+                ["Open Program Hub", "Manage the live program, team updates, delivery work, and client-facing updates."],
+                ["Refine over time", "Return to the baseline, roster, and evidence whenever the program changes."]
+              ].map(([label, detail], index) => (
+                <div key={label} className="flex gap-3 border-b border-white/10 py-3 first:pt-0 last:border-0 last:pb-0">
+                  <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-cyan-300/20 bg-cyan-300/[0.06] text-[11px] font-semibold text-cyan-100">
+                    {index + 1}
+                  </span>
+                  <div>
+                    <p className="text-sm font-medium text-zinc-100">{label}</p>
+                    <p className="mt-1 text-xs leading-5 text-zinc-400">{detail}</p>
+                  </div>
                 </div>
               ))}
-              <div className="rounded-md border border-emerald-300/20 bg-emerald-300/[0.055] p-3">
-                <p className="flex items-center gap-2 text-sm font-medium text-emerald-100">
-                  Intelligence payload
-                  <ArrowRight className="h-4 w-4" />
-                </p>
-                <p className="mt-2 text-xs leading-5 text-zinc-400">
-                  Structured intake plus artifact text becomes the context used to refresh plans and artifacts.
-                </p>
-              </div>
             </CardContent>
           </Card>
         </aside>

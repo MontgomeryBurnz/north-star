@@ -569,6 +569,7 @@ test("Active Program review is split into state, cockpit, and team signal flows"
   const clientPortalSmokeSource = readFileSync(new URL("../scripts/smoke-client-portal.mjs", import.meta.url), "utf8");
   const clientIsolationSmokeSource = readFileSync(new URL("../scripts/smoke-client-isolation.mjs", import.meta.url), "utf8");
   const teamFootprintSmokeSource = readFileSync(new URL("../scripts/smoke-team-footprint.mjs", import.meta.url), "utf8");
+  const newProgramSetupSmokeSource = readFileSync(new URL("../scripts/smoke-new-program-setup.mjs", import.meta.url), "utf8");
   const productionSmokeSource = readFileSync(new URL("../scripts/smoke-production.mjs", import.meta.url), "utf8");
   const browserWebdriverSource = readFileSync(new URL("../scripts/browser-webdriver.mjs", import.meta.url), "utf8");
   const clientPortalPageSource = readFileSync(new URL("../src/app/client/page.tsx", import.meta.url), "utf8");
@@ -602,8 +603,17 @@ test("Active Program review is split into state, cockpit, and team signal flows"
   assert.match(teamFootprintEditorSource, /data-team-footprint-role-chip/);
   assert.match(teamFootprintEditorSource, /data-team-footprint-custom-role/);
   assert.match(teamFootprintEditorSource, /data-team-footprint-add-custom/);
+  assert.match(teamFootprintEditorSource, /data-team-footprint-empty/);
+  assert.match(teamFootprintEditorSource, /includeFallbackRoles/);
   assert.match(teamFootprintEditorSource, /Advanced bulk edit/);
-  assert.match(teamFootprintEditorSource, /Start with common delivery roles/);
+  assert.match(teamFootprintEditorSource, /Choose only the roles participating in this program/);
+  assert.match(programIntakeSource, /includeFallbackRoles=\{false\}/);
+  assert.match(programIntakeSource, /data-program-setup-checklist/);
+  assert.doesNotMatch(programIntakeSource, /Load demo program|Demo path|sampleIntake/);
+  assert.match(newProgramSetupSmokeSource, /blank New Program roster/);
+  assert.match(newProgramSetupSmokeSource, /data-team-footprint-empty/);
+  assert.match(newProgramSetupSmokeSource, /data-team-footprint-role-chip="Delivery Lead"/);
+  assert.match(productionSmokeSource, /smoke-new-program-setup\.mjs/);
   assert.doesNotMatch(teamFootprintEditorSource, /const nextIndex = roles\.length \+ 1/);
   assert.doesNotMatch(teamFootprintEditorSource, /New role/);
   assert.match(teamFootprintEditorSource, /draggable/);
@@ -1290,5 +1300,5 @@ test("release checks are wired for local deployment hardening", () => {
   assert.match(nextConfigSource, /serverExternalPackages: \["mammoth"\]/);
   assert.doesNotMatch(artifactExtractionSource, /import mammoth from "mammoth"/);
   assert.match(artifactExtractionSource, /serverRequire\("mammoth"\)/);
-  assert.match(intakeSource, /Basis: required intake fields plus at least one uploaded artifact\./);
+  assert.match(intakeSource, /Basis: completed program fields and supporting evidence\./);
 });

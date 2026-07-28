@@ -6,6 +6,7 @@ const scriptDirectory = dirname(fileURLToPath(import.meta.url));
 
 const smokeSteps = [
   { name: "chat disabled", script: "smoke-chat-disabled.mjs" },
+  { name: "new program setup", script: "smoke-new-program-setup.mjs" },
   { name: "program slicers", script: "smoke-program-slicers.mjs" },
   { name: "studio", script: "smoke-studio.mjs" },
   { name: "admin model settings", script: "smoke-admin-model-settings.mjs" },

@@ -20,6 +20,7 @@ type TeamFootprintEditorProps = {
   description?: string;
   fallbackRoles?: string[];
   footprint?: ProgramTeamFootprintRole[];
+  includeFallbackRoles?: boolean;
   onChange: (nextFootprint: ProgramTeamFootprintRole[]) => void;
   onSave?: () => void | Promise<void>;
   saveState?: "idle" | "dirty" | "saving" | "saved" | "error";
@@ -62,7 +63,15 @@ function buildUniqueRoleId(role: string, existingIds: Set<string>) {
   return id;
 }
 
-function normalizeEditorFootprint(footprint: ProgramTeamFootprintRole[] | undefined, fallbackRoles?: string[]) {
+function normalizeEditorFootprint(
+  footprint: ProgramTeamFootprintRole[] | undefined,
+  fallbackRoles: string[] | undefined,
+  includeFallbackRoles: boolean
+) {
+  if (!includeFallbackRoles && !footprint?.length) {
+    return [];
+  }
+
   return normalizeTeamFootprint(footprint, fallbackRoles).map((item) => ({
     ...item,
     active: item.active !== false
@@ -117,6 +126,7 @@ export function TeamFootprintEditor({
   description = "Define the roles involved in this program, the regular owner, and what each role is accountable for.",
   fallbackRoles,
   footprint,
+  includeFallbackRoles = true,
   onChange,
   onSave,
   saveState = "idle",
@@ -130,7 +140,7 @@ export function TeamFootprintEditor({
   const [customRole, setCustomRole] = useState("");
   const [draggingRoleId, setDraggingRoleId] = useState<string | null>(null);
   const [roleMessage, setRoleMessage] = useState<string | null>(null);
-  const roles = normalizeEditorFootprint(footprint, fallbackRoles);
+  const roles = normalizeEditorFootprint(footprint, fallbackRoles, includeFallbackRoles);
   const mappedOwners = roles.filter((item) => item.active !== false && item.owner.trim()).length;
   const activeRoles = roles.filter((item) => item.active !== false).length;
   const canSave = Boolean(onSave);
@@ -249,7 +259,7 @@ export function TeamFootprintEditor({
         </div>
         <div className="flex flex-wrap items-center gap-3">
           <span className="rounded-full border border-white/10 bg-black/25 px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.16em] text-zinc-300">
-            {mappedOwners}/{activeRoles} mapped
+            {activeRoles ? `${mappedOwners}/${activeRoles} mapped` : "Roster empty"}
           </span>
           {canSave ? (
             <span
@@ -272,7 +282,7 @@ export function TeamFootprintEditor({
           <div>
             <p className="text-sm font-semibold text-cyan-100">Add roles</p>
             <p className="mt-1 text-xs leading-5 text-zinc-500">
-              Start with common delivery roles, then add client- or program-specific roles as needed.
+              Choose only the roles participating in this program, or add a custom role.
             </p>
           </div>
           {roleMessage ? (
@@ -350,6 +360,23 @@ export function TeamFootprintEditor({
           </Button>
         </div>
       </div>
+
+      {!roles.length ? (
+        <div
+          className="mt-5 flex flex-col items-start gap-3 rounded-lg border border-dashed border-white/15 bg-white/[0.02] p-5 sm:flex-row sm:items-center"
+          data-team-footprint-empty
+        >
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-cyan-300/20 bg-cyan-300/[0.06] text-cyan-100">
+            <UsersRound className="h-5 w-5" />
+          </span>
+          <div>
+            <p className="text-sm font-semibold text-zinc-100">No roles added yet</p>
+            <p className="mt-1 text-xs leading-5 text-zinc-400">
+              Select a common role above or add a custom role. Owners and responsibilities can be completed now or later.
+            </p>
+          </div>
+        </div>
+      ) : null}
 
       <div className="mt-4 rounded-lg border border-white/10 bg-black/20">
         <button

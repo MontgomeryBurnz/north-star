@@ -17,6 +17,7 @@
     "smoke:client-isolation": "node scripts/smoke-client-isolation.mjs",
     "smoke:client-updates": "node scripts/smoke-client-dashboard-updates.mjs",
     "smoke:chat-disabled": "node scripts/smoke-chat-disabled.mjs",
+    "smoke:new-program-setup": "node scripts/smoke-new-program-setup.mjs",
     "smoke:team-footprint": "node scripts/smoke-team-footprint.mjs",
     "smoke:production": "node scripts/smoke-production.mjs",
     "smoke:slicers": "node scripts/smoke-program-slicers.mjs",
