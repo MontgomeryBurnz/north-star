@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState, type ChangeEvent } from "react";
-import { FileUp, KanbanSquare, Save, Users2 } from "lucide-react";
+import { ChevronDown, FileUp, KanbanSquare, Save, Settings2, Users2 } from "lucide-react";
 import type { ActiveProgramSaveConfirmation, ActiveProgramUpdate, DeliveryBoardItem, TeamRoleUpdate } from "@/lib/active-program-types";
 import type { DeliveryLeadershipSignal } from "@/lib/leadership-feedback-types";
 import type { ProgramMeetingInput } from "@/lib/program-intelligence-types";
@@ -130,6 +130,7 @@ export function ActiveProgramTeamSignalFlow({
   onLoadUpdate
 }: ActiveProgramTeamSignalFlowProps) {
   const [activeWorkspace, setActiveWorkspace] = useState<"role" | "board" | "evidence">("role");
+  const [showTeamFootprint, setShowTeamFootprint] = useState(false);
   const activeBoardItems = useMemo(
     () => deliveryBoardItems.filter((item) => item.status !== "done"),
     [deliveryBoardItems]
@@ -156,39 +157,74 @@ export function ActiveProgramTeamSignalFlow({
       label: "Role update",
       detail: "Capture responsibility-level signal",
       metric: `${roleSignalsCaptured}/${teamRoleUpdates.length || 0}`,
-      icon: Users2
+      icon: Users2,
+      title: "Role update workspace",
+      description: "Capture the latest role-level signal, risks, blockers, decisions, and supporting attachments."
     },
     {
       id: "board" as const,
       label: "Progress board",
       detail: "Track deliverables and blockers",
       metric: `${activeBoardItems.length} active`,
-      icon: KanbanSquare
+      icon: KanbanSquare,
+      title: "Progress board workspace",
+      description: "Move deliverables through status, open task details, and attach evidence directly to board cards."
     },
     {
       id: "evidence" as const,
       label: "Artifacts",
       detail: "Attach files, recordings, and proof",
       metric: `${uploadedEvidenceCount} files`,
-      icon: FileUp
+      icon: FileUp,
+      title: "Evidence workspace",
+      description: "Upload supporting artifacts and meeting context that should shape guidance, Studio suggestions, and the program record."
     }
   ];
+  const activeWorkspaceTab = workspaceTabs.find((tab) => tab.id === activeWorkspace) ?? workspaceTabs[0];
+  const ActiveWorkspaceIcon = activeWorkspaceTab.icon;
 
   return (
-    <div className="grid gap-5">
+    <div className="grid gap-4" data-active-program-team-execution>
       {selectedProgramId ? (
-        <TeamFootprintEditor
-          footprint={teamFootprint}
-          onChange={onTeamFootprintChange}
-          onSave={onSaveTeamFootprint}
-          saveState={teamFootprintSaveState}
-          savedAt={teamFootprintSavedAt}
-          description="Keep the role footprint, owner, and responsibility current for this active program. Role lanes, Guided Plans, Studio suggestions, and Client Portal domain summaries read from this structure."
-        />
+        <div className="rounded-xl border border-white/10 bg-zinc-950/80 p-3 sm:p-4">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="flex items-center gap-2 text-sm font-semibold text-zinc-100">
+                <Settings2 className="h-4 w-4 text-cyan-200" />
+                Team footprint
+              </p>
+              <p className="mt-1 text-xs leading-5 text-zinc-500">
+                Role ownership is setup data. Open only when the team shape or responsibility model changes.
+              </p>
+            </div>
+            <button
+              type="button"
+              data-active-team-footprint-toggle
+              aria-expanded={showTeamFootprint}
+              onClick={() => setShowTeamFootprint((current) => !current)}
+              className="inline-flex min-h-10 items-center justify-center gap-2 rounded-md border border-white/10 bg-white/[0.035] px-3 text-sm font-medium text-zinc-200 transition-colors hover:border-cyan-300/30 hover:text-cyan-100"
+            >
+              {showTeamFootprint ? "Hide footprint" : "Edit footprint"}
+              <ChevronDown className={`h-4 w-4 transition-transform ${showTeamFootprint ? "rotate-180" : ""}`} />
+            </button>
+          </div>
+          {showTeamFootprint ? (
+            <div className="mt-4 border-t border-white/10 pt-4">
+              <TeamFootprintEditor
+                footprint={teamFootprint}
+                onChange={onTeamFootprintChange}
+                onSave={onSaveTeamFootprint}
+                saveState={teamFootprintSaveState}
+                savedAt={teamFootprintSavedAt}
+                description="Keep the role footprint, owner, and responsibility current for this active program. Role lanes, Guided Plans, Studio suggestions, and Client Portal domain summaries read from this structure."
+              />
+            </div>
+          ) : null}
+        </div>
       ) : null}
 
       <div className="rounded-xl border border-white/10 bg-zinc-950/80 p-3 sm:p-4">
-        <div className="grid gap-3 lg:grid-cols-3">
+        <div className="grid gap-2 rounded-lg border border-white/10 bg-black/20 p-1 sm:grid-cols-3" role="tablist" aria-label="Team execution work modes">
           {workspaceTabs.map((tab) => {
             const Icon = tab.icon;
             const selected = activeWorkspace === tab.id;
@@ -197,27 +233,44 @@ export function ActiveProgramTeamSignalFlow({
               <button
                 key={tab.id}
                 type="button"
+                role="tab"
+                aria-selected={selected}
                 data-active-program-workspace-tab={tab.id}
                 onClick={() => setActiveWorkspace(tab.id)}
-                className={`grid min-h-[116px] gap-3 rounded-lg border p-4 text-left transition-colors ${
+                className={`grid min-h-12 grid-cols-[1fr_auto] items-center gap-2 rounded-md border px-3 py-2 text-left transition-colors ${
                   selected
-                    ? "border-cyan-300/35 bg-cyan-300/[0.075] text-cyan-50 shadow-[0_0_30px_rgba(103,232,249,0.08)]"
-                    : "border-white/10 bg-white/[0.025] text-zinc-300 hover:border-cyan-300/25 hover:bg-cyan-300/[0.035]"
+                    ? "border-cyan-300/35 bg-cyan-300/[0.095] text-cyan-50 shadow-[0_0_30px_rgba(103,232,249,0.08)]"
+                    : "border-transparent bg-transparent text-zinc-400 hover:border-cyan-300/20 hover:bg-cyan-300/[0.035] hover:text-zinc-200"
                 }`}
               >
-                <div className="flex items-start justify-between gap-3">
-                  <span className="inline-flex items-center gap-2 text-sm font-semibold">
-                    <Icon className="h-4 w-4" />
-                    {tab.label}
+                <span className="inline-flex min-w-0 items-center gap-2">
+                  <Icon className="h-4 w-4 shrink-0" />
+                  <span className="min-w-0">
+                    <span className="block truncate text-sm font-semibold">{tab.label}</span>
+                    <span className="block truncate text-[11px] leading-4 text-zinc-500">{tab.detail}</span>
                   </span>
-                  <span className="rounded-full border border-white/10 bg-black/20 px-2.5 py-1 text-[11px] font-medium uppercase tracking-[0.12em]">
-                    {tab.metric}
-                  </span>
-                </div>
-                <p className="text-xs leading-5 text-zinc-500">{tab.detail}</p>
+                </span>
+                <span className="rounded-full border border-white/10 bg-black/20 px-2.5 py-1 text-[11px] font-medium uppercase tracking-[0.12em]">
+                  {tab.metric}
+                </span>
               </button>
             );
           })}
+        </div>
+      </div>
+
+      <div data-active-team-execution-mode={activeWorkspace} className="rounded-xl border border-cyan-300/15 bg-cyan-300/[0.035] p-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <p className="flex items-center gap-2 text-base font-semibold text-zinc-50">
+              <ActiveWorkspaceIcon className="h-4 w-4 text-cyan-200" />
+              {activeWorkspaceTab.title}
+            </p>
+            <p className="mt-2 max-w-4xl text-sm leading-6 text-zinc-400">{activeWorkspaceTab.description}</p>
+          </div>
+          <span className="inline-flex w-fit rounded-full border border-cyan-300/20 bg-cyan-300/[0.08] px-3 py-1 text-[11px] font-medium uppercase tracking-[0.14em] text-cyan-100">
+            {activeWorkspaceTab.metric}
+          </span>
         </div>
       </div>
 
