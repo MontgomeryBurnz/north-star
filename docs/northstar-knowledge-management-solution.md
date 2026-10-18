@@ -127,10 +127,10 @@ Knowledge content must not:
 
 ### Studio
 
-- Select a program and add a multi-format discovery package.
+- Start a standalone workspace and add a multi-format discovery package without selecting an active program.
 - Synthesize capabilities, pain points, business rules, assumptions, and source coverage.
 - Identify and resolve delivery-readiness gaps.
-- Generate and version a traceable roadmap, backlog, acceptance criteria, and test package.
+- Generate a traceable roadmap, backlog, acceptance criteria, and test package for export.
 
 ### Client Portal
 

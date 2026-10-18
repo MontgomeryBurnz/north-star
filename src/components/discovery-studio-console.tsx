@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
+import { useRef, useState, type ChangeEvent } from "react";
 import {
   AlertTriangle,
   BrainCircuit,
@@ -12,18 +12,16 @@ import {
   ListChecks,
   Loader2,
   Map,
-  PackageCheck,
+  RotateCcw,
   Sparkles,
   Upload,
   X
 } from "lucide-react";
 import type { DiscoverySynthesis } from "@/lib/discovery-studio-types";
-import type { ProgramArtifact, StoredProgram } from "@/lib/program-intake-types";
-import { programsToSlicerOptions } from "@/lib/program-slicer";
+import type { ProgramArtifact } from "@/lib/program-intake-types";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ProductPageHeader } from "@/components/product-page-header";
-import { ProgramSlicer } from "@/components/program-slicer";
 
 type StudioView = "understanding" | "gaps" | "build";
 
@@ -121,60 +119,15 @@ function InsightList({ empty, items, title }: { empty: string; items: string[]; 
 export function DiscoveryStudioConsole() {
   const inputRef = useRef<HTMLInputElement | null>(null);
   const [pendingFiles, setPendingFiles] = useState<File[]>([]);
+  const [sources, setSources] = useState<ProgramArtifact[]>([]);
   const [synthesis, setSynthesis] = useState<DiscoverySynthesis | null>(null);
   const [resolutionNotes, setResolutionNotes] = useState("");
-  const [status, setStatus] = useState("Select a program and add discovery evidence to begin.");
+  const [workspaceName, setWorkspaceName] = useState("Discovery workspace");
+  const [status, setStatus] = useState("Add discovery evidence to begin. This workspace is not connected to an active program.");
   const [view, setView] = useState<StudioView>("understanding");
   const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
-  const [programs, setPrograms] = useState<StoredProgram[]>([]);
-  const [selectedProgramId, setSelectedProgramId] = useState("");
-  const selectedProgram = useMemo(
-    () => programs.find((program) => program.id === selectedProgramId) ?? null,
-    [programs, selectedProgramId]
-  );
-  const refreshPrograms = useCallback(async () => {
-    try {
-      const response = await fetch("/api/programs", { cache: "no-store" });
-      if (!response.ok) throw new Error("programs");
-      const payload = (await response.json()) as { programs: StoredProgram[] };
-      setPrograms(payload.programs);
-    } catch {
-      setStatus("Could not load programs.");
-    }
-  }, []);
-  const programOptions = useMemo(() => programsToSlicerOptions(programs, "signal"), [programs]);
-  const savedSources = selectedProgram?.intake.artifacts ?? [];
-  const readableSourceCount = savedSources.filter((artifact) => artifact.extractedText?.trim()).length;
+  const readableSourceCount = sources.filter((artifact) => artifact.extractedText?.trim()).length;
   const blockingGapCount = synthesis?.gaps.filter((gap) => gap.severity === "blocking").length ?? 0;
-
-  useEffect(() => {
-    void refreshPrograms();
-  }, [refreshPrograms]);
-
-  const loadLatest = useCallback(async (programId: string) => {
-    setIsLoading(true);
-    try {
-      const response = await fetch(`/api/programs/${programId}/discovery-synthesis`, { cache: "no-store" });
-      if (!response.ok) throw new Error("history");
-      const payload = (await response.json()) as { synthesis: DiscoverySynthesis | null };
-      setSynthesis(payload.synthesis);
-      setStatus(payload.synthesis ? "Latest discovery build package loaded." : "Add sources, then analyze the discovery package.");
-    } catch {
-      setSynthesis(null);
-      setStatus("Could not load the latest Studio analysis.");
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    setPendingFiles([]);
-    setResolutionNotes("");
-    setView("understanding");
-    if (selectedProgramId) void loadLatest(selectedProgramId);
-    else setSynthesis(null);
-  }, [loadLatest, selectedProgramId]);
 
   function handleFiles(event: ChangeEvent<HTMLInputElement>) {
     const files = Array.from(event.target.files ?? []);
@@ -188,15 +141,10 @@ export function DiscoveryStudioConsole() {
 
   async function prepareFile(file: File): Promise<ProgramArtifact> {
     const fileFormat = detectFileFormat(file.name);
-    const uploadData = new FormData();
-    uploadData.append("file", file);
     const extractionData = new FormData();
     extractionData.append("file", file);
     extractionData.append("fileFormat", fileFormat);
-    const [uploadResult, extractionResult] = await Promise.allSettled([
-      fetch("/api/artifacts/upload", { method: "POST", body: uploadData }),
-      fetch("/api/artifacts/extract", { method: "POST", body: extractionData })
-    ]);
+    const extractionResult = await fetch("/api/artifacts/extract", { method: "POST", body: extractionData });
     const artifact: ProgramArtifact = {
       id: `${file.name}-${file.lastModified}-${file.size}`,
       name: file.name,
@@ -209,18 +157,8 @@ export function DiscoveryStudioConsole() {
       analysisPriority: "high"
     };
 
-    if (uploadResult.status === "fulfilled" && uploadResult.value.ok) {
-      const payload = (await uploadResult.value.json()) as { artifact: { provider: ProgramArtifact["storageProvider"]; storageKey: string; createdAt: string } };
-      artifact.storageProvider = payload.artifact.provider;
-      artifact.storageKey = payload.artifact.storageKey;
-      artifact.uploadedAt = payload.artifact.createdAt;
-      artifact.uploadStatus = "stored";
-    } else {
-      artifact.uploadStatus = "error";
-    }
-
-    if (extractionResult.status === "fulfilled" && extractionResult.value.ok) {
-      const payload = (await extractionResult.value.json()) as { extraction: Partial<ProgramArtifact> };
+    if (extractionResult.ok) {
+      const payload = (await extractionResult.json()) as { extraction: Partial<ProgramArtifact> };
       Object.assign(artifact, payload.extraction);
     } else {
       artifact.sourceKind = "metadata-only";
@@ -231,21 +169,13 @@ export function DiscoveryStudioConsole() {
     return artifact;
   }
 
-  async function persistSources(program: StoredProgram, newArtifacts: ProgramArtifact[]) {
-    const artifacts = [...program.intake.artifacts, ...newArtifacts].filter(
+  function mergeSources(current: ProgramArtifact[], incoming: ProgramArtifact[]) {
+    return [...current, ...incoming].filter(
       (artifact, index, all) => all.findIndex((candidate) => candidate.id === artifact.id) === index
     );
-    const response = await fetch("/api/programs", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ ...program.intake, artifacts })
-    });
-    if (!response.ok) throw new Error("Could not save discovery sources.");
-    await refreshPrograms();
   }
 
   async function analyzePackage() {
-    if (!selectedProgram) return;
     if (!pendingFiles.length && !readableSourceCount) {
       setStatus("Add at least one readable discovery source before analysis.");
       return;
@@ -253,19 +183,25 @@ export function DiscoveryStudioConsole() {
     setIsAnalyzing(true);
     setStatus(pendingFiles.length ? "Extracting and classifying the discovery package..." : "Synthesizing the latest discovery evidence...");
     try {
+      let analysisSources = sources;
       if (pendingFiles.length) {
         const newArtifacts = await Promise.all(pendingFiles.map(prepareFile));
         if (!newArtifacts.some((artifact) => artifact.extractedText?.trim()) && !readableSourceCount) {
           throw new Error("No readable text could be extracted from the selected files.");
         }
-        await persistSources(selectedProgram, newArtifacts);
+        analysisSources = mergeSources(sources, newArtifacts);
+        setSources(analysisSources);
         setPendingFiles([]);
       }
       setStatus("Building the product definition, traceability, gaps, stories, and tests...");
-      const response = await fetch(`/api/programs/${selectedProgram.id}/discovery-synthesis`, {
+      const response = await fetch("/api/studio/discovery-synthesis", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ resolutionNotes })
+        body: JSON.stringify({
+          workspaceName: workspaceName.trim() || "Discovery workspace",
+          artifacts: analysisSources,
+          resolutionNotes
+        })
       });
       const payload = (await response.json()) as { error?: string; synthesis?: DiscoverySynthesis };
       if (!response.ok || !payload.synthesis) throw new Error(payload.error || "Studio analysis failed.");
@@ -280,25 +216,37 @@ export function DiscoveryStudioConsole() {
   }
 
   async function copyPackage() {
-    if (!synthesis || !selectedProgram) return;
-    await navigator.clipboard.writeText(packageMarkdown(selectedProgram.intake.programName, synthesis));
+    if (!synthesis) return;
+    await navigator.clipboard.writeText(packageMarkdown(workspaceName.trim() || "Discovery workspace", synthesis));
     setStatus("Build package copied as structured Markdown.");
   }
 
   function downloadPackage() {
-    if (!synthesis || !selectedProgram) return;
-    const blob = new Blob([packageMarkdown(selectedProgram.intake.programName, synthesis)], { type: "text/markdown" });
+    if (!synthesis) return;
+    const title = workspaceName.trim() || "Discovery workspace";
+    const blob = new Blob([packageMarkdown(title, synthesis)], { type: "text/markdown" });
     const url = URL.createObjectURL(blob);
     const anchor = document.createElement("a");
     anchor.href = url;
-    anchor.download = `${selectedProgram.intake.programName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "northstar"}-build-package.md`;
+    anchor.download = `${title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "northstar"}-build-package.md`;
     anchor.click();
     URL.revokeObjectURL(url);
     setStatus("Build package downloaded.");
   }
 
+  function clearWorkspace() {
+    setPendingFiles([]);
+    setSources([]);
+    setSynthesis(null);
+    setResolutionNotes("");
+    setView("understanding");
+    setWorkspaceName("Discovery workspace");
+    setStatus("Fresh workspace ready. Add discovery evidence to begin.");
+    if (inputRef.current) inputRef.current.value = "";
+  }
+
   return (
-    <main className="mx-auto max-w-[1500px] px-4 py-14 sm:px-6 lg:px-8" data-discovery-studio>
+    <main className="mx-auto max-w-[1500px] px-4 py-14 sm:px-6 lg:px-8" data-discovery-studio data-studio-agnostic>
       <div className="grid gap-8">
         <ProductPageHeader
           eyebrow="Studio"
@@ -308,17 +256,25 @@ export function DiscoveryStudioConsole() {
 
         <Card className="overflow-hidden bg-zinc-950/80">
           <CardContent className="grid gap-5 p-4 sm:p-5">
-            <ProgramSlicer
-              label="Program"
-              selectedProgramId={selectedProgramId}
-              options={programOptions}
-              placeholder="Select a program..."
-              emptyLabel="No saved programs yet"
-              helperText="Sources, analysis, gaps, and generated build packages stay scoped to this program."
-              onSelectProgram={setSelectedProgramId}
-            />
+            <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
+              <label className="grid gap-2">
+                <span className="text-[11px] font-medium uppercase tracking-[0.16em] text-zinc-500">Workspace title</span>
+                <input
+                  value={workspaceName}
+                  onChange={(event) => setWorkspaceName(event.target.value)}
+                  maxLength={120}
+                  placeholder="Name this discovery package"
+                  className="rounded-md border border-white/10 bg-zinc-950 px-3 py-2.5 text-sm text-zinc-100 outline-none placeholder:text-zinc-600 focus:border-emerald-300/50 focus:ring-2 focus:ring-emerald-300/15"
+                  data-studio-workspace-name
+                />
+                <span className="text-sm leading-6 text-zinc-400">Standalone by design. Nothing in this workspace depends on or updates an active program.</span>
+              </label>
+              <Button type="button" variant="outline" onClick={clearWorkspace} disabled={!sources.length && !pendingFiles.length && !synthesis} data-studio-clear>
+                <RotateCcw className="h-4 w-4" />Start fresh
+              </Button>
+            </div>
             <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-              <Metric label="Discovery sources" value={String(savedSources.length + pendingFiles.length)} />
+              <Metric label="Discovery sources" value={String(sources.length + pendingFiles.length)} />
               <Metric label="Readiness" value={synthesis ? `${synthesis.readinessScore}%` : "—"} />
               <Metric label="Blocking gaps" value={synthesis ? String(blockingGapCount) : "—"} />
               <Metric label="Build-ready stories" value={synthesis ? String(synthesis.stories.filter((story) => story.readiness === "ready").length) : "—"} />
@@ -326,21 +282,13 @@ export function DiscoveryStudioConsole() {
           </CardContent>
         </Card>
 
-        {!selectedProgramId ? (
-          <Card className="bg-zinc-950/70">
-            <CardContent className="grid min-h-72 place-items-center p-8 text-center">
-              <div><PackageCheck className="mx-auto h-8 w-8 text-emerald-200" /><p className="mt-4 text-lg font-semibold text-zinc-50">Select a program to open its discovery workspace.</p></div>
-            </CardContent>
-          </Card>
-        ) : (
-          <>
             <Card className="bg-zinc-950/75">
               <CardHeader className="border-b border-white/10">
                 <div className="flex flex-wrap items-start justify-between gap-4">
                   <div>
                     <p className="text-xs font-medium uppercase tracking-[0.18em] text-emerald-300">1 · Source package</p>
                     <CardTitle className="mt-2 text-zinc-50">Add discovery evidence</CardTitle>
-                    <p className="mt-2 max-w-3xl text-sm leading-6 text-zinc-400">Upload Word, Excel, PowerPoint, PDF, CSV, Markdown, JSON, or text files together. Existing program evidence is included automatically.</p>
+                    <p className="mt-2 max-w-3xl text-sm leading-6 text-zinc-400">Upload Word, Excel, PowerPoint, PDF, CSV, Markdown, JSON, or text files together. Sources stay in this working session and are synthesized independently from active programs.</p>
                   </div>
                   <input ref={inputRef} type="file" multiple accept={acceptedFormats} onChange={handleFiles} className="hidden" data-studio-source-input />
                   <Button type="button" variant="outline" onClick={() => inputRef.current?.click()}><Upload className="h-4 w-4" />Add sources</Button>
@@ -348,7 +296,7 @@ export function DiscoveryStudioConsole() {
               </CardHeader>
               <CardContent className="grid gap-4 p-4 sm:p-5">
                 <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
-                  {savedSources.map((artifact) => (
+                  {sources.map((artifact) => (
                     <div key={artifact.id} className="flex items-start gap-3 rounded-md border border-white/10 bg-white/[0.025] p-3">
                       <FileText className="mt-0.5 h-4 w-4 shrink-0 text-cyan-200" />
                       <div className="min-w-0"><p className="truncate text-sm font-medium text-zinc-100">{artifact.name}</p><p className="mt-1 text-xs text-zinc-500">{artifact.fileFormat?.toUpperCase() ?? "FILE"} · {artifact.extractionStatus ?? "tracked"}</p></div>
@@ -361,11 +309,11 @@ export function DiscoveryStudioConsole() {
                       <button type="button" aria-label={`Remove ${file.name}`} onClick={() => setPendingFiles((current) => current.filter((candidate) => candidate !== file))} className="text-zinc-500 hover:text-zinc-100"><X className="h-4 w-4" /></button>
                     </div>
                   ))}
-                  {!savedSources.length && !pendingFiles.length ? <div className="rounded-md border border-dashed border-white/10 p-5 text-sm text-zinc-500">No discovery evidence has been added yet.</div> : null}
+                  {!sources.length && !pendingFiles.length ? <div className="rounded-md border border-dashed border-white/10 p-5 text-sm text-zinc-500">No discovery evidence has been added yet.</div> : null}
                 </div>
                 <div className="flex flex-wrap items-center justify-between gap-3 border-t border-white/10 pt-4">
                   <p className="text-sm leading-6 text-zinc-400">{status}</p>
-                  <Button type="button" onClick={() => void analyzePackage()} disabled={isAnalyzing || isLoading || (!pendingFiles.length && !readableSourceCount)} data-studio-analyze>
+                  <Button type="button" onClick={() => void analyzePackage()} disabled={isAnalyzing || (!pendingFiles.length && !readableSourceCount)} data-studio-analyze>
                     {isAnalyzing ? <Loader2 className="h-4 w-4 animate-spin" /> : <BrainCircuit className="h-4 w-4" />}
                     {synthesis ? "Re-analyze package" : "Analyze discovery package"}
                   </Button>
@@ -408,9 +356,7 @@ export function DiscoveryStudioConsole() {
                   </div>
                 ) : null}
               </section>
-            ) : isLoading ? <div className="grid min-h-44 place-items-center"><Loader2 className="h-6 w-6 animate-spin text-emerald-200" /></div> : null}
-          </>
-        )}
+            ) : null}
       </div>
     </main>
   );

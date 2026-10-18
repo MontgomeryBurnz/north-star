@@ -1,4 +1,5 @@
 import type { OpenAIUsageMetadata } from "@/lib/program-intelligence-types";
+import type { ProgramArtifact } from "@/lib/program-intake-types";
 
 export type DiscoveryGapSeverity = "blocking" | "important" | "optional";
 
@@ -78,5 +79,7 @@ export type DiscoverySynthesis = {
 };
 
 export type DiscoverySynthesisRequest = {
+  workspaceName?: string;
+  artifacts?: ProgramArtifact[];
   resolutionNotes?: string;
 };

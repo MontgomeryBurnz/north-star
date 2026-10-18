@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import {
   canAccessClientDashboardScope,
   canAccessProgramScope,
+  hasActiveUserCredentials,
+  isExternalOnlyUserType,
   isClientDashboardOnlyUserType,
   type ManagedAppUser
 } from "@/lib/admin-user-types";
@@ -28,6 +30,26 @@ async function requireProtectedRouteAccess(resolveAccess: AccessResolver) {
 
 export function requireSiteAccessRequest(request: Request) {
   return isSiteAccessRequestAuthorized(request) ? null : createSiteAccessDeniedResponse();
+}
+
+export async function requireInternalWorkspaceRouteAccess(
+  request: Request
+): Promise<{ currentUser: ManagedAppUser | null; response: NextResponse | null }> {
+  const currentUser = await getCurrentManagedUser();
+
+  if (currentUser) {
+    if (!hasActiveUserCredentials(currentUser) || isExternalOnlyUserType(currentUser.userType)) {
+      return {
+        currentUser,
+        response: NextResponse.json({ error: "Workspace access denied." }, { status: 403 })
+      };
+    }
+
+    return { currentUser, response: null };
+  }
+
+  const denied = requireSiteAccessRequest(request);
+  return { currentUser: null, response: denied };
 }
 
 export async function requireAdminRouteAccess(_request: Request) {

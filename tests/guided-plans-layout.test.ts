@@ -1060,7 +1060,7 @@ test("Admin can manage OpenAI guidance model settings", () => {
   assert.match(auditSmokeSource, /data-admin-audit-filter/);
   assert.match(studioSmokeSource, /data-discovery-studio/);
   assert.match(studioSmokeSource, /data-studio-source-input/);
-  assert.match(studioSmokeSource, /discovery-synthesis/);
+  assert.match(studioSmokeSource, /data-studio-agnostic/);
   assert.match(settingsSource, /CREATE TABLE IF NOT EXISTS app_settings/);
   assert.match(guidedProviderSource, /getGuidanceModelSettings/);
   assert.match(artifactProviderSource, /getGuidanceModelSettings/);

@@ -223,7 +223,7 @@ Studio consumes a package of discovery evidence, synthesizes what the evidence s
 
 ### How to Use Studio
 
-1. Select a program.
+1. Name the standalone discovery workspace. No active program is required.
 2. Add the available Word, Excel, PowerPoint, PDF, CSV, Markdown, JSON, or text discovery sources.
 3. Analyze the complete discovery package.
 4. Review the synthesized capabilities, pain points, business rules, and assumptions.
@@ -231,6 +231,9 @@ Studio consumes a package of discovery evidence, synthesizes what the evidence s
 6. Regenerate the package after material gaps are closed.
 7. Review roadmap, epics, features, stories, acceptance criteria, and test cases.
 8. Copy or download the build package for product and engineering refinement.
+9. Use **Start fresh** to clear the working session before beginning a different discovery package.
+
+Studio workspaces are session-based and deliberately separate from active programs. Sources and generated outputs are not written into Program Hub records.
 
 ### Build Package Outputs
 

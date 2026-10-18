@@ -7,11 +7,17 @@ import { extractArtifactText } from "../src/lib/artifact-extraction.ts";
 test("Studio page uses the discovery-to-build workspace", () => {
   const page = readFileSync(new URL("../src/app/artifacts/page.tsx", import.meta.url), "utf8");
   const studio = readFileSync(new URL("../src/components/discovery-studio-console.tsx", import.meta.url), "utf8");
+  const route = readFileSync(new URL("../src/app/api/studio/discovery-synthesis/route.ts", import.meta.url), "utf8");
   assert.match(page, /DiscoveryStudioConsole/);
   assert.match(studio, /Turn discovery into build-ready product definition/);
   assert.match(studio, /Analyze discovery package/);
   assert.match(studio, /Stories, acceptance criteria, and test cases/);
   assert.match(studio, /Add missing context/);
+  assert.match(studio, /data-studio-agnostic/);
+  assert.match(studio, /\/api\/studio\/discovery-synthesis/);
+  assert.doesNotMatch(studio, /ProgramSlicer|\/api\/programs/);
+  assert.match(route, /requireInternalWorkspaceRouteAccess/);
+  assert.match(route, /standalone: true/);
 });
 
 test("artifact extraction supports CSV discovery evidence", async () => {
