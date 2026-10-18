@@ -317,7 +317,7 @@ test("Studio catalog includes starter artifacts for expanded delivery roles", ()
   }
 });
 
-test("Studio includes a governed delivery agent workbench with UX coverage", () => {
+test("legacy role-artifact engine retains governed delivery agent coverage", () => {
   const agentSource = readFileSync(new URL("../src/lib/delivery-agent-types.ts", import.meta.url), "utf8");
   const workbenchSource = readFileSync(new URL("../src/components/agent-workbench-card.tsx", import.meta.url), "utf8");
   const studioSource = readFileSync(new URL("../src/components/artifact-studio-console.tsx", import.meta.url), "utf8");
@@ -334,7 +334,6 @@ test("Studio includes a governed delivery agent workbench with UX coverage", () 
     "data-engineering"
   ]) {
     assert.match(agentSource, new RegExp(`id: "${agentId}"`));
-    assert.match(smokeSource, new RegExp(`"${agentId}"`));
   }
 
   assert.match(agentSource, /title: "UX Agent"/);
@@ -348,9 +347,11 @@ test("Studio includes a governed delivery agent workbench with UX coverage", () 
   assert.match(studioSource, /selectedAgentId/);
   assert.match(studioSource, /getDeliveryAgentRoleLenses/);
   assert.match(studioSource, /useAgentArtifact/);
+  assert.match(smokeSource, /data-discovery-studio/);
+  assert.match(smokeSource, /data-studio-source-input/);
+  assert.match(smokeSource, /data-studio-analyze/);
   assert.match(catalogSource, /data-analysis-kpi-definition-matrix/);
   assert.match(catalogSource, /data-analysis-reporting-requirements/);
-  assert.match(smokeSource, /verifyAgentWorkbench/);
 });
 
 test("Navigation presents Quick Start and keeps Admin as settings access", () => {
@@ -1057,9 +1058,9 @@ test("Admin can manage OpenAI guidance model settings", () => {
   assert.match(auditSmokeSource, /verifyFilteredCsv/);
   assert.match(auditSmokeSource, /data-admin-audit-export/);
   assert.match(auditSmokeSource, /data-admin-audit-filter/);
-  assert.match(studioSmokeSource, /NORTHSTAR_SMOKE_EXPORT_FORMAT \?\? "both"/);
-  assert.match(studioSmokeSource, /data-studio-export-docx/);
-  assert.match(studioSmokeSource, /data-studio-export-csv/);
+  assert.match(studioSmokeSource, /data-discovery-studio/);
+  assert.match(studioSmokeSource, /data-studio-source-input/);
+  assert.match(studioSmokeSource, /discovery-synthesis/);
   assert.match(settingsSource, /CREATE TABLE IF NOT EXISTS app_settings/);
   assert.match(guidedProviderSource, /getGuidanceModelSettings/);
   assert.match(artifactProviderSource, /getGuidanceModelSettings/);

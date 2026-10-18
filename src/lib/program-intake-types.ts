@@ -8,7 +8,7 @@ export type ProgramArtifact = {
   storageKey?: string;
   uploadedAt?: string;
   uploadStatus?: "stored" | "error";
-  fileFormat?: "txt" | "pdf" | "doc" | "docx" | "ppt" | "pptx" | "unknown";
+  fileFormat?: "txt" | "md" | "json" | "csv" | "xls" | "xlsx" | "pdf" | "doc" | "docx" | "ppt" | "pptx" | "unknown";
   artifactType?:
     | "sow"
     | "project-plan"

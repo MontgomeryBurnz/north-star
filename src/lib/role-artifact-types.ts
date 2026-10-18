@@ -1,4 +1,5 @@
 import type { OpenAIUsageMetadata } from "@/lib/program-intelligence-types";
+import type { DiscoverySynthesis } from "@/lib/discovery-studio-types";
 
 export type RoleArtifactType = string;
 
@@ -54,6 +55,7 @@ export type RoleArtifactDraft = {
   feedback?: string;
   generatedAt: string;
   modelUsage?: OpenAIUsageMetadata;
+  discoverySynthesis?: DiscoverySynthesis;
 };
 
 export const roleArtifactDefinitions: RoleArtifactDefinition[] = [

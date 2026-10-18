@@ -127,10 +127,10 @@ Knowledge content must not:
 
 ### Studio
 
-- Select program and role.
-- Load recommended artifact brief.
-- Request custom artifact.
-- Generate, iterate, export, and version artifacts.
+- Select a program and add a multi-format discovery package.
+- Synthesize capabilities, pain points, business rules, assumptions, and source coverage.
+- Identify and resolve delivery-readiness gaps.
+- Generate and version a traceable roadmap, backlog, acceptance criteria, and test package.
 
 ### Client Portal
 

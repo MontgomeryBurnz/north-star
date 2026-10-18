@@ -1,6 +1,6 @@
 export const dynamic = "force-dynamic";
 
-import { ArtifactStudioConsole } from "@/components/artifact-studio-console";
+import { DiscoveryStudioConsole } from "@/components/discovery-studio-console";
 import { requireInternalWorkspacePage } from "@/lib/app-page-access";
 
 export const metadata = {
@@ -9,5 +9,5 @@ export const metadata = {
 
 export default async function ArtifactsPage() {
   await requireInternalWorkspacePage("/artifacts");
-  return <ArtifactStudioConsole />;
+  return <DiscoveryStudioConsole />;
 }

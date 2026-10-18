@@ -79,19 +79,55 @@ async function extractPptxText(buffer: Buffer) {
     .join("\n");
 }
 
+async function extractXlsxText(buffer: Buffer) {
+  const zip = await JSZip.loadAsync(buffer);
+  const sharedStringsFile = zip.file("xl/sharedStrings.xml");
+  const sharedStrings = sharedStringsFile
+    ? [...(await sharedStringsFile.async("text")).matchAll(/<t(?:\s[^>]*)?>(.*?)<\/t>/g)].map((match) =>
+        decodeXmlText(match[1] ?? "")
+      )
+    : [];
+  const sheetFiles = Object.values(zip.files)
+    .filter((file) => /^xl\/worksheets\/sheet\d+\.xml$/.test(file.name))
+    .sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
+
+  const sheets = await Promise.all(
+    sheetFiles.map(async (file, index) => {
+      const xml = await file.async("text");
+      const rows = [...xml.matchAll(/<row(?:\s[^>]*)?>([\s\S]*?)<\/row>/g)].map((rowMatch) => {
+        const cells = [...(rowMatch[1] ?? "").matchAll(/<c([^>]*)>([\s\S]*?)<\/c>/g)].map((cellMatch) => {
+          const attributes = cellMatch[1] ?? "";
+          const body = cellMatch[2] ?? "";
+          const inlineText = [...body.matchAll(/<t(?:\s[^>]*)?>(.*?)<\/t>/g)]
+            .map((match) => decodeXmlText(match[1] ?? ""))
+            .join(" ");
+          if (inlineText) return inlineText;
+          const rawValue = body.match(/<v>(.*?)<\/v>/)?.[1] ?? "";
+          if (/\bt=["']s["']/.test(attributes)) return sharedStrings[Number(rawValue)] ?? rawValue;
+          return decodeXmlText(rawValue);
+        });
+        return cells.map((cell) => cell.replace(/\s+/g, " ").trim()).filter(Boolean).join(" | ");
+      });
+      return [`Sheet ${index + 1}`, ...rows.filter(Boolean)].join("\n");
+    })
+  );
+
+  return sheets.filter(Boolean).join("\n\n");
+}
+
 export async function extractArtifactText(buffer: Buffer, fileFormat: ProgramArtifact["fileFormat"]): Promise<ArtifactExtractionResult> {
   try {
-    if (fileFormat === "txt") {
+    if (fileFormat === "txt" || fileFormat === "md" || fileFormat === "json" || fileFormat === "csv") {
       const text = buffer.toString("utf8").trim();
       return text
         ? {
             sourceKind: "text",
             extractionStatus: "extracted",
             extractionMethod: "server-parser",
-            extractionSummary: summarizeExtraction(text, "TXT"),
+            extractionSummary: summarizeExtraction(text, fileFormat.toUpperCase()),
             extractedText: text
           }
-        : emptyResult("TXT");
+        : emptyResult(fileFormat.toUpperCase());
     }
 
     if (fileFormat === "pdf") {
@@ -136,7 +172,20 @@ export async function extractArtifactText(buffer: Buffer, fileFormat: ProgramArt
         : emptyResult("PPTX");
     }
 
-    if (fileFormat === "doc" || fileFormat === "ppt") {
+    if (fileFormat === "xlsx") {
+      const text = (await extractXlsxText(buffer)).trim();
+      return text
+        ? {
+            sourceKind: "text",
+            extractionStatus: "extracted",
+            extractionMethod: "server-parser",
+            extractionSummary: summarizeExtraction(text, "XLSX"),
+            extractedText: text
+          }
+        : emptyResult("XLSX");
+    }
+
+    if (fileFormat === "doc" || fileFormat === "ppt" || fileFormat === "xls") {
       const text = legacyBinaryText(buffer).trim();
       return text
         ? {

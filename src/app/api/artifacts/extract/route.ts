@@ -7,7 +7,19 @@ export const runtime = "nodejs";
 
 function detectFileFormat(fileName: string): NonNullable<ProgramArtifact["fileFormat"]> {
   const extension = fileName.toLowerCase().split(".").pop();
-  if (extension === "txt" || extension === "pdf" || extension === "doc" || extension === "docx" || extension === "ppt" || extension === "pptx") {
+  if (
+    extension === "txt" ||
+    extension === "md" ||
+    extension === "json" ||
+    extension === "csv" ||
+    extension === "xls" ||
+    extension === "xlsx" ||
+    extension === "pdf" ||
+    extension === "doc" ||
+    extension === "docx" ||
+    extension === "ppt" ||
+    extension === "pptx"
+  ) {
     return extension;
   }
   return "unknown";

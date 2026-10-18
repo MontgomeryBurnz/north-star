@@ -21,7 +21,7 @@ Use NorthStar daily to keep program signal current, understand what changed, and
 3. Start with Quick Start if you are new or need a reminder of where each module fits.
 4. Open Program Hub to set up a new program or manage an active program.
 5. Use Guided Plans to understand what the team should do next.
-6. Use Studio to create role-specific work products.
+6. Use Studio to turn discovery evidence into a build-ready product package.
 7. Use Leadership, Client Portal, or Admin only if your user type has access.
 
 ## Training Path
@@ -57,7 +57,7 @@ Use this path when onboarding a new user or team.
 | Quick Start | How do I use NorthStar? | You need orientation, product context, or a clean starting point. |
 | Program Hub | What changed, who owns it, and what needs action? | You are creating a program or managing active execution. |
 | Guided Plans | What should we do next? | You need the current plan, role actions, risks, decisions, and evidence. |
-| Studio | What should we create to move the work forward? | You need a role-specific artifact such as a roadmap, requirements matrix, user journey, or risk register. |
+| Studio | How do we turn discovery into a build-ready product definition? | You need a traceable roadmap, backlog, gap analysis, acceptance criteria, and test foundation. |
 | Client Updates | What reviewed information is safe to publish to clients? | You need a governed lane for executive overview, domain progress, client-visible risks, and decisions. |
 | Client Portal | What should clients see? | You need a polished portfolio or program view for client leadership. |
 | Leadership | What input do leaders need to give? | You need sponsor feedback, risk direction, decision guidance, or leadership signal. |
@@ -217,41 +217,39 @@ Flagged guidance routes to Admin for governance review. Approved corrections can
 
 ## Studio
 
-Studio answers: What should we create to move the work forward?
+Studio answers: How do we turn discovery evidence into a build-ready product definition?
 
-Studio generates role-specific work products from the selected program context. It uses uploaded artifacts, Guided Plans, role updates, leadership feedback, delivery board movement, meeting inputs, risks, decisions, and existing artifact history.
+Studio consumes a package of discovery evidence, synthesizes what the evidence says, identifies gaps that block delivery, and creates a traceable product package spanning roadmap, epics, features, user stories, acceptance criteria, and test cases.
 
 ### How to Use Studio
 
 1. Select a program.
-2. Select your role.
-3. Review recommended artifact briefs.
-4. Load a brief that matches the work you need.
-5. Edit the brief if the artifact needs a different scope, format, or emphasis.
-6. Generate the artifact.
-7. Review the generated slice.
-8. Export, copy, or iterate.
+2. Add the available Word, Excel, PowerPoint, PDF, CSV, Markdown, JSON, or text discovery sources.
+3. Analyze the complete discovery package.
+4. Review the synthesized capabilities, pain points, business rules, and assumptions.
+5. Resolve blocking or important gaps by adding missing context or additional evidence.
+6. Regenerate the package after material gaps are closed.
+7. Review roadmap, epics, features, stories, acceptance criteria, and test cases.
+8. Copy or download the build package for product and engineering refinement.
 
-### Example Artifacts by Role
+### Build Package Outputs
 
-| Role | Example artifacts |
+| Output | Purpose |
 |---|---|
-| Product Management | Product roadmap, epic and feature breakdown, prioritization matrix, MVP scope, release readiness checklist, stakeholder decision log. |
-| Business Analysis | Requirements matrix, user stories, acceptance criteria, traceability matrix, process flow inventory, gap analysis. |
-| User Experience | User journey, app flow, service blueprint, usability risk log, research plan, persona or workflow summary. |
-| Application Development | Technical implementation plan, release checklist, dependency map, architecture decision log, defect triage view. |
-| Data Engineering | Data mapping, source-to-target matrix, data quality plan, integration inventory, reconciliation checklist. |
-| Change Management | Stakeholder plan, communications plan, training readiness plan, adoption risk log, change impact summary. |
-| Scrum Master | Sprint risk log, impediment tracker, ceremony plan, backlog readiness checklist, team operating rhythm. |
-| Delivery Lead | Executive action plan, decision log, delivery risk register, cross-functional milestone plan, recovery plan. |
+| Synthesized understanding | Establishes capabilities, pain points, rules, assumptions, and evidence coverage. |
+| Gap analysis | Identifies blocking, important, and optional questions that affect delivery readiness. |
+| Product roadmap | Connects delivery horizons to outcomes, features, and dependencies. |
+| Epics and features | Decomposes the proposed solution into traceable product slices. |
+| User stories | Defines user-centered behavior linked to its feature, epic, and discovery sources. |
+| Acceptance criteria | States observable conditions for completion. |
+| Test cases | Provides happy-path, negative, and edge validation foundations. |
 
 ### Exports
 
 Use export when the artifact needs to leave NorthStar or be shared in another workflow.
 
-- DOCX: best for narrative artifacts, roadmaps, plans, and client-ready work products.
-- CSV: best for matrix-style artifacts, logs, registers, and structured lists.
-- Copy: best for moving content into email, slides, issue trackers, or collaboration tools.
+- Markdown download: best for preserving the complete hierarchy in a portable, readable package.
+- Copy: best for moving the package into product documentation, issue trackers, or collaboration tools.
 
 ## Leadership
 
@@ -384,7 +382,7 @@ Until the in-app knowledge portal is built, maintain the following source docume
 | Role lane | Role-specific update area for progress, changes, risks, decisions, and support needs. |
 | Delivery board | Role/function board for accountable actions and deliverables. |
 | Team Action Plan | Role-based guidance inside Guided Plans. |
-| Studio brief | Editable request that defines what artifact Studio should generate. |
+| Studio build package | Versioned roadmap, backlog, acceptance criteria, tests, gaps, and source traceability generated from discovery evidence. |
 | Artifact slice | Compact generated work product preview before deeper review or export. |
 | Inputs used | The program signals that shaped guidance or an artifact. |
 | Flag | A user challenge or correction request for guidance. |

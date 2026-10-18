@@ -48,11 +48,10 @@ NorthStar is the product workspace for the app hosted at `https://www.north-star
 - `npm run qa:ensure-user` creates or refreshes the Codex production QA account and stores smoke-test credentials in ignored `.env.local`.
 - `SMOKE_BASE_URL=https://www.north-star.live npm run smoke:studio` runs the authenticated Studio flow:
   - sign in
-  - select program
-  - select role
-  - load recommended brief
-  - generate artifact
-  - verify export
+  - select a program with readable discovery evidence
+  - verify the multi-format source workspace
+  - verify discovery analysis is available
+  - verify the latest build package renders when one exists
 - `SMOKE_BASE_URL=https://www.north-star.live npm run smoke:slicers` validates program slicers across key product surfaces.
 - `SMOKE_BASE_URL=https://www.north-star.live npm run smoke:client-portal` signs in with the QA user, seeds a tagged active-program update, opens `/client`, verifies the executive portfolio/detail fields render from that update, captures desktop/mobile screenshots, and prunes the seeded record.
 - `SMOKE_BASE_URL=https://www.north-star.live npm run smoke:production` runs the standard post-deploy production smoke bundle.
