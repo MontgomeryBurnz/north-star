@@ -12,6 +12,8 @@ import { ProductPageHeader } from "@/components/product-page-header";
 import { DiscoveryStudioPreferences } from "@/components/discovery-studio-preferences";
 import { StudioBuildOutputs, StudioGapList, StudioQualityReview, StudioUnderstanding } from "@/components/discovery-studio-results";
 import { sampleDiscoverySources, sampleDiscoverySynthesis, sampleProgram } from "@/data/sample-program";
+import { StudioCollaborationWorkspace } from "@/components/studio-collaboration-workspace";
+import type { StudioPackageView } from "@/lib/studio-collaboration-types";
 
 type StudioView = "understanding" | "gaps" | "build";
 type StudioRevision = { id: number; synthesis: DiscoverySynthesis; summary: string; createdAt: string };
@@ -77,7 +79,7 @@ async function generateStudioPackage(requestSnapshot: string, onStatus: (message
   return await readDiscoveryStudioResponse(response, () => onStatus("Phase 2 of 2: Studio is still checking the product outputs. Only a completed, checked package will create a revision…"));
 }
 
-export function DiscoveryStudioConsole({ initialSample = false }: { initialSample?: boolean }) {
+export function DiscoveryStudioConsole({ initialSample = false, demoMode = false }: { initialSample?: boolean; demoMode?: boolean }) {
   const inputRef = useRef<HTMLInputElement | null>(null);
   const analysisInFlightRef = useRef(false);
   const [pendingFiles, setPendingFiles] = useState<File[]>([]);
@@ -100,11 +102,15 @@ export function DiscoveryStudioConsole({ initialSample = false }: { initialSampl
   const [revisions, setRevisions] = useState<StudioRevision[]>(initialSample ? [initialRevision()] : []);
   const [activeRevisionId, setActiveRevisionId] = useState(initialSample ? 1 : 0);
   const [selectedRevisionId, setSelectedRevisionId] = useState(initialSample ? 1 : 0);
+  const [workspaceView, setWorkspaceView] = useState<"package" | "collaboration">("package");
+  const [isPreparedExample, setIsPreparedExample] = useState(initialSample);
+  const [savingExample, setSavingExample] = useState(false);
+  const [collaborationRefresh, setCollaborationRefresh] = useState(0);
   const readableSourceCount = sources.filter((artifact) => artifact.extractedText?.trim()).length;
   const blockingGapCount = synthesis?.gaps.filter((gap) => gap.severity === "blocking").length ?? 0;
   const activeRevision = revisions.find((revision) => revision.id === activeRevisionId);
   const selectedFormat = STUDIO_EXPORT_FORMATS.find((format) => format.id === exportFormat) ?? STUDIO_EXPORT_FORMATS[0];
-  const busy = isAnalyzing || exportAction !== null;
+  const busy = isAnalyzing || exportAction !== null || savingExample;
   const canAnalyze = !busy && (pendingFiles.length > 0 || readableSourceCount > 0) && selectedOutputs.length > 0 && (!externalResearch || researchTopic.trim().length > 0);
   const feedbackTargets = synthesis ? [
     ...synthesis.epics.map((item) => ({ id: item.id, label: `${item.id} · ${item.title}` })),
@@ -162,19 +168,21 @@ export function DiscoveryStudioConsole({ initialSample = false }: { initialSampl
         setPendingFiles([]);
         if (!analysisSources.some((artifact) => artifact.extractedText?.trim())) throw new Error("No readable text could be extracted. Review the source warnings and upload readable versions.");
       }
-      const requestSnapshot = JSON.stringify({ workspaceName: workspaceName.trim() || "Discovery workspace", artifacts: analysisSources, resolutionNotes, selectedOutputs, externalResearch, researchTopic: externalResearch ? researchTopic.trim() : "", ...(synthesis ? { previousSynthesis: synthesis } : {}), ...(refine ? { feedback: revisionFeedback } : {}) });
+      const requestSnapshot = JSON.stringify({ workspaceName: workspaceName.trim() || "Discovery workspace", artifacts: analysisSources, resolutionNotes, selectedOutputs, externalResearch, researchTopic: externalResearch ? researchTopic.trim() : "", ...(synthesis ? { previousSynthesis: synthesis } : {}), ...(synthesis?.collaboration ? { studioPackageId: synthesis.collaboration.packageId, studioParentRevisionId: synthesis.collaboration.revisionId } : {}), ...(refine ? { feedback: revisionFeedback } : {}) });
       const result = await generateStudioPackage(requestSnapshot, setStatus);
-      const revisionId = (revisions.at(-1)?.id ?? 0) + 1;
-      result.revision = { number: revisionId, summary: result.revision?.summary || "Discovery synthesis generated", ...(refine ? { feedback: revisionFeedback } : {}) };
+      const revisionId = result.collaboration ? (result.revision?.number ?? 1) : (revisions.at(-1)?.id ?? 0) + 1;
+      if (!result.collaboration) result.revision = { number: revisionId, summary: result.revision?.summary || "Discovery synthesis generated", ...(refine ? { feedback: revisionFeedback } : {}) };
       const summary = result.revision?.summary || (refine ? revisionFeedback : resolutionNotes.trim() ? "Reanalyzed with additional context" : "Discovery synthesis generated");
       setSynthesis(result);
-      setRevisions((current) => [...current, { id: revisionId, synthesis: result, summary, createdAt: result.generatedAt }]);
+      setRevisions((current) => [...(result.collaboration && result.collaboration.packageId !== synthesis?.collaboration?.packageId ? [] : current.filter(item => item.id !== revisionId)), { id: revisionId, synthesis: result, summary, createdAt: result.generatedAt }]);
       setActiveRevisionId(revisionId);
       setSelectedRevisionId(revisionId);
       setFeedback("");
       setFeedbackTarget("package");
+      setIsPreparedExample(false);
+      setCollaborationRefresh(current => current + 1);
       setView(result.gaps.some((gap) => gap.severity === "blocking") ? "gaps" : "build");
-      setStatus(`Revision ${revisionId} generated from ${result.sourceCount} readable source${result.sourceCount === 1 ? "" : "s"}. ${result.provider === "openai" ? "OpenAI evidence review completed." : "Local draft requires review."}`);
+      setStatus(`Revision ${revisionId} generated from ${result.sourceCount} readable source${result.sourceCount === 1 ? "" : "s"}. ${result.provider === "openai" ? "OpenAI evidence review completed." : "Local draft requires review."} ${result.collaboration ? (result.collaboration.auditWarning ? "Full package saved; secondary audit reporting needs follow-up. Do not regenerate to recover it." : "Full package saved for collaboration; sharing and approval are separate.") : "This package is session-only. A named account is required for saved collaboration."}`);
     } catch (error) {
       const message = error instanceof Error ? error.message : "Studio could not analyze the package.";
       setStatus(`${message}${synthesis && !/\bpreserved\b/i.test(message) ? " Your current revision is preserved." : ""}`);
@@ -187,7 +195,7 @@ export function DiscoveryStudioConsole({ initialSample = false }: { initialSampl
     setStatus(action === "copy" ? "Preparing the selected outputs for copying…" : `Preparing your ${selectedFormat.label.toLowerCase()}…`);
     try {
       const format = action === "copy" ? "md" : exportFormat;
-      const response = await fetch("/api/studio/export", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ workspaceName: workspaceName.trim() || "Discovery workspace", synthesis, format, outputs: selectedOutputs }) });
+      const response = await fetch("/api/studio/export", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ workspaceName: workspaceName.trim() || "Discovery workspace", synthesis, format, outputs: selectedOutputs, ...(synthesis.collaboration ? { packageId: synthesis.collaboration.packageId, revisionId: synthesis.collaboration.revisionId } : {}) }) });
       if (!response.ok) {
         const payload = await response.json().catch(() => ({})) as { error?: string };
         throw new Error(payload.error || "The selected outputs could not be exported.");
@@ -215,21 +223,68 @@ export function DiscoveryStudioConsole({ initialSample = false }: { initialSampl
 
   function clearWorkspace() {
     setPendingFiles([]); setSources([]); setSynthesis(null); setResolutionNotes(""); setView("understanding"); setWorkspaceName("Discovery workspace"); setIsSampleWorkspace(false); setFeedback(""); setFeedbackTarget("package"); setRevisions([]); setActiveRevisionId(0); setSelectedRevisionId(0); setExternalResearch(false); setResearchTopic("");
-    setStatus("Fresh workspace ready. Add discovery evidence and choose the outputs you need.");
+    setStatus("Fresh workspace ready. Saved packages have not been deleted; find them in Collaboration.");
+    setIsPreparedExample(false); setWorkspaceView("package");
     if (inputRef.current) inputRef.current.value = "";
   }
 
   function loadSampleWorkspace() {
     setPendingFiles([]); setSources(sampleDiscoverySources); setSynthesis(sampleDiscoverySynthesis); setResolutionNotes(""); setView("build"); setWorkspaceName(sampleProgram.name); setIsSampleWorkspace(true); setFeedback(""); setFeedbackTarget("package"); setRevisions([initialRevision()]); setActiveRevisionId(1); setSelectedRevisionId(1); setExternalResearch(false); setResearchTopic("");
     setStatus("Fictional discovery package loaded. Explore the outputs or analyze the sources to create a new revision.");
+    setIsPreparedExample(true); setWorkspaceView("package");
     if (inputRef.current) inputRef.current.value = "";
   }
 
-  function restoreRevision() {
+  async function restoreRevision() {
     const revision = revisions.find((item) => item.id === selectedRevisionId);
     if (!revision) return;
+    if (revision.synthesis.collaboration) {
+      setSavingExample(true);
+      try {
+        const locator = revision.synthesis.collaboration;
+        const response = await fetch(`/api/studio/packages/${encodeURIComponent(locator.packageId)}?revisionId=${encodeURIComponent(locator.revisionId)}`, { cache: "no-store" });
+        const payload = await response.json() as { package?: StudioPackageView; error?: string };
+        if (!response.ok || !payload.package) throw new Error(payload.error || "The saved revision is unavailable.");
+        openSavedRevision(payload.package);
+      } catch (error) { setStatus(error instanceof Error ? error.message : "The saved revision could not be opened."); }
+      finally { setSavingExample(false); }
+      return;
+    }
     setSynthesis(revision.synthesis); setActiveRevisionId(revision.id); setFeedbackTarget("package");
-    setStatus(`Revision ${revision.id} restored. Later revisions remain available in this session.`);
+    setIsPreparedExample(revision.synthesis === sampleDiscoverySynthesis);
+    setStatus(`Revision ${revision.id} opened. Saved history remains available in Collaboration. Open the latest saved revision before regenerating.`);
+  }
+
+  function openSavedRevision(saved: StudioPackageView) {
+    if (!saved.canManage) return;
+    const revision = saved.revision;
+    const result = { ...revision.synthesis, collaboration: { packageId: saved.id, revisionId: revision.id, version: saved.version } };
+    setSynthesis(result); setSources(revision.sources); setPendingFiles([]); setResolutionNotes(revision.resolutionNotes);
+    setWorkspaceName(revision.title); setSelectedOutputs(revision.selectedOutputs); setExternalResearch(revision.externalResearch); setResearchTopic(revision.researchTopic);
+    setRevisions([{ id: revision.number, synthesis: result, summary: result.revision?.summary || "Saved package revision", createdAt: revision.createdAt }]);
+    setActiveRevisionId(revision.number); setSelectedRevisionId(revision.number); setFeedback(""); setFeedbackTarget("package");
+    setIsPreparedExample(revision.provenance === "prepared-example"); setIsSampleWorkspace(revision.sources.some(source => source.id.startsWith("sample-")));
+    setWorkspaceView("package"); setView("build");
+    setStatus(`Saved Revision ${revision.number} opened with its original extracted evidence and generation settings. Original Office binaries are not stored by Studio.`);
+  }
+
+  function stageCollaborationRefinement(saved: StudioPackageView, storyId: string, notes: string) {
+    openSavedRevision(saved);
+    setFeedbackTarget(storyId); setFeedbackKind("change"); setFeedback(notes);
+    setStatus("Collaboration feedback staged below. Confirm the supporting evidence or decision before applying it to a new revision; comments alone do not establish business rules.");
+  }
+
+  async function savePreparedExample() {
+    if (busy) return;
+    setSavingExample(true);
+    try {
+      const response = await fetch("/api/studio/packages", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ action: "create-example" }) });
+      const payload = await response.json() as { package?: StudioPackageView; error?: string };
+      if (!response.ok || !payload.package) throw new Error(payload.error || "The prepared example could not be saved.");
+      openSavedRevision(payload.package); setCollaborationRefresh(current => current + 1); setWorkspaceView("collaboration");
+      setStatus("Prepared fictional example saved. This is not a new AI generation; comments, assignments and sharing are now persisted.");
+    } catch (error) { setStatus(error instanceof Error ? error.message : "The prepared example could not be saved."); }
+    finally { setSavingExample(false); }
   }
 
   function removeSource(sourceId: string) {
@@ -241,9 +296,21 @@ export function DiscoveryStudioConsole({ initialSample = false }: { initialSampl
     <main className="northstar-shell py-8 sm:py-10" data-discovery-studio data-studio-agnostic>
       <div className="grid min-w-0 grid-cols-1 gap-6">
         <ProductPageHeader eyebrow="Studio" title="Turn discovery into the product outputs you need." description="Choose your deliverables, review the evidence, and refine with feedback. Export editable Word, Excel, or PowerPoint files." />
-        {isSampleWorkspace ? <div className="flex flex-col gap-3 rounded-lg border border-cyan-300/20 bg-cyan-300/[0.055] p-4 sm:flex-row sm:items-center sm:justify-between" data-studio-sample><div className="flex items-start gap-3"><Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-cyan-200" /><div><p className="text-sm font-medium text-cyan-100">Regional Service Request Modernization · Fictional discovery evidence</p><p className="mt-1 text-xs leading-5 text-zinc-400">Explore the same program evidence used throughout North Star. Studio changes and revisions stay in this browser session.</p></div></div><Button type="button" variant="outline" size="sm" onClick={clearWorkspace} disabled={busy} className="border-cyan-300/20 text-cyan-100">Use my own sources</Button></div> : null}
+        <div className="flex flex-wrap items-center gap-2 border-b border-white/10 pb-4" aria-label="Studio workspace views">
+          <Button type="button" variant={workspaceView === "package" ? "default" : "outline"} onClick={() => setWorkspaceView("package")} disabled={busy} aria-pressed={workspaceView === "package"}>Full output package</Button>
+          <Button type="button" variant={workspaceView === "collaboration" ? "default" : "outline"} onClick={() => setWorkspaceView("collaboration")} disabled={busy} aria-pressed={workspaceView === "collaboration"}>Collaboration</Button>
+          {synthesis?.collaboration ? <span className="text-xs text-emerald-200">Saved revision · private until explicitly shared</span> : <span className="text-xs text-zinc-500">No active program required</span>}
+        </div>
+        {workspaceView === "collaboration" ? <>
+          <p className="text-sm leading-6 text-zinc-400" role="status">{status}</p>
+          {demoMode ? <div className="rounded-lg border border-cyan-300/20 bg-cyan-300/[0.04] p-5 text-sm leading-6 text-cyan-100">Sample exploration is temporary. Select <strong>Exit sample data</strong> in the top banner, then open Studio and use <strong>Try example evidence</strong> to save a fictional package for collaboration. Saved sharing and reviews are available only in your normal, signed-in workspace.</div> : <>
+            {isPreparedExample && !synthesis?.collaboration ? <Button type="button" variant="outline" className="w-fit" onClick={() => void savePreparedExample()} disabled={busy}>{savingExample ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}Save prepared example for collaboration</Button> : null}
+            <StudioCollaborationWorkspace packageId={synthesis?.collaboration?.packageId} refreshKey={collaborationRefresh} disabled={busy} onOpenRevision={openSavedRevision} onRefine={stageCollaborationRefinement} />
+          </>}
+        </> : <>
+        {isSampleWorkspace ? <div className="flex flex-col gap-3 rounded-lg border border-cyan-300/20 bg-cyan-300/[0.055] p-4 sm:flex-row sm:items-center sm:justify-between" data-studio-sample><div className="flex items-start gap-3"><Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-cyan-200" /><div><p className="text-sm font-medium text-cyan-100">Regional Service Request Modernization · Fictional discovery evidence</p><p className="mt-1 text-xs leading-5 text-zinc-400">Explore the same program evidence used throughout North Star. Save the prepared example or generate a new package to begin durable collaboration.</p></div></div><Button type="button" variant="outline" size="sm" onClick={clearWorkspace} disabled={busy} className="border-cyan-300/20 text-cyan-100">Use my own sources</Button></div> : null}
 
-        <Card className="overflow-hidden bg-zinc-950/80"><CardContent className="grid gap-5 p-4 sm:p-5"><div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end"><label className="grid gap-2"><span className="text-[11px] font-medium uppercase tracking-[0.16em] text-zinc-500">Workspace title</span><input value={workspaceName} onChange={(event) => setWorkspaceName(event.target.value)} maxLength={120} disabled={busy} placeholder="Name this discovery package" className={inputStyle} data-studio-workspace-name /><span className="text-sm leading-6 text-zinc-400">Use Studio with or without an active program. Sources, results, and revisions stay in this session.</span></label><div className="flex flex-wrap gap-2">{!sources.length && !pendingFiles.length && !synthesis ? <Button type="button" variant="outline" onClick={loadSampleWorkspace} disabled={busy} data-studio-load-sample><Sparkles className="h-4 w-4" />Try example evidence</Button> : null}<Button type="button" variant="outline" onClick={clearWorkspace} disabled={busy || (!sources.length && !pendingFiles.length && !synthesis)} data-studio-clear><RotateCcw className="h-4 w-4" />Start fresh</Button></div></div><div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4"><Metric label="Discovery sources" value={String(sources.length + pendingFiles.length)} /><Metric label="Readiness" value={synthesis ? `${synthesis.readinessScore}%` : "—"} /><Metric label="Blocking gaps" value={synthesis ? String(blockingGapCount) : "—"} /><Metric label="Stories ready for review" value={synthesis ? String(synthesis.stories.filter((story) => story.readiness === "ready").length) : "—"} /></div></CardContent></Card>
+        <Card className="overflow-hidden bg-zinc-950/80"><CardContent className="grid gap-5 p-4 sm:p-5"><div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end"><label className="grid gap-2"><span className="text-[11px] font-medium uppercase tracking-[0.16em] text-zinc-500">Workspace title</span><input value={workspaceName} onChange={(event) => setWorkspaceName(event.target.value)} maxLength={120} disabled={busy} placeholder="Name this discovery package" className={inputStyle} data-studio-workspace-name /><span className="text-sm leading-6 text-zinc-400">Use Studio with or without an active program. Signed-in generation saves complete package revisions. Extracted evidence stays internal; raw files are not retained.</span></label><div className="flex flex-wrap gap-2">{!sources.length && !pendingFiles.length && !synthesis ? <Button type="button" variant="outline" onClick={loadSampleWorkspace} disabled={busy} data-studio-load-sample><Sparkles className="h-4 w-4" />Try example evidence</Button> : null}<Button type="button" variant="outline" onClick={clearWorkspace} disabled={busy || (!sources.length && !pendingFiles.length && !synthesis)} data-studio-clear><RotateCcw className="h-4 w-4" />Start fresh</Button></div></div><div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4"><Metric label="Discovery sources" value={String(sources.length + pendingFiles.length)} /><Metric label="Readiness" value={synthesis ? `${synthesis.readinessScore}%` : "—"} /><Metric label="Blocking gaps" value={synthesis ? String(blockingGapCount) : "—"} /><Metric label="Stories ready for review" value={synthesis ? String(synthesis.stories.filter((story) => story.readiness === "ready").length) : "—"} /></div></CardContent></Card>
 
         <Card className="bg-zinc-950/75">
           <CardHeader className="border-b border-white/10">
@@ -286,8 +353,8 @@ export function DiscoveryStudioConsole({ initialSample = false }: { initialSampl
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-white/10 bg-zinc-950/80 p-4"><p className="max-w-4xl text-sm leading-6 text-zinc-300" role="status" aria-live="polite" data-studio-status>{status}</p><Button type="button" onClick={() => void analyzePackage()} disabled={!canAnalyze} data-studio-analyze>{isAnalyzing ? <Loader2 className="h-4 w-4 animate-spin" /> : <BrainCircuit className="h-4 w-4" />}{synthesis ? "Re-analyze package" : "Analyze discovery package"}</Button></div>
 
         {synthesis ? <section className="grid min-w-0 grid-cols-1 gap-5" aria-label="Studio results">
-          <StudioQualityReview synthesis={synthesis} isExample={synthesis === sampleDiscoverySynthesis} />
-          <Card className="bg-zinc-950/75"><CardContent className="grid gap-4 p-4 sm:p-5"><div className="flex flex-wrap items-center justify-between gap-3"><div><p className="flex items-center gap-2 text-xs font-medium uppercase tracking-[0.16em] text-cyan-100"><History className="h-4 w-4" />Revision {activeRevisionId}</p><p className="mt-2 text-sm leading-6 text-zinc-300" data-studio-revision-summary>{activeRevision?.summary}</p></div><div className="flex flex-wrap items-end gap-2"><label className="grid gap-1"><span className="text-xs text-zinc-400">Revision history</span><select value={selectedRevisionId} onChange={(event) => setSelectedRevisionId(Number(event.target.value))} disabled={busy} className={`${inputStyle} max-w-[280px]`} data-studio-revision-history>{revisions.map((revision) => <option key={revision.id} value={revision.id}>Revision {revision.id}{revision.id === activeRevisionId ? " · Current" : ""} · {revision.summary.slice(0, 60)}</option>)}</select></label><Button type="button" variant="outline" onClick={restoreRevision} disabled={busy || selectedRevisionId === activeRevisionId} data-studio-restore-revision><RotateCcw className="h-4 w-4" />Restore</Button></div></div><p className="text-xs leading-5 text-zinc-500">Every generated revision is retained until you start fresh or leave this session. Review previous outputs and restore them before making further changes.</p></CardContent></Card>
+          <StudioQualityReview synthesis={synthesis} isExample={isPreparedExample} />
+          <Card className="bg-zinc-950/75"><CardContent className="grid gap-4 p-4 sm:p-5"><div className="flex flex-wrap items-center justify-between gap-3"><div><p className="flex items-center gap-2 text-xs font-medium uppercase tracking-[0.16em] text-cyan-100"><History className="h-4 w-4" />Revision {activeRevisionId}</p><p className="mt-2 text-sm leading-6 text-zinc-300" data-studio-revision-summary>{activeRevision?.summary}</p></div><div className="flex flex-wrap items-end gap-2"><label className="grid gap-1"><span className="text-xs text-zinc-400">Revision history</span><select value={selectedRevisionId} onChange={(event) => setSelectedRevisionId(Number(event.target.value))} disabled={busy} className={`${inputStyle} max-w-[280px]`} data-studio-revision-history>{revisions.map((revision) => <option key={revision.id} value={revision.id}>Revision {revision.id}{revision.id === activeRevisionId ? " · Current" : ""} · {revision.summary.slice(0, 60)}</option>)}</select></label><Button type="button" variant="outline" onClick={restoreRevision} disabled={busy || selectedRevisionId === activeRevisionId} data-studio-restore-revision><RotateCcw className="h-4 w-4" />Restore</Button></div></div><p className="text-xs leading-5 text-zinc-500">Session revisions appear here. Saved revision history remains in Collaboration, even after Start fresh.</p></CardContent></Card>
           <div className="flex flex-wrap gap-2" aria-label="Studio output views">{([["understanding", "3 · Understanding", BrainCircuit], ["gaps", `4 · Gaps${blockingGapCount ? ` (${blockingGapCount})` : ""}`, AlertTriangle], ["build", "5 · Build package", Layers3]] as const).map(([id, label, Icon]) => <Button key={id} type="button" variant={view === id ? "default" : "outline"} onClick={() => setView(id)} aria-pressed={view === id}><Icon className="h-4 w-4" />{label}</Button>)}</div>
           {view === "understanding" ? <StudioUnderstanding synthesis={synthesis} /> : null}
           {view === "gaps" ? <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_380px]"><StudioGapList synthesis={synthesis} sources={sources} /><Card className="h-fit bg-zinc-950/75"><CardHeader className="border-b border-white/10"><CardTitle className="text-zinc-50">Add missing context</CardTitle><p className="mt-2 text-sm leading-6 text-zinc-400">Answer the open questions, document decisions, or summarize newly confirmed information. Studio will review the updated evidence in a new revision.</p></CardHeader><CardContent className="grid gap-3 p-4"><label className="grid gap-2"><span className="sr-only">Missing discovery context</span><textarea value={resolutionNotes} onChange={(event) => setResolutionNotes(event.target.value)} disabled={busy} rows={8} maxLength={24000} placeholder="Example: The first release serves regional service managers. Offline access is out of scope. Approval must be completed by a compliance administrator…" className={`${inputStyle} resize-y leading-6`} /></label><Button type="button" onClick={() => void analyzePackage()} disabled={!canAnalyze || !resolutionNotes.trim()}>{isAnalyzing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}Apply context and regenerate</Button></CardContent></Card></div> : null}
@@ -297,6 +364,7 @@ export function DiscoveryStudioConsole({ initialSample = false }: { initialSampl
 
           <Card className="bg-zinc-950/75"><CardContent className="grid gap-4 p-5 sm:grid-cols-[1fr_auto]"><div><p className="text-xs font-medium uppercase tracking-[0.16em] text-emerald-300">Download your selected outputs</p><p className="mt-2 text-sm leading-6 text-zinc-300">{selectedOutputs.length} deliverable{selectedOutputs.length === 1 ? "" : "s"} · {selectedFormat.label} ({selectedFormat.extension}) · Revision {activeRevisionId}</p><p className="mt-1 text-xs leading-5 text-zinc-500">Adjust the deliverables and format in Desired outputs above.</p></div><div className="flex flex-wrap items-center gap-2"><Button type="button" variant="outline" onClick={() => void exportPackage("copy")} disabled={busy || !selectedOutputs.length}>{exportAction === "copy" ? <Loader2 className="h-4 w-4 animate-spin" /> : <ClipboardCopy className="h-4 w-4" />}Copy Markdown</Button><Button type="button" onClick={() => void exportPackage("download")} disabled={busy || !selectedOutputs.length} data-studio-download>{exportAction === "download" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}Download {selectedFormat.extension}</Button></div></CardContent></Card>
         </section> : null}
+        </>}
       </div>
     </main>
   );

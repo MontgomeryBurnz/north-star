@@ -142,6 +142,9 @@ export function buildManagedAppUserRecord({
   const assignmentInputs = [input.assignment, ...(input.assignments ?? [])].filter(
     (assignment): assignment is ManagedProgramAssignmentInput => Boolean(assignment)
   );
+  if (userType === "contractor" && assignmentInputs.length) {
+    return { ok: false, error: "Contractors receive access through explicit Shared Studio grants, not program assignments." };
+  }
   const assignments = isProgramScopedUserType(userType)
     ? mergeAssignments({
         assignments: assignmentInputs,

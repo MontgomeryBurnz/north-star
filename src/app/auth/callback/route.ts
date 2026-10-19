@@ -76,6 +76,11 @@ export async function GET(request: Request) {
   } = await supabase.auth.getUser();
   managedUser = user ? await syncManagedUserFromAuthUser(user) : null;
 
+  const passwordSetupPath = ["/auth/setup", "/auth/reset-password"].includes(next.split(/[?#]/)[0]);
+  if (managedUser?.userType === "contractor" && hasActiveUserCredentials(managedUser) && !passwordSetupPath) {
+    return NextResponse.redirect(new URL("/studio/shared", url.origin));
+  }
+
   const protectedAdminPath = next.startsWith("/admin") || next.startsWith("/governance");
   const protectedLeadershipPath = next.startsWith("/leadership");
   if (!protectedAdminPath && !protectedLeadershipPath) {

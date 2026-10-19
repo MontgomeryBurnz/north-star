@@ -47,6 +47,10 @@ function isSynthesis(value: unknown): value is DiscoverySynthesis {
     if (!r || !finite(r.number) || !text(r.summary) || (r.feedback !== undefined && typeof r.feedback !== "string")) return false;
   }
   if (s.sources !== undefined && !items(s.sources, (v) => fields(v, ["id", "name"]) && choice(v.coverage, ["complete", "excerpt"]) && finite(v.characters) && v.characters >= 0)) return false;
+  if (s.collaboration !== undefined) {
+    const c = record(s.collaboration);
+    if (!c || !fields(c, ["packageId", "revisionId"]) || !finite(c.version) || !Number.isSafeInteger(c.version) || c.version < 1 || (c.auditWarning !== undefined && typeof c.auditWarning !== "boolean")) return false;
+  }
   return true;
 }
 

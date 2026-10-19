@@ -38,7 +38,7 @@ export function useCurrentUserAssignments() {
     };
   }, []);
 
-  const assignments = useMemo(() => currentUser?.assignments ?? [], [currentUser?.assignments]);
+  const assignments = useMemo(() => currentUser?.userType === "contractor" ? [] : currentUser?.assignments ?? [], [currentUser?.assignments, currentUser?.userType]);
   const primaryAssignment = useMemo(
     () => assignments.find((assignment) => assignment.isPrimary) ?? assignments[0] ?? null,
     [assignments]

@@ -30,6 +30,13 @@ async function redirectPendingUserSetup(cookieStore: Awaited<ReturnType<typeof g
 }
 
 export async function requireSiteAccessPage(redirectTo: string) {
+  // A managed contractor cannot use a Supabase or legacy site session to enter
+  // generic protected pages that do not have a second internal-role gate.
+  const currentUser = await tryGetCurrentManagedUser();
+  if (currentUser?.userType === "contractor") {
+    if (requiresUserSetup(currentUser)) redirect("/auth/setup");
+    redirect("/studio/shared");
+  }
   const config = getSiteAccessConfig();
   if (!config.enabled) return;
 
@@ -50,6 +57,9 @@ export async function requireSiteAccessPage(redirectTo: string) {
 
 function redirectExternalOnlyUser(user: ManagedAppUser | null | undefined) {
   if (!user || requiresUserSetup(user)) return;
+  if (user.userType === "contractor") {
+    redirect("/studio/shared");
+  }
   if (user.userType === "client") {
     redirect("/client");
   }
@@ -72,6 +82,10 @@ export async function requireClientDashboardUpdatePage(redirectTo: string) {
 
   if (currentUser && requiresUserSetup(currentUser)) {
     redirect("/auth/setup");
+  }
+
+  if (currentUser?.userType === "contractor") {
+    redirect("/studio/shared");
   }
 
   if (currentUser?.userType === "client") {

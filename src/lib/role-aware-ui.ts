@@ -34,7 +34,7 @@ export function getProgramAssignmentForUser(
   user: Pick<ManagedAppUser, "assignments" | "userType"> | null | undefined,
   programId: string
 ) {
-  if (!user || !programId) return null;
+  if (!user || user.userType === "contractor" || !programId) return null;
   return user.assignments.find((assignment) => assignment.programId === programId) ?? null;
 }
 
@@ -43,6 +43,9 @@ export function buildRoleAwareUiProfile(
   programId: string,
   availableRoles: string[]
 ): RoleAwareUiProfile {
+  if (user?.userType === "contractor") {
+    return { assignedRole: null, assignment: null, defaultRole: null, isAdmin: false, isScoped: true, mode: "unassigned", roleOptions: [], summary: "Shared Studio access only; no program role applies." };
+  }
   const isAdmin = user?.userType === "admin";
   const assignment = getProgramAssignmentForUser(user, programId);
   const assignedRole = assignment?.role?.trim() || null;

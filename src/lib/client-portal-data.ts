@@ -20,6 +20,10 @@ export async function loadClientPortalData(
     hasSiteAccessPageSession()
   ]);
 
+  if (currentUser?.userType === "contractor") {
+    redirect("/studio/shared");
+  }
+
   if (!currentUser && !hasInternalSession) {
     redirect(`/login?redirect=${encodeURIComponent(redirectTo)}`);
   }

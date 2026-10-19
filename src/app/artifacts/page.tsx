@@ -15,5 +15,6 @@ export default async function ArtifactsPage({
 }) {
   await requireInternalWorkspacePage("/artifacts");
   const { sample } = await searchParams;
-  return <DiscoveryStudioConsole initialSample={sample === "regional-service-modernization" || await isDemoMode()} />;
+  const demoMode = await isDemoMode();
+  return <DiscoveryStudioConsole initialSample={sample === "regional-service-modernization" || demoMode} demoMode={demoMode} />;
 }

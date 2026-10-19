@@ -40,6 +40,9 @@ export default async function SiteLoginPage({
     if (requiresUserSetup(currentUser)) {
       redirect("/auth/setup");
     }
+    if (currentUser?.userType === "contractor" && currentUser.credentialStatus === "active") {
+      redirect("/studio/shared");
+    }
     if (currentUser?.userType === "client") {
       redirect("/client");
     }

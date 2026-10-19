@@ -1,6 +1,6 @@
 # NorthStar Knowledge Management Solution
 
-Last updated: October 18, 2026
+Last updated: October 19, 2026
 
 ## Purpose
 
@@ -41,10 +41,11 @@ The Knowledge Center should include:
 
 | Role | Knowledge path |
 |---|---|
-| Team Member | Update role signal, manage delivery cards, attach evidence, review role guidance, generate role artifacts. |
+| Team Member | Update role signal, manage delivery cards, attach evidence, review role guidance, generate and review Studio packages. |
 | Delivery Lead | Set up programs, manage active programs, curate client updates, review guidance, coordinate team execution. |
 | Leadership | Review program posture, provide sponsor guidance, understand what changed, monitor risks and decisions. |
 | Client | Review portfolio dashboard, inspect program detail, download executive PDF updates, add decisions when enabled. |
+| Contractor | Review explicitly shared Studio stories at a specific revision, comment or request changes, and download scoped Markdown; no program assignment or program access. |
 | Admin | Manage users, role assignments, audit history, cost, model settings, integrations, trust controls, and documentation freshness. |
 
 ## Source of Truth
@@ -61,9 +62,13 @@ The app renders curated versions of these docs inside Knowledge Center. Keeping 
 
 ### Current Release Coverage
 
-Guides must describe **Explore with sample data** as an exploration mode across the ordinary Program Hub, Guided Plans, Studio, Leadership, Client Updates, and Client Portal screens. There is no separate Sample navigation tab. The banner identifies the fictional scenario and provides **Reset sample** and **Exit sample data** controls. Document the difference between browser-session sample program edits and Studio's temporary page workspace.
+Guides must describe **Explore with sample data** as an exploration mode across the ordinary Program Hub, Guided Plans, Studio, Leadership, Client Updates, and Client Portal screens. There is no separate Sample navigation tab. The banner identifies the fictional scenario and provides **Reset sample** and **Exit sample data** controls. Sample-program edits stay in the browser session, and global sample mode blocks saved-package and collaboration mutations. To demonstrate persisted collaboration, exit global sample mode with a named active internal account, then use Studio's **Try example evidence** and **Save prepared example for collaboration**. Label this as a prepared fictional package, not fresh AI output.
 
-Studio documentation must cover standalone source intake, desired deliverables, editable Word/Excel/PowerPoint downloads, Markdown copy/export, evidence and readiness review, feedback-driven revisions, and restoration of prior outputs. Explain optional public research: users supply a generic public topic, research citations are displayed when available, and private uploaded source text is used for synthesis rather than web-search queries. Quality labels must distinguish prepared examples, OpenAI-generated results, and provisional local drafts. Users should download outputs before refreshing or leaving Studio.
+Studio documentation must cover standalone source intake, desired deliverables, editable Word/Excel/PowerPoint downloads, Markdown copy/export, evidence and readiness review, and feedback-driven revisions. Successful generation by a named active internal user saves the complete output, extracted source text, settings, and revision feedback. Original uploaded binary files are not stored. Saved packages can be reopened through Collaboration; **Start fresh** clears only the editor. Unsaved examples and legacy site-only work remain temporary. Explain optional public research: users supply a generic public topic, research citations are displayed when available, and private uploaded source text is used for synthesis rather than web-search queries. Quality labels must distinguish prepared examples, OpenAI-generated results, and provisional local drafts.
+
+Document Collaboration as story-level Development review and Refinement queues over the same full revision, not a replacement for the package or an automatic development/Jira handoff. AI readiness is not human approval. The internal owner or Admin approves eligible stories after reviewing evidence, criteria, tests, blockers, and dependencies. Comments and requests for changes are separate from regeneration; an evidence-supported new revision resets approvals and assignments while retaining old revision history.
+
+Sharing grants an existing active registered account only selected stories at an exact revision; no invitation email is sent. Contractors need no program assignment and receive no program access. Explain shared versus internal discussion, manual shared context, expiry/revocation, and the need to share each new revision explicitly. Shared reviewers receive scoped Markdown exports, not raw sources, private notes, unshared stories, full history, or full Office packages. Owners must inspect selected text and context for sensitive content before sharing.
 
 ## Evergreen Content Workflow
 
@@ -143,8 +148,11 @@ Knowledge content must not:
 - Choose deliverables and editable Word, Excel, PowerPoint, or Markdown output before analysis and download.
 - Inspect the provider, evidence-review findings, source references, test steps, and readiness warnings.
 - Opt into public research with a generic topic and review its citations or availability notice.
-- Request corrections or updates with targeted feedback, compare revisions, and restore earlier outputs.
-- Explain that sources, outputs, and revisions are temporary and must be downloaded before leaving or refreshing the Studio page.
+- Request corrections with targeted feedback, confirm supporting evidence or decisions, and generate a new complete revision.
+- Reopen saved full revisions; distinguish durable named-user packages from temporary unsaved examples and legacy site-only sessions.
+- Explain extracted-source retention, original binary-file non-retention, and why Start fresh does not delete saved packages.
+- Separate Development review candidates, Refinement, and explicit owner/Admin approval; new revisions reset approvals and assignments.
+- Share selected work at an exact revision with an existing active registered reviewer; explain no email invitation, no inherited revision grants, source privacy, and scoped Markdown exports.
 
 ### Client Portal
 

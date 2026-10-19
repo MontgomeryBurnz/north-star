@@ -5,7 +5,7 @@ import test from "node:test";
 const fixtureUrl = new URL("../src/data/sample-program.ts", import.meta.url).href;
 const stateUrl = `data:text/javascript,${encodeURIComponent(`
   import {sampleDiscoverySynthesis} from ${JSON.stringify(fixtureUrl)};
-  export const state={user:null,denied:false,calls:[],audits:[],fail:false};
+  export const state={user:null,denied:false,calls:[],audits:[],saves:[],fail:false,auditFail:false,demo:false,head:'REV-1'};
   export class DiscoveryGenerationError extends Error {}
   export function validateDiscoverySynthesis(value){return value?.stories?value:null;}
   export function isDiscoveryEvidenceCheckpoint(value){return value?.reviewed===true;}
@@ -14,12 +14,17 @@ const stateUrl = `data:text/javascript,${encodeURIComponent(`
   export async function requireInternalWorkspaceRouteAccess(){return {currentUser:state.user,response:state.denied?Response.json({error:'Unauthorized.'},{status:401}):null};}
   export function auditActorFromManagedUser(){return {kind:'test'};}
   export function buildSystemAuditActor(){return {kind:'test'};}
-  export async function createAuditEvent(event){state.audits.push(event);}
+  export async function createAuditEvent(event){if(state.auditFail)throw new Error('Audit unavailable');state.audits.push(event);}
+  export async function ensureStudioCollaborationSchema(){}
+  export async function isDemoMode(){return state.demo;}
+  export async function getStudioPackage(user,id){return {id,canManage:true,version:3,headRevisionId:state.head,revision:{id:state.head,synthesis:sampleDiscoverySynthesis}};}
+  export async function createStudioPackage(user,input){state.saves.push({kind:'create',user,input});return {id:'PACKAGE-1',version:1,canManage:true,revision:{id:'REV-1',synthesis:{...input.synthesis,revision:{number:1,summary:'Saved generation'}}}};}
+  export async function appendStudioRevision(user,id,version,input){state.saves.push({kind:'append',user,id,version,input});return {id,version:4,canManage:true,revision:{id:'REV-2',synthesis:{...input.synthesis,revision:{number:2,summary:'Saved revision'}}}};}
 `)}`;
 const hooks = registerHooks({resolve(specifier, context, nextResolve) {
   if (specifier === "server-only") return {url:"data:text/javascript,export {};",shortCircuit:true};
   if (specifier === "next/server") return {url:"data:text/javascript,export const NextResponse={json:(body,options)=>Response.json(body,options)};",shortCircuit:true};
-  if (["@/lib/api-route-access","@/lib/audit-event-service","@/lib/discovery-studio-service","@/lib/program-store"].includes(specifier)) return {url:stateUrl,shortCircuit:true};
+  if (["@/lib/api-route-access","@/lib/audit-event-service","@/lib/discovery-studio-service","@/lib/program-store","@/lib/studio-collaboration-persistence","@/lib/demo-session"].includes(specifier)) return {url:stateUrl,shortCircuit:true};
   if (specifier.startsWith("@/")) return nextResolve(new URL(`../src/${specifier.slice(2)}.ts`,import.meta.url).href,context);
   return nextResolve(specifier,context);
 }});
@@ -32,7 +37,7 @@ function request(body:unknown,cookie?:string,origin="https://example.test",strea
 async function setup(run:()=>Promise<void>) {
   const original=process.env.STUDIO_CHECKPOINT_SECRET;
   process.env.STUDIO_CHECKPOINT_SECRET="a".repeat(64);
-  state.user=null;state.denied=false;state.calls=[];state.audits=[];state.fail=false;
+  state.user=null;state.denied=false;state.calls=[];state.audits=[];state.saves=[];state.fail=false;state.auditFail=false;state.demo=false;state.head='REV-1';
   try{await run();}finally{if(original===undefined)delete process.env.STUDIO_CHECKPOINT_SECRET;else process.env.STUDIO_CHECKPOINT_SECRET=original;}
 }
 async function evidence() {
@@ -120,4 +125,62 @@ test("unhashable staged inputs fail safely before paid work while legacy calls n
   assert.equal(legacy.status,200);
   assert.ok((await legacy.json()).synthesis);
   assert.equal(state.calls.length,1);
+}));
+
+test("named-user generation persists the complete final package before returning its saved revision locator",async()=>setup(async()=>{
+  state.user={id:"USER-1",name:"Internal Owner",userType:"admin",credentialStatus:"active"};
+  const {payload,cookie}=await evidence();
+  assert.equal(state.saves.length,0);
+  const response=await POST(request({...input,phase:"product",checkpoint:payload.checkpoint},cookie));
+  assert.equal(response.status,200);
+  const result=await response.json();
+  assert.equal(state.saves.length,1);
+  assert.equal(state.saves[0].kind,"create");
+  assert.equal(state.saves[0].input.provenance,"server-generated");
+  assert.equal(state.saves[0].input.sources[0].extractedText,input.artifacts[0].extractedText);
+  assert.ok(state.saves[0].input.synthesis.roadmap.length);
+  assert.ok(state.saves[0].input.synthesis.stories[0].testCases.length);
+  assert.deepEqual(result.synthesis.collaboration,{packageId:"PACKAGE-1",revisionId:"REV-1",version:1});
+  assert.equal(result.synthesis.revision.number,1);
+  assert.doesNotMatch(JSON.stringify(state.saves),/"checkpoint"/);
+}));
+
+test("saved refinement verifies the parent before model work and appends to the authorized immutable package",async()=>setup(async()=>{
+  state.user={id:"USER-1",name:"Internal Owner",userType:"admin",credentialStatus:"active"};
+  const stale=await POST(request({...input,phase:"evidence",studioPackageId:"PACKAGE-1",studioParentRevisionId:"OLD-REV"}));
+  assert.equal(stale.status,409);
+  assert.equal(state.calls.length,0);
+  const staged={...input,studioPackageId:"PACKAGE-1",studioParentRevisionId:"REV-1"};
+  const evidenceResponse=await POST(request({...staged,phase:"evidence"}));
+  const checkpoint=(await evidenceResponse.json()).checkpoint;
+  const cookie=evidenceResponse.headers.get("set-cookie")!.split(";")[0];
+  const response=await POST(request({...staged,phase:"product",checkpoint},cookie));
+  assert.equal(response.status,200);
+  assert.equal(state.saves[0].kind,"append");
+  assert.equal(state.saves[0].id,"PACKAGE-1");
+  assert.equal(state.saves[0].input.parentRevisionId,"REV-1");
+  assert.deepEqual((await response.json()).synthesis.collaboration,{packageId:"PACKAGE-1",revisionId:"REV-2",version:4});
+}));
+
+test("secondary audit failure cannot hide an already committed revision or cause a misleading generation failure",async()=>setup(async()=>{
+  state.user={id:"USER-1",name:"Internal Owner",userType:"admin",credentialStatus:"active"};
+  state.auditFail=true;
+  const response=await POST(request(input));
+  assert.equal(response.status,200);
+  const result=await response.json();
+  assert.equal(state.saves.length,1);
+  assert.equal(result.synthesis.collaboration.packageId,"PACKAGE-1");
+  assert.equal(result.synthesis.collaboration.auditWarning,true);
+}));
+
+test("global sample exploration never persists generated packages or updates real saved revisions",async()=>setup(async()=>{
+  state.user={id:"USER-1",name:"Internal Owner",userType:"admin",credentialStatus:"active"};
+  state.demo=true;
+  const response=await POST(request(input));
+  assert.equal(response.status,200);
+  assert.equal((await response.json()).synthesis.collaboration,undefined);
+  assert.equal(state.saves.length,0);
+  const calls=state.calls.length;
+  assert.equal((await POST(request({...input,studioPackageId:"PACKAGE-1",studioParentRevisionId:"REV-1"}))).status,403);
+  assert.equal(state.calls.length,calls);
 }));

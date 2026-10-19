@@ -17,7 +17,8 @@ const appTables = [
   "openai_usage_records",
   "managed_users",
   "audit_events",
-  "app_settings"
+  "app_settings",
+  "studio_packages"
 ];
 const retiredAppTables = ["assistant_conversations"];
 const securityCheckedTables = [...appTables, ...retiredAppTables];

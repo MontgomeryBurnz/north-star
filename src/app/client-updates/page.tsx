@@ -14,6 +14,9 @@ export const metadata = {
 
 export default async function ClientUpdatesPage() {
   const { currentUser } = await loadClientPortalData("/client-updates");
+  if (currentUser?.userType === "contractor") {
+    redirect("/studio/shared");
+  }
   if (currentUser?.userType === "client") {
     redirect("/client");
   }

@@ -1,6 +1,6 @@
 # NorthStar Executive Product Summary and Demo Guide
 
-Last updated: October 18, 2026
+Last updated: October 19, 2026
 
 ## Executive Summary
 
@@ -38,7 +38,7 @@ NorthStar gives leaders and teams one operating system for program intelligence:
 
 - Program Hub: set up new programs, manage active programs, track progress, and operate the delivery board.
 - Guided Plans: translate live program signal into program-level guidance and role-based team action plans.
-- Studio: turn discovery sources into selected roadmaps, epics, features, user stories, acceptance criteria, test cases, and gap analyses; refine with feedback and download editable Office files.
+- Studio: turn discovery sources into a saved full product package, refine with feedback, review stories with explicitly shared collaborators, and download editable Office files. AI readiness and human approval remain separate.
 - Leadership: collect concise leadership feedback and automatically refresh guidance.
 - Client Portal: provide clients with an executive view of portfolio and program progress.
 - Admin: manage users, roles, governance, audit history, cost posture, model settings, and platform health.
@@ -89,6 +89,10 @@ Leaders use NorthStar to review concise program posture, progress, risk, and dec
 
 Clients use NorthStar to see a curated executive view of program health, progress, key risks, decisions needed, and the recommended path forward.
 
+### Contractors
+
+Contractors review only the selected stories, criteria, tests, and discussion explicitly shared with their active registered account at a specific revision. They can comment or request changes without program access, internal sources, or full-package downloads.
+
 ### Admins
 
 Admins govern access, user roles, audit events, disputed guidance, cost posture, model settings, and platform reliability.
@@ -118,7 +122,7 @@ Then show Quick Start as the product onboarding surface.
 
 Choose **Explore with sample data** to demonstrate **Regional Service Request Modernization** for the fictional Civic Services Network. Follow the ordinary Program Hub, Guided Plans, Studio, Leadership, Client Updates, and Client Portal screens using the sample-data banner. The scenario includes discovery evidence, delivery roles, board activity, milestones, decisions, sponsor direction, and a client publication so the relationship between inputs and outputs is visible throughout the application.
 
-Use **Reset sample** to restore the original scenario and **Exit sample data** to return to the normal workspace. Program exploration edits remain in the current browser session. Studio revisions are retained only while its page workspace remains open; download work before refreshing or navigating away. Access remains governed by the user's account permissions.
+Use **Reset sample** to restore the original scenario and **Exit sample data** to return to the normal workspace. Program exploration edits remain in the current browser session and do not change live programs. Global sample mode blocks saved-package and collaboration changes. For the persisted Studio collaboration demonstration below, exit global sample mode and use a named active internal account. Access remains governed by the user's account permissions.
 
 Key message:
 
@@ -193,17 +197,19 @@ Highlight:
 - Source references on epics, features, stories, and gaps, plus complete test steps and expected results.
 - OpenAI evidence review and synthesis when configured, with an honest provider and quality status.
 - Optional public best-practice research using a generic topic the user explicitly supplies, with citations and availability status.
-- Feedback for issues, discrepancies, and changes; new revisions and restoration of prior outputs during the open Studio session.
+- Complete saved revisions containing outputs, extracted evidence, settings, and feedback; original uploaded binary files are not retained.
+- Feedback for issues, discrepancies, and changes; saved revision history and reopening a full package.
+- Development review and Refinement queues, with explicit human approval and revision-specific sharing separate from AI readiness.
 
 Suggested hands-on demonstration:
 
-1. Review how the intake and routing roadmap relates to the volume analysis and pain points.
-2. Inspect an approval story, its acceptance criteria, its evidence, and its test steps.
-3. Show the unresolved approval-policy question and explain why it affects readiness.
-4. Provide a correction or additional decision context and generate a revision.
-5. Compare the revision summary, restore the earlier output if needed, and download the selected deliverables as an Excel workbook or Word document.
+1. After **Exit sample data**, open Studio, choose **Try example evidence**, then **Save prepared example for collaboration**. Explain that this saves the labeled fictional example rather than running a new AI generation.
+2. Review the full package, then download selected deliverables as an Excel workbook, Word document, or PowerPoint presentation. **Start fresh** clears the editor, not the saved package.
+3. Open **Collaboration** and inspect a Development review story, its criteria, evidence, and tests. Show that an eligible AI candidate still requires the owner or Admin's explicit human approval for this exact revision; approval neither grants access nor starts development.
+4. Inspect a Refinement story or request changes with a specific reason. Stage the feedback in Studio, confirm supporting evidence or a decision, and generate a new revision when ready. A comment is not an automatic source correction. New revisions reset approvals and assignments; earlier revisions remain available.
+5. If a registered active reviewer account is available, share selected stories at the exact revision. No invitation email is sent; copy the review link separately. Show scoped review and Markdown export without exposing unshared work, source documents, private notes, or full Office exports. A later revision requires a new explicit share.
 
-The preloaded output is clearly labeled as an illustrative example. Analyze the sources to demonstrate a fresh provider-generated result. If OpenAI is not configured, the application identifies a provisional local draft. Failed generation preserves the existing output. Evidence review and readiness checks support human judgment; they do not certify that a product package is ready for delivery without team review.
+The preloaded output is clearly labeled as an illustrative example. Analyze the sources to demonstrate a fresh provider-generated result; successful generation by a named internal user saves a complete revision. Unsaved examples and legacy site-only work remain temporary. If OpenAI is not configured, the application identifies a provisional local draft. Failed generation preserves the existing output. Evidence review and readiness checks support human judgment; they do not certify delivery readiness. Jira handoff is not connected.
 
 Key message:
 
@@ -316,7 +322,11 @@ Yes. Explore with sample data opens a connected fictional program in the normal 
 
 ### Must users create a program before using Studio?
 
-No. Studio accepts a standalone discovery package and lets the user choose the desired deliverables and download format. Its workspace is temporary, so users should download outputs before leaving the page.
+No. Studio accepts a standalone discovery package and lets the user choose deliverables and download format. Named active internal users' successful generations save complete revisions with extracted evidence and settings. Unsaved examples and legacy site-only sessions remain temporary; original uploaded binary files are not retained.
+
+### Does sharing a package give contractors workspace access?
+
+No. Sharing selects specific stories at an exact revision for an existing active registered account. The recipient can review, comment, request changes, and download scoped Markdown. Internal sources, private notes, unshared stories, full Office exports, and later revisions are not included. The Contractor role requires no program assignment and grants no program access.
 
 ### Can clients use it?
 

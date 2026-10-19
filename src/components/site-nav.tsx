@@ -36,17 +36,25 @@ const clientNavItems: NavItem[] = [
   { label: "Client Portal", href: "/client" }
 ];
 
+const contractorNavItems: NavItem[] = [
+  { label: "Shared Studio", href: "/studio/shared" }
+];
+
 const userTypeLabels: Record<AppUserType, string> = {
   admin: "Admin",
   leadership: "Leadership",
   "delivery-lead": "Delivery Lead",
   "team-member": "Team Member",
+  contractor: "Contractor",
   "client-dashboard-contributor": "Client Dashboard",
   client: "Client",
   viewer: "Viewer"
 };
 
 function getVisibleNavItems(userType: AppUserType | null | undefined) {
+  if (userType === "contractor") {
+    return contractorNavItems;
+  }
   if (userType === "client-dashboard-contributor") {
     return dashboardContributorNavItems;
   }
@@ -134,14 +142,17 @@ export function SiteNav({ demoMode = false }: { demoMode?: boolean }) {
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const adminIsActive = pathname === "/admin" || pathname === "/governance";
   const isClientSurface = pathname === "/client" || pathname.startsWith("/client/") || pathname === "/client-updates";
+  const isSharedStudioSurface = pathname === "/studio/shared" || pathname.startsWith("/studio/shared/");
   const inferredUserType = currentUser?.userType
-    ?? (!loaded && pathname === "/client-updates"
+    ?? (isSharedStudioSurface
+      ? "contractor"
+      : !loaded && pathname === "/client-updates"
       ? "client-dashboard-contributor"
       : !loaded && (pathname === "/client" || pathname.startsWith("/client/"))
         ? "client"
         : undefined);
   const visibleNavItems = getVisibleNavItems(inferredUserType);
-  const showAdminLink = !demoMode && (currentUser?.userType === "admin" || (!isClientSurface && (!loaded || !currentUser)));
+  const showAdminLink = !demoMode && (currentUser?.userType === "admin" || (!isClientSurface && !isSharedStudioSurface && (!loaded || !currentUser)));
   const navHref = (href: string) => demoMode && href === "/active-program"
     ? `/active-program?mode=manage&program=${demoProgramId}`
     : demoMode && ["/systems", "/leadership", "/client-updates"].includes(href)
@@ -156,7 +167,7 @@ export function SiteNav({ demoMode = false }: { demoMode?: boolean }) {
     <header className="sticky top-0 z-50 border-b border-white/10 bg-zinc-950/80 backdrop-blur-xl">
       <nav className="northstar-shell">
         <div className="flex h-16 items-center justify-between">
-          <Link href="/" className="flex min-w-0 items-center gap-3">
+          <Link href={inferredUserType === "contractor" ? "/studio/shared" : "/"} className="flex min-w-0 items-center gap-3">
             <span className="relative block h-12 w-12 shrink-0">
               <AnimatedNorthStarMark variant="nav" className="h-12 w-12" />
             </span>

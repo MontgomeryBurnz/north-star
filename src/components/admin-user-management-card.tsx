@@ -20,6 +20,7 @@ const userTypeLabels: Record<AppUserType, string> = {
   leadership: "Leadership",
   "delivery-lead": "Delivery Lead",
   "team-member": "Team Member",
+  contractor: "Contractor · Shared Studio only",
   "client-dashboard-contributor": "Client Dashboard Contributor",
   client: "Client",
   viewer: "Viewer"
@@ -266,7 +267,7 @@ export function AdminUserManagementCard({
   }
 
   function editUserAccess(user: ManagedAppUser) {
-    const primaryAssignment = getPrimaryAssignment(user.assignments);
+    const primaryAssignment = isProgramScopedUserType(user.userType) ? getPrimaryAssignment(user.assignments) : undefined;
     setForm({
       id: user.id,
       name: user.name,
@@ -277,7 +278,7 @@ export function AdminUserManagementCard({
       role: primaryAssignment?.role ?? ""
     });
     setAssignmentDrafts(
-      user.userType === "admin"
+      !isProgramScopedUserType(user.userType)
         ? []
         : user.assignments.map((assignment) => ({
             programId: assignment.programId,
@@ -551,6 +552,8 @@ export function AdminUserManagementCard({
         setStatus(
           savedUser.userType === "admin"
             ? `${savedUser.name} was ${wasEditing ? "updated" : "saved"} with Admin access, and the North Star invite email was sent.`
+            : savedUser.userType === "contractor"
+              ? `${savedUser.name} was ${wasEditing ? "updated" : "saved"} with Shared Studio-only access, and the North Star invite email was sent. Explicit item grants are required before shared content is visible.`
             : `${savedUser.name} was ${wasEditing ? "updated" : "saved"} with ${savedUser.assignments.length} program role assignment${
                 savedUser.assignments.length === 1 ? "" : "s"
               }, and the North Star invite email was sent.`
@@ -564,6 +567,8 @@ export function AdminUserManagementCard({
         setStatus(
           savedUser.userType === "admin"
             ? `${savedUser.name} was ${wasEditing ? "updated" : "saved"} with Admin access to all programs.`
+            : savedUser.userType === "contractor"
+              ? `${savedUser.name} was ${wasEditing ? "updated" : "saved"} with Shared Studio-only access. Explicit item grants are required before shared content is visible.`
             : `${savedUser.name} was ${wasEditing ? "updated" : "saved"} with ${savedUser.assignments.length} role-specific program assignment${
                 savedUser.assignments.length === 1 ? "" : "s"
               }.`
@@ -878,6 +883,7 @@ export function AdminUserManagementCard({
                     setForm((current) => ({
                       ...current,
                       userType,
+                      programId: userType === "contractor" ? "" : current.programId,
                       role: isProgramScopedUserType(userType) ? current.role : ""
                     }));
                     if (!isProgramScopedUserType(userType)) {
@@ -919,6 +925,7 @@ export function AdminUserManagementCard({
                 <select
                   data-admin-program-select
                   value={form.programId}
+                  disabled={form.userType === "contractor"}
                   onChange={(event) => updateProgram(event.target.value)}
                   className="min-h-11 rounded-md border border-white/10 bg-zinc-950 px-3 py-3 text-sm text-zinc-100 outline-none transition-colors focus:border-emerald-300/50"
                 >
@@ -942,7 +949,7 @@ export function AdminUserManagementCard({
                   disabled={!form.programId || !programAssignmentRequired}
                   className="min-h-11 rounded-md border border-white/10 bg-zinc-950 px-3 py-3 text-sm text-zinc-100 outline-none transition-colors disabled:text-zinc-500 focus:border-emerald-300/50"
                 >
-                  <option value="">{programAssignmentRequired ? "Select role..." : "Admin all-program access"}</option>
+                  <option value="">{programAssignmentRequired ? "Select role..." : form.userType === "contractor" ? "Shared Studio grants only" : "Admin all-program access"}</option>
                   {availableRoles.map((role) => (
                     <option key={role} value={role}>
                       {role}
@@ -997,7 +1004,7 @@ export function AdminUserManagementCard({
                 <div>
                   <p className="text-sm font-medium text-zinc-100">Program access</p>
                   <p className="mt-1 text-xs leading-5 text-zinc-500">
-                    Add every program-role pair this user should carry. The default role opens first in role-aware views.
+                    {form.userType === "contractor" ? "Contractors do not receive program access. Share specific Studio items from their saved package instead." : "Add every program-role pair this user should carry. The default role opens first in role-aware views."}
                   </p>
                 </div>
                 <Button
@@ -1013,7 +1020,7 @@ export function AdminUserManagementCard({
 
               {!programAssignmentRequired ? (
                 <p className="rounded-md border border-emerald-300/20 bg-emerald-300/[0.055] p-3 text-sm leading-6 text-emerald-100">
-                  Admin users have ultimate access and visibility across every program. A program role assignment is not required.
+                  {form.userType === "contractor" ? "Contractors can access only explicitly shared Studio items. They have no program, Client Portal, leadership, admin, or generation access." : "Admin users have ultimate access and visibility across every program. A program role assignment is not required."}
                 </p>
               ) : assignmentDrafts.length ? (
                 <div className="grid gap-2">
@@ -1185,7 +1192,7 @@ export function AdminUserManagementCard({
               Access model
             </p>
             <p className="text-sm leading-6 text-zinc-300">
-              Admin controls user access and role-aware views. Admin users see every program; scoped users only see the programs and roles assigned to them.
+              Admin controls user access and role-aware views. Admin users see every program; program-scoped users see assigned programs and roles. Contractors see only explicitly shared Studio items.
             </p>
             <div className="grid gap-2">
               {appUserTypes.map((type) => (
@@ -1200,6 +1207,8 @@ export function AdminUserManagementCard({
                           ? "Owns the program cockpit, team signals, and plan execution loop."
                           : type === "team-member"
                             ? "Updates assigned role signals and can inspect adjacent team context."
+                            : type === "contractor"
+                              ? "Accesses only explicitly granted Shared Studio items. No program assignments, internal workspaces, Client Portal, or generation access."
                             : type === "client-dashboard-contributor"
                               ? "Publishes reviewed, client-safe dashboard inputs for assigned programs without access to internal program workspaces."
                               : type === "client"
@@ -1253,13 +1262,13 @@ export function AdminUserManagementCard({
           {users.length ? (
             <div className="grid gap-3">
               {users.map((user) => {
-                const primaryAssignment = getPrimaryAssignment(user.assignments);
+                const primaryAssignment = isProgramScopedUserType(user.userType) ? getPrimaryAssignment(user.assignments) : undefined;
                 const primaryFootprintRole = primaryAssignment
                   ? getAssignmentFootprint(programs, primaryAssignment)
                   : undefined;
                 const hasGlobalAdminAccess = user.userType === "admin";
                 const expanded = expandedUsers[user.id] ?? false;
-                const otherAssignments = user.assignments.filter((assignment) => assignment.id !== primaryAssignment?.id);
+                const otherAssignments = isProgramScopedUserType(user.userType) ? user.assignments.filter((assignment) => assignment.id !== primaryAssignment?.id) : [];
 
                 return (
                   <div
@@ -1336,6 +1345,10 @@ export function AdminUserManagementCard({
                           Admin users are not constrained by a program role assignment.
                         </p>
                       </div>
+                    ) : user.userType === "contractor" ? (
+                      <p className="mt-4 rounded-md border border-cyan-300/20 bg-cyan-300/[0.055] p-3 text-sm leading-6 text-cyan-100">
+                        Shared Studio only. Access depends on explicit item grants; no program role assignments apply.
+                      </p>
                     ) : primaryAssignment ? (
                       <div className="mt-4 rounded-md border border-emerald-300/20 bg-emerald-300/[0.055] p-3">
                         <p className="text-xs font-medium uppercase tracking-[0.16em] text-emerald-200">Default expanded role</p>

@@ -2,7 +2,7 @@
 
 Daily operating guide for delivery teams, leaders, clients, and Admins
 
-Last updated: October 18, 2026
+Last updated: October 19, 2026
 
 ## Purpose
 
@@ -21,7 +21,7 @@ Use NorthStar daily to keep program signal current, understand what changed, and
 3. Start with Quick Start if you are new or need a reminder of where each module fits.
 4. Open Program Hub to set up a new program or manage an active program.
 5. Use Guided Plans to understand what the team should do next.
-6. Use Studio to turn discovery evidence into a build-ready product package.
+6. Use Studio to turn discovery evidence into a product package for evidence and human review.
 7. Use Leadership, Client Portal, or Admin only if your user type has access.
 
 ### Explore With Sample Data
@@ -30,7 +30,9 @@ Choose **Explore with sample data** on Quick Start or Program Hub to use a conne
 
 Try a role update or delivery-board change, review the guided plan, inspect the discovery package in Studio, and compare the leadership and client views. The prepared Studio output is labeled as an illustrative example; analyzing its sources creates a fresh synthesis with the configured provider.
 
-The banner stays visible while sample data is active. **Reset sample** restores the original fictional scenario. **Exit sample data** returns to your normal workspace. Sample program edits remain in that browser session and are not added to live program records. A full sample session may ask you to reset before continuing. Studio sources, outputs, and revision history have a shorter lifetime: they remain only while that Studio workspace is open, and reopening Studio loads the prepared example again. Download anything you want to keep.
+The banner stays visible while sample data is active. **Reset sample** restores the original fictional scenario. **Exit sample data** returns to your normal workspace. Sample program edits remain in that browser session and are not added to live program records. A full sample session may ask you to reset before continuing. Unsaved Studio examples remain temporary.
+
+Global sample mode blocks saved-package and collaboration changes. To demonstrate persisted collaboration, sign in with an active named internal account, choose **Exit sample data**, open Studio, choose **Try example evidence**, and then **Save prepared example for collaboration**. The saved package is labeled as a prepared fictional example, not a fresh AI generation. Ordinary sample-program edits remain isolated from live records.
 
 ## Training Path
 
@@ -56,6 +58,7 @@ Use this path when onboarding a new user or team.
 | Leadership | Review posture, progress, and risk, then provide sponsor guidance. | Leadership, Guided Plans as assigned |
 | Client Dashboard Contributor | Publish reviewed client-facing dashboard inputs for assigned programs without access to internal program workspaces. | Client Updates, Client Portal |
 | Client | Review a curated executive view of portfolio or program progress. | Client Portal |
+| Contractor | Review explicitly shared stories, acceptance criteria, tests, and discussion; comment or request changes. | Shared Studio review only; no program assignment or program access |
 | Admin | Manage users, permissions, governance, audit history, cost, model settings, and platform health. | Admin plus all program surfaces |
 
 ## Navigation Map
@@ -231,24 +234,36 @@ Studio consumes a package of discovery evidence, synthesizes what the evidence s
 
 ### How to Use Studio
 
-1. Name the standalone discovery workspace. No active program is required.
+1. Name the standalone discovery workspace. No active program is required. Use an active named internal account to save generated packages and manage collaboration.
 2. Add up to 16 Word, Excel, PowerPoint, PDF, CSV, Markdown, JSON, or text discovery sources. Check the extraction status and replace sources with unreadable content.
 3. In **Desired outputs**, select the deliverables you need and choose Word, Excel, PowerPoint, or Markdown as the download format.
 4. Optionally enable **Include public best-practice research** and enter a generic public research topic without customer names, private details, or uploaded excerpts.
-5. Analyze the discovery package. Review the synthesis provider, evidence-review checks, warnings, and research citations when present.
+5. Analyze the discovery package. Review the synthesis provider, evidence-review checks, warnings, and research citations when present. Successful generation by a named internal user saves a complete package revision for collaboration.
 6. Review capabilities, pain points, business rules, assumptions, and source references. Inspect the roadmap, epics, features, stories, acceptance criteria, and test steps that support your deliverables.
 7. Close gaps by adding missing context or additional evidence and regenerating the package.
 8. Use **Review and refine the outputs** to report an issue, evidence discrepancy, or requested change. Select the affected output, explain the correction, and create a new revision.
-9. Use **Revision history** to inspect or restore earlier outputs. Later revisions remain available during the same workspace session.
-10. Download the selected deliverables, or copy them as Markdown, before leaving Studio. Use **Start fresh** to clear the workspace before starting a different discovery package.
+9. Use the editor's **Revision history** for session previews. In **Collaboration**, select a saved package and revision, then **Open full package** to reopen its complete output and extracted evidence. Use the latest saved revision when generating the next revision.
+10. Download the selected deliverables or copy them as Markdown for your working tools. **Start fresh** clears the editor for a different discovery package; it does not delete saved packages in Collaboration.
 
-Studio workspaces do not require an active program. Sources, generated outputs, feedback, and revision history are held in the current Studio page session; they are not saved to Program Hub and do not survive a refresh, navigation away, or **Start fresh**. A failed analysis preserves the current revision so you can correct the input and retry.
+Saved revisions retain the complete product output, extracted source text, generation settings, and revision feedback. Original uploaded Word, Excel, PowerPoint, PDF, and other binary files are not stored; retain those originals separately. The unsaved prepared example and legacy site-only Studio workspace remain temporary, so download anything you need from those sessions. Studio packages do not require a Program Hub record. A failed analysis preserves the current output rather than replacing it with a partial result.
 
 ### Evidence Review and Research
 
 When OpenAI is configured, Studio reviews the source evidence before generating the product package and checks its traceability and structure. The quality panel shows the provider, review checks, and remaining warnings. Review those findings and the source names associated with epics, features, stories, and gaps before engineering commitment. A readiness score is an assessment of the supplied evidence, not an approval to build.
 
 Public research is optional and begins with the generic topic you explicitly enter. Uploaded content is used for synthesis; it is not included in web-search queries. External context and citations should be reviewed alongside your own business rules. If research is unavailable, Studio reports that status. If OpenAI is not configured, any local draft is labeled provisional and requires validation. A configured OpenAI generation failure is reported without replacing your current package.
+
+### Collaboration and Shared Review
+
+**Collaboration** organizes the stories from the same complete saved package into two queues. **Development review** contains AI readiness candidates awaiting human approval; **Refinement** contains stories needing information or requested changes. Neither queue starts development or publishes work to Jira.
+
+The internal package owner or an Admin reviews the evidence, acceptance criteria, tests, blockers, and dependencies before approving an eligible story for that exact revision. A readiness label is not approval, and approval does not grant access or approve other stories. Provisional, missing-input, and changes-requested work cannot bypass this review.
+
+Reviewers can comment or **Request changes** on an authorized story. A change request moves it to Refinement; it does not edit the source evidence or regenerate the package. The owner can stage Studio refinement, confirm supporting evidence or an owner decision, and generate a new complete revision. Comments alone do not become business rules. New revisions reset approvals and assignments; earlier revisions remain available, and existing shares stay pinned to the old revision.
+
+To share, select the exact revision and work items, enter an existing active registered reviewer's email, and optionally add only the context that reviewer may see. No invitation email is sent; the reviewer must already have an active account. Ask an Admin to arrange access first if needed, then share the review link separately. Sharing can expire or be revoked, and assignment alone does not grant access.
+
+Contractors use **Shared Studio review** without a program assignment. They receive only the selected story text, acceptance criteria, tests, shared discussion, and explicitly shared context. They do not receive unshared work, raw discovery sources, internal notes, full package history, or automatic access to later revisions. Review selected text and shared context before granting access; source-derived details in those fields are visible to the recipient.
 
 ### Build Package Outputs
 
@@ -273,6 +288,8 @@ Select the deliverables and format in **Desired outputs**, then use **Download**
 - Copy Markdown: copy the selected sections to the clipboard.
 
 Exports provide working product artifacts. Product and engineering teams should confirm assumptions, source coverage, criteria, and test expectations before committing work.
+
+Internal owners and Admins can reopen a saved full revision and export its selected deliverables in these formats. Shared reviewers instead use **Download shared requirements (.md)**, limited to their authorized stories and review context; sharing does not grant full Word, Excel, or PowerPoint package downloads.
 
 ## Leadership
 
@@ -396,7 +413,9 @@ Knowledge Center renders the following repository-backed source documents. Keep 
 | A recommendation looks wrong. | Flag the specific guidance and provide the missing or corrected context. |
 | A Studio output is missing detail or contradicts a source. | Use Review and refine the outputs, identify the affected item and supporting evidence, and create a new revision before downloading again. |
 | A Studio download omits a section. | Confirm that section is selected in Desired outputs and download the current revision. |
-| My Studio work disappeared after a refresh or navigation. | Studio is a page-session workspace. Load the sources again and use downloaded files to retain completed outputs. |
+| My Studio work disappeared after a refresh or navigation. | Check Collaboration for packages saved by your named account. Unsaved examples and legacy site-only work are temporary; reload sources or use your downloads for those sessions. Raw uploaded files are not retained. |
+| I cannot save the prepared example or change collaboration data. | Exit global sample-data mode first, then use Try example evidence and Save prepared example for collaboration with an active named internal account. |
+| A reviewer cannot see the new revision. | Shares are pinned to an exact revision and selected stories. Explicitly share the new revision with the active registered reviewer. |
 | I am seeing fictional program data. | The sample-data banner indicates an exploration session. Choose Exit sample data to return to your normal workspace or Reset sample to restart the example. |
 | I only see Log Out in Client Portal. | Your user type may only have client access. Ask an Admin if your access needs to change. |
 
@@ -408,7 +427,8 @@ Knowledge Center renders the following repository-backed source documents. Keep 
 | Role lane | Role-specific update area for progress, changes, risks, decisions, and support needs. |
 | Delivery board | Role/function board for accountable actions and deliverables. |
 | Team Action Plan | Role-based guidance inside Guided Plans. |
-| Studio build package | Selected roadmap, backlog, stories, acceptance criteria, tests, gaps, and analysis generated from discovery evidence, with revisions available during the open workspace session. |
+| Studio build package | Complete discovery-derived output with roadmap, backlog, stories, criteria, tests, gaps, and analysis. Named internal generation saves full revisions; an unsaved editor preview remains temporary. |
+| Studio collaboration | Revision-specific story review and refinement, with separate human approval and explicit selected-item sharing. |
 | Sample data mode | A connected fictional program displayed in the ordinary application screens for hands-on exploration, with browser-session reset and exit controls. |
 | Artifact slice | Compact generated work product preview before deeper review or export. |
 | Inputs used | The program signals that shaped guidance or an artifact. |

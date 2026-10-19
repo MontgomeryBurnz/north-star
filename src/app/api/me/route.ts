@@ -40,6 +40,6 @@ export async function GET(request: Request) {
       email: authUser.email,
       id: authUser.id
     },
-    user: managedUser
+    user: managedUser.userType === "contractor" ? { ...managedUser, assignments: [] } : managedUser
   });
 }

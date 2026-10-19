@@ -3,6 +3,7 @@ export const appUserTypes = [
   "leadership",
   "delivery-lead",
   "team-member",
+  "contractor",
   "client-dashboard-contributor",
   "client",
   "viewer"
@@ -77,7 +78,7 @@ export type ManagedAppUserInput = Partial<
 };
 
 export function isProgramScopedUserType(userType: AppUserType) {
-  return userType !== "admin";
+  return userType !== "admin" && userType !== "contractor";
 }
 
 export function isClientDashboardOnlyUserType(userType: AppUserType) {
@@ -85,7 +86,7 @@ export function isClientDashboardOnlyUserType(userType: AppUserType) {
 }
 
 export function isExternalOnlyUserType(userType: AppUserType) {
-  return userType === "client" || isClientDashboardOnlyUserType(userType);
+  return userType === "contractor" || userType === "client" || isClientDashboardOnlyUserType(userType);
 }
 
 export function shouldScopeManagedUserPrograms(
@@ -94,12 +95,13 @@ export function shouldScopeManagedUserPrograms(
   return Boolean(user && user.userType !== "admin");
 }
 
-export function getAssignedProgramIdSet(user: Pick<ManagedAppUser, "assignments"> | null | undefined) {
+export function getAssignedProgramIdSet(user: (Pick<ManagedAppUser, "assignments"> & Partial<Pick<ManagedAppUser, "userType">>) | null | undefined) {
+  if (user?.userType === "contractor") return new Set<string>();
   return new Set((user?.assignments ?? []).map((assignment) => assignment.programId));
 }
 
 export function hasAssignedProgram(
-  user: Pick<ManagedAppUser, "assignments"> | null | undefined,
+  user: (Pick<ManagedAppUser, "assignments"> & Partial<Pick<ManagedAppUser, "userType">>) | null | undefined,
   programId: string
 ) {
   return getAssignedProgramIdSet(user).has(programId);
@@ -140,6 +142,7 @@ export function canAccessClientDashboardScope(
   programId: string
 ) {
   if (!user || user.credentialStatus !== "active") return false;
+  if (user.userType === "contractor") return false;
   if (user.userType === "admin") return true;
   return hasAssignedProgram(user, programId);
 }

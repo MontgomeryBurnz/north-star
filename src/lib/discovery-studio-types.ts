@@ -88,6 +88,8 @@ export type DiscoverySynthesis = {
   };
   revision?: { number: number; summary: string; feedback?: string };
   sources?: Array<{ id: string; name: string; coverage: "complete" | "excerpt"; characters: number }>;
+  /** A saved revision locator, never a bearer credential or an evidence checkpoint. */
+  collaboration?: { packageId: string; revisionId: string; version: number; auditWarning?: boolean };
 };
 
 export type DiscoverySynthesisRequest = {
@@ -101,4 +103,6 @@ export type DiscoverySynthesisRequest = {
   selectedOutputs?: Array<"roadmap" | "backlog" | "stories" | "tests" | "gaps" | "analysis">;
   externalResearch?: boolean;
   researchTopic?: string;
+  studioPackageId?: string;
+  studioParentRevisionId?: string;
 };

@@ -64,7 +64,9 @@ export async function POST(request: Request) {
   const response = NextResponse.json({
     ok: true,
     redirectTo:
-      activeManagedUser.userType === "client"
+      activeManagedUser.userType === "contractor"
+        ? "/studio/shared"
+        : activeManagedUser.userType === "client"
         ? "/client"
         : activeManagedUser.userType === "client-dashboard-contributor"
           ? "/client-updates"

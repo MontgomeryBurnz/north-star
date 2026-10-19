@@ -9,6 +9,11 @@ import { discoveryStudioResponse } from "@/lib/discovery-studio-transport";
 import type { DiscoverySynthesisRequest } from "@/lib/discovery-studio-types";
 import type { ProgramArtifact, StoredProgram } from "@/lib/program-intake-types";
 import { createAuditEvent } from "@/lib/program-store";
+import { appendStudioRevision, createStudioPackage, ensureStudioCollaborationSchema, getStudioPackage } from "@/lib/studio-collaboration-persistence";
+import { isStudioInternalActor } from "@/lib/studio-collaboration";
+import { StudioCollaborationError } from "@/lib/studio-collaboration-types";
+import { isStudioRequestSameOrigin } from "@/lib/studio-request-origin";
+import { isDemoMode } from "@/lib/demo-session";
 
 export const runtime = "nodejs";
 // The service stops at 740s, leaving time for validation/audit writes before
@@ -76,7 +81,9 @@ function buildWorkspace(name: string, artifacts: ProgramArtifact[]): StoredProgr
 export async function POST(request: Request) {
   const { currentUser, response } = await requireInternalWorkspaceRouteAccess(request);
   if (response) return response;
-  if (request.headers.get("origin") && request.headers.get("origin") !== new URL(request.url).origin) return NextResponse.json({ error: "Cross-origin Studio requests are not allowed." }, { status: 403 });
+  const demoMode = await isDemoMode();
+  if (!isStudioRequestSameOrigin(request)) return NextResponse.json({ error: "Cross-origin Studio requests are not allowed." }, { status: 403 });
+  if (currentUser && !isStudioInternalActor(currentUser)) return NextResponse.json({ error: "Your role can review explicitly shared work but cannot generate or own Studio packages." }, { status: 403 });
 
   const requestText = await request.text();
   if (Buffer.byteLength(requestText, "utf8") > 4_000_000) return NextResponse.json({ error: "The discovery request is too large. Split the package into smaller groups." }, { status: 413 });
@@ -109,13 +116,32 @@ export async function POST(request: Request) {
     feedback: cleanText(body.feedback, 12_000), previousSynthesis: body.previousSynthesis, selectedOutputs,
     externalResearch: body.externalResearch === true, researchTopic
   };
+  if (currentUser && !demoMode) {
+    try { await ensureStudioCollaborationSchema(); }
+    catch { return NextResponse.json({ error: "Studio package storage is unavailable. No model work has started; your current package is preserved." }, { status: 503 }); }
+  }
+  const studioPackageId = cleanText(body.studioPackageId, 100);
+  const studioParentRevisionId = cleanText(body.studioParentRevisionId, 100);
+  if (demoMode && (studioPackageId || studioParentRevisionId)) return NextResponse.json({ error: "Exit sample exploration before updating a saved collaboration package." }, { status: 403 });
+  if (studioPackageId || studioParentRevisionId) {
+    if (!currentUser || !studioPackageId || !studioParentRevisionId) return NextResponse.json({ error: "Sign in and open the saved package before refining it." }, { status: 401 });
+    try {
+      const saved = await getStudioPackage(currentUser, studioPackageId);
+      if (!saved.canManage) return NextResponse.json({ error: "Only the package owner or an internal admin can regenerate this package." }, { status: 403 });
+      if (saved.headRevisionId !== studioParentRevisionId) return NextResponse.json({ error: "A newer saved revision exists. Open it before generating another revision." }, { status: 409 });
+      // Previous outputs must be the stored immutable snapshot, not a browser edit.
+      options.previousSynthesis = saved.revision.synthesis;
+    } catch (error) {
+      return NextResponse.json({ error: error instanceof StudioCollaborationError ? error.message : "The saved Studio package is unavailable." }, { status: error instanceof StudioCollaborationError ? error.status : 503 });
+    }
+  }
   const existingSession = browserSession(request);
   const session = existingSession ?? randomUUID();
   const binding = { owner: `${currentUser?.id ?? "site-access"}:${session}`, requestFingerprint: "" };
   let reviewedCheckpoint: DiscoveryEvidenceCheckpoint | undefined;
   if (body.phase) {
     try {
-      binding.requestFingerprint = discoveryRequestFingerprint({ workspaceName, artifacts, resolutionNotes, ...options });
+      binding.requestFingerprint = discoveryRequestFingerprint({ workspaceName, artifacts, resolutionNotes, ...options, studioPackageId, studioParentRevisionId });
       assertDiscoveryCheckpointConfigured();
       if (body.phase === "product") {
         if (!existingSession || typeof body.checkpoint !== "string") return NextResponse.json({ error: "The evidence review session is missing. Start a new analysis." }, { status: 409 });
@@ -137,12 +163,27 @@ export async function POST(request: Request) {
         return { status: 200, body: { checkpoint: sealDiscoveryCheckpoint(checkpoint, binding) } };
       }
       synthesis = await generateDiscoverySynthesis(workspace, resolutionNotes, options, reviewedCheckpoint);
+      if (currentUser && !demoMode) {
+        const input = { title: workspaceName, synthesis, sources: artifacts, resolutionNotes,
+          selectedOutputs: options.selectedOutputs, externalResearch: options.externalResearch,
+          researchTopic: options.researchTopic, provenance: "server-generated" as const };
+        let saved;
+        if (studioPackageId) {
+          const current = await getStudioPackage(currentUser, studioPackageId);
+          if (!current.canManage || current.headRevisionId !== studioParentRevisionId) throw new StudioCollaborationError("A newer saved revision exists. Your previous package is preserved; open the latest revision before regenerating.", 409);
+          saved = await appendStudioRevision(currentUser, studioPackageId, current.version, { ...input, parentRevisionId: studioParentRevisionId });
+        } else {
+          saved = await createStudioPackage(currentUser, input);
+        }
+        if (!saved.canManage) throw new Error("Missing saved Studio revision");
+        synthesis = { ...saved.revision.synthesis, collaboration: { packageId: saved.id, revisionId: saved.revision.id, version: saved.version } };
+      }
     } catch (error) {
-      return { status: 503, body: { error: error instanceof DiscoveryGenerationError || error instanceof DiscoveryCheckpointError ? error.message : "Studio could not finish the analysis. Your current package is preserved." } };
+      return { status: error instanceof StudioCollaborationError ? error.status : 503, body: { error: error instanceof DiscoveryGenerationError || error instanceof DiscoveryCheckpointError || error instanceof StudioCollaborationError ? error.message : "Studio could not finish and save the analysis. Your current package is preserved." } };
     }
     const eventId = randomUUID();
 
-    await createAuditEvent({
+    try { await createAuditEvent({
       actor: auditActorFromManagedUser(currentUser) ?? buildSystemAuditActor(),
       entityId: eventId,
       entityLabel: workspaceName,
@@ -159,7 +200,13 @@ export async function POST(request: Request) {
       },
       summary: `${workspaceName} synthesized into a product definition for review.`,
       surface: "Studio"
-    });
+    }); } catch (error) {
+      // The immutable revision, creator and timestamp are already committed. A
+      // secondary audit-reporting failure must not disguise that durable save.
+      if (!synthesis.collaboration) throw error;
+      console.error("Studio saved a package but secondary audit reporting failed");
+      synthesis = { ...synthesis, collaboration: { ...synthesis.collaboration, auditWarning: true } };
+    }
 
     return { status: 200, body: { synthesis } };
   });

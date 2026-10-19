@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
 import { requireInternalWorkspaceRouteAccess } from "@/lib/api-route-access";
 import { generateStudioExport, MAX_STUDIO_EXPORT_BYTES, normalizeStudioExportRequest, StudioExportError } from "@/lib/studio-export";
+import { getStudioExport } from "@/lib/studio-collaboration-persistence";
+import { StudioCollaborationError } from "@/lib/studio-collaboration-types";
+import { requireStudioIdentity } from "@/lib/studio-route-access";
 
 export const runtime = "nodejs";
 
@@ -35,6 +38,12 @@ export async function POST(request: Request) {
     } catch {
       throw new StudioExportError("Provide a valid export request.");
     }
+    if (body && typeof body === "object" && !Array.isArray(body) && "packageId" in body) {
+      const input = body as Record<string, unknown>;
+      if (typeof input.packageId !== "string" || typeof input.revisionId !== "string") throw new StudioExportError("Choose a saved package revision to export.");
+      const saved = await getStudioExport(await requireStudioIdentity(), input.packageId, input.revisionId);
+      body = { ...input, workspaceName: saved.title, synthesis: saved.synthesis };
+    }
     const result = await generateStudioExport(normalizeStudioExportRequest(body));
     return new Response(new Uint8Array(result.buffer), {
       headers: {
@@ -46,6 +55,7 @@ export async function POST(request: Request) {
       }
     });
   } catch (error) {
+    if (error instanceof StudioCollaborationError) return NextResponse.json({ error: error.message }, { status: error.status });
     if (error instanceof StudioExportError) return NextResponse.json({ error: error.message }, { status: error.status });
     console.error("Studio export failed", error);
     return NextResponse.json({ error: "The export could not be created. Please try again." }, { status: 500 });
