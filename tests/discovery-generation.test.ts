@@ -99,6 +99,10 @@ test("public research sends only the explicit topic and retains verified citatio
   try {
     const result = await generateDiscoverySynthesis(program, "Private notes", { externalResearch: true, researchTopic: "Service intake usability" });
     const searchInput = JSON.stringify(calls[0].input);
+    assert.equal(calls[0].max_output_tokens, 12_000);
+    assert.equal(calls[0].max_tool_calls, 4);
+    assert.equal(calls[0].tool_choice, "required");
+    assert.deepEqual(calls[0].tools, [{ type: "web_search" }]);
     assert.match(searchInput, /Service intake usability/);
     assert.doesNotMatch(searchInput, /Private fixture client|Private notes|Civic Services/);
     assert.equal(result.research?.status, "completed");
@@ -179,7 +183,7 @@ test("core stages share the bounded run budget instead of using an independent s
   });
 });
 
-test("research remains capped at 240 seconds and cannot reset the shared core budget", async () => {
+test("research remains capped at 300 seconds and cannot reset the shared core budget", async () => {
   await withStubs(async () => {
     let now = 0;
     let calls = 0;
@@ -195,7 +199,7 @@ test("research remains capped at 240 seconds and cannot reset the shared core bu
     const result = await generateDiscoverySynthesis(program, "", { externalResearch: true, researchTopic: "Public service practices" });
     assert.equal(result.research?.status, "unavailable");
     assert.equal(result.quality?.status, "reviewed");
-    assert.deepEqual(timeouts, [240_000, 640_000, 590_000]);
+    assert.deepEqual(timeouts, [300_000, 640_000, 590_000]);
   });
 });
 
