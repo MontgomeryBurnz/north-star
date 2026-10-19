@@ -91,6 +91,8 @@ export type DiscoverySynthesis = {
 };
 
 export type DiscoverySynthesisRequest = {
+  phase?: "evidence" | "product";
+  checkpoint?: string;
   workspaceName?: string;
   artifacts?: ProgramArtifact[];
   resolutionNotes?: string;

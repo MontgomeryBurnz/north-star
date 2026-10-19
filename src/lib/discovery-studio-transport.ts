@@ -1,6 +1,6 @@
 import type { DiscoverySynthesis } from "./discovery-studio-types";
 
-type StudioOutcome = { status: number; body: { synthesis: DiscoverySynthesis } | { error: string } };
+type StudioOutcome = { status: number; body: { synthesis: DiscoverySynthesis } | { checkpoint: string } | { error: string } };
 const heartbeat = 'event: heartbeat\ndata: {"status":"working"}\n\n';
 const transportError = "The Studio connection was interrupted before a complete result arrived. Please review the connection before trying again.";
 const unexpectedError = "Studio could not finish the analysis. Your current package is preserved.";
@@ -76,7 +76,7 @@ export async function discoveryStudioResponse(request: Request, work: () => Prom
       if (!closed) timer = setInterval(() => send(heartbeat), 15_000);
       void Promise.resolve().then(work).then((result) => {
         if (closed) return;
-        const event = "synthesis" in result.body ? "result" : "error";
+        const event = "synthesis" in result.body ? "result" : "checkpoint" in result.body ? "checkpoint" : "error";
         send(`event: ${event}\ndata: ${JSON.stringify(result.body)}\n\n`);
       }).catch(() => {
         send(`event: error\ndata: ${JSON.stringify({ error: unexpectedError })}\n\n`);
@@ -90,14 +90,15 @@ export async function discoveryStudioResponse(request: Request, work: () => Prom
   return new Response(stream, { headers: { "content-type": "text/event-stream; charset=utf-8", "cache-control": "no-store, no-transform", "x-accel-buffering": "no" } });
 }
 
-export async function readDiscoveryStudioResponse(response: Response, onHeartbeat?: () => void): Promise<DiscoverySynthesis> {
+async function readStudioResponse<T>(response: Response, expectedEvent: string, validate: (payload: Record<string, unknown> | null) => T | undefined, onHeartbeat?: () => void): Promise<T> {
   const isStream = response.headers.get("content-type")?.split(";")[0].trim().toLowerCase() === "text/event-stream";
   if (!isStream) {
     let payload: Record<string, unknown> | null;
     try { payload = record(await response.json()); } catch { throw new StudioResponseError(transportError); }
     if (!response.ok || text(payload?.error)) throw new StudioResponseError(text(payload?.error) ? payload.error : unexpectedError);
-    if (!isSynthesis(payload?.synthesis)) throw new StudioResponseError(transportError);
-    return payload.synthesis;
+    const result = validate(payload);
+    if (result === undefined) throw new StudioResponseError(transportError);
+    return result;
   }
   if (!response.ok || !response.body) throw new StudioResponseError(transportError);
   const reader = response.body.getReader();
@@ -105,7 +106,7 @@ export async function readDiscoveryStudioResponse(response: Response, onHeartbea
   let buffer = "";
   let data: string[] = [];
   let event = "";
-  let result: DiscoverySynthesis | undefined;
+  let result: T | undefined;
   function dispatch() {
     if (!data.length && !event) return;
     let payload: Record<string, unknown> | null;
@@ -113,11 +114,12 @@ export async function readDiscoveryStudioResponse(response: Response, onHeartbea
     data = [];
     const kind = event;
     event = "";
-    if (result) throw new StudioResponseError(transportError);
+    if (result !== undefined) throw new StudioResponseError(transportError);
     if (kind === "heartbeat" && payload?.status === "working") { onHeartbeat?.(); return; }
     if (kind === "error" && text(payload?.error)) throw new StudioResponseError(payload.error);
-    if (kind !== "result" || !isSynthesis(payload?.synthesis) || payload?.error !== undefined) throw new StudioResponseError(transportError);
-    result = payload.synthesis;
+    const candidate = validate(payload);
+    if (kind !== expectedEvent || candidate === undefined || payload?.error !== undefined) throw new StudioResponseError(transportError);
+    result = candidate;
   }
   try {
     while (true) {
@@ -139,7 +141,7 @@ export async function readDiscoveryStudioResponse(response: Response, onHeartbea
         }
       }
       if (chunk.done) {
-        if (!result || buffer.length || data.length || event) throw new StudioResponseError(transportError);
+        if (result === undefined || buffer.length || data.length || event) throw new StudioResponseError(transportError);
         return result;
       }
     }
@@ -152,4 +154,12 @@ export async function readDiscoveryStudioResponse(response: Response, onHeartbea
     await reader.cancel().catch(() => undefined);
     reader.releaseLock();
   }
+}
+
+export function readDiscoveryStudioResponse(response: Response, onHeartbeat?: () => void): Promise<DiscoverySynthesis> {
+  return readStudioResponse(response, "result", payload => payload?.checkpoint === undefined && isSynthesis(payload?.synthesis) ? payload.synthesis : undefined, onHeartbeat);
+}
+
+export function readDiscoveryEvidenceResponse(response: Response, onHeartbeat?: () => void): Promise<string> {
+  return readStudioResponse(response, "checkpoint", payload => payload?.synthesis === undefined && typeof payload?.checkpoint === "string" && payload.checkpoint.length >= 32 && payload.checkpoint.length <= 1_500_000 && !/\s/.test(payload.checkpoint) ? payload.checkpoint : undefined, onHeartbeat);
 }

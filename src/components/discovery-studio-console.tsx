@@ -3,7 +3,7 @@
 import { useRef, useState, type ChangeEvent } from "react";
 import { AlertTriangle, BrainCircuit, ClipboardCopy, Download, FileText, History, Layers3, Loader2, MessageSquare, RotateCcw, Sparkles, Upload, X } from "lucide-react";
 import type { DiscoverySynthesis } from "@/lib/discovery-studio-types";
-import { readDiscoveryStudioResponse } from "@/lib/discovery-studio-transport";
+import { readDiscoveryEvidenceResponse, readDiscoveryStudioResponse } from "@/lib/discovery-studio-transport";
 import type { ProgramArtifact } from "@/lib/program-intake-types";
 import { STUDIO_EXPORT_FORMATS, STUDIO_OUTPUT_OPTIONS, type StudioExportFormat, type StudioOutputId } from "@/lib/studio-export-types";
 import { Button } from "@/components/ui/button";
@@ -54,8 +54,32 @@ function initialRevision(): StudioRevision {
   return { id: 1, synthesis: sampleDiscoverySynthesis, summary: "Prepared fictional discovery example", createdAt: sampleDiscoverySynthesis.generatedAt };
 }
 
+async function generateStudioPackage(requestSnapshot: string, onStatus: (message: string) => void): Promise<DiscoverySynthesis> {
+  // Parse one serialized snapshot, never re-read editable state between phases.
+  const requestPayload = JSON.parse(requestSnapshot) as Record<string, unknown>;
+  const headers = { "content-type": "application/json", accept: "text/event-stream" };
+  onStatus("Phase 1 of 2: Reviewing the discovery evidence and any requested public research…");
+  const evidenceResponse = await fetch("/api/studio/discovery-synthesis", {
+    method: "POST", headers,
+    body: JSON.stringify({ ...requestPayload, phase: "evidence" })
+  });
+  // The opaque checkpoint exists only inside this operation. It is not a package
+  // revision and must never be displayed, exported, persisted, or retried here.
+  const checkpoint = await readDiscoveryEvidenceResponse(evidenceResponse, () => onStatus("Phase 1 of 2: Studio is still reviewing the evidence and research. Your current package is preserved…"));
+  if (typeof checkpoint !== "string" || !checkpoint.trim() || checkpoint.length > 1_500_000) {
+    throw new Error("Studio did not return a complete evidence checkpoint. Your current package is preserved.");
+  }
+  onStatus("Phase 2 of 2: Generating and checking the product outputs, acceptance criteria, and tests…");
+  const response = await fetch("/api/studio/discovery-synthesis", {
+    method: "POST", headers,
+    body: JSON.stringify({ ...requestPayload, phase: "product", checkpoint })
+  });
+  return await readDiscoveryStudioResponse(response, () => onStatus("Phase 2 of 2: Studio is still checking the product outputs. Only a completed, checked package will create a revision…"));
+}
+
 export function DiscoveryStudioConsole({ initialSample = false }: { initialSample?: boolean }) {
   const inputRef = useRef<HTMLInputElement | null>(null);
+  const analysisInFlightRef = useRef(false);
   const [pendingFiles, setPendingFiles] = useState<File[]>([]);
   const [sources, setSources] = useState<ProgramArtifact[]>(initialSample ? sampleDiscoverySources : []);
   const [synthesis, setSynthesis] = useState<DiscoverySynthesis | null>(initialSample ? sampleDiscoverySynthesis : null);
@@ -119,11 +143,13 @@ export function DiscoveryStudioConsole({ initialSample = false }: { initialSampl
   }
 
   async function analyzePackage(refine = false) {
+    if (analysisInFlightRef.current || exportAction !== null) return;
     if (!selectedOutputs.length) { setStatus("Select at least one desired output before analysis."); return; }
     if (externalResearch && !researchTopic.trim()) { setStatus("Enter a generic public research topic to include web research."); return; }
     if (!pendingFiles.length && !readableSourceCount) { setStatus("Add at least one readable discovery source before analysis."); return; }
     if (sources.length + pendingFiles.length > 16) { setStatus("Use up to 16 discovery sources per analysis. Remove sources or split this package before continuing."); return; }
     if (refine && (!synthesis || !feedback.trim())) { setStatus("Describe the issue, discrepancy, or change to create a revision."); return; }
+    analysisInFlightRef.current = true;
     setIsAnalyzing(true);
     setStatus(pendingFiles.length ? "Extracting and classifying the discovery package…" : refine ? "Reviewing your feedback against the evidence and previous output…" : "Reviewing the discovery evidence…");
     const revisionFeedback = refine ? `${feedbackKind.toUpperCase()} · ${feedbackTarget === "package" ? "Whole package" : feedbackTarget}: ${feedback.trim()}` : "";
@@ -136,13 +162,8 @@ export function DiscoveryStudioConsole({ initialSample = false }: { initialSampl
         setPendingFiles([]);
         if (!analysisSources.some((artifact) => artifact.extractedText?.trim())) throw new Error("No readable text could be extracted. Review the source warnings and upload readable versions.");
       }
-      setStatus(refine ? "Revising the package while checking traceability, acceptance criteria, and tests…" : "Synthesizing the evidence, gaps, roadmap, stories, and tests…");
-      const response = await fetch("/api/studio/discovery-synthesis", {
-        method: "POST",
-        headers: { "content-type": "application/json", accept: "text/event-stream" },
-        body: JSON.stringify({ workspaceName: workspaceName.trim() || "Discovery workspace", artifacts: analysisSources, resolutionNotes, selectedOutputs, externalResearch, researchTopic: externalResearch ? researchTopic.trim() : "", ...(synthesis ? { previousSynthesis: synthesis } : {}), ...(refine ? { feedback: revisionFeedback } : {}) })
-      });
-      const result = await readDiscoveryStudioResponse(response, () => setStatus("Studio is still working on the discovery package. The completed, checked outputs will appear here when ready…"));
+      const requestSnapshot = JSON.stringify({ workspaceName: workspaceName.trim() || "Discovery workspace", artifacts: analysisSources, resolutionNotes, selectedOutputs, externalResearch, researchTopic: externalResearch ? researchTopic.trim() : "", ...(synthesis ? { previousSynthesis: synthesis } : {}), ...(refine ? { feedback: revisionFeedback } : {}) });
+      const result = await generateStudioPackage(requestSnapshot, setStatus);
       const revisionId = (revisions.at(-1)?.id ?? 0) + 1;
       result.revision = { number: revisionId, summary: result.revision?.summary || "Discovery synthesis generated", ...(refine ? { feedback: revisionFeedback } : {}) };
       const summary = result.revision?.summary || (refine ? revisionFeedback : resolutionNotes.trim() ? "Reanalyzed with additional context" : "Discovery synthesis generated");
@@ -157,11 +178,11 @@ export function DiscoveryStudioConsole({ initialSample = false }: { initialSampl
     } catch (error) {
       const message = error instanceof Error ? error.message : "Studio could not analyze the package.";
       setStatus(`${message}${synthesis && !/\bpreserved\b/i.test(message) ? " Your current revision is preserved." : ""}`);
-    } finally { setIsAnalyzing(false); }
+    } finally { analysisInFlightRef.current = false; setIsAnalyzing(false); }
   }
 
   async function exportPackage(action: "download" | "copy") {
-    if (!synthesis || !selectedOutputs.length) return;
+    if (analysisInFlightRef.current || exportAction !== null || !synthesis || !selectedOutputs.length) return;
     setExportAction(action);
     setStatus(action === "copy" ? "Preparing the selected outputs for copying…" : `Preparing your ${selectedFormat.label.toLowerCase()}…`);
     try {

@@ -12,7 +12,7 @@ const hooks = registerHooks({
     return nextResolve(specifier, context);
   }
 });
-const { generateDiscoverySynthesis } = await import("../src/lib/discovery-studio-service.ts");
+const { generateDiscoverySynthesis, reviewDiscoverySources, isDiscoveryEvidenceCheckpoint } = await import("../src/lib/discovery-studio-service.ts");
 hooks.deregister();
 
 // Orchestration tests use controlled source facts, not the illustrative prepared package's
@@ -707,6 +707,189 @@ test("measurement inventory cannot append a missing baseline fact or bypass the 
     assert.equal(calls.length, 2, "One evidence correction still fails closed; synthesis and extra correction cannot start.");
     assert.equal(JSON.stringify(omitted), original, "The original model ledger cannot be silently supplemented.");
     assert.doesNotMatch(JSON.stringify(logs), /Regional offices|measurementInventory|normalizedSourceContext/);
+  });
+});
+
+test("standalone source review joins concurrent research and evidence without generating a product", async () => {
+  await withStubs(async () => {
+    const research = deferred<Response>();
+    const sourceReview = deferred<Response>();
+    const calls: Record<string, unknown>[] = [];
+    globalThis.fetch = async (_input, init) => {
+      const body = JSON.parse(String(init?.body));
+      calls.push(body);
+      return body.tools ? research.promise : sourceReview.promise;
+    };
+    let completed = false;
+    const running = reviewDiscoverySources(program, "Private notes", { externalResearch: true, researchTopic: "Public service practices" }).then((result) => { completed = true; return result; });
+    await nextTurn();
+    assert.equal(calls.length, 2, "Public research and evidence must both start before either completes.");
+    sourceReview.resolve(response(evidence));
+    await nextTurn();
+    assert.equal(completed, false, "A checkpoint cannot leave paid research running unmanaged.");
+    research.resolve(publicResearchResponse());
+    const checkpoint = await running;
+    assert.ok(isDiscoveryEvidenceCheckpoint(checkpoint));
+    assert.equal(checkpoint.research.status, "completed");
+    assert.equal(checkpoint.evidence.sources.length, 6);
+    assert.equal(checkpoint.usage.length, 2);
+    assert.equal(Object.hasOwn(checkpoint, "stories"), false);
+    assert.equal(calls.length, 2);
+    assert.doesNotMatch(JSON.stringify(calls[0].input), /Private notes|Private fixture client/);
+  });
+});
+
+test("a checked source phase and product phase have independent bounded budgets and aggregate all paid usage", async () => {
+  await withStubs(async () => {
+    const fixture = evidenceRepairFixture();
+    const calls: Record<string, unknown>[] = [];
+    const timeouts: number[] = [];
+    let now = 0;
+    Date.now = () => now;
+    AbortSignal.timeout = (ms) => { timeouts.push(ms); return new AbortController().signal; };
+    const invalidProduct = structuredClone(fixture.output);
+    invalidProduct.stories[0].featureId = "MISSING-FEATURE";
+    globalThis.fetch = async (_input, init) => {
+      calls.push(JSON.parse(String(init?.body)));
+      now += [0, 500_000, 200_000, 500_000, 100_000][calls.length - 1] ?? 0;
+      return calls.length === 1 ? publicResearchResponse() : response([fixture.invalid, fixture.corrected, invalidProduct, fixture.output][calls.length - 2]);
+    };
+    const options = { externalResearch: true, researchTopic: "Public service practices", selectedOutputs: ["roadmap", "tests"] as const };
+    const normalizedOptions = { ...options, selectedOutputs: [...options.selectedOutputs] };
+    const checkpoint = await reviewDiscoverySources(fixture.input, "Private notes", normalizedOptions);
+    assert.equal(checkpoint.evidenceCorrectionApplied, true);
+    assert.equal(calls.length, 3, "Stage one ends after bounded evidence correction and research.");
+    const original = JSON.stringify(checkpoint);
+    now += 30_000;
+    const synthesis = await generateDiscoverySynthesis(fixture.input, "Private notes", normalizedOptions, checkpoint);
+    assert.equal(synthesis.provider, "openai");
+    assert.equal(synthesis.modelUsage?.totalTokens, 1000);
+    assert.equal(synthesis.research?.status, "completed");
+    assert.ok(synthesis.quality?.checks.includes("Validation-guided evidence correction rechecked against all source coverage and fidelity rules"));
+    assert.ok(synthesis.quality?.checks.includes("Validation-guided correction rechecked against all package quality rules"));
+    assert.ok(synthesis.quality?.checks.includes("Source review checkpoint revalidated against current sources, configuration and research quality"));
+    assert.deepEqual(timeouts, [300_000, 740_000, 240_000, 740_000, 240_000]);
+    assert.equal(calls.length, 5);
+    assert.ok(calls.slice(3).every((call) => JSON.stringify(call.text).includes("northstar_discovery_synthesis") && !call.tools));
+    assert.equal(JSON.stringify(checkpoint), original, "Continuation must not mutate or double-count the phase-one checkpoint.");
+    for (const call of calls) { assert.equal(call.model, "gpt-5.5"); assert.equal(call.store, false); assert.equal(call.stream, true); assert.deepEqual(call.reasoning, { effort: "high" }); }
+    assert.match((calls[3].input as Array<{ content: string }>)[0].content, /use disposition proposal even when proposed stories and tests are already planned/);
+    assert.match((calls[3].input as Array<{ content: string }>)[0].content, /Each open-question evidence row must map to an actual precise source-linked gap/);
+  });
+});
+
+test("checkpoint continuation rejects changed source, configuration, notes, feedback and prior revision before paid calls", async () => {
+  await withStubs(async () => {
+    globalThis.fetch = async () => response(evidence);
+    const checkpoint = await reviewDiscoverySources(program);
+    let paidCalls = 0;
+    globalThis.fetch = async () => { paidCalls++; throw new Error("A changed checkpoint must not call a provider"); };
+    const changedSource = structuredClone(program);
+    changedSource.intake.artifacts[0].extractedText += " A later policy decision changes the source.";
+    const addedUnreadable = structuredClone(program);
+    addedUnreadable.intake.artifacts.push({ id: "unreadable", name: "New source.pdf", size: 0, type: "application/pdf", lastModified: 0, extractionStatus: "unsupported" });
+    const differentModel = structuredClone(checkpoint);
+    differentModel.modelSettings.reasoningEffort = "low";
+    for (const attempt of [
+      () => generateDiscoverySynthesis(changedSource, "", {}, checkpoint),
+      () => generateDiscoverySynthesis(addedUnreadable, "", {}, checkpoint),
+      () => generateDiscoverySynthesis({ ...program, id: "another-program" }, "", {}, checkpoint),
+      () => generateDiscoverySynthesis(program, "New owner decision", {}, checkpoint),
+      () => generateDiscoverySynthesis(program, "", { feedback: "New revision request" }, checkpoint),
+      () => generateDiscoverySynthesis(program, "", { selectedOutputs: ["tests"] }, checkpoint),
+      () => generateDiscoverySynthesis(program, "", { externalResearch: true, researchTopic: "New public topic" }, checkpoint),
+      () => generateDiscoverySynthesis(program, "", { previousSynthesis: sampleDiscoverySynthesis }, checkpoint),
+      () => generateDiscoverySynthesis(program, "", {}, differentModel)
+    ]) await assert.rejects(attempt, /source review no longer matches/);
+    assert.equal(paidCalls, 0);
+  });
+});
+
+test("a continuation revalidates source inventory, exact ledger quotations and research instead of trusting checkpoint shape", async () => {
+  await withStubs(async () => {
+    const options = { externalResearch: true, researchTopic: "Public service practices" };
+    globalThis.fetch = async (_input, init) => JSON.parse(String(init?.body)).tools ? publicResearchResponse() : response(evidence);
+    const checkpoint = await reviewDiscoverySources(program, "", options);
+    let paidCalls = 0;
+    globalThis.fetch = async () => { paidCalls++; throw new Error("Invalid checkpoint cannot call a provider"); };
+    const missingSource = structuredClone(checkpoint);
+    missingSource.evidence.sources.pop();
+    const inventedQuote = structuredClone(checkpoint);
+    inventedQuote.evidenceLedger[0].quote = "An invented quotation.";
+    const obsoleteResearch = structuredClone(checkpoint);
+    obsoleteResearch.research.sources = [{ title: "Withdrawn", url: "https://csrc.nist.gov/pubs/sp/800/61/r2/final" }];
+    const researchMismatch = structuredClone(checkpoint);
+    researchMismatch.research = { status: "not-requested", summary: "No research", sources: [] };
+    const malformedUsage = structuredClone(checkpoint);
+    malformedUsage.usage[0].inputTokens = -1;
+    assert.equal(isDiscoveryEvidenceCheckpoint(malformedUsage), false);
+    for (const value of [missingSource, inventedQuote, obsoleteResearch, researchMismatch, malformedUsage]) {
+      await assert.rejects(generateDiscoverySynthesis(program, "", options, value), /source review|evidence review/);
+    }
+    assert.equal(paidCalls, 0);
+  });
+});
+
+test("continuation recomputes source-backed normalizations from the original checked ledger", async () => {
+  await withStubs(async () => {
+    const proposed = "A pilot approval authority is proposed and awaits sponsor approval.";
+    const sources = sampleDiscoverySources.map((source) => ({ ...source, extractedText: proposed }));
+    const input = { ...program, intake: { ...program.intake, artifacts: sources } };
+    const sourceEvidence = { ...evidence, sources: sources.map((source) => ({ sourceId: source.id, findings: [proposed], limitations: "Fictional evidence" })),
+      evidenceLedger: sources.map((source, index) => ({ id: `EV-${index + 1}`, sourceId: source.id, quote: proposed, kind: "fact", statement: proposed })) };
+    globalThis.fetch = async () => response(sourceEvidence);
+    const checkpoint = await reviewDiscoverySources(input);
+    assert.ok(checkpoint.evidenceLedger.every((item) => item.kind === "fact"), "Raw classifications must remain available for independent revalidation.");
+    const output = { ...sampleDiscoverySynthesis, assumptions: [...sampleDiscoverySynthesis.assumptions, proposed], evidenceCoverage: evidenceLedger.map((item) => ({ evidenceId: item.id, disposition: "proposal", storyIds: [], testIds: [], gapIds: [] })) };
+    let productCalls = 0;
+    globalThis.fetch = async (_input, init) => {
+      productCalls++;
+      const body = JSON.parse(String(init?.body));
+      const context = JSON.parse(body.input[1].content);
+      assert.ok(context.evidenceReview.evidenceLedger.every((item: { kind: string }) => item.kind === "proposal"));
+      return response(output);
+    };
+    const synthesis = await generateDiscoverySynthesis(input, "", {}, checkpoint);
+    assert.equal(productCalls, 1);
+    assert.ok(synthesis.quality?.checks.includes("Source-backed unconfirmed classifications revalidated"));
+    assert.equal(synthesis.modelUsage?.totalTokens, 400);
+  });
+});
+
+test("a product-stage provider failure never reruns source review or starts a paid correction", async () => {
+  await withStubs(async () => {
+    globalThis.fetch = async () => response(evidence);
+    const checkpoint = await reviewDiscoverySources(program);
+    let calls = 0;
+    globalThis.fetch = async () => { calls++; throw new TypeError("Private connection detail"); };
+    await assert.rejects(generateDiscoverySynthesis(program, "", {}, checkpoint), /interrupted during product synthesis/);
+    assert.equal(calls, 1);
+  });
+});
+
+test("standalone evidence correction uses only its remaining phase budget and still fails closed", async () => {
+  await withStubs(async () => {
+    const fixture = evidenceRepairFixture();
+    let now = 0;
+    const timeouts: number[] = [];
+    Date.now = () => now;
+    AbortSignal.timeout = (ms) => { timeouts.push(ms); return new AbortController().signal; };
+    let calls = 0;
+    globalThis.fetch = async () => { calls++; now += calls === 1 ? 600_000 : 100_000; return response(fixture.invalid); };
+    await assert.rejects(reviewDiscoverySources(fixture.input), /evidence review failed fidelity checks/);
+    assert.equal(calls, 2);
+    assert.deepEqual(timeouts, [740_000, 140_000]);
+  });
+});
+
+test("staged source review and continuation never substitute a local placeholder when OpenAI becomes unavailable", async () => {
+  await withStubs(async () => {
+    globalThis.fetch = async () => response(evidence);
+    const checkpoint = await reviewDiscoverySources(program);
+    delete process.env.OPENAI_API_KEY;
+    await assert.rejects(reviewDiscoverySources(program), /OpenAI is unavailable/);
+    await assert.rejects(generateDiscoverySynthesis(program, "", {}, checkpoint), /OpenAI is unavailable/);
+    assert.equal((await generateDiscoverySynthesis(program)).provider, "local", "The original non-staged local fallback remains backward compatible.");
   });
 });
 

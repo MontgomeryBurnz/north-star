@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
-import { discoveryStudioResponse, readDiscoveryStudioResponse } from "../src/lib/discovery-studio-transport.ts";
+import { discoveryStudioResponse, readDiscoveryEvidenceResponse, readDiscoveryStudioResponse } from "../src/lib/discovery-studio-transport.ts";
 import type { DiscoverySynthesis } from "../src/lib/discovery-studio-types.ts";
 
 function synthesis(): DiscoverySynthesis {
@@ -173,10 +173,27 @@ test("legacy JSON callers keep success and503 statuses, and disabled stream nego
 
 test("standalone route negotiates streaming only after auth/input checks and console applies only the completed reader result", () => {
   const route = readFileSync(new URL("../src/app/api/studio/discovery-synthesis/route.ts", import.meta.url), "utf8");
-  assert.ok(route.indexOf("requireInternalWorkspaceRouteAccess(request)") < route.indexOf("return discoveryStudioResponse(request"));
-  assert.ok(route.indexOf("if (body.externalResearch && !researchTopic)") < route.indexOf("return discoveryStudioResponse(request"));
+  assert.ok(route.indexOf("requireInternalWorkspaceRouteAccess(request)") < route.indexOf("await discoveryStudioResponse(request"));
+  assert.ok(route.indexOf("if (body.externalResearch && !researchTopic)") < route.indexOf("await discoveryStudioResponse(request"));
   assert.ok(route.indexOf("await createAuditEvent") < route.indexOf("return { status: 200, body: { synthesis } }"));
   const client = readFileSync(new URL("../src/components/discovery-studio-console.tsx", import.meta.url), "utf8");
   assert.match(client, /accept: "text\/event-stream"/);
-  assert.ok(client.indexOf("await readDiscoveryStudioResponse(response,") < client.indexOf("setSynthesis(result)"));
+  assert.ok(client.indexOf("await generateStudioPackage(requestSnapshot,") < client.indexOf("setSynthesis(result)"));
+});
+
+test("evidence handoffs have a distinct terminal frame and cannot be confused with final packages", async () => {
+  const checkpoint = "nsdcp.v1." + "a".repeat(64);
+  for (const accept of ["text/event-stream", "application/json"]) {
+    const response = await discoveryStudioResponse(streamRequest(accept), async () => ({ status: 200, body: { checkpoint } }));
+    assert.equal(await readDiscoveryEvidenceResponse(response), checkpoint);
+  }
+  const frame = `event: checkpoint\ndata: ${JSON.stringify({ checkpoint })}\n\n`;
+  assert.equal(await readDiscoveryEvidenceResponse(streamResponse(frame, true)), checkpoint);
+  await assert.rejects(readDiscoveryStudioResponse(streamResponse(frame)), /connection was interrupted/);
+  await assert.rejects(readDiscoveryEvidenceResponse(streamResponse(resultFrame())), /connection was interrupted/);
+  for (const payload of [{ checkpoint: "" }, { checkpoint: 1 }, { checkpoint, synthesis: synthesis() }, { checkpoint: "x".repeat(1_500_001) }, { checkpoint: "a".repeat(40) + " " }]) {
+    await assert.rejects(readDiscoveryEvidenceResponse(Response.json(payload)), /connection was interrupted/);
+  }
+  await assert.rejects(readDiscoveryEvidenceResponse(streamResponse(frame + frame)), /connection was interrupted/);
+  await assert.rejects(readDiscoveryEvidenceResponse(streamResponse(frame.slice(0, -1))), /connection was interrupted/);
 });

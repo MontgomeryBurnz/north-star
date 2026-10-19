@@ -146,6 +146,12 @@ LEADERSHIP_ALLOWED_DOMAINS=yourcompany.com
 
 For local or non-model fallback testing, set `GUIDED_PLAN_PROVIDER=local` and `ROLE_ARTIFACT_PROVIDER=local`.
 
+### Studio generation handoffs
+
+The standalone Studio reviews evidence and public research first, then generates and validates the product package in a separate request. Configure `STUDIO_CHECKPOINT_SECRET` before activating this flow: a dedicated, server-only 32-byte cryptographically random key encoded as 64 hexadecimal characters. Use a different value in each environment; never reuse the OpenAI API key or expose the key through a `NEXT_PUBLIC_` variable. Missing configuration fails before any model request.
+
+The intermediate handoff is encrypted, authenticated, bound to the signed-in user/browser session, exact normalized inputs, model configuration and deployment, and expires after 30 minutes. The client keeps it in memory only. Deployments, key rotation, input changes, or model-setting changes require a new evidence review. This is not a durable job or an exactly-once guarantee; interrupted analyses are not retried automatically. Only a fully validated final package becomes a new revision; failed analyses preserve the previous package.
+
 The app exposes a deployment-readiness check at `/api/health`.
 
 For actual deployment steps, use:
