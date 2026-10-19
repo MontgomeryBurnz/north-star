@@ -301,7 +301,7 @@ function actions(text: string) {
   return result;
 }
 function restrictiveSelfClauses(text: string) {
-  return normalized(text).split(/[.;\n]/).map((part) => part.split(/\b(?:but|however|whereas)\b/)[0]).flatMap((part) => {
+  return normalized(text).split(/[.;\n]/).flatMap((part) => part.split(/\b(?:but|however|whereas)\b/)).flatMap((part) => {
     const self = part.search(/\b(?:own|self)\b/);
     const cues = [...part.matchAll(/\b(?:cannot|can not|must not|may not|shall not|not allowed|prevent(?:s|ed)?|block(?:s|ed)?|den(?:y|ies|ied)|prohibit(?:s|ed)?|forbid(?:s|den)?)\b/g)];
     const cue = cues.filter((match) => match.index! <= self).at(-1) ?? cues[0];
@@ -322,6 +322,11 @@ function restrictiveSelfClauses(text: string) {
 function ownObjectScope(clause: string) {
   return normalized(clause).match(/\bown\s+(.+?)(?:[.;]|$)/)?.[1];
 }
+function ruleQualifiedRejectionNonProhibition(clause: string) {
+  // A narrowly attributed non-prohibition is not a new rejection ban or proof of
+  // rejection authority. In particular, "it" must not acquire a resolved object.
+  return /^not (?:blocked|prevented) from rejecting (?:it|(?:their|his|her|one's|the user's) own policy exception|(?:the|that|this|the same) policy exception) solely (?:by|under) (?:the )?self approval rule$/.test(normalized(clause));
+}
 function scopeHead(scope: string | undefined) {
   const nounPhrase = scope?.split(/\b(?:during|when|unless|without|before|after|raised|created|submitted|that|which|because|for|to|by|if)\b/)[0].trim();
   return nounPhrase?.match(/[a-z]+/g)?.at(-1)?.replace(/s$/, "");
@@ -340,11 +345,22 @@ function proposalPromotion(item: DiscoveryEvidenceLedgerItem, context: string, m
   const claimWords = new Set((normalized(item.statement).match(/[a-z]{4,}/g) ?? []).filter((word) => !/^(?:proposed|proposal|confirmed|approved|achieved|committed|business|calendar|hours?|days?|weeks?|months?|years?|regions?|offices?|after|before|under|below|above|their|these|those|would|should)$/.test(word)).map((word) => word.replace(/s$/, "")));
   const bindingPrefix = suffix.slice(0, settlement?.index ?? 0).trim();
   const directlyBound = !bindingPrefix || (bindingPrefix.match(/[a-z]{4,}/g) ?? []).every((word) => claimWords.has(word.replace(/s$/, "")) || !measure && word === "business");
-  const directAdjective = [...primary.matchAll(/\b(?:approved|confirmed|committed|achieved)\s+([a-z]+)\b/g)].some((match) => {
+  // A shared adjective is not necessarily the proposed entity: "category-aware
+  // intake" does not propose a category, and an "approved resident portal"
+  // modifies the portal rather than the resident. Bound the visible noun phrase
+  // before comparing its head; uncertain modifier scope still creates a review hold.
+  const entityWords = new Set((normalized(item.statement.replace(/\b(?:[a-z]+[-–—])+([a-z]+)\b/gi, "$1")).match(/[a-z]{4,}/g) ?? []).map((word) => word.replace(/s$/, "")));
+  const sourceWords = new Set(normalized(item.statement).match(/[a-z]+/g) ?? []);
+  const directAdjective = [...primary.matchAll(/\b(?:approved|confirmed|committed|achieved)\s+(?=[a-z])/g)].some((match) => {
     const prefix = primary.slice(0, match.index);
     const prerequisite = /\b(?:after|before|until|if|when|once|pending|awaiting|subject to|depends? on)\s+(?:(?:the|an?|already|formally)\s+){0,2}$/.test(prefix)
       || localMetric && match.index! > localMetric.index + localMetric.text.length && /\b(?:after|before|until|if|when|once|pending|awaiting|subject to|depends? on)\b/.test(prefix.slice(localMetric.index + localMetric.text.length));
-    return claimWords.has(match[1].replace(/s$/, "")) && !/\bnot\s*$/.test(prefix.slice(-12)) && !prerequisite;
+    const phrase = primary.slice(match.index! + match[0].length).split(/[,.;\n]|\b(?:is|are|was|were|has|have|had|can|could|will|would|should|must|may|shall|to|of|for|in|on|at|with|without|from|after|before|until|if|when|once|unless|under|below|above|because|so|that|which|and|or|but|as|approved|confirmed|committed|achieved|agreed|covers?|enables?|implements?|supports?|provides?|requires?|depends?|informs?)\b/)[0];
+    const phraseWords = phrase.match(/[a-z]+/g) ?? [];
+    const firstUnknown = phraseWords.findIndex((word) => !sourceWords.has(word));
+    const boundWords = firstUnknown < 0 ? phraseWords : phraseWords.slice(0, firstUnknown);
+    const head = boundWords.at(-1)?.replace(/s$/, "");
+    return Boolean(head && claimWords.has(head) && entityWords.has(head)) && !/\bnot\s*$/.test(prefix.slice(-12)) && !prerequisite;
   });
   const bareSettledOutcome = /,\s*(?:(?:an?|the)\s+)?(?:achieved\s+(?:results?|outcomes?)|committed release dates?)\s*$/.test(value);
   if (bareSettledOutcome || directAdjective || settlement && directlyBound && !conditional) return "hard";
@@ -488,6 +504,21 @@ export function reviewDiscoveryFidelity(synthesis: FidelityDefinition, inputLedg
     // A test title is not a grammatical prefix for all steps/results: "Block self-
     // approval" + "the attempt is rejected" must not become a ban on rejecting an exception.
     for (const clause of [...fields, ...[...tests.values()].flatMap(({ test }) => [test.title, ...test.steps, test.expectedResult])].flatMap(restrictiveSelfClauses)) {
+      if (ruleQualifiedRejectionNonProhibition(clause)) {
+        const policy = policies.find((item) => item.scope === "policy exception" && item.actions.size === 1 && item.actions.has("approve"));
+        const anchor = policy && ledger.find((item) => {
+          if (item.sourceId !== policy.sourceId) return false;
+          const restrictions = restrictiveSelfClauses(item.statement);
+          return restrictions.length === 1 && restrictions.every((restriction) => {
+            const restrictedActions = actions(restriction);
+            return ownObjectScope(restriction) === policy.scope && restrictedActions.size === 1 && restrictedActions.has("approve") && sameAtomicClaim(restriction, policy.clause);
+          });
+        });
+        if (anchor) {
+          reviewIssues.push({ evidenceId: anchor.id, sourceId: anchor.sourceId, message: `Rule-qualified rejection wording needs owner review for object and authority. This qualifier does not establish permitted rejection or resolve a pronoun. Reviewed clause: ${clause.slice(0, 700)}. Source-supported restriction: approve own policy exception.` });
+          continue;
+        }
+      }
       const objectPolicies = policies.filter((policy) => !policy.scope || clause.includes(policy.scope));
       const supportedActions = new Set(objectPolicies.flatMap((policy) => [...policy.actions]));
       const clauseActions = actions(clause);

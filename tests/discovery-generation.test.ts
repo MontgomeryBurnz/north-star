@@ -33,6 +33,19 @@ const program: StoredProgram = {
 function response(value: unknown) {
   return Response.json({ status: "completed", output_text: JSON.stringify(value), usage: { input_tokens: 100, output_tokens: 100, total_tokens: 200 } });
 }
+
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  let reject!: (reason: unknown) => void;
+  const promise = new Promise<T>((yes, no) => { resolve = yes; reject = no; });
+  return { promise, resolve, reject };
+}
+
+function publicResearchResponse() {
+  return Response.json({ status: "completed", output: [{ content: [{ type: "output_text", text: "Use observable acceptance criteria.", annotations: [{ type: "url_citation", title: "Public reference", url: "https://example.org/current" }] }] }], usage: { input_tokens: 100, output_tokens: 100, total_tokens: 200 } });
+}
+
+const nextTurn = () => new Promise<void>((resolve) => setImmediate(resolve));
 const evidence = { summary: "Source inventory reviewed", sources: sampleDiscoverySources.map((source) => ({ sourceId: source.id, findings: [source.extractedText!], limitations: "Fictional evidence" })), contradictions: ["Approval owner unresolved"], missingInformation: ["Category scope"], recommendations: ["Close policy decisions"], evidenceLedger };
 
 function streamedPayload(value: Record<string, unknown>, id = "resp_fixture") {
@@ -842,11 +855,11 @@ test("provider, incomplete, parse and missing-status product failures never caus
   });
 });
 
-test("authenticated validation diagnostics include up to 12 error summaries, bounded evidence details and no source logs", async () => {
+test("authenticated validation diagnostics include all 12 bounded evidence contexts without source logs", async () => {
   await withStubs(async (logs) => {
     const longFact = `${fixtureFact} ${"Evidence context ".repeat(200)}`;
-    const diagnosticSources = sampleDiscoverySources.map((source, index) => ({ ...source, extractedText: index < 3 ? longFact : fixtureFact }));
-    const ledger = [...evidenceLedger.map((item, index) => index < 3 ? { ...item, id: `${item.id}-${"X".repeat(800)}`, quote: longFact, statement: longFact } : item), ...Array.from({ length: 8 }, (_, index) => ({ ...evidenceLedger[0], id: `EV-${index + 7}` }))];
+    const diagnosticSources = sampleDiscoverySources.map((source) => ({ ...source, extractedText: longFact }));
+    const ledger = [...evidenceLedger.map((item, index) => ({ ...item, id: index < 3 ? `${item.id}-${"X".repeat(800)}` : item.id, quote: longFact, statement: longFact })), ...Array.from({ length: 8 }, (_, index) => ({ ...evidenceLedger[0], id: `EV-${index + 7}`, quote: longFact, statement: longFact }))];
     const review = { ...evidence, sources: diagnosticSources.map((source) => ({ sourceId: source.id, findings: [source.extractedText], limitations: "Fictional evidence" })), evidenceLedger: ledger };
     const invalid = { ...sampleDiscoverySynthesis, evidenceCoverage: ledger.map((item) => ({ evidenceId: item.id, disposition: "context", storyIds: ["UNKNOWN"], testIds: [], gapIds: [] })) };
     let calls = 0;
@@ -855,13 +868,172 @@ test("authenticated validation diagnostics include up to 12 error summaries, bou
       assert.match(error.message, /14 validation issues/);
       assert.match(error.message, /EV-12 has unresolved output references/);
       assert.doesNotMatch(error.message, /EV-13 has unresolved output references/);
-      assert.match(error.message, /Evidence details \(first 3\)/);
+      assert.match(error.message, /Evidence details \(first 12\)/);
       assert.match(error.message, /Source quotation: Every service request/);
+      assert.equal((error.message.match(/Source quotation:/g) ?? []).length, 12);
+      assert.equal((error.message.match(/Reviewed assertion:/g) ?? []).length, 12);
+      assert.match(error.message, /12\. EV-12[^\n]+Reviewed assertion: Every service request/);
       assert.ok(error.message.length < 10_000);
       assert.ok(error.message.length > 8500, "Stress the overall cap including the outer failure prefix and preservation suffix.");
       return true;
     });
     assert.equal(calls, 3);
     assert.doesNotMatch(JSON.stringify(logs), /Source quotation|EV-12|Every service request/);
+  });
+});
+
+test("research and raw evidence start independently and synthesis joins either completion order inside the original deadline", async () => {
+  await withStubs(async (logs) => {
+    for (const researchFirst of [true, false]) {
+      let now = 0;
+      const timeouts: number[] = [];
+      Date.now = () => now;
+      AbortSignal.timeout = (ms) => { timeouts.push(ms); return new AbortController().signal; };
+      const research = deferred<Response>();
+      const rawEvidence = deferred<Response>();
+      const calls: Record<string, unknown>[] = [];
+      globalThis.fetch = async (_input, init) => {
+        calls.push(JSON.parse(String(init?.body)) as Record<string, unknown>);
+        return calls.length === 1 ? research.promise : calls.length === 2 ? rawEvidence.promise : response(sampleDiscoverySynthesis);
+      };
+      const running = generateDiscoverySynthesis(program, "Private notes", { externalResearch: true, researchTopic: "Public service practices", feedback: "Private revision feedback" });
+      await nextTurn();
+      assert.equal(calls.length, 2, "Both requests must start before either deferred response resolves.");
+      assert.deepEqual(timeouts, [300_000, 740_000]);
+      assert.doesNotMatch(JSON.stringify(calls[0].input), /Private fixture client|Private notes|Private revision feedback|accountable owner/);
+      const evidenceInput = JSON.parse((calls[1].input as Array<{ content: string }>)[1].content);
+      assert.equal(Object.hasOwn(evidenceInput, "externalResearch"), false);
+      assert.equal(Object.hasOwn(evidenceInput, "previousPackage"), false);
+      now = 100_000;
+      if (researchFirst) research.resolve(publicResearchResponse()); else rawEvidence.resolve(response(evidence));
+      await nextTurn();
+      assert.equal(calls.length, 2, "Synthesis must not start after only one branch completes.");
+      now = 150_000;
+      if (researchFirst) rawEvidence.resolve(response(evidence)); else research.resolve(publicResearchResponse());
+      const result = await running;
+      assert.equal(calls.length, 3);
+      assert.deepEqual(timeouts, [300_000, 740_000, 590_000]);
+      assert.equal(result.modelUsage?.totalTokens, 600);
+      assert.equal(result.research?.status, "completed");
+      const synthesisInput = JSON.parse((calls[2].input as Array<{ content: string }>)[1].content);
+      assert.ok(synthesisInput.evidenceReview.evidenceLedger.length);
+      assert.equal(synthesisInput.externalResearch.sources[0].url, "https://example.org/current");
+      assert.ok(calls.every((body) => body.store === false && body.stream === true && body.model === "gpt-5.5"));
+    }
+    assert.doesNotMatch(JSON.stringify(logs), /Private notes|Private revision feedback|accountable owner|Public service practices/);
+  });
+});
+
+test("failed evidence waits for bounded research settlement and never starts synthesis or retries provider/source failures", async () => {
+  await withStubs(async () => {
+    for (const sourceFailure of [false, true]) {
+      const research = deferred<Response>();
+      let calls = 0;
+      let settled = false;
+      globalThis.fetch = async () => {
+        if (++calls === 1) return research.promise;
+        return sourceFailure ? response({ ...evidence, sources: [] }) : Response.json({ error: { code: "credit_balance_exhausted" } }, { status: 429 });
+      };
+      const running = generateDiscoverySynthesis(program, "", { externalResearch: true, researchTopic: "Public practices" }).then(
+        (value) => { settled = true; return { value, error: null }; },
+        (error: Error) => { settled = true; return { value: null, error }; }
+      );
+      await nextTurn();
+      assert.equal(calls, 2);
+      assert.equal(settled, false, "The research request must not remain unmanaged after the evidence failure.");
+      research.resolve(publicResearchResponse());
+      const result = await running;
+      assert.equal(result.value, null);
+      assert.match(result.error?.message ?? "", sourceFailure ? /did not cover every source/ : /credits/);
+      assert.equal(calls, 2);
+    }
+  });
+});
+
+test("failed concurrent research becomes unavailable only after evidence finishes; research off starts no public request", async () => {
+  await withStubs(async (logs) => {
+    const research = deferred<Response>();
+    const rawEvidence = deferred<Response>();
+    let calls = 0;
+    globalThis.fetch = async () => ++calls === 1 ? research.promise : calls === 2 ? rawEvidence.promise : response(sampleDiscoverySynthesis);
+    const running = generateDiscoverySynthesis(program, "", { externalResearch: true, researchTopic: "Public practices" });
+    await nextTurn();
+    assert.equal(calls, 2);
+    research.reject(new TypeError("Private research transport failure"));
+    await nextTurn();
+    assert.equal(calls, 2);
+    rawEvidence.resolve(response(evidence));
+    const result = await running;
+    assert.equal(result.research?.status, "unavailable");
+    assert.equal(result.modelUsage?.totalTokens, 400);
+    assert.equal(result.quality?.status, "reviewed");
+    assert.equal(calls, 3);
+    const offlineCalls: Record<string, unknown>[] = [];
+    globalThis.fetch = async (_input, init) => {
+      offlineCalls.push(JSON.parse(String(init?.body)) as Record<string, unknown>);
+      return response(offlineCalls.length === 1 ? evidence : sampleDiscoverySynthesis);
+    };
+    assert.equal((await generateDiscoverySynthesis(program)).research?.status, "not-requested");
+    assert.equal(offlineCalls.length, 2);
+    assert.ok(offlineCalls.every((body) => !body.tools));
+    await assert.rejects(generateDiscoverySynthesis(program, "", { externalResearch: true, researchTopic: " " }), /Enter a public research topic/);
+    assert.equal(offlineCalls.length, 2, "Invalid research input cannot start either paid branch.");
+    assert.doesNotMatch(JSON.stringify(logs), /Private research transport failure/);
+  });
+});
+
+test("source-guided evidence correction can complete while concurrent research remains pending without starting synthesis", async () => {
+  await withStubs(async () => {
+    const fixture = evidenceRepairFixture();
+    const research = deferred<Response>();
+    let calls = 0;
+    globalThis.fetch = async () => {
+      calls++;
+      return calls === 1 ? research.promise : response(calls === 2 ? fixture.invalid : calls === 3 ? fixture.corrected : fixture.output);
+    };
+    const running = generateDiscoverySynthesis(fixture.input, "", { externalResearch: true, researchTopic: "Public service practices" });
+    await nextTurn();
+    assert.equal(calls, 3, "The independent evidence correction must not wait for public research.");
+    research.resolve(publicResearchResponse());
+    const result = await running;
+    assert.equal(calls, 4);
+    assert.equal(result.modelUsage?.totalTokens, 800);
+    assert.ok(result.quality?.checks.includes("Validation-guided evidence correction rechecked against all source coverage and fidelity rules"));
+  });
+});
+
+test("non-obligatory scope and analysis limitations remain visible context without relaxing true requirement coverage", async () => {
+  await withStubs(async () => {
+    const scopeFact = "Offline entry is not required for the pilot.";
+    const analysisCaveat = "Do not infer a verified cost saving from this dataset.";
+    const sources = sampleDiscoverySources.map((source, index) => ({ ...source, extractedText: index === 0 ? `${scopeFact} ${analysisCaveat}` : fixtureFact }));
+    const ledger = [
+      { id: "CONTEXT-SCOPE", sourceId: sources[0].id, quote: scopeFact, kind: "fact", statement: scopeFact },
+      { id: "CONTEXT-ANALYSIS", sourceId: sources[0].id, quote: analysisCaveat, kind: "fact", statement: "Verified cost savings must not be inferred from this dataset." },
+      ...evidenceLedger.slice(1)
+    ];
+    const review = { ...evidence, sources: sources.map((source) => ({ sourceId: source.id, findings: [source.extractedText], limitations: "Fictional evidence" })), evidenceLedger: ledger };
+    const output = { ...sampleDiscoverySynthesis, businessRules: [...sampleDiscoverySynthesis.businessRules, scopeFact, "This dataset does not establish verified cost savings."], evidenceCoverage: ledger.map((item) => ({ evidenceId: item.id, disposition: "context", storyIds: [], testIds: [], gapIds: [] })) };
+    const calls: Record<string, unknown>[] = [];
+    globalThis.fetch = async (_input, init) => {
+      calls.push(JSON.parse(String(init?.body)) as Record<string, unknown>);
+      return response(calls.length === 1 ? review : output);
+    };
+    const result = await generateDiscoverySynthesis({ ...program, intake: { ...program.intake, artifacts: sources } });
+    assert.equal(calls.length, 2);
+    assert.ok(result.businessRules.includes(scopeFact));
+    assert.ok(result.businessRules.includes("This dataset does not establish verified cost savings."));
+    assert.equal(result.stories.length, output.stories.length);
+    assert.equal(result.stories.flatMap((story) => story.testCases).length, output.stories.flatMap((story) => story.testCases).length);
+    for (const call of calls) {
+      const instruction = (call.input as Array<{ content: string }>)[0].content;
+      assert.match(instruction, /non-obligatory scope/);
+      assert.match(instruction, /[Aa]naly(?:sis|tical) limitation/);
+      assert.match(instruction, /[Aa]ctual product (?:obligations|prohibitions)/);
+    }
+    let requiredCalls = 0;
+    globalThis.fetch = async () => response(++requiredCalls === 1 ? { ...evidence, evidenceLedger: evidenceLedger.map((item) => ({ ...item, kind: "requirement" })) } : sampleDiscoverySynthesis);
+    await assert.rejects(generateDiscoverySynthesis(program), /needs mapped stories and relevant tests/);
+    assert.equal(requiredCalls, 3, "A real requirement with context-only coverage still fails after one fully validated correction.");
   });
 });
