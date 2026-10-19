@@ -14,6 +14,7 @@ import { isStudioInternalActor } from "@/lib/studio-collaboration";
 import { StudioCollaborationError } from "@/lib/studio-collaboration-types";
 import { isStudioRequestSameOrigin } from "@/lib/studio-request-origin";
 import { isDemoMode } from "@/lib/demo-session";
+import { hasStudioGenerationConsent, STUDIO_CONSENT_REQUIRED_MESSAGE } from "@/lib/studio-generation-consent";
 
 export const runtime = "nodejs";
 // The service stops at 740s, leaving time for validation/audit writes before
@@ -90,6 +91,7 @@ export async function POST(request: Request) {
   let body: DiscoverySynthesisRequest;
   try { body = JSON.parse(requestText) as DiscoverySynthesisRequest; } catch { return NextResponse.json({ error: "Invalid discovery request." }, { status: 400 }); }
   if (!body || typeof body !== "object" || Array.isArray(body)) return NextResponse.json({ error: "Invalid discovery request." }, { status: 400 });
+  if (!hasStudioGenerationConsent(body)) return NextResponse.json({ error: STUDIO_CONSENT_REQUIRED_MESSAGE }, { status: 428 });
   if (body.phase !== undefined && body.phase !== "evidence" && body.phase !== "product") return NextResponse.json({ error: "Invalid Studio generation phase." }, { status: 400 });
   if (body.phase !== "product" && body.checkpoint !== undefined) return NextResponse.json({ error: "An evidence checkpoint is only valid for product generation." }, { status: 400 });
   if (Array.isArray(body.artifacts) && (body.artifacts.length > 16 || body.artifacts.some((source) => typeof source?.extractedText === "string" && source.extractedText.length > 200_000))) {

@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 import ts from "typescript";
 import type { DiscoverySynthesis } from "../src/lib/discovery-studio-types.ts";
+import { createStudioGenerationConsent, hasStudioGenerationConsent } from "../src/lib/studio-generation-consent.ts";
 
 const clientSource = readFileSync(new URL("../src/components/discovery-studio-console.tsx", import.meta.url), "utf8");
 const parsed = ts.createSourceFile("discovery-studio-console.tsx", clientSource, ts.ScriptTarget.ES2022, true, ts.ScriptKind.TSX);
@@ -13,6 +14,7 @@ const compiledHelper = ts.transpileModule(helper.getText(parsed), { compilerOpti
 const checkpoint = "synthetic-memory-only-checkpoint";
 const completed = { executiveSummary: "Completed and checked package" } as DiscoverySynthesis;
 const input = () => ({
+  paidGenerationConsent: createStudioGenerationConsent(true),
   workspaceName: "Fictional sample", artifacts: [{ id: "S1", extractedText: "Source evidence" }],
   resolutionNotes: "Additional context", selectedOutputs: ["roadmap", "backlog", "stories", "tests", "gaps", "analysis"],
   externalResearch: true, researchTopic: "Generic public service intake",
@@ -42,7 +44,7 @@ function harness(options: {
     onHeartbeat?.();
     return options.product ? await options.product() : completed;
   };
-  const generate = new Function("fetch", "readDiscoveryEvidenceResponse", "readDiscoveryStudioResponse", `${compiledHelper}\nreturn generateStudioPackage;`)(mockFetch, evidenceReader, productReader) as (snapshot: string, onStatus: (message: string) => void) => Promise<DiscoverySynthesis>;
+  const generate = new Function("fetch", "readDiscoveryEvidenceResponse", "readDiscoveryStudioResponse", "hasStudioGenerationConsent", `${compiledHelper}\nreturn generateStudioPackage;`)(mockFetch, evidenceReader, productReader, hasStudioGenerationConsent) as (snapshot: string, onStatus: (message: string) => void) => Promise<DiscoverySynthesis>;
   return { requests, statuses, run: (snapshot = JSON.stringify(input())) => generate(snapshot, (status) => statuses.push(status)) };
 }
 
@@ -70,6 +72,14 @@ test("one Studio operation runs evidence then product with the same immutable in
   assert.ok(statuses.some((status) => /Phase 1 of 2/.test(status)));
   assert.ok(statuses.some((status) => /Phase 2 of 2/.test(status)));
   assert.ok(statuses.every((status) => !status.includes(checkpoint)));
+});
+
+test("client orchestration makes zero requests without matching explicit paid consent", async () => {
+  for (const consent of [undefined, null, false, {}, { version: 1, confirmed: false, externalResearch: true }, createStudioGenerationConsent(false)]) {
+    const { requests, run } = harness();
+    await assert.rejects(run(JSON.stringify({ ...input(), paidGenerationConsent: consent })), /Confirm paid generation/);
+    assert.equal(requests.length, 0);
+  }
 });
 
 test("product cannot start until the evidence checkpoint reader completes", async () => {

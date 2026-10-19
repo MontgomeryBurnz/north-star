@@ -4,6 +4,7 @@ import { auditActorFromManagedUser, buildSystemAuditActor } from "@/lib/audit-ev
 import { DiscoveryGenerationError, generateDiscoverySynthesis, synthesisToArtifact } from "@/lib/discovery-studio-service";
 import type { DiscoverySynthesisRequest } from "@/lib/discovery-studio-types";
 import { createAuditEvent, createOpenAIUsageRecord, createRoleArtifact, getProgram, listRoleArtifacts } from "@/lib/program-store";
+import { hasStudioGenerationConsent, STUDIO_CONSENT_REQUIRED_MESSAGE } from "@/lib/studio-generation-consent";
 
 const artifactType = "studio-discovery-build-package";
 // Keep this above the service's 740s deadline so saved artifacts/audits finish.
@@ -27,13 +28,17 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   const { currentUser, response } = await requireProgramRouteAccess(request, id, { loadCurrentUser: true });
   if (response) return response;
 
+  const body = (await request.json().catch(() => null)) as DiscoverySynthesisRequest | null;
+  if (!body || typeof body !== "object" || Array.isArray(body)) return NextResponse.json({ error: "Invalid discovery request." }, { status: 400 });
+  if (!hasStudioGenerationConsent(body)) return NextResponse.json({ error: STUDIO_CONSENT_REQUIRED_MESSAGE }, { status: 428 });
+  if (body.externalResearch === true) return NextResponse.json({ error: "Use the Studio workspace to request external references." }, { status: 400 });
+
   const program = await getProgram(id);
   if (!program) return NextResponse.json({ error: "Program not found." }, { status: 404 });
   if (!program.intake.artifacts.some((artifact) => artifact.extractedText?.trim())) {
     return NextResponse.json({ error: "Add at least one readable discovery source before analysis." }, { status: 400 });
   }
 
-  const body = (await request.json().catch(() => ({}))) as DiscoverySynthesisRequest;
   const resolutionNotes = typeof body.resolutionNotes === "string" ? body.resolutionNotes.slice(0, 12_000) : "";
   let synthesis;
   try {

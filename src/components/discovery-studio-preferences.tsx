@@ -63,13 +63,13 @@ export function DiscoveryStudioPreferences({
           <div className="grid gap-3 rounded-md border border-white/10 bg-white/[0.025] p-4">
             <label className="flex cursor-pointer items-start gap-3">
               <input type="checkbox" checked={externalResearch} onChange={(event) => onExternalResearchChange(event.target.checked)} disabled={disabled} className="mt-1 h-4 w-4 shrink-0 accent-cyan-300" data-studio-external-research />
-              <span><span className="flex items-center gap-2 text-sm font-medium text-zinc-100"><Globe2 className="h-4 w-4 text-cyan-200" />Include public best-practice research</span><span className="mt-1 block text-xs leading-5 text-zinc-400">Add cited public context to the evidence review. Only the public topic you enter below is used for web research; uploaded content stays in the synthesis workflow.</span></span>
+              <span><span className="flex items-start gap-2 text-sm font-medium text-zinc-100"><Globe2 className="mt-0.5 h-4 w-4 shrink-0 text-cyan-200" />Supplement with external references</span><span className="mt-1 block text-xs font-medium text-cyan-200">Optional · additional API cost · off by default</span><span className="mt-1 block text-xs leading-5 text-zinc-400">Add cited public guidance for a specific question, such as accessibility or security requirements. Your discovery evidence remains the source of truth; public guidance does not resolve business-policy gaps.</span></span>
             </label>
             {externalResearch ? (
               <label className="grid gap-2">
-                <span className="text-xs font-medium text-zinc-200">Public research topic</span>
+                <span className="text-xs font-medium text-zinc-200">Public reference topic</span>
                 <input value={researchTopic} onChange={(event) => onResearchTopicChange(event.target.value)} maxLength={500} disabled={disabled} required placeholder="Example: public-sector service request intake and triage best practices" className="rounded-md border border-white/10 bg-zinc-950 px-3 py-2.5 text-sm text-zinc-100 outline-none placeholder:text-zinc-600 focus:border-cyan-300/50 focus:ring-2 focus:ring-cyan-300/15" data-studio-research-topic />
-                <span className="text-xs leading-5 text-zinc-500">Use a generic topic without customer names, private details, or uploaded excerpts.</span>
+                <span className="text-xs leading-5 text-zinc-500">Only this topic is used for web research. Do not include customer names, private details, or document excerpts. Discovery analysis still sends your evidence to OpenAI whether references are on or off.</span>
               </label>
             ) : null}
           </div>

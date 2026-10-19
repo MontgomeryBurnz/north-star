@@ -93,6 +93,7 @@ export type DiscoverySynthesis = {
 };
 
 export type DiscoverySynthesisRequest = {
+  paidGenerationConsent?: import("./studio-generation-consent").StudioGenerationConsent;
   phase?: "evidence" | "product";
   checkpoint?: string;
   workspaceName?: string;

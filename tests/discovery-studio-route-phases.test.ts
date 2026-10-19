@@ -12,6 +12,12 @@ const stateUrl = `data:text/javascript,${encodeURIComponent(`
   export async function reviewDiscoverySources(program,notes,options){state.calls.push({phase:'evidence',program,notes,options});return {reviewed:true};}
   export async function generateDiscoverySynthesis(program,notes,options,checkpoint){state.calls.push({phase:'product',program,notes,options,checkpoint});if(state.fail)throw new DiscoveryGenerationError('Product validation failed; previous package preserved.');return sampleDiscoverySynthesis;}
   export async function requireInternalWorkspaceRouteAccess(){return {currentUser:state.user,response:state.denied?Response.json({error:'Unauthorized.'},{status:401}):null};}
+  export const requireProgramRouteAccess=requireInternalWorkspaceRouteAccess;
+  export async function getProgram(id){return {id,intake:{programName:'Saved fixture',artifacts:[{id:'S1',extractedText:'Fictional source evidence'}]}};}
+  export function synthesisToArtifact(){return {title:'Prepared package',version:1};}
+  export async function createRoleArtifact(id,artifact){state.saves.push({kind:'artifact',id});return {...artifact,id:'A1'};}
+  export async function createOpenAIUsageRecord(){}
+  export async function listRoleArtifacts(){return [];}
   export function auditActorFromManagedUser(){return {kind:'test'};}
   export function buildSystemAuditActor(){return {kind:'test'};}
   export async function createAuditEvent(event){if(state.auditFail)throw new Error('Audit unavailable');state.audits.push(event);}
@@ -29,10 +35,11 @@ const hooks = registerHooks({resolve(specifier, context, nextResolve) {
   return nextResolve(specifier,context);
 }});
 const {POST}=await import("../src/app/api/studio/discovery-synthesis/route.ts");
+const {POST:programPOST}=await import("../src/app/api/programs/[id]/discovery-synthesis/route.ts");
 const {readDiscoveryEvidenceResponse,readDiscoveryStudioResponse}=await import("../src/lib/discovery-studio-transport.ts");
 const {state}=await import(stateUrl);
 hooks.deregister();
-const input={workspaceName:"Private fixture",artifacts:[{id:"S1",name:"Source.txt",extractedText:"The pilot covers three regions."}],feedback:"Verify original evidence.",selectedOutputs:["stories"],externalResearch:true,researchTopic:"Public service delivery"};
+const input={paidGenerationConsent:{version:1,confirmed:true,externalResearch:true},workspaceName:"Private fixture",artifacts:[{id:"S1",name:"Source.txt",extractedText:"The pilot covers three regions."}],feedback:"Verify original evidence.",selectedOutputs:["stories"],externalResearch:true,researchTopic:"Public service delivery"};
 function request(body:unknown,cookie?:string,origin="https://example.test",stream=false) {return new Request("https://example.test/api/studio/discovery-synthesis",{method:"POST",headers:{"content-type":"application/json",origin,...(cookie?{cookie}:{}),...(stream?{accept:"text/event-stream"}:{})},body:JSON.stringify(body)});}
 async function setup(run:()=>Promise<void>) {
   const original=process.env.STUDIO_CHECKPOINT_SECRET;
@@ -47,6 +54,35 @@ async function evidence() {
   const cookie=response.headers.get("set-cookie")!.split(";")[0];
   return {payload,cookie,response};
 }
+
+test("all generation phases fail closed without a matching explicit billing acknowledgement",async()=>setup(async()=>{
+  for (const phase of [undefined,"evidence","product"]) {
+    for (const paidGenerationConsent of [undefined,null,false,{},[],{version:1,confirmed:"true",externalResearch:true},{version:1,confirmed:true,externalResearch:false},{version:0,confirmed:true,externalResearch:true}]) {
+      const response=await POST(request({...input,phase,paidGenerationConsent}));
+      assert.equal(response.status,428);
+      assert.match((await response.json()).error,/requires confirmation/);
+    }
+  }
+  assert.equal(state.calls.length,0);
+  assert.equal(state.audits.length,0);
+  assert.equal(state.saves.length,0);
+}));
+
+test("the legacy program generation route cannot bypass consent; approved fixtures never call a provider",async()=>setup(async()=>{
+  const params={params:Promise.resolve({id:'PROGRAM-1'})};
+  for (const paidGenerationConsent of [undefined,null,{},false,{version:1,confirmed:false,externalResearch:false}]) {
+    assert.equal((await programPOST(request({paidGenerationConsent}),params)).status,428);
+  }
+  assert.equal(state.calls.length,0);
+  assert.equal(state.saves.length,0);
+  assert.equal((await programPOST(request({...input}),params)).status,400);
+  assert.equal(state.calls.length,0);
+  const response=await programPOST(request({externalResearch:false,paidGenerationConsent:{version:1,confirmed:true,externalResearch:false}}),params);
+  assert.equal(response.status,200);
+  assert.equal((await response.json()).synthesis.executiveSummary.length>0,true);
+  assert.equal(state.calls.length,1);
+  assert.equal(state.saves.length,1);
+}));
 
 test("authenticated browser-bound evidence is not a revision; product reuses identical workspace identity and audits only final output",async()=>setup(async()=>{
   const {payload,cookie,response}=await evidence();
