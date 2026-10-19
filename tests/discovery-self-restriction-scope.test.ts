@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { reviewDiscoveryFidelity } from "../src/lib/discovery-fidelity.ts";
+import { discoverySynthesisFidelityInstructions, reviewDiscoveryFidelity } from "../src/lib/discovery-fidelity.ts";
 import type { DiscoverySynthesis } from "../src/lib/discovery-studio-types.ts";
 
 const rule = "A user cannot approve their own policy exception.";
@@ -107,4 +107,30 @@ test("unattributed double negation does not use the narrow qualified-rejection h
     assert.ok(!reviewed.reviewIssues.some((issue) => /Rule-qualified rejection wording/.test(issue.message)));
     if (/self approval rule/.test(clause)) assert.ok(reviewed.errors.some((error) => /self-decision restriction/.test(error)));
   }
+});
+
+test("generation instructions require exact self-decision rules and unknown-authority gaps without teaching non-prohibition claims", () => {
+  assert.match(discoverySynthesisFidelityInstructions, /exact source-supported actor, action and object/);
+  assert.match(discoverySynthesisFidelityInstructions, /A user cannot approve their own policy exception/);
+  assert.match(discoverySynthesisFidelityInstructions, /Infer neither permissions nor additional restrictions from silence/);
+  assert.match(discoverySynthesisFidelityInstructions, /source-linked owner-decision gap with dependent behavior needs-input/);
+  assert.match(discoverySynthesisFidelityInstructions, /separately authorized reviewer/);
+  assert.match(discoverySynthesisFidelityInstructions, /When sources require a rejection explanation/);
+  assert.doesNotMatch(discoverySynthesisFidelityInstructions, /does not prohibit rejecting|not prohibit rejecting|can reject (?:their|one's) own/);
+});
+
+test("the exact live broad non-prohibition clause remains a hard scope failure", () => {
+  const {value,ledger,coverage,sources}=fixture();
+  value.businessRules.push("not prohibit rejecting their own exception or all own requests");
+  assert.match(reviewDiscoveryFidelity(value,ledger,coverage,sources).errors.join(" "),/self-decision restriction changes its source-supported action or object scope/);
+});
+
+test("the exact sourced self-approval rule plus an unresolved authority gap is faithful without granting other permissions", () => {
+  const {value,ledger,coverage,sources}=fixture();
+  value.gaps.push({id:"AUTHORITY",title:"Clarify decision authority",description:"The source confirms the self-approval restriction but does not define authority for other self-actions.",question:"Which reviewer roles and self-action permissions are authorized for policy exceptions?",severity:"blocking",sourceIds:["S1"]});
+  const coverageWithGap=coverage.map(row=>({...row,gapIds:["AUTHORITY"]}));
+  const reviewed=reviewDiscoveryFidelity(value,ledger,coverageWithGap,sources);
+  assert.deepEqual(reviewed.errors,[]);
+  assert.equal(value.stories[0].readiness,"needs-input");
+  assert.equal(value.businessRules[0],rule);
 });
