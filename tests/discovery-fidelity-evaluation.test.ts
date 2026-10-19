@@ -212,6 +212,39 @@ test("a metric statement may retain its same-source baseline period from the hea
     "An unrelated same-source duration is not evidence of the measurement's baseline period.");
 });
 
+test("region counts retain their unit through pilot, selected, and named qualifiers without treating offices as regions", () => {
+  const quote = "The pilot will cover three regions.";
+  for (const qualifier of ["pilot", "selected", "named"]) {
+    const statement = `Delivery begins in three ${qualifier} regions.`;
+    const ledger: Evidence[] = [{ id: "REGIONS", sourceId: "SRC1", quote, kind: "fact", statement }];
+    const reviewed = reviewDiscoveryEvidenceLedger(ledger, [{ id: "SRC1", text: quote }]);
+    assert.deepEqual(reviewed.errors, []);
+    const value = definition(statement);
+    assert.deepEqual(reviewDiscoveryFidelity(value, reviewed.ledger, [row("REGIONS")], [{ id: "SRC1", text: quote }]).errors, []);
+    for (const changed of [
+      replaceVisible(value, `three ${qualifier} regions`, `four ${qualifier} regions`),
+      replaceVisible(value, `three ${qualifier} regions`, `three ${qualifier} offices`)
+    ]) {
+      assert.ok(reviewDiscoveryFidelity(changed, reviewed.ledger, [row("REGIONS")], [{ id: "SRC1", text: quote }]).errors.length > 0,
+        "A qualifier does not permit changing the count or substituting a different organizational unit.");
+    }
+  }
+});
+
+test("a target explicitly described as not achieved is distinct from a claim of achieved results", () => {
+  const quote = "An assignment-time target under 4 business hours is proposed. Outcomes are targets, not achieved results.";
+  const ledger: Evidence[] = [{ id: "TARGET", sourceId: "SRC1", quote, kind: "proposal", statement: "An assignment-time target under 4 business hours is proposed." }];
+  const reviewed = reviewDiscoveryEvidenceLedger(ledger, [{ id: "SRC1", text: quote }]);
+  assert.deepEqual(reviewed.errors, []);
+  for (const qualification of ["not achieved", "not an achieved result", "not the achieved outcome"]) {
+    const value = definition(`The assignment-time target under 4 business hours is ${qualification}.`);
+    assert.deepEqual(reviewDiscoveryFidelity(value, reviewed.ledger, [row("TARGET", "proposal")], [{ id: "SRC1", text: quote }]).errors, []);
+  }
+  const achieved = definition("The assignment-time target under 4 business hours has been achieved.");
+  assert.ok(reviewDiscoveryFidelity(achieved, reviewed.ledger, [row("TARGET", "proposal")], [{ id: "SRC1", text: quote }]).errors.length > 0,
+    "An actual achieved-outcome claim remains a hard contradiction of a merely proposed target.");
+});
+
 test("confirmation required for each record deletion is a confirmed workflow rule, not an unresolved product decision", () => {
   for (const text of [
     "Record deletion requires confirmation from the record owner before the delete operation proceeds.",
@@ -378,6 +411,30 @@ test("self-approval fidelity preserves the source's action and object scope rath
     assert.deepEqual(reviewDiscoveryIntegrity(changed, ["SRC1"]).errors, []);
     assert.ok(review(changed, selfLedger, coverage, selfRule).errors.length > 0,
       "A restriction must not gain a new prohibited action or a broader object scope.");
+  }
+});
+
+test("same-head self-policy shorthand becomes a final source-linked review issue while broader objects and new prohibited actions remain hard", () => {
+  const value = selfApprovalDefinition();
+  value.stories[0].acceptanceCriteria[1] = "A user cannot approve their own exception.";
+  const result = review(value, selfLedger, [row("R1", "implemented")], selfRule);
+  assert.deepEqual(result.errors, []);
+  assert.ok(result.reviewIssues.some((issue) => issue.evidenceId === "R1" && issue.sourceId === "SRC1" && /own exception/.test(issue.message)),
+    "The final issue must identify both the evidence and the ambiguous visible clause for the service review hold.");
+  const unrelatedFact = "Each request has a reference.";
+  const withContext: Evidence[] = [{ id: "UNRELATED", sourceId: "SRC1", quote: unrelatedFact, kind: "fact", statement: unrelatedFact }, ...selfLedger];
+  const multiClaim = reviewDiscoveryFidelity(value, withContext, [row("UNRELATED"), row("R1", "implemented")], [{ id: "SRC1", text: `${unrelatedFact} ${selfRule}` }]);
+  assert.deepEqual(multiClaim.errors, []);
+  assert.ok(multiClaim.reviewIssues.some((issue) => issue.evidenceId === "R1" && issue.sourceId === "SRC1"),
+    "The review hold must cite the actual policy assertion rather than an unrelated first assertion from the same source.");
+  for (const clause of [
+    "A user cannot approve their own request.",
+    "A user cannot approve or reject their own policy exception."
+  ]) {
+    const changed = selfApprovalDefinition();
+    changed.stories[0].acceptanceCriteria[1] = clause;
+    assert.ok(review(changed, selfLedger, [row("R1", "implemented")], selfRule).errors.length > 0,
+      "A genuinely broader object or an added rejection prohibition cannot be downgraded to a review warning.");
   }
 });
 

@@ -62,9 +62,9 @@ function normalized(value: string) {
 type Metric = { value: number; unit: string; comparator: string; index: number; text: string };
 function metrics(text: string): Metric[] {
   const value = normalized(text);
-  const pattern = /(?:(less than|under|below|at most|no more than|more than|over|above|at least|[<>]=?)\s*)?(\d+(?:\.\d+)?)\s*(%|(?:(?:business|calendar)\s+)?(?:hours?|days?|weeks?|months?|years?|minutes?|seconds?|regions?|offices?))(?=$|[\s,;:.|)])/g;
+  const pattern = /(?:(\b(?:less than|under|below|at most|no more than|more than|over|above|at least)(?![a-z])|[<>]=?)\s*)?(\d+(?:\.\d+)?)\s*(%|(?:(?:business|calendar)\s+)?(?:hours?|days?|weeks?|months?|years?|minutes?|seconds?)|(?:(?:pilot|selected|named)\s+)?(?:regions?|offices?))(?=$|[\s,;:.|)])/g;
   return [...value.matchAll(pattern)].map((match) => ({
-    value: Number(match[2]), unit: match[3].replace(/s$/, ""),
+    value: Number(match[2]), unit: match[3].replace(/^(?:pilot|selected|named)\s+/, "").replace(/s$/, ""),
     comparator: /^(less than|under|below|<)$/.test(match[1] ?? "") ? "<" : /^(at most|no more than|<=)$/.test(match[1] ?? "") ? "<=" : /^(more than|over|above|>)$/.test(match[1] ?? "") ? ">" : /^(at least|>=)$/.test(match[1] ?? "") ? ">=" : "",
     index: match.index!, text: match[0]
   }));
@@ -110,8 +110,8 @@ function unconfirmedKind(text: string): "proposal" | "open-question" | undefined
   const value = normalized(text);
   // Business entities and confirmed procedural obligations are not proposal status.
   if (/\b(?:must|shall|required|requires?|reject|block|prevent)\b/.test(value) && /\b(?:unconfirmed|unapproved|pending) (?:requests?|applications?|submissions?|records?|transactions?)\b/.test(value)) return undefined;
-  if (/\b(?:is|are|was|were|has been|have been|now|already)\s+(?:(?:formally|explicitly)\s+)?(?:approved|confirmed|authorized|adopted|ratified|settled|achieved)\b/.test(value)) return undefined;
-  if (/\b(?:proposed|indicative)\b|\bnot\s+(?:(?:a|an|the)\s+)?committed\b|\b(?:is|are|was|were|remains)\s+(?:(?:a|an|the)\s+)?proposal\b|\bproposal (?:for|to)\b|\b(?:later|future|unapproved) proposal\b|\bcandidate (?:dependenc(?:y|ies)|integrations?|solutions?|designs?|approaches?|scope|categor(?:y|ies)|vendors?|platforms?|systems?|options?|targets?|features?)\b/.test(value)) return "proposal";
+  if (/\b(?:is|are|was|were|has been|have been|now|already)\s+(?:(?:formally|explicitly|an?|the)\s+)?(?:approved|confirmed|authorized|adopted|ratified|settled|achieved)\b/.test(value)) return undefined;
+  if (/\b(?:proposed|indicative)\b|\bnot\s+(?:(?:a|an|the)\s+)?(?:committed|achieved(?:\s+(?:results?|outcomes?))?)\b|\b(?:is|are|was|were|remains)\s+(?:(?:a|an|the)\s+)?proposal\b|\bproposal (?:for|to)\b|\b(?:later|future|unapproved) proposal\b|\bcandidate (?:dependenc(?:y|ies)|integrations?|solutions?|designs?|approaches?|scope|categor(?:y|ies)|vendors?|platforms?|systems?|options?|targets?|features?)\b/.test(value)) return "proposal";
   if (/\b(?:unconfirmed|unresolved|unknown|open (?:technical )?(?:decisions?|questions?)|pending decision|not (?:yet )?(?:been )?(?:approved|confirmed|defined|decided|settled|determined))\b/.test(value)) return "open-question";
   return undefined;
 }
@@ -246,7 +246,7 @@ export function reviewDiscoveryEvidenceLedger(value: unknown, sources: Discovery
   return { ledger, normalizations, reviewIssues: [...new Map(reviewIssues.map((issue) => [`${issue.evidenceId}:${issue.message}`, issue])).values()], errors: [...new Set(errors)] };
 }
 
-function visibleFields(synthesis: FidelityDefinition) {
+function visibleFields(synthesis: FidelityDefinition, reviewGapIds: ReadonlySet<string>) {
   return [
     synthesis.executiveSummary, synthesis.evidenceSummary, ...synthesis.capabilities, ...synthesis.painPoints,
     ...synthesis.businessRules, ...synthesis.assumptions, synthesis.readinessNarrative,
@@ -254,7 +254,7 @@ function visibleFields(synthesis: FidelityDefinition) {
     ...synthesis.epics.flatMap((item) => [item.title, item.objective]),
     ...synthesis.features.flatMap((item) => [item.title, item.description, item.outcome]),
     ...synthesis.stories.flatMap((item) => [item.title, item.story, ...item.acceptanceCriteria]),
-    ...synthesis.gaps.flatMap((item) => [item.title, item.description, item.question])
+    ...synthesis.gaps.filter((item) => !reviewGapIds.has(item.id)).flatMap((item) => [item.title, item.description, item.question])
   ];
 }
 function testText(test: DiscoveryTestCase) { return [test.title, ...test.steps, test.expectedResult].join(" "); }
@@ -267,7 +267,20 @@ function restrictiveSelfClauses(text: string) {
   return normalized(text).split(/[.;\n]/).map((part) => part.split(/\b(?:but|however|whereas)\b/)[0]).filter((part) => /\b(?:own|self)\b/.test(part) && /\b(?:cannot|can not|must not|may not|shall not|not allowed|prevent(?:s|ed)?|block(?:s|ed)?|den(?:y|ies|ied)|prohibit(?:s|ed)?|forbid(?:s|den)?)\b/.test(part));
 }
 
-export function reviewDiscoveryFidelity(synthesis: FidelityDefinition, inputLedger: DiscoveryEvidenceLedgerItem[], value: unknown, sources: DiscoveryEvidenceSource[]) {
+function ownObjectScope(clause: string) {
+  return normalized(clause).match(/\bown\s+(.+?)(?:[.;]|$)/)?.[1];
+}
+function scopeHead(scope: string | undefined) {
+  const nounPhrase = scope?.split(/\b(?:during|when|unless|without|before|after|raised|created|submitted|that|which|because|for|to|by|if)\b/)[0].trim();
+  return nounPhrase?.match(/[a-z]+/g)?.at(-1)?.replace(/s$/, "");
+}
+function proposedMetricPromoted(context: string) {
+  const value = normalized(context).replace(/\bnot\s+(?:(?:an?|the)\s+)?achieved(?:\s+(?:results?|outcomes?))?\b/g, "unconfirmed outcome");
+  return /\bachieved\s+(?:results?|outcomes?)\b/.test(value)
+    || (/\b(?:achieved|approved|confirmed|committed)\b/.test(value) && !unconfirmedKind(value));
+}
+
+export function reviewDiscoveryFidelity(synthesis: FidelityDefinition, inputLedger: DiscoveryEvidenceLedgerItem[], value: unknown, sources: DiscoveryEvidenceSource[], reviewGapIds: ReadonlySet<string> = new Set()) {
   const reviewed = reviewDiscoveryEvidenceLedger(inputLedger, sources);
   const ledger = reviewed.ledger;
   const errors = [...reviewed.errors];
@@ -289,7 +302,7 @@ export function reviewDiscoveryFidelity(synthesis: FidelityDefinition, inputLedg
     if (row.testIds.some((id) => !row.storyIds.includes(tests.get(id)?.story.id ?? ""))) errors.push(`${row.evidenceId} cites tests outside its mapped stories.`);
     coverage.push(row);
   }
-  const fields = visibleFields(synthesis);
+  const fields = visibleFields(synthesis, reviewGapIds);
   const allMetrics = fields.flatMap((text) => metrics(text));
   for (const item of ledger) {
     const row = coverage.find((entry) => entry.evidenceId === item.id);
@@ -306,7 +319,7 @@ export function reviewDiscoveryFidelity(synthesis: FidelityDefinition, inputLedg
         if (candidates.some((actual) => /^(?:business|calendar) /.test(expected.unit) && /^(?:business|calendar) /.test(actual.unit) && actual.unit !== expected.unit)) errors.push(`${item.id} changes the measurement calendar or unit basis.`);
         if (candidates.some((actual) => expectedStatistic === "median" && /\b(?:average|mean)\b/i.test(metricContext(field, actual)))) errors.push(`${item.id} changes a median into a mean/average.`);
         if (candidates.some((actual) => ["average", "mean"].includes(expectedStatistic ?? "") && /\bmedian\b/i.test(metricContext(field, actual)))) errors.push(`${item.id} changes a mean/average into a median.`);
-        if (candidates.some((actual) => item.kind === "proposal" && /\b(?:achieved|approved|confirmed|committed)\b/i.test(metricContext(field, actual)) && !unconfirmedKind(metricContext(field, actual)))) errors.push(`${item.id} presents a proposed target as approved or achieved.`);
+        if (candidates.some((actual) => item.kind === "proposal" && proposedMetricPromoted(metricContext(field, actual)))) errors.push(`${item.id} presents a proposed target as approved or achieved.`);
       }
     }
     const sourceRestrictions = restrictiveSelfClauses(item.statement);
@@ -319,7 +332,7 @@ export function reviewDiscoveryFidelity(synthesis: FidelityDefinition, inputLedg
   // Compare against all source-supported policies for the same object, not against every
   // unrelated rule individually (e.g. self-approval and self-publication may both be forbidden).
   const policies = sources.flatMap((source) => restrictiveSelfClauses(source.text).map((clause) => ({
-    actions: actions(clause), scope: normalized(clause).match(/\bown\s+(.+?)(?:[.;]|$)/)?.[1]
+    sourceId: source.id, clause, actions: actions(clause), scope: ownObjectScope(clause)
   })));
   if (policies.length) {
     // A test title is not a grammatical prefix for all steps/results: "Block self-
@@ -327,7 +340,26 @@ export function reviewDiscoveryFidelity(synthesis: FidelityDefinition, inputLedg
     for (const clause of [...fields, ...[...tests.values()].flatMap(({ test }) => [test.title, ...test.steps, test.expectedResult])].flatMap(restrictiveSelfClauses)) {
       const objectPolicies = policies.filter((policy) => !policy.scope || clause.includes(policy.scope));
       const supportedActions = new Set(objectPolicies.flatMap((policy) => [...policy.actions]));
-      if (!objectPolicies.length || [...actions(clause)].some((action) => !supportedActions.has(action))) errors.push("A self-decision restriction changes its source-supported action or object scope.");
+      const clauseActions = actions(clause);
+      const ambiguousNegation = /\bnot\b.{0,24}\b(?:blocked|prevented|denied|prohibited|forbidden)\b|\b(?:unless|except|only if)\b/.test(clause);
+      if (objectPolicies.length && [...clauseActions].every((action) => supportedActions.has(action)) && !ambiguousNegation) continue;
+      const ownScope = ownObjectScope(clause);
+      const head = scopeHead(ownScope);
+      const omittedSelfObject = !ownScope && /\bself\b/.test(clause) && clauseActions.size > 0;
+      const related = objectPolicies.length ? objectPolicies : policies.filter((policy) => (head && scopeHead(policy.scope) === head)
+        || (omittedSelfObject && [...clauseActions].every((action) => policy.actions.has(action))));
+      const relatedActions = new Set(related.flatMap((policy) => [...policy.actions]));
+      const newAction = [...clauseActions].some((action) => !relatedActions.has(action));
+      // Same-head shorthand cannot establish equivalent scope by itself. Hold it for
+      // human review, but do not turn a clearly different object or added ban into a warning.
+      const explicitAdditionalBan = /\b(?:cannot|can not|must not|may not|shall not|not allowed)\b/.test(clause);
+      const anchor = related.flatMap((policy) => ledger.filter((item) => item.sourceId === policy.sourceId && sameAtomicClaim(item.statement, policy.clause) && [...actions(item.statement)].some((action) => policy.actions.has(action)))).at(0);
+      if (anchor && related.length && (!newAction || (ambiguousNegation && !explicitAdditionalBan))) {
+        reviewIssues.push({ evidenceId: anchor.id, sourceId: anchor.sourceId, message: `Self-decision wording needs owner review for scope or negation before commitment. Reviewed clause: ${clause.slice(0, 700)}. Source-supported scope: ${related.map((policy) => policy.scope ?? "self-decision").join("; ").slice(0, 700)}.` });
+      } else {
+        const support = (related.length ? related : policies).map((policy) => `${policy.sourceId}: ${[...policy.actions].join("/")} own ${policy.scope ?? "self-decision"}`).join("; ").slice(0, 300);
+        errors.push(`A self-decision restriction changes its source-supported action or object scope. Offending clause: ${clause.slice(0, 240)}. Source-supported restrictions: ${support}.`);
+      }
     }
   }
 
@@ -336,7 +368,7 @@ export function reviewDiscoveryFidelity(synthesis: FidelityDefinition, inputLedg
   // A behavior may reconcile several sources, so do not require duplicate tests merely
   // because an overview and a detailed policy both mention the same concern.
   const scopedTests = synthesis.stories.flatMap((story) => story.testCases);
-  const sourceGaps = synthesis.gaps.map((gap) => [gap.title, gap.description, gap.question].join(" "));
+  const sourceGaps = synthesis.gaps.filter((gap) => !reviewGapIds.has(gap.id)).map((gap) => [gap.title, gap.description, gap.question].join(" "));
   for (const source of sources) {
     const text = normalized(source.text);
     const hasTest = (pattern: RegExp, extra?: (test: DiscoveryTestCase) => boolean) => scopedTests.some((test) => pattern.test(normalized(testText(test))) && (!extra || extra(test)));

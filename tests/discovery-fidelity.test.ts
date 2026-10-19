@@ -114,3 +114,77 @@ test("known retention duration needs a real boundary test and unknown legal beha
   vagueGap.gaps[0] = { ...vagueGap.gaps[0], title: "Confirm delivery", description: "Delivery needs approval.", question: "Can delivery proceed?" };
   assert.match(reviewDiscoveryFidelity(vagueGap, ledger, coverage, sources).errors.join(" "), /unresolved content deletion|unresolved legal holds|unresolved encryption/);
 });
+
+test("harmless pilot scope qualifiers retain the quantitative unit rather than inventing an office-region synonym", () => {
+  const text = "The pilot will cover three regions.";
+  const ledger = [{ id: "SCOPE", sourceId: "S1", quote: text, kind: "fact" as const, statement: text }];
+  const sources = [{ id: "S1", text }];
+  const coverage = [{ evidenceId: "SCOPE", disposition: "context", storyIds: [], testIds: [], gapIds: [] }];
+  for (const qualifier of ["pilot", "selected", "named"]) {
+    const output = product(`The discovery covers three ${qualifier} regions.`);
+    assert.deepEqual(reviewDiscoveryFidelity(output, ledger, coverage, sources).errors, []);
+  }
+  assert.ok(reviewDiscoveryFidelity(product("The pilot covers three offices."), ledger, coverage, sources).errors.length > 0);
+});
+
+test("a proposed outcome explicitly not achieved is not mistaken for a claimed achieved result", () => {
+  const text = "The proposed assignment target is under four business hours, not an achieved result.";
+  const ledger = [{ id: "TARGET", sourceId: "S1", quote: text, kind: "proposal" as const, statement: text }];
+  const sources = [{ id: "S1", text }];
+  const coverage = [{ evidenceId: "TARGET", disposition: "proposal", storyIds: [], testIds: [], gapIds: [] }];
+  assert.deepEqual(reviewDiscoveryEvidenceLedger(ledger, sources).errors, []);
+  assert.deepEqual(reviewDiscoveryFidelity(product(text), ledger, coverage, sources).errors, []);
+  const achieved = text.replace("not an achieved", "an achieved");
+  assert.ok(reviewDiscoveryFidelity(product(achieved), ledger, coverage, sources).errors.length > 0);
+});
+
+test("same-head self-policy shorthand is held for source-linked review while new objects or decision bans stay hard", () => {
+  const text = "A user cannot approve their own policy exception.";
+  const ledger = [{ id: "SELF", sourceId: "S1", quote: text, kind: "requirement" as const, statement: text }];
+  const sources = [{ id: "S1", text }];
+  const coverage = [{ evidenceId: "SELF", disposition: "implemented", storyIds: ["U1"], testIds: ["T1", "T2"], gapIds: [] }];
+  const output = product(text);
+  output.stories[0].testCases[1] = { id: "T2", title: "Block self approval of a policy exception", type: "negative", steps: ["Attempt approval of one's own policy exception"], expectedResult: "Approval is blocked and the policy exception remains pending." };
+  output.businessRules = ["A user cannot approve their own exception."];
+  const reviewed = reviewDiscoveryFidelity(output, ledger, coverage, sources);
+  assert.deepEqual(reviewed.errors, []);
+  assert.ok(reviewed.reviewIssues.some((issue) => issue.evidenceId === "SELF" && issue.sourceId === "S1"));
+  const omittedObject = structuredClone(output);
+  omittedObject.businessRules = [text];
+  omittedObject.stories[0].testCases[1].title = "Prevent self approval";
+  const omittedReview = reviewDiscoveryFidelity(omittedObject, ledger, coverage, sources);
+  assert.deepEqual(omittedReview.errors, []);
+  assert.ok(omittedReview.reviewIssues.some((issue) => issue.evidenceId === "SELF" && issue.sourceId === "S1" && /prevent self approval/.test(issue.message)));
+  const unrelatedLedger = [{ id: "UNRELATED", sourceId: "S1", quote: text, kind: "fact" as const, statement: "Service requests have accountable owners." }];
+  const unrelatedCoverage = [{ ...coverage[0], evidenceId: "UNRELATED" }];
+  assert.ok(reviewDiscoveryFidelity(omittedObject, unrelatedLedger, unrelatedCoverage, sources).errors.some((error) => /self-decision restriction/.test(error)), "A source policy without a relevant ledger assertion cannot legitimize unanchored shorthand.");
+  const ambiguous = structuredClone(output);
+  ambiguous.businessRules = ["A user is not blocked from approving their own policy exception unless the authority is confirmed."];
+  const ambiguousReview = reviewDiscoveryFidelity(ambiguous, ledger, coverage, sources);
+  assert.deepEqual(ambiguousReview.errors, []);
+  assert.ok(ambiguousReview.reviewIssues.some((issue) => issue.evidenceId === "SELF" && issue.sourceId === "S1"));
+  for (const clause of ["A user cannot approve their own request.", "A user cannot approve or reject their own policy exception.", "A user cannot reject their own policy exception unless a supervisor authorizes it."]) {
+    const changed = structuredClone(output);
+    changed.businessRules = [clause];
+    const failure = reviewDiscoveryFidelity(changed, ledger, coverage, sources);
+    assert.ok(failure.errors.length > 0);
+    assert.match(failure.errors.join(" "), /Offending clause:.*Source-supported restrictions:/);
+  }
+});
+
+test("trusted review-gap quotations cannot substitute for visible measurements or precise unresolved-policy gaps", () => {
+  const metric = "Median assignment time is 3.8 calendar days.";
+  const unknown = "Content deletion and legal holds are not yet confirmed.";
+  const sources = [{ id: "S1", text: `${metric} ${unknown}` }];
+  const ledger = [
+    { id: "METRIC", sourceId: "S1", quote: metric, kind: "fact" as const, statement: metric },
+    { id: "UNKNOWN", sourceId: "S1", quote: unknown, kind: "open-question" as const, statement: unknown }
+  ];
+  const output = product("Manage records with the confirmed controls.");
+  output.gaps = [{ id: "TRUSTED-HOLD", title: "Review interpretation", description: `${metric} ${unknown}`, question: "Confirm this source interpretation.", severity: "blocking", sourceIds: ["S1"] }];
+  const coverage = ledger.map((item) => ({ evidenceId: item.id, disposition: "gap", storyIds: [], testIds: [], gapIds: ["TRUSTED-HOLD"] }));
+  assert.deepEqual(reviewDiscoveryFidelity(output, ledger, coverage, sources).errors, [], "Ordinary user-visible discovery gaps retain their existing coverage behavior.");
+  const guarded = reviewDiscoveryFidelity(output, ledger, coverage, sources, new Set(["TRUSTED-HOLD"]));
+  assert.match(guarded.errors.join(" "), /quantified source fact/);
+  assert.match(guarded.errors.join(" "), /unresolved content deletion|unresolved legal holds/);
+});

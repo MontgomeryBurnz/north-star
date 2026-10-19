@@ -48,7 +48,8 @@ function applyEvidenceReviewHolds(
   issues: DiscoveryFidelityReviewIssue[],
   ledger: Array<{ id: string; quote: string; statement: string }>
 ) {
-  if (!issues.length) return coverage;
+  const reviewGapIds = new Set<string>();
+  if (!issues.length) return { coverage, reviewGapIds };
   const sourceIds = [...new Set(issues.map((issue) => issue.sourceId))];
   const gapByEvidence = new Map<string, string>();
   // Do not accidentally legitimize an originally unknown model reference by
@@ -67,6 +68,7 @@ function applyEvidenceReviewHolds(
     let suffix = 1;
     while (reservedGapIds.has(id)) id = `${base}-HOLD-${suffix++}`;
     reservedGapIds.add(id);
+    reviewGapIds.add(id);
     for (const issue of sourceIssues) gapByEvidence.set(issue.evidenceId, id);
     const details = sourceIssues.map((issue) => {
       const item = ledger.find((entry) => entry.id === issue.evidenceId);
@@ -83,14 +85,17 @@ function applyEvidenceReviewHolds(
   synthesis.readinessNarrative = `Review draft — policy interpretation requires human review. All stories are held as needs-input until the source-linked evidence review gaps are resolved. ${synthesis.readinessNarrative}`;
   // Establish trusted review holds without repairing malformed rows, bad references,
   // duplicates, or missing coverage. Those remain hard validation failures.
-  if (!Array.isArray(coverage)) return coverage;
-  return coverage.map((input) => {
-    const row = asRecord(input);
-    const gapId = typeof row?.evidenceId === "string" ? gapByEvidence.get(row.evidenceId) : undefined;
-    if (!row || !gapId || !["implemented", "context", "proposal", "gap"].includes(String(row.disposition))
-      || !Array.isArray(row.gapIds) || !row.gapIds.every((value) => typeof value === "string")) return input;
-    return { ...row, disposition: "gap", gapIds: row.gapIds.includes(gapId) ? [...row.gapIds] : [...row.gapIds, gapId] };
-  });
+  if (!Array.isArray(coverage)) return { coverage, reviewGapIds };
+  return {
+    reviewGapIds,
+    coverage: coverage.map((input) => {
+      const row = asRecord(input);
+      const gapId = typeof row?.evidenceId === "string" ? gapByEvidence.get(row.evidenceId) : undefined;
+      if (!row || !gapId || !["implemented", "context", "proposal", "gap"].includes(String(row.disposition))
+        || !Array.isArray(row.gapIds) || !row.gapIds.every((value) => typeof value === "string")) return input;
+      return { ...row, disposition: "gap", gapIds: row.gapIds.includes(gapId) ? [...row.gapIds] : [...row.gapIds, gapId] };
+    })
+  };
 }
 
 function sourceIds(value: unknown) {
@@ -717,12 +722,15 @@ export async function generateDiscoverySynthesis(
     };
     function reviewCandidate(candidate: unknown) {
       const parsed = validateDiscoverySynthesis(candidate);
-      if (!parsed) return { parsed: null, errors: ["The generated product package did not meet the required structure."], integrityWarnings: [], fidelityWarnings: [] };
+      if (!parsed) return { parsed: null, errors: ["The generated product package did not meet the required structure."], integrityWarnings: [], fidelityWarnings: [], reviewIssues: ledgerReview.reviewIssues };
       parsed.gaps = parsed.gaps.filter((gap) => !["GAP-SOURCE-COVERAGE", "GAP-UNREADABLE-SOURCES"].includes(gap.id));
       const integrity = reviewDiscoveryIntegrity(parsed, readableArtifacts.map((source) => source.id));
-      const heldCoverage = applyEvidenceReviewHolds(parsed, asRecord(candidate)?.evidenceCoverage, ledgerReview.reviewIssues, ledgerReview.ledger);
-      const fidelity = reviewDiscoveryFidelity(parsed, ledgerReview.ledger, heldCoverage, context.sources);
-      return { parsed, errors: [...new Set([...integrity.errors, ...fidelity.errors])], integrityWarnings: integrity.warnings, fidelityWarnings: fidelity.warnings };
+      const rawCoverage = asRecord(candidate)?.evidenceCoverage;
+      const preflight = reviewDiscoveryFidelity(parsed, ledgerReview.ledger, rawCoverage, context.sources);
+      const reviewIssues = [...new Map([...ledgerReview.reviewIssues, ...preflight.reviewIssues].map((issue) => [`${issue.evidenceId}:${issue.sourceId}:${issue.message}`, issue])).values()];
+      const held = applyEvidenceReviewHolds(parsed, rawCoverage, reviewIssues, ledgerReview.ledger);
+      const fidelity = reviewDiscoveryFidelity(parsed, ledgerReview.ledger, held.coverage, context.sources, held.reviewGapIds);
+      return { parsed, errors: [...new Set([...integrity.errors, ...fidelity.errors])], integrityWarnings: integrity.warnings, fidelityWarnings: fidelity.warnings, reviewIssues };
     }
     const payload = await callModel("product-synthesis", synthesisRequest);
     const candidateText = extractOutputText(payload);
@@ -759,9 +767,9 @@ export async function generateDiscoverySynthesis(
       ...parsed, sourceCount: readableArtifacts.length, sources: [...coverage, ...unreadableArtifacts.map((source) => ({ id: source.id, name: source.name, characters: 0, coverage: "excerpt" as const }))],
       generatedAt: new Date().toISOString(), provider: "openai", modelUsage: aggregateDiscoveryUsage(usage), research,
       quality: {
-        status: ledgerReview.reviewIssues.length ? "provisional" : "reviewed",
-        checks: ["Independent evidence review covered every source", "Source quotations and quantitative evidence checked", "Source citations validated", "Roadmap, epic, feature, and story relationships validated", "Happy-path and negative/edge test coverage validated", ...(correctionApplied ? ["Validation-guided correction rechecked against all package quality rules"] : []), ...(ledgerReview.reviewIssues.length ? ["Definitive factual and risk scenario checks passed; ambiguous interpretations held for human review"] : ["Source-driven fidelity and risk-based scenario checks passed"])],
-        warnings: [...reviewed.integrityWarnings, ...reviewed.fidelityWarnings, ...(ledgerReview.reviewIssues.length ? ["Provisional review draft: ambiguous source interpretations are blocking gaps. Every story remains needs-input; do not treat this package as approved or build-ready."] : []), ...excerpts.map((source) => `${source.name}: source coverage is partial.`), ...unreadableArtifacts.map((source) => `${source.name}: source could not be read.`), ...(research.status === "unavailable" ? [research.summary] : [])]
+        status: reviewed.reviewIssues.length ? "provisional" : "reviewed",
+        checks: ["Independent evidence review covered every source", "Source quotations and quantitative evidence checked", "Source citations validated", "Roadmap, epic, feature, and story relationships validated", "Happy-path and negative/edge test coverage validated", ...(correctionApplied ? ["Validation-guided correction rechecked against all package quality rules"] : []), ...(reviewed.reviewIssues.length ? ["Definitive factual and risk scenario checks passed; ambiguous interpretations held for human review"] : ["Source-driven fidelity and risk-based scenario checks passed"])],
+        warnings: [...reviewed.integrityWarnings, ...reviewed.fidelityWarnings, ...(reviewed.reviewIssues.length ? ["Provisional review draft: ambiguous source interpretations are blocking gaps. Every story remains needs-input; do not treat this package as approved or build-ready."] : []), ...excerpts.map((source) => `${source.name}: source coverage is partial.`), ...unreadableArtifacts.map((source) => `${source.name}: source could not be read.`), ...(research.status === "unavailable" ? [research.summary] : [])]
       },
       revision: { number: Math.max(0, Math.min(9999, Math.floor(options.previousSynthesis?.revision?.number ?? (previous ? 1 : 0)))) + 1, summary: revisionSummary(previous, parsed, Boolean(feedback)), feedback: feedback || undefined }
     };

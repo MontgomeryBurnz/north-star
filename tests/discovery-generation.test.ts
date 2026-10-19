@@ -22,7 +22,7 @@ const sampleDiscoverySources = sourceFixtures.map((source) => ({ ...source, extr
 const evidenceLedger = sampleDiscoverySources.map((source, index) => ({ id: `EV-${index + 1}`, sourceId: source.id, quote: fixtureFact, kind: "fact", statement: fixtureFact }));
 const sampleDiscoverySynthesis = {
   ...packageFixture, businessRules: [...packageFixture.businessRules, fixtureFact],
-  evidenceCoverage: evidenceLedger.map((item) => ({ evidenceId: item.id, disposition: "context", storyIds: [], testIds: [], gapIds: [] }))
+  evidenceCoverage: evidenceLedger.map((item) => ({ evidenceId: item.id, disposition: "context", storyIds: [] as string[], testIds: [] as string[], gapIds: [] as string[] }))
 };
 
 const program: StoredProgram = {
@@ -435,6 +435,43 @@ test("ambiguous wording produces an explicit provisional review draft without re
     const omitted = { ...generated, evidenceCoverage: generated.evidenceCoverage.slice(1) };
     globalThis.fetch = async () => { calls.push({}); return response(calls.length === 1 ? review : omitted); };
     await assert.rejects(generateDiscoverySynthesis(input), /has no evidence-to-output coverage/);
+  });
+});
+
+test("policy ambiguity introduced only by final synthesis is held as a provisional source-linked review draft", async () => {
+  await withStubs(async (logs) => {
+    const quote = "A user cannot approve their own policy exception.";
+    const sources = sampleDiscoverySources.map((source) => ({ ...source, extractedText: quote }));
+    const input = { ...program, intake: { ...program.intake, artifacts: sources } };
+    const review = { ...evidence,
+      sources: sources.map((source) => ({ sourceId: source.id, findings: [quote], limitations: "Fictional evidence" })),
+      evidenceLedger: sources.map((source, index) => ({ id: `EV-${index + 1}`, sourceId: source.id, quote, kind: "requirement", statement: quote }))
+    };
+    const generated = structuredClone(sampleDiscoverySynthesis);
+    generated.readinessScore = 95;
+    generated.businessRules.push("A user cannot approve their own exception.");
+    generated.stories.forEach((story) => { story.readiness = "ready"; });
+    const story = generated.stories[0];
+    story.testCases[1] = { id: story.testCases[1].id, title: "Prevent self approval", type: "negative", steps: ["Attempt approval of one's own policy exception"], expectedResult: "Approval is blocked and the policy exception remains pending." };
+    generated.evidenceCoverage = review.evidenceLedger.map((item) => ({ evidenceId: item.id, disposition: "implemented", storyIds: [story.id], testIds: [story.testCases[1].id], gapIds: [] }));
+    const original = JSON.stringify(generated);
+    const calls: Record<string, unknown>[] = [];
+    globalThis.fetch = async (_input, init) => {
+      calls.push(JSON.parse(String(init?.body)));
+      return response(calls.length === 1 ? review : generated);
+    };
+    const result = await generateDiscoverySynthesis(input);
+    const synthesisInput = JSON.parse((calls[1].input as Array<{ content: string }>)[1].content);
+    assert.deepEqual(synthesisInput.evidenceReview.reviewIssues, [], "The hold must arise from final output, not an evidence-stage issue.");
+    assert.equal(calls.length, 2, "Reviewable ambiguity alone does not incur a paid correction.");
+    assert.equal(result.quality?.status, "provisional");
+    assert.ok(result.readinessScore <= 60);
+    assert.ok(result.stories.every((item) => item.readiness === "needs-input"));
+    assert.match(result.readinessNarrative, /Review draft/);
+    assert.ok(result.gaps.some((gap) => gap.severity === "blocking" && gap.sourceIds.includes(sources[0].id) && gap.description.includes("Reviewed clause:") && gap.description.includes(quote)));
+    assert.match(result.quality!.warnings.join(" "), /do not treat this package as approved or build-ready/);
+    assert.equal(JSON.stringify(generated), original);
+    assert.doesNotMatch(JSON.stringify(logs), /own policy exception|own exception|Reviewed clause/);
   });
 });
 
