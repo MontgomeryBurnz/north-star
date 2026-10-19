@@ -62,13 +62,40 @@ test("evidence ledger accepts verbatim evidence and rejects fabricated quotation
   assert.deepEqual(reviewDiscoveryEvidenceLedger(metricLedger, sources).errors, []);
   for (const mutate of [
     (ledger: Evidence[]) => { ledger[0].quote = "Average request-to-assignment time is 3.8 business days."; },
+    (ledger: Evidence[]) => { ledger[0].statement = ledger[0].statement.replace("Median", "Average"); },
+    (ledger: Evidence[]) => { ledger[0].statement = ledger[0].statement.replace("calendar days", "business days"); },
     (ledger: Evidence[]) => { ledger[0].sourceId = "UNKNOWN"; },
     (ledger: Evidence[]) => { ledger[1].id = ledger[0].id; }
   ]) {
     const ledger = structuredClone(metricLedger);
     mutate(ledger);
-    assert.ok(reviewDiscoveryEvidenceLedger(ledger, sources).errors.length > 0);
+    assert.ok(reviewDiscoveryEvidenceLedger(ledger, sources).errors.length > 0,
+      `Invalid ledger mutation must be rejected: ${JSON.stringify(ledger[0])}`);
   }
+});
+
+test("one mixed table quotation can support distinct atomic baseline and proposed-target claims without merging their status", () => {
+  const quote = "Requests reassigned after initial routing | 27% | Proposed target below 10%; product owner to confirm";
+  const source = `Measure | Current baseline | Target or decision\n${quote}`;
+  const ledger: Evidence[] = [
+    { id: "BASELINE", sourceId: "SRC1", quote, kind: "fact", statement: "Requests reassigned after initial routing account for 27% of requests." },
+    { id: "TARGET", sourceId: "SRC1", quote, kind: "proposal", statement: "A target below 10% reassignment is proposed and requires product-owner confirmation." }
+  ];
+  const value = definition(ledger.map((item) => item.statement).join(" "));
+  value.assumptions = [ledger[1].statement];
+  const coverage = [row("BASELINE"), row("TARGET", "proposal")];
+  assert.deepEqual(reviewDiscoveryEvidenceLedger(ledger, [{ id: "SRC1", text: source }]).errors, []);
+  assert.deepEqual(review(value, ledger, coverage, source).errors, []);
+
+  for (const omittedId of ["BASELINE", "TARGET"]) {
+    const changed = ledger.filter((item) => item.id !== omittedId);
+    assert.ok(reviewDiscoveryEvidenceLedger(changed, [{ id: "SRC1", text: source }]).errors.length > 0,
+      "A broad quote containing both values does not replace an omitted atomic measurement statement.");
+  }
+  const changedComparator = structuredClone(ledger);
+  changedComparator[1].statement = changedComparator[1].statement.replace("below 10%", "at most 10%");
+  assert.ok(reviewDiscoveryEvidenceLedger(changedComparator, [{ id: "SRC1", text: source }]).errors.length > 0,
+    "Atomicity does not permit changing a strict target comparator.");
 });
 
 test("metric fidelity accepts exact baselines but rejects changed statistic, calendar basis, and omitted quantitative facts", () => {
@@ -178,6 +205,12 @@ test("a generic negative test does not satisfy an explicit self-approval scenari
   };
   assert.deepEqual(reviewDiscoveryIntegrity(valid, ["SRC1"]).errors, []);
   assert.ok(review(valid, selfLedger, coverage, selfRule).errors.length > 0);
+});
+
+test("rejecting an unauthorized self-approval attempt is not a new prohibition on policy-exception rejection", () => {
+  const value = selfApprovalDefinition();
+  value.stories[0].testCases[1].expectedResult = "The self-approval attempt is rejected and no approval decision is recorded.";
+  assert.deepEqual(review(value, selfLedger, [row("R1", "implemented")], selfRule).errors, []);
 });
 
 test("distinct source-backed self-decision rules do not falsely broaden each other's scope", () => {

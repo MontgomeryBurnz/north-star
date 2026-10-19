@@ -37,6 +37,33 @@ test("mixed table baselines and proposed targets remain separate atomic assertio
   assert.deepEqual(reviewDiscoveryEvidenceLedger(entries, [{ id: "S1", text }]).errors, []);
 });
 
+test("a shared broad measurement quote supports atomic duration claims without forcing all context into each claim", () => {
+  const text = "Eight-week baseline.\nMedian assignment time | 3.8 calendar days | Under 4 business hours; business calendar needs confirmation";
+  const sources = [{ id: "S1", text }];
+  const ledger = [
+    { id: "BASE", sourceId: "S1", quote: text, kind: "fact" as const, statement: "Median assignment time is 3.8 calendar days." },
+    { id: "TARGET", sourceId: "S1", quote: text, kind: "proposal" as const, statement: "The proposed assignment target is under 4 business hours." },
+    { id: "PERIOD", sourceId: "S1", quote: text, kind: "fact" as const, statement: "The observation period is an eight-week baseline." }
+  ];
+  assert.deepEqual(reviewDiscoveryEvidenceLedger(ledger, sources).errors, []);
+  const output = product(ledger.map((item) => item.statement).join(" "));
+  output.gaps = [{ id: "CAL", title: "Confirm business calendar", description: "The business calendar needs confirmation.", question: "Which business calendar should the target use?", severity: "blocking", sourceIds: ["S1"] }];
+  const coverage = ledger.map((item) => ({ evidenceId: item.id, disposition: item.kind === "proposal" ? "proposal" : "context", storyIds: [], testIds: [], gapIds: item.kind === "proposal" ? ["CAL"] : [] }));
+  assert.deepEqual(reviewDiscoveryFidelity(output, ledger, coverage, sources).errors, []);
+  for (const [index, before, after] of [
+    [0, "Median", "Average"], [0, "calendar", "business"], [1, "under", "at most"], [1, "4", "6"]
+  ] as const) {
+    const changed = structuredClone(ledger);
+    changed[index].statement = changed[index].statement.replace(before, after);
+    assert.ok(reviewDiscoveryEvidenceLedger(changed, sources).errors.length > 0, "Atomic measurement qualifiers cannot be invented or changed behind a valid context quote.");
+  }
+  assert.ok(reviewDiscoveryEvidenceLedger(ledger.filter((item) => item.id !== "PERIOD"), sources).errors.length > 0);
+  const combined = ledger.filter((item) => item.id !== "PERIOD");
+  combined[0] = { ...combined[0], statement: "Median assignment time is 3.8 calendar days during the eight-week baseline." };
+  assert.deepEqual(reviewDiscoveryEvidenceLedger(combined, sources).errors, [], "An observation window must not inherit the measured delay's median statistic.");
+  assert.deepEqual(reviewDiscoveryFidelity(output, combined, coverage.filter((item) => item.evidenceId !== "PERIOD"), sources).errors, []);
+});
+
 test("known retention duration needs a real boundary test and unknown legal behavior needs a precise gap", () => {
   const known = "Audit records are retained for five years.";
   const unknown = "Content deletion, legal holds, and encryption are not yet confirmed.";

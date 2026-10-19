@@ -3,7 +3,7 @@ import type { DiscoverySynthesis, DiscoveryTestCase } from "./discovery-studio-t
 type FidelityDefinition = Omit<DiscoverySynthesis, "sourceCount" | "generatedAt" | "provider">;
 
 export const discoveryEvidenceFidelityInstructions = [
-  "Build evidenceLedger as atomic, source-backed assertions covering every material fact, requirement, proposal, exclusion and unresolved decision. Give each a stable id, sourceId, exact contiguous source quote, kind (fact, requirement, proposal, open-question), and faithful statement. Preserve the original actor, action, object, condition, exception and approval status; do not broaden a narrow prohibition to adjacent actions or all objects.",
+  "Build evidenceLedger as atomic, source-backed assertions covering every material fact, requirement, proposal, exclusion and unresolved decision. Give each a stable id, sourceId, exact contiguous source quote, kind (fact, requirement, proposal, open-question), and faithful statement. The quote may include a complete table row or extra context; the statement remains one atomic assertion. Two assertions may share one context quote. Every statement measurement must be supported by that quote, and every source measurement must survive across the combined statements, not merely appear inside quotes. Preserve the original actor, action, object, condition, exception and approval status; do not broaden a narrow prohibition to adjacent actions or all objects.",
   "Inventory EVERY quantitative baseline, baseline observation period, target, retention period, planning horizon and operational threshold, including proposed metrics. Preserve the number, comparison operator, unit, statistic (median is not mean), business/calendar basis, denominator, period, target-versus-achieved status and proposal/confirmation status. Exact quotes must include defining qualifiers, not just a convenient number. For mixed table rows use separate atomic baseline and target quotes; do not label a baseline as proposed because its target is proposed.",
   "Treat the previous generated package as an unverified draft, never source truth. Re-evaluate prior claims against raw sources and remove unsupported inherited claims. Explicit user-confirmed new context may clarify a decision; feedback or a proposed correction alone is not evidence of approval. Identify any conflict rather than silently choosing a policy.",
   "Identify risk-based verification obligations from the actual sources: permitted decision outcomes and missing-rationale validation, authorization/self-decision boundaries, complete immutable audit fields, privacy access/redaction, quantitative threshold boundaries, business calendars/pause rules, keyboard/screen-reader journeys, integration failures/retries, retention/deletion/legal holds. Unknown rules need precise owner-facing gaps; do not invent standards, retry counts, retention/deletion behavior, calendars or service levels. Return analytical findings and the ledger, not private reasoning."
@@ -89,7 +89,13 @@ function measurementRelated(reference: string, actual: string) {
   return !terms.length || terms.some((word) => actualTerms.has(word));
 }
 function sourceMetricStatistic(text: string, metric: Metric) {
-  const prefix = normalized(text).slice(0, metric.index);
+  const value = normalized(text);
+  const prefix = value.slice(0, metric.index);
+  const suffix = value.slice(metric.index + metric.text.length, metric.index + metric.text.length + 45);
+  // An observation window qualifies the measured statistic; it is not another median.
+  // "Median delay is 3.8 days during the eight-week baseline" has one median measure.
+  if (/\b(?:during|over|throughout|across|in|per|for)\s+(?:(?:the|an?|our|this|last|previous|preceding|current)\s+){0,2}$/.test(prefix)
+    && /^\s*(?:long\s+)?(?:baseline|observation|reporting|sample|study|measurement)\b/.test(suffix)) return undefined;
   const line = prefix.slice(Math.max(prefix.lastIndexOf("\n"), prefix.lastIndexOf(". "), prefix.lastIndexOf(";")) + 1);
   const cells = line.split("|");
   // A bare table value inherits its measure label, but a target cell does not inherit
@@ -99,6 +105,28 @@ function sourceMetricStatistic(text: string, metric: Metric) {
 }
 const proposal = /\b(?:propos(?:al|ed)|candidate|indicative|unconfirmed|not (?:yet )?(?:approved|confirmed)|pending decision|pending (?:policy|scope|owner|sponsor|governance) (?:approval|confirmation|decision))\b/i;
 const unknown = /\b(?:unconfirmed|unknown|not (?:yet )?(?:confirmed|documented|approved|defined)|open (?:technical )?(?:decisions?|questions?)|pending decision)\b/i;
+
+function metricIsProposed(text: string, metric: Metric) {
+  const value = normalized(text);
+  const boundaries = [...value.matchAll(/[.;|\n]/g)].filter((match) => !(value[match.index! - 1]?.match(/\d/) && value[match.index! + 1]?.match(/\d/))).map((match) => match.index!);
+  const start = boundaries.filter((index) => index < metric.index).at(-1) ?? -1;
+  const end = boundaries.find((index) => index >= metric.index + metric.text.length) ?? value.length;
+  const cell = value.slice(start + 1, end);
+  const localIndex = metric.index - start - 1;
+  const cellMetrics = metrics(cell);
+  const prior = cellMetrics.filter((item) => item.index < localIndex).at(-1);
+  const prefix = cell.slice(prior ? prior.index + prior.text.length : 0, localIndex);
+  if (proposal.test(prefix)) return true;
+  const following = cellMetrics.find((item) => item.index > localIndex);
+  if (!following && proposal.test(cell.slice(localIndex + metric.text.length))) return true;
+  // A bare table value can inherit a column/measure label, not an unrelated target
+  // later in the row (e.g. 27% baseline | proposed target below 10%).
+  if (!cell.slice(0, localIndex).trim() && value[start] === "|") {
+    const previousStart = Math.max(value.lastIndexOf("|", start - 1), value.lastIndexOf("\n", start - 1));
+    return proposal.test(value.slice(previousStart + 1, start));
+  }
+  return false;
+}
 
 // Exact quotations and source-wide quantitative coverage prevent a self-reported ledger from
 // silently dropping measurable evidence. This supplements, rather than proves, semantic fidelity.
@@ -116,18 +144,27 @@ export function reviewDiscoveryEvidenceLedger(value: unknown, sources: Discovery
     const source = sourceMap.get(entry.sourceId);
     if (!source || !literal(source).includes(literal(entry.quote))) errors.push(`${entry.id} has an unverifiable source quotation.`);
     if (ledger.some((existing) => existing.id === entry.id)) errors.push("Evidence identifiers must be unique.");
-    for (const metric of metrics(entry.quote)) if (!metrics(entry.statement).some((actual) => metricMatches(metric, actual))) errors.push(`${entry.id} changes or omits a source measurement.`);
-    if (proposal.test(entry.quote) && !["proposal", "open-question"].includes(entry.kind)) errors.push(`${entry.id} treats proposed evidence as confirmed.`);
+    const quotedMetrics = metrics(entry.quote);
+    const statementMetrics = metrics(entry.statement);
+    for (const metric of statementMetrics) {
+      const supported = quotedMetrics.filter((quoted) => metricMatches(quoted, metric));
+      if (!supported.length) errors.push(`${entry.id} changes or invents a source measurement.`);
+      const statistic = sourceMetricStatistic(entry.statement, metric);
+      const quotedStatistics = supported.map((quoted) => sourceMetricStatistic(entry.quote, quoted)).filter(Boolean);
+      if ((statistic && !quotedStatistics.includes(statistic)) || (quotedStatistics.length && !statistic)) errors.push(`${entry.id} changes or omits a source measurement statistic.`);
+      if (supported.length && supported.every((quoted) => metricIsProposed(entry.quote, quoted)) && !["proposal", "open-question"].includes(entry.kind)) errors.push(`${entry.id} treats a proposed measurement as confirmed.`);
+    }
+    if (proposal.test(entry.statement) && !["proposal", "open-question"].includes(entry.kind)) errors.push(`${entry.id} treats proposed evidence as confirmed.`);
     ledger.push(entry);
   }
   for (const source of sources) {
     const items = ledger.filter((item) => item.sourceId === source.id);
     if (!items.length) errors.push(`${source.id} is missing from the atomic evidence ledger.`);
-    const quotedMetrics = items.flatMap((item) => metrics(item.quote));
+    const statementMetrics = items.flatMap((item) => metrics(item.statement));
     for (const metric of metrics(source.text)) {
-      if (!quotedMetrics.some((actual) => metricMatches(metric, actual))) errors.push(`${source.id} has a quantitative fact or target missing from the evidence ledger.`);
+      if (!statementMetrics.some((actual) => metricMatches(metric, actual))) errors.push(`${source.id} has a quantitative fact or target missing from the atomic evidence statements.`);
       const statistic = sourceMetricStatistic(source.text, metric);
-      if (statistic && !items.some((item) => metrics(item.quote).some((actual) => metricMatches(metric, actual)) && new RegExp(`\\b${statistic}\\b`, "i").test(item.quote))) errors.push(`${source.id} has a quotation that strips a measurement's source statistic.`);
+      if (statistic && !items.some((item) => metrics(item.statement).some((actual) => metricMatches(metric, actual)) && new RegExp(`\\b${statistic}\\b`, "i").test(item.statement))) errors.push(`${source.id} has an atomic statement that strips a measurement's source statistic.`);
     }
   }
   return { ledger, errors: [...new Set(errors)] };
@@ -182,30 +219,33 @@ export function reviewDiscoveryFidelity(synthesis: FidelityDefinition, ledger: D
     if ((item.kind === "open-question" || row.disposition === "gap") && !row.gapIds.length) errors.push(`${item.id} needs a precise unresolved discovery gap.`);
     if (item.kind === "proposal" && !["proposal", "gap"].includes(row.disposition)) errors.push(`${item.id} promotes a proposal to a confirmed obligation.`);
     if (["proposal", "open-question"].includes(item.kind) && row.storyIds.some((id) => stories.get(id)?.readiness !== "needs-input")) errors.push(`${item.id} has unresolved evidence but marks a dependent story ready.`);
-    for (const expected of metrics(item.quote)) {
+    for (const expected of metrics(item.statement)) {
+      const expectedStatistic = sourceMetricStatistic(item.statement, expected);
       if (!allMetrics.some((actual) => metricMatches(expected, actual))) errors.push(`${item.id} omits or changes a quantified source fact, target, unit or comparator.`);
       for (const field of fields) {
         const candidates = metrics(field).filter((actual) => actual.value === expected.value && unitBase(actual.unit) === unitBase(expected.unit) && measurementRelated(item.statement, metricContext(field, actual)));
         if (candidates.some((actual) => /^(?:business|calendar) /.test(expected.unit) && /^(?:business|calendar) /.test(actual.unit) && actual.unit !== expected.unit)) errors.push(`${item.id} changes the measurement calendar or unit basis.`);
-        if (candidates.some((actual) => /\bmedian\b/i.test(item.quote) && /\b(?:average|mean)\b/i.test(metricContext(field, actual)))) errors.push(`${item.id} changes a median into a mean/average.`);
-        if (candidates.some((actual) => /\b(?:average|mean)\b/i.test(item.quote) && /\bmedian\b/i.test(metricContext(field, actual)))) errors.push(`${item.id} changes a mean/average into a median.`);
+        if (candidates.some((actual) => expectedStatistic === "median" && /\b(?:average|mean)\b/i.test(metricContext(field, actual)))) errors.push(`${item.id} changes a median into a mean/average.`);
+        if (candidates.some((actual) => ["average", "mean"].includes(expectedStatistic ?? "") && /\bmedian\b/i.test(metricContext(field, actual)))) errors.push(`${item.id} changes a mean/average into a median.`);
         if (candidates.some((actual) => item.kind === "proposal" && /\b(?:achieved|approved|confirmed|committed)\b/i.test(metricContext(field, actual)) && !proposal.test(metricContext(field, actual)))) errors.push(`${item.id} presents a proposed target as approved or achieved.`);
       }
     }
-    const sourceRestrictions = restrictiveSelfClauses(item.quote);
+    const sourceRestrictions = restrictiveSelfClauses(item.statement);
     if (sourceRestrictions.length) {
       const allowedActions = actions(sourceRestrictions.join(" "));
       const mappedTests = row.testIds.flatMap((id) => tests.has(id) ? [tests.get(id)!.test] : []);
-      if (!mappedTests.some((test) => test.type !== "happy-path" && /\b(?:self|own|same (?:user|actor|approver))\b/i.test(normalized(testText(test))) && [...allowedActions].some((action) => actions(normalized(testText(test))).has(action)) && /\b(?:block(?:s|ed)?|prevent(?:s|ed)?|den(?:y|ies|ied)|forbid(?:s|den)?|cannot|not permitted|not allowed|remain(?:s)? pending)\b/i.test(test.expectedResult))) errors.push(`${item.id} lacks a relevant self-decision authorization test.`);
+      if (!mappedTests.some((test) => test.type !== "happy-path" && /\b(?:self|own|same (?:user|actor|approver))\b/i.test(normalized(testText(test))) && [...allowedActions].some((action) => actions(normalized(testText(test))).has(action)) && (/\b(?:block(?:s|ed)?|prevent(?:s|ed)?|den(?:y|ies|ied)|forbid(?:s|den)?|cannot|not permitted|not allowed|remain(?:s)? pending)\b/i.test(test.expectedResult) || /\b(?:attempt|operation|command|submission)\b.{0,30}\brejected\b/i.test(test.expectedResult)))) errors.push(`${item.id} lacks a relevant self-decision authorization test.`);
     }
   }
   // Compare against all source-supported policies for the same object, not against every
   // unrelated rule individually (e.g. self-approval and self-publication may both be forbidden).
-  const policies = ledger.flatMap((item) => restrictiveSelfClauses(item.quote).map((clause) => ({
+  const policies = sources.flatMap((source) => restrictiveSelfClauses(source.text).map((clause) => ({
     actions: actions(clause), scope: normalized(clause).match(/\bown\s+(.+?)(?:[.;]|$)/)?.[1]
   })));
   if (policies.length) {
-    for (const clause of [...fields, ...[...tests.values()].map(({ test }) => testText(test))].flatMap(restrictiveSelfClauses)) {
+    // A test title is not a grammatical prefix for all steps/results: "Block self-
+    // approval" + "the attempt is rejected" must not become a ban on rejecting an exception.
+    for (const clause of [...fields, ...[...tests.values()].flatMap(({ test }) => [test.title, ...test.steps, test.expectedResult])].flatMap(restrictiveSelfClauses)) {
       const objectPolicies = policies.filter((policy) => !policy.scope || clause.includes(policy.scope));
       const supportedActions = new Set(objectPolicies.flatMap((policy) => [...policy.actions]));
       if (!objectPolicies.length || [...actions(clause)].some((action) => !supportedActions.has(action))) errors.push("A self-decision restriction changes its source-supported action or object scope.");
