@@ -665,7 +665,7 @@ export function ClientPortalConsole({
   return (
     <main className="min-h-screen overflow-x-hidden bg-slate-100 text-slate-950">
       <header className="border-b border-slate-200 bg-white/95 shadow-sm backdrop-blur-xl">
-        <div className="northstar-shell flex items-center justify-between gap-4 py-4">
+        <div className="northstar-shell flex flex-col items-start gap-3 py-4 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
           <div className="min-w-0">
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-sky-700">North Star Client Portal</p>
             <p className="mt-1 truncate text-sm font-medium text-slate-600">{viewerLabel}</p>
