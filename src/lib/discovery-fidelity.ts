@@ -5,6 +5,7 @@ type FidelityDefinition = Omit<DiscoverySynthesis, "sourceCount" | "generatedAt"
 export const discoveryEvidenceFidelityInstructions = [
   "Build evidenceLedger as atomic, source-backed assertions covering every material fact, requirement, proposal, exclusion and unresolved decision. Give each a stable id, sourceId, exact contiguous source quote, kind (fact, requirement, proposal, open-question), and faithful statement. The quote may include a complete table row or extra context; the statement remains one atomic assertion. Two assertions may share one context quote. Every statement measurement must be supported by that quote, and every source measurement must survive across the combined statements, not merely appear inside quotes. Preserve the original actor, action, object, condition, exception and approval status; do not broaden a narrow prohibition to adjacent actions or all objects.",
   "Inventory EVERY quantitative baseline, baseline observation period, target, retention period, planning horizon and operational threshold, including proposed metrics. Preserve the number, comparison operator, unit, statistic (median is not mean), business/calendar basis, denominator, period, target-versus-achieved status and proposal/confirmation status. Exact quotes must include defining qualifiers, not just a convenient number. For mixed table rows use separate atomic baseline and target quotes; do not label a baseline as proposed because its target is proposed.",
+  "When a verified table's Measure label defines a statistic shared by its baseline and target, retain that statistic explicitly in BOTH atomic assertions. For example, a Median assignment time row defines a median baseline and a median target; each value cell still keeps its own calendar/business unit and approval status. Do not borrow a statistic stated only inside a baseline value cell for a different target, or borrow a label from another row or table. An explicit target-cell statistic remains distinct.",
   "Treat the previous generated package as an unverified draft, never source truth. Re-evaluate prior claims against raw sources and remove unsupported inherited claims. Explicit user-confirmed new context may clarify a decision; feedback or a proposed correction alone is not evidence of approval. Identify any conflict rather than silently choosing a policy.",
   "Identify risk-based verification obligations from the actual sources: permitted decision outcomes and missing-rationale validation, authorization/self-decision boundaries, complete immutable audit fields, privacy access/redaction, quantitative threshold boundaries, business calendars/pause rules, keyboard/screen-reader journeys, integration failures/retries, retention/deletion/legal holds. Unknown rules need precise owner-facing gaps; do not invent standards, retry counts, retention/deletion behavior, calendars or service levels. Return analytical findings and the ledger, not private reasoning."
 ].join(" ");
@@ -13,6 +14,7 @@ export const discoverySynthesisFidelityInstructions = [
   "The independent evidenceLedger is a coverage checklist, not permission to change source facts. Return evidenceCoverage with exactly one row per evidence id: evidenceId, disposition (implemented, context, proposal, gap), storyIds, testIds and gapIds. References must resolve to the actual final package. Requirements need relevant mapped stories and tests or a precise gap; unresolved questions need gaps, and proposals stay explicitly proposed with dependent stories needs-input. A claimed coverage row never substitutes for the actual visible content or test behavior.",
   "Non-implementation target-status metadata may use context only without story/test links and with visible explicit unconfirmed or target-not-achieved wording. Do not use context to commit proposed implementation scope, and do not call a proposed target achieved or approved. An approval prerequisite for an operating decision does not itself approve the dependent delivery proposal.",
   "Carry every quantitative ledger assertion into the visible analysis, rules, outcomes or assumptions with its original value/comparator, unit, statistic, calendar basis, observation period and confirmation status. Do not omit secondary KPIs or proposed targets. Preserve measured baselines separately from proposed targets and achieved outcomes. Repeat qualifiers where an otherwise ambiguous assertion could change meaning. Prior generated content, including apparent business rules, must be corrected whenever unsupported by raw evidence.",
+  "Preserve a source table's shared Measure statistic in both the visible baseline and target definition, without copying a baseline cell's unit or approval status into the target. A median KPI must not silently become a mean or an all-requests service-level guarantee.",
   "Do not broaden policy: a prohibition on approving one's own specific exception does not prohibit rejecting it or all own requests unless separately sourced. Cover a permitted rejection with rationale and a rejection attempt with empty rationale when those decision rules are stated. Test every source-required immutable audit field and tamper prevention, unauthorized sensitive-content access, and personal-data redaction in each stated output channel.",
   "For source-required redaction, seed recognizable synthetic personal details using source-supported fields, inspect EACH source-named output channel, and explicitly assert in the expected result that those details are absent or redacted there. Generic role denial or saying privacy is applied does not verify channel redaction. Do not invent client fields, privacy policies or policy values; ask a precise gap question where required details are unknown.",
   "For a confirmed retention duration, put that exact source period in the test title or steps when testing the relative boundary (for example, immediately before or at the minimum period). Assert that the record remains accessible, queryable, retrievable or not deleted through the required period. Do not invent deletion after the minimum retention period unless the source separately requires it.",
@@ -126,7 +128,7 @@ function measurementRelated(reference: string, actual: string) {
   const actualTerms = new Set(normalized(actual).match(/[a-z]{5,}/g)?.map(stem) ?? []);
   return !terms.length || terms.some((word) => actualTerms.has(word));
 }
-function sourceMetricStatistic(text: string, metric: Metric) {
+function sourceMetricStatistic(text: string, metric: Metric, tableSource?: string) {
   const value = normalized(text);
   const prefix = value.slice(0, metric.index);
   const suffix = value.slice(metric.index + metric.text.length, metric.index + metric.text.length + 45);
@@ -134,12 +136,35 @@ function sourceMetricStatistic(text: string, metric: Metric) {
   // "Median delay is 3.8 days during the eight-week baseline" has one median measure.
   if (/\b(?:during|over|throughout|across|in|per|for)\s+(?:(?:the|an?|our|this|last|previous|preceding|current)\s+){0,2}$/.test(prefix)
     && /^\s*(?:long\s+)?(?:baseline|observation|reporting|sample|study|measurement)\b/.test(suffix)) return undefined;
+  const rowStart = prefix.lastIndexOf("\n") + 1;
+  const rowEnd = value.indexOf("\n", metric.index);
+  const row = value.slice(rowStart, rowEnd < 0 ? undefined : rowEnd);
+  if (row.includes("|")) {
+    const cells = row.split("|");
+    const rowPrefix = prefix.slice(rowStart);
+    const column = (rowPrefix.match(/\|/g) ?? []).length;
+    const cellPrefix = rowPrefix.slice(rowPrefix.lastIndexOf("|") + 1);
+    const explicit = cellPrefix.match(/\b(median|average|mean)\b/g)?.at(-1)
+      ?? suffix.match(/^\s*\(\s*(median|average|mean)\s*\)/)?.[1];
+    if (explicit) return explicit;
+    const measureStatistic = cells[0].match(/\b(median|average|mean)\b/g)?.at(-1);
+    // Retain direct measure-label support for the first bare value. A later
+    // target may inherit that label only from the same verified source table,
+    // never from another value cell's statistic or approval/proposal modality.
+    if (column === 1 && !cellPrefix.trim()) return measureStatistic;
+    if (!measureStatistic || (column !== 1 && column !== 2)) return undefined;
+    const lines = normalized(tableSource ?? text).split("\n");
+    const matches = lines.flatMap((line, index) => line === row ? [index] : []);
+    const verified = matches.length > 0 && matches.every((index) => {
+      for (let previous = index - 1; previous >= 0 && lines[previous].includes("|"); previous--) {
+        if (/^measure *\|/.test(lines[previous])) return /^measure *\| *current baseline *\| *target or decision *$/.test(lines[previous]);
+      }
+      return false;
+    });
+    return verified ? measureStatistic : undefined;
+  }
   const line = prefix.slice(Math.max(prefix.lastIndexOf("\n"), prefix.lastIndexOf(". "), prefix.lastIndexOf(";")) + 1);
-  const cells = line.split("|");
-  // A bare table value inherits its measure label, but a target cell does not inherit
-  // the baseline cell's modality/statistic merely because they share one row.
-  const context = cells.at(-1)?.trim() ? cells.at(-1)! : cells.at(-2) ?? "";
-  return context.match(/\b(median|average|mean)\b/g)?.at(-1);
+  return line.match(/\b(median|average|mean)\b/g)?.at(-1);
 }
 const unknown = /\b(?:unconfirmed|unknown|not (?:yet )?(?:confirmed|documented|approved|defined)|open (?:technical )?(?:decisions?|questions?)|pending decision)\b/i;
 
@@ -241,7 +266,7 @@ export function reviewDiscoveryEvidenceLedger(value: unknown, sources: Discovery
       }
       if (!supported.length) errors.push(`${entry.id} changes or invents a source measurement.`);
       const statistic = sourceMetricStatistic(entry.statement, metric);
-      const quotedStatistics = supported.map((quoted) => sourceMetricStatistic(supportText, quoted)).filter(Boolean);
+      const quotedStatistics = supported.map((quoted) => sourceMetricStatistic(supportText, quoted, source)).filter(Boolean);
       if ((statistic && !quotedStatistics.includes(statistic)) || (quotedStatistics.length && !statistic)) errors.push(`${entry.id} changes or omits a source measurement statistic.`);
       if (supported.length && supported.every((quoted) => metricIsProposed(supportText, quoted))) sourceStatus = "proposal";
     }
@@ -275,7 +300,13 @@ export function reviewDiscoveryEvidenceLedger(value: unknown, sources: Discovery
     if (!items.length) errors.push(`${source.id} is missing from the atomic evidence ledger.`);
     const statementMetrics = items.flatMap((item) => metrics(item.statement));
     for (const metric of metrics(source.text)) {
-      if (!statementMetrics.some((actual) => metricMatches(metric, actual))) errors.push(`${source.id} has a quantitative fact or target missing from the atomic evidence statements.`);
+      if (!statementMetrics.some((actual) => metricMatches(metric, actual))) {
+        const value = normalized(source.text);
+        const rowStart = value.lastIndexOf("\n", metric.index) + 1;
+        const rowEnd = value.indexOf("\n", metric.index);
+        const context = literal(value.slice(rowStart, rowEnd < 0 ? undefined : rowEnd));
+        errors.push(`${source.id} has a quantitative fact or target missing from the atomic evidence statements. Missing measurement: value=${metric.value}; unit=${metric.unit}; comparator=${metric.comparator || "="}. Measure context: ${context.slice(0, 220)}${context.length > 220 ? "..." : ""}`);
+      }
       const statistic = sourceMetricStatistic(source.text, metric);
       if (statistic && !items.some((item) => metrics(item.statement).some((actual) => metricMatches(metric, actual)) && new RegExp(`\\b${statistic}\\b`, "i").test(item.statement))) errors.push(`${source.id} has an atomic statement that strips a measurement's source statistic.`);
     }
