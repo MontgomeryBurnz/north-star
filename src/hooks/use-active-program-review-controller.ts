@@ -1,6 +1,6 @@
 "use client";
 
-import { ChangeEvent, FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import { ChangeEvent, FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type {
   ActiveProgramSaveConfirmation,
   ActiveProgramReview,
@@ -20,6 +20,7 @@ import { getProgramClientName } from "@/lib/client-portfolio";
 import { programsToSlicerOptions } from "@/lib/program-slicer";
 import { getProgramRoleOwnerMap, getProgramTeamFootprint } from "@/lib/team-roles";
 import { splitLines } from "@/lib/text-signals";
+import { demoProgramId } from "@/lib/demo-mode";
 import {
   buildCycleMetadata,
   buildDeliveryBoardItem,
@@ -79,6 +80,7 @@ export function useActiveProgramReviewController() {
   const [savedOwnershipSignature, setSavedOwnershipSignature] = useState("");
   const [ownershipSavedAt, setOwnershipSavedAt] = useState<string | null>(null);
   const [selectedProgramId, setSelectedProgramId] = useState("");
+  const demoReviewHydrated = useRef(false);
   const [clientPortfolioDraft, setClientPortfolioDraft] = useState("");
   const [clientPortfolioSaveState, setClientPortfolioSaveState] = useState<ClientPortfolioSaveState>("idle");
   const [teamFootprintSaveState, setTeamFootprintSaveState] = useState<TeamFootprintSaveState>("idle");
@@ -130,9 +132,11 @@ export function useActiveProgramReviewController() {
 
       if (!programsRequest.isLatestRequest(requestId)) return;
       setExistingPrograms(serverPrograms);
-      setUpdates(pruneStoredUpdates(serverPrograms.map((program) => program.id)));
-      window.localStorage.removeItem(intakeDraftKey);
-      window.localStorage.removeItem(reviewDraftKey);
+      if (!serverPrograms.some((program) => program.id === demoProgramId)) {
+        setUpdates(pruneStoredUpdates(serverPrograms.map((program) => program.id)));
+        window.localStorage.removeItem(intakeDraftKey);
+        window.localStorage.removeItem(reviewDraftKey);
+      }
       setSelectedProgramId((current) => (serverPrograms.some((program) => program.id === current) ? current : ""));
     } catch {
       if (!programsRequest.isLatestRequest(requestId)) return;
@@ -257,6 +261,10 @@ export function useActiveProgramReviewController() {
         ...update,
         review: normalizeReview(update.review, selectedProgram?.intake)
       }));
+      if (selectedProgramId === demoProgramId && !demoReviewHydrated.current && normalizedUpdates[0]) {
+        demoReviewHydrated.current = true;
+        setReview(normalizedUpdates[0].review);
+      }
       setUpdates((current) => {
         const currentOtherPrograms = current.filter((update) => update.programId !== selectedProgramId);
         return [...normalizedUpdates, ...currentOtherPrograms];
@@ -647,6 +655,12 @@ export function useActiveProgramReviewController() {
   );
 
   useEffect(() => {
+    if (!selectedProgramId && existingPrograms.some((program) => program.id === demoProgramId)) {
+      selectExistingProgram(demoProgramId);
+    }
+  }, [existingPrograms, selectExistingProgram, selectedProgramId]);
+
+  useEffect(() => {
     if (!assignmentsLoaded || selectedProgramId || !primaryAssignment) return;
     if (!existingPrograms.some((program) => program.id === primaryAssignment.programId)) return;
     selectExistingProgram(primaryAssignment.programId);
@@ -990,8 +1004,10 @@ export function useActiveProgramReviewController() {
       };
       const nextUpdates = [nextUpdate, ...updates].slice(0, 20);
 
-      writeStoredUpdates(nextUpdates);
-      window.localStorage.setItem("work-path-active-program-review", JSON.stringify(nextReview));
+      if (selectedProgramId !== demoProgramId) {
+        writeStoredUpdates(nextUpdates);
+        window.localStorage.setItem("work-path-active-program-review", JSON.stringify(nextReview));
+      }
       setUpdates(nextUpdates);
       setReview(nextReview);
       setSaveState("saving");

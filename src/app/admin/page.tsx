@@ -9,6 +9,7 @@ import { getDocumentationFreshnessSnapshot } from "@/lib/documentation-freshness
 import { getConfiguredGuidanceModelProfile } from "@/lib/guidance-model-profile";
 import { getAdminAccessContext } from "@/lib/leadership-auth";
 import { requireSiteAccessPage } from "@/lib/app-page-access";
+import { isDemoMode } from "@/lib/demo-session";
 import {
   listAuditEvents,
   listGuidanceFeedbackFlags,
@@ -20,6 +21,7 @@ export const dynamic = "force-dynamic";
 
 export default async function AdminPage() {
   await requireSiteAccessPage("/admin");
+  if (await isDemoMode()) redirect("/active-program?mode=manage");
   const access = await getAdminAccessContext();
   if (!access.authorized) {
     redirect("/login?redirect=/admin");

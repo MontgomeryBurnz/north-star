@@ -33,7 +33,8 @@ NorthStar is the product workspace for the app hosted at `https://www.north-star
 
 ## OpenAI
 
-- Used behind provider boundaries for guided-plan synthesis, role artifact recommendations, artifact generation, leadership interpretation, and usage tracking.
+- Used behind provider boundaries for guided-plan synthesis, artifact generation, leadership interpretation, and usage tracking.
+- Studio uses evidence review followed by product synthesis, with source references, structural checks, feedback revisions, and optional public research from a user-supplied generic topic.
 - Model/cost settings live in environment variables and are surfaced in Admin cost-center views.
 - Prompt-cache and usage tracking are program/workflow scoped so Admin can reconcile spend and cache posture.
 
@@ -51,6 +52,9 @@ NorthStar is the product workspace for the app hosted at `https://www.north-star
   - verify the standalone workspace renders without an active-program selector
   - verify the multi-format source workspace
   - verify discovery analysis waits for readable evidence
+  - verify selected deliverables and Word/Excel/PowerPoint/Markdown format controls
+  - load the fictional discovery package and verify preview selection, source references, test steps, feedback, and revision controls
+  - verify public research starts off and Start fresh clears the Studio workspace
 - `SMOKE_BASE_URL=https://www.north-star.live npm run smoke:slicers` validates program slicers across key product surfaces.
 - `SMOKE_BASE_URL=https://www.north-star.live npm run smoke:client-portal` signs in with the QA user, seeds a tagged active-program update, opens `/client`, verifies the executive portfolio/detail fields render from that update, captures desktop/mobile screenshots, and prunes the seeded record.
 - `SMOKE_BASE_URL=https://www.north-star.live npm run smoke:production` runs the standard post-deploy production smoke bundle.
@@ -64,7 +68,13 @@ NorthStar is the product workspace for the app hosted at `https://www.north-star
 - Evergreen knowledge-management blueprint: `docs/northstar-knowledge-management-solution.md`
 - Release documentation gate: `docs/northstar-release-checklist.md`
 
-The long-term product direction is an in-app Knowledge Center that renders role-aware, searchable guidance from repo-backed content, then uses AI-assisted draft updates and Admin approval to keep training material current as NorthStar evolves.
+The in-app Knowledge Center renders searchable, audience-filtered guidance from repository-backed content. The next step is AI-assisted draft updates and Admin approval to keep training material current as NorthStar evolves.
+
+## Sample Data and Studio Workspaces
+
+- Explore with sample data uses the ordinary application screens and a connected fictional program; Reset sample and Exit sample data control the browser-session example.
+- Studio accepts discovery sources without an active program and exports selected product deliverables as editable Office files or Markdown.
+- Studio sources, outputs, and revision history remain only in the open page workspace. They are not persisted to program records and should be downloaded before refreshing or navigating away.
 
 ## Codex Organization
 

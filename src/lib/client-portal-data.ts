@@ -5,6 +5,7 @@ import { getAssignedProgramIdSet, isExternalOnlyUserType, shouldScopeManagedUser
 import { buildClientPortalPortfolio, type ClientPortalProgramInput } from "@/lib/client-portal";
 import { getCurrentManagedUser } from "@/lib/current-managed-user";
 import { listClientDecisionRequests, listClientPortalUpdates, listPrograms } from "@/lib/program-store";
+import { isDemoMode } from "@/lib/demo-session";
 
 function normalizeClientScope(value: string | null | undefined) {
   return value?.trim().toLowerCase() ?? "";
@@ -23,8 +24,12 @@ export async function loadClientPortalData(
     redirect(`/login?redirect=${encodeURIComponent(redirectTo)}`);
   }
 
+  const demoMode = await isDemoMode();
+  if (demoMode && currentUser && isExternalOnlyUserType(currentUser.userType)) {
+    redirect("/login?redirect=/client");
+  }
   const allPrograms = await listPrograms();
-  const visibleProgramIds = currentUser && shouldScopeManagedUserPrograms(currentUser)
+  const visibleProgramIds = currentUser && shouldScopeManagedUserPrograms(currentUser) && !demoMode
     ? getAssignedProgramIdSet(currentUser)
     : null;
   const programs = visibleProgramIds
@@ -54,7 +59,7 @@ export async function loadClientPortalData(
   );
 
   const portfolio = buildClientPortalPortfolio({ programs: programInputs });
-  const viewerLabel = currentUser
+  const viewerLabel = demoMode ? "Sample data · internal preview" : currentUser
     ? `${currentUser.name} · ${
         currentUser.userType === "client"
           ? "Client access"

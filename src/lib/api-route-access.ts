@@ -11,6 +11,8 @@ import { getCurrentManagedUser } from "@/lib/current-managed-user";
 import type { LeadershipAccessContext } from "@/lib/leadership-auth";
 import { getAdminAccessContext, getLeadershipAccessContext } from "@/lib/leadership-auth";
 import { createSiteAccessDeniedResponse, isSiteAccessRequestAuthorized } from "@/lib/site-access";
+import { isDemoMode } from "@/lib/demo-session";
+import { demoProgramId } from "@/lib/demo-mode";
 
 type AuthorizedAccess = Extract<LeadershipAccessContext, { authorized: true }>;
 type AccessResolver = () => Promise<LeadershipAccessContext>;
@@ -57,6 +59,14 @@ export async function requireAdminRouteAccess(_request: Request) {
 }
 
 export async function requireLeadershipRouteAccess(_request: Request) {
+  if (await isDemoMode()) {
+    const { currentUser, response } = await requireInternalWorkspaceRouteAccess(_request);
+    if (response) return { access: null, response };
+    const access: AuthorizedAccess = currentUser
+      ? { provider: "managed-user", authorized: true, identity: { type: "managed-user", user: currentUser } }
+      : { provider: "env", authorized: true, identity: { type: "env-session" } };
+    return { access, response: null };
+  }
   return requireProtectedRouteAccess(getLeadershipAccessContext);
 }
 
@@ -67,6 +77,16 @@ export async function requireProgramRouteAccess(
 ): Promise<{ currentUser: ManagedAppUser | null; response: NextResponse | null }> {
   const scope = options.scope ?? "internal";
   const currentUser = await getCurrentManagedUser();
+
+  if (await isDemoMode()) {
+    if (programId !== demoProgramId || (currentUser && (!hasActiveUserCredentials(currentUser) || isExternalOnlyUserType(currentUser.userType)))) {
+      return { currentUser, response: NextResponse.json({ error: "Sample data is available to internal workspace users only." }, { status: 403 }) };
+    }
+    if (currentUser || isSiteAccessRequestAuthorized(request)) {
+      return { currentUser: options.loadCurrentUser ? currentUser : null, response: null };
+    }
+    return { currentUser: null, response: createSiteAccessDeniedResponse() };
+  }
 
   if (currentUser) {
     if (isClientDashboardOnlyUserType(currentUser.userType) && scope !== "client-dashboard") {

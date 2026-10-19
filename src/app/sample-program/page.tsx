@@ -1,6 +1,6 @@
 export const dynamic = "force-dynamic";
 
-import { SampleProgramExperience } from "@/components/sample-program-experience";
+import { redirect } from "next/navigation";
 import { requireInternalWorkspacePage } from "@/lib/app-page-access";
 
 export const metadata = {
@@ -10,5 +10,5 @@ export const metadata = {
 
 export default async function SampleProgramPage() {
   await requireInternalWorkspacePage("/sample-program");
-  return <SampleProgramExperience />;
+  redirect("/api/demo-session?start=1");
 }

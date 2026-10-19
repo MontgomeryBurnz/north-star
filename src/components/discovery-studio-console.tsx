@@ -1,36 +1,24 @@
 "use client";
 
 import { useRef, useState, type ChangeEvent } from "react";
-import {
-  AlertTriangle,
-  BrainCircuit,
-  CheckCircle2,
-  ClipboardCopy,
-  Download,
-  FileText,
-  Layers3,
-  ListChecks,
-  Loader2,
-  Map,
-  RotateCcw,
-  Sparkles,
-  Upload,
-  X
-} from "lucide-react";
+import { AlertTriangle, BrainCircuit, ClipboardCopy, Download, FileText, History, Layers3, Loader2, MessageSquare, RotateCcw, Sparkles, Upload, X } from "lucide-react";
 import type { DiscoverySynthesis } from "@/lib/discovery-studio-types";
 import type { ProgramArtifact } from "@/lib/program-intake-types";
+import { STUDIO_EXPORT_FORMATS, STUDIO_OUTPUT_OPTIONS, type StudioExportFormat, type StudioOutputId } from "@/lib/studio-export-types";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ProductPageHeader } from "@/components/product-page-header";
-import {
-  sampleDiscoverySources,
-  sampleDiscoverySynthesis,
-  sampleProgram
-} from "@/data/sample-program";
+import { DiscoveryStudioPreferences } from "@/components/discovery-studio-preferences";
+import { StudioBuildOutputs, StudioGapList, StudioQualityReview, StudioUnderstanding } from "@/components/discovery-studio-results";
+import { sampleDiscoverySources, sampleDiscoverySynthesis, sampleProgram } from "@/data/sample-program";
 
 type StudioView = "understanding" | "gaps" | "build";
+type StudioRevision = { id: number; synthesis: DiscoverySynthesis; summary: string; createdAt: string };
+type FeedbackKind = "issue" | "discrepancy" | "change";
 
 const acceptedFormats = ".doc,.docx,.xls,.xlsx,.ppt,.pptx,.pdf,.txt,.md,.json,.csv";
+const allOutputIds = STUDIO_OUTPUT_OPTIONS.map((option) => option.id);
+const inputStyle = "rounded-md border border-white/10 bg-zinc-950 px-3 py-2.5 text-sm text-zinc-100 outline-none placeholder:text-zinc-600 focus:border-emerald-300/50 focus:ring-2 focus:ring-emerald-300/15";
 
 function detectFileFormat(name: string): NonNullable<ProgramArtifact["fileFormat"]> {
   const extension = name.toLowerCase().split(".").pop();
@@ -57,68 +45,12 @@ function sourceQuality(format: ProgramArtifact["fileFormat"]): NonNullable<Progr
   return "narrative";
 }
 
-function packageMarkdown(programName: string, synthesis: DiscoverySynthesis) {
-  const lines = [
-    `# ${programName} — Discovery Build Package`,
-    "",
-    `Readiness: ${synthesis.readinessScore}/100`,
-    "",
-    synthesis.executiveSummary,
-    "",
-    "## Discovery gaps",
-    ...synthesis.gaps.map((gap) => `- [${gap.severity.toUpperCase()}] ${gap.title}: ${gap.question}`),
-    "",
-    "## Roadmap",
-    ...synthesis.roadmap.map((item) => `- ${item.horizon}: ${item.title} — ${item.outcome}`),
-    "",
-    "## Epics and features",
-    ...synthesis.epics.flatMap((epic) => [
-      `### ${epic.id}: ${epic.title}`,
-      epic.objective,
-      ...synthesis.features.filter((feature) => feature.epicId === epic.id).map((feature) => `- ${feature.id}: ${feature.title} (${feature.priority}) — ${feature.description}`)
-    ]),
-    "",
-    "## User stories, acceptance criteria, and tests",
-    ...synthesis.stories.flatMap((story) => [
-      `### ${story.id}: ${story.title}`,
-      story.story,
-      "Acceptance criteria:",
-      ...story.acceptanceCriteria.map((criterion) => `- ${criterion}`),
-      "Test cases:",
-      ...story.testCases.map((testCase) => `- ${testCase.id} [${testCase.type}]: ${testCase.title} — ${testCase.expectedResult}`),
-      ""
-    ])
-  ];
-  return lines.join("\n");
-}
-
 function Metric({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-md border border-white/10 bg-white/[0.035] px-4 py-3">
-      <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-zinc-500">{label}</p>
-      <p className="mt-1 text-xl font-semibold text-zinc-50">{value}</p>
-    </div>
-  );
+  return <div className="rounded-md border border-white/10 bg-white/[0.035] px-4 py-3"><p className="text-[11px] font-medium uppercase tracking-[0.16em] text-zinc-500">{label}</p><p className="mt-1 text-xl font-semibold text-zinc-50">{value}</p></div>;
 }
 
-function InsightList({ empty, items, title }: { empty: string; items: string[]; title: string }) {
-  return (
-    <section className="rounded-lg border border-white/10 bg-zinc-950/65 p-4">
-      <p className="text-xs font-medium uppercase tracking-[0.16em] text-cyan-100">{title}</p>
-      {items.length ? (
-        <ul className="mt-3 grid gap-2 text-sm leading-6 text-zinc-300">
-          {items.map((item, index) => (
-            <li key={`${title}-${index}`} className="flex gap-2">
-              <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-300" />
-              <span>{item}</span>
-            </li>
-          ))}
-        </ul>
-      ) : (
-        <p className="mt-3 text-sm leading-6 text-zinc-500">{empty}</p>
-      )}
-    </section>
-  );
+function initialRevision(): StudioRevision {
+  return { id: 1, synthesis: sampleDiscoverySynthesis, summary: "Prepared fictional discovery example", createdAt: sampleDiscoverySynthesis.generatedAt };
 }
 
 export function DiscoveryStudioConsole({ initialSample = false }: { initialSample?: boolean }) {
@@ -128,14 +60,33 @@ export function DiscoveryStudioConsole({ initialSample = false }: { initialSampl
   const [synthesis, setSynthesis] = useState<DiscoverySynthesis | null>(initialSample ? sampleDiscoverySynthesis : null);
   const [resolutionNotes, setResolutionNotes] = useState("");
   const [workspaceName, setWorkspaceName] = useState(initialSample ? sampleProgram.name : "Discovery workspace");
-  const [status, setStatus] = useState(initialSample
-    ? "Sample package loaded. Explore the synthesis or regenerate it with additional context."
-    : "Add discovery evidence to begin. This workspace is not connected to an active program.");
+  const [status, setStatus] = useState(initialSample ? "Fictional discovery package loaded. Explore the outputs or analyze the sources to create a new revision." : "Add discovery evidence and choose the outputs you need.");
   const [view, setView] = useState<StudioView>(initialSample ? "build" : "understanding");
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [exportAction, setExportAction] = useState<"download" | "copy" | null>(null);
   const [isSampleWorkspace, setIsSampleWorkspace] = useState(initialSample);
+  const [selectedOutputs, setSelectedOutputs] = useState<StudioOutputId[]>(allOutputIds);
+  const [exportFormat, setExportFormat] = useState<StudioExportFormat>("docx");
+  const [externalResearch, setExternalResearch] = useState(false);
+  const [researchTopic, setResearchTopic] = useState("");
+  const [feedback, setFeedback] = useState("");
+  const [feedbackKind, setFeedbackKind] = useState<FeedbackKind>("change");
+  const [feedbackTarget, setFeedbackTarget] = useState("package");
+  const [revisions, setRevisions] = useState<StudioRevision[]>(initialSample ? [initialRevision()] : []);
+  const [activeRevisionId, setActiveRevisionId] = useState(initialSample ? 1 : 0);
+  const [selectedRevisionId, setSelectedRevisionId] = useState(initialSample ? 1 : 0);
   const readableSourceCount = sources.filter((artifact) => artifact.extractedText?.trim()).length;
   const blockingGapCount = synthesis?.gaps.filter((gap) => gap.severity === "blocking").length ?? 0;
+  const activeRevision = revisions.find((revision) => revision.id === activeRevisionId);
+  const selectedFormat = STUDIO_EXPORT_FORMATS.find((format) => format.id === exportFormat) ?? STUDIO_EXPORT_FORMATS[0];
+  const busy = isAnalyzing || exportAction !== null;
+  const canAnalyze = !busy && (pendingFiles.length > 0 || readableSourceCount > 0) && selectedOutputs.length > 0 && (!externalResearch || researchTopic.trim().length > 0);
+  const feedbackTargets = synthesis ? [
+    ...synthesis.epics.map((item) => ({ id: item.id, label: `${item.id} · ${item.title}` })),
+    ...synthesis.features.map((item) => ({ id: item.id, label: `${item.id} · ${item.title}` })),
+    ...synthesis.stories.map((item) => ({ id: item.id, label: `${item.id} · ${item.title}` })),
+    ...synthesis.gaps.map((item) => ({ id: item.id, label: `${item.id} · ${item.title}` }))
+  ] : [];
 
   function handleFiles(event: ChangeEvent<HTMLInputElement>) {
     const files = Array.from(event.target.files ?? []);
@@ -153,18 +104,7 @@ export function DiscoveryStudioConsole({ initialSample = false }: { initialSampl
     extractionData.append("file", file);
     extractionData.append("fileFormat", fileFormat);
     const extractionResult = await fetch("/api/artifacts/extract", { method: "POST", body: extractionData });
-    const artifact: ProgramArtifact = {
-      id: `${file.name}-${file.lastModified}-${file.size}`,
-      name: file.name,
-      size: file.size,
-      type: file.type || "unknown",
-      lastModified: file.lastModified,
-      fileFormat,
-      artifactType: inferArtifactType(file.name),
-      sourceQuality: sourceQuality(fileFormat),
-      analysisPriority: "high"
-    };
-
+    const artifact: ProgramArtifact = { id: `${file.name}-${file.lastModified}-${file.size}`, name: file.name, size: file.size, type: file.type || "unknown", lastModified: file.lastModified, fileFormat, artifactType: inferArtifactType(file.name), sourceQuality: sourceQuality(fileFormat), analysisPriority: "high" };
     if (extractionResult.ok) {
       const payload = (await extractionResult.json()) as { extraction: Partial<ProgramArtifact> };
       Object.assign(artifact, payload.extraction);
@@ -172,234 +112,170 @@ export function DiscoveryStudioConsole({ initialSample = false }: { initialSampl
       artifact.sourceKind = "metadata-only";
       artifact.extractionStatus = "error";
       artifact.extractionMethod = "server-parser";
-      artifact.extractionSummary = "Studio could not extract this source. The file is still tracked in the package.";
+      artifact.extractionSummary = "Studio could not extract this source. Re-upload a readable version so its content can be reviewed.";
     }
     return artifact;
   }
 
-  function mergeSources(current: ProgramArtifact[], incoming: ProgramArtifact[]) {
-    return [...current, ...incoming].filter(
-      (artifact, index, all) => all.findIndex((candidate) => candidate.id === artifact.id) === index
-    );
-  }
-
-  async function analyzePackage() {
-    if (!pendingFiles.length && !readableSourceCount) {
-      setStatus("Add at least one readable discovery source before analysis.");
-      return;
-    }
+  async function analyzePackage(refine = false) {
+    if (!selectedOutputs.length) { setStatus("Select at least one desired output before analysis."); return; }
+    if (externalResearch && !researchTopic.trim()) { setStatus("Enter a generic public research topic to include web research."); return; }
+    if (!pendingFiles.length && !readableSourceCount) { setStatus("Add at least one readable discovery source before analysis."); return; }
+    if (sources.length + pendingFiles.length > 16) { setStatus("Use up to 16 discovery sources per analysis. Remove sources or split this package before continuing."); return; }
+    if (refine && (!synthesis || !feedback.trim())) { setStatus("Describe the issue, discrepancy, or change to create a revision."); return; }
     setIsAnalyzing(true);
-    setStatus(pendingFiles.length ? "Extracting and classifying the discovery package..." : "Synthesizing the latest discovery evidence...");
+    setStatus(pendingFiles.length ? "Extracting and classifying the discovery package…" : refine ? "Reviewing your feedback against the evidence and previous output…" : "Reviewing the discovery evidence…");
+    const revisionFeedback = refine ? `${feedbackKind.toUpperCase()} · ${feedbackTarget === "package" ? "Whole package" : feedbackTarget}: ${feedback.trim()}` : "";
     try {
       let analysisSources = sources;
       if (pendingFiles.length) {
         const newArtifacts = await Promise.all(pendingFiles.map(prepareFile));
-        if (!newArtifacts.some((artifact) => artifact.extractedText?.trim()) && !readableSourceCount) {
-          throw new Error("No readable text could be extracted from the selected files.");
-        }
-        analysisSources = mergeSources(sources, newArtifacts);
+        analysisSources = [...sources, ...newArtifacts].filter((artifact, index, all) => all.findIndex((candidate) => candidate.id === artifact.id) === index);
         setSources(analysisSources);
         setPendingFiles([]);
+        if (!analysisSources.some((artifact) => artifact.extractedText?.trim())) throw new Error("No readable text could be extracted. Review the source warnings and upload readable versions.");
       }
-      setStatus("Building the product definition, traceability, gaps, stories, and tests...");
+      setStatus(refine ? "Revising the package while checking traceability, acceptance criteria, and tests…" : "Synthesizing the evidence, gaps, roadmap, stories, and tests…");
       const response = await fetch("/api/studio/discovery-synthesis", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          workspaceName: workspaceName.trim() || "Discovery workspace",
-          artifacts: analysisSources,
-          resolutionNotes
-        })
+        body: JSON.stringify({ workspaceName: workspaceName.trim() || "Discovery workspace", artifacts: analysisSources, resolutionNotes, selectedOutputs, externalResearch, researchTopic: externalResearch ? researchTopic.trim() : "", ...(synthesis ? { previousSynthesis: synthesis } : {}), ...(refine ? { feedback: revisionFeedback } : {}) })
       });
       const payload = (await response.json()) as { error?: string; synthesis?: DiscoverySynthesis };
       if (!response.ok || !payload.synthesis) throw new Error(payload.error || "Studio analysis failed.");
-      setSynthesis(payload.synthesis);
-      setView(payload.synthesis.gaps.some((gap) => gap.severity === "blocking") ? "gaps" : "build");
-      setStatus(`Build package generated from ${payload.synthesis.sourceCount} readable source${payload.synthesis.sourceCount === 1 ? "" : "s"}.`);
+      const result = payload.synthesis;
+      const revisionId = (revisions.at(-1)?.id ?? 0) + 1;
+      result.revision = { number: revisionId, summary: result.revision?.summary || "Discovery synthesis generated", ...(refine ? { feedback: revisionFeedback } : {}) };
+      const summary = result.revision?.summary || (refine ? revisionFeedback : resolutionNotes.trim() ? "Reanalyzed with additional context" : "Discovery synthesis generated");
+      setSynthesis(result);
+      setRevisions((current) => [...current, { id: revisionId, synthesis: result, summary, createdAt: result.generatedAt }]);
+      setActiveRevisionId(revisionId);
+      setSelectedRevisionId(revisionId);
+      setFeedback("");
+      setFeedbackTarget("package");
+      setView(result.gaps.some((gap) => gap.severity === "blocking") ? "gaps" : "build");
+      setStatus(`Revision ${revisionId} generated from ${result.sourceCount} readable source${result.sourceCount === 1 ? "" : "s"}. ${result.provider === "openai" ? "OpenAI evidence review completed." : "Local draft requires review."}`);
     } catch (error) {
-      setStatus(error instanceof Error ? error.message : "Studio could not analyze the package.");
-    } finally {
-      setIsAnalyzing(false);
-    }
+      setStatus(`${error instanceof Error ? error.message : "Studio could not analyze the package."}${synthesis ? " Your current revision is preserved." : ""}`);
+    } finally { setIsAnalyzing(false); }
   }
 
-  async function copyPackage() {
-    if (!synthesis) return;
-    await navigator.clipboard.writeText(packageMarkdown(workspaceName.trim() || "Discovery workspace", synthesis));
-    setStatus("Build package copied as structured Markdown.");
-  }
-
-  function downloadPackage() {
-    if (!synthesis) return;
-    const title = workspaceName.trim() || "Discovery workspace";
-    const blob = new Blob([packageMarkdown(title, synthesis)], { type: "text/markdown" });
-    const url = URL.createObjectURL(blob);
-    const anchor = document.createElement("a");
-    anchor.href = url;
-    anchor.download = `${title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "northstar"}-build-package.md`;
-    anchor.click();
-    URL.revokeObjectURL(url);
-    setStatus("Build package downloaded.");
+  async function exportPackage(action: "download" | "copy") {
+    if (!synthesis || !selectedOutputs.length) return;
+    setExportAction(action);
+    setStatus(action === "copy" ? "Preparing the selected outputs for copying…" : `Preparing your ${selectedFormat.label.toLowerCase()}…`);
+    try {
+      const format = action === "copy" ? "md" : exportFormat;
+      const response = await fetch("/api/studio/export", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ workspaceName: workspaceName.trim() || "Discovery workspace", synthesis, format, outputs: selectedOutputs }) });
+      if (!response.ok) {
+        const payload = await response.json().catch(() => ({})) as { error?: string };
+        throw new Error(payload.error || "The selected outputs could not be exported.");
+      }
+      if (action === "copy") {
+        await navigator.clipboard.writeText(await response.text());
+        setStatus("Selected outputs copied as structured Markdown.");
+      } else {
+        const blob = await response.blob();
+        const url = URL.createObjectURL(blob);
+        const anchor = document.createElement("a");
+        anchor.href = url;
+        const disposition = response.headers.get("content-disposition");
+        const filename = disposition?.match(/filename="([^"]+)"/)?.[1];
+        anchor.download = filename || `northstar-build-package.${format}`;
+        document.body.appendChild(anchor);
+        anchor.click();
+        anchor.remove();
+        URL.revokeObjectURL(url);
+        setStatus(`${selectedFormat.label} downloaded with ${selectedOutputs.length} selected deliverable${selectedOutputs.length === 1 ? "" : "s"}.`);
+      }
+    } catch (error) { setStatus(error instanceof Error ? error.message : "Studio could not export the package."); }
+    finally { setExportAction(null); }
   }
 
   function clearWorkspace() {
-    setPendingFiles([]);
-    setSources([]);
-    setSynthesis(null);
-    setResolutionNotes("");
-    setView("understanding");
-    setWorkspaceName("Discovery workspace");
-    setIsSampleWorkspace(false);
-    setStatus("Fresh workspace ready. Add discovery evidence to begin.");
+    setPendingFiles([]); setSources([]); setSynthesis(null); setResolutionNotes(""); setView("understanding"); setWorkspaceName("Discovery workspace"); setIsSampleWorkspace(false); setFeedback(""); setFeedbackTarget("package"); setRevisions([]); setActiveRevisionId(0); setSelectedRevisionId(0); setExternalResearch(false); setResearchTopic("");
+    setStatus("Fresh workspace ready. Add discovery evidence and choose the outputs you need.");
     if (inputRef.current) inputRef.current.value = "";
   }
 
   function loadSampleWorkspace() {
-    setPendingFiles([]);
-    setSources(sampleDiscoverySources);
-    setSynthesis(sampleDiscoverySynthesis);
-    setResolutionNotes("");
-    setView("build");
-    setWorkspaceName(sampleProgram.name);
-    setIsSampleWorkspace(true);
-    setStatus("Sample package loaded. Explore the synthesis or regenerate it with additional context.");
+    setPendingFiles([]); setSources(sampleDiscoverySources); setSynthesis(sampleDiscoverySynthesis); setResolutionNotes(""); setView("build"); setWorkspaceName(sampleProgram.name); setIsSampleWorkspace(true); setFeedback(""); setFeedbackTarget("package"); setRevisions([initialRevision()]); setActiveRevisionId(1); setSelectedRevisionId(1); setExternalResearch(false); setResearchTopic("");
+    setStatus("Fictional discovery package loaded. Explore the outputs or analyze the sources to create a new revision.");
     if (inputRef.current) inputRef.current.value = "";
+  }
+
+  function restoreRevision() {
+    const revision = revisions.find((item) => item.id === selectedRevisionId);
+    if (!revision) return;
+    setSynthesis(revision.synthesis); setActiveRevisionId(revision.id); setFeedbackTarget("package");
+    setStatus(`Revision ${revision.id} restored. Later revisions remain available in this session.`);
+  }
+
+  function removeSource(sourceId: string) {
+    setSources((current) => current.filter((source) => source.id !== sourceId));
+    setStatus("Source removed from the next analysis. Re-analyze to update the outputs; existing revisions remain available.");
   }
 
   return (
     <main className="mx-auto max-w-[1500px] px-4 py-14 sm:px-6 lg:px-8" data-discovery-studio data-studio-agnostic>
-      <div className="grid gap-8">
-        <ProductPageHeader
-          eyebrow="Studio"
-          title="Turn discovery into build-ready product definition."
-          description="Bring the full discovery package. North Star synthesizes the evidence, exposes what is missing, and creates a traceable roadmap, backlog, acceptance criteria, and test foundation."
-        />
+      <div className="grid gap-6">
+        <ProductPageHeader eyebrow="Studio" title="Turn discovery into the product outputs you need." description="Bring the discovery package, choose your deliverables, and review the evidence behind the result. Refine with feedback and download editable Word, Excel, or PowerPoint files." />
+        {isSampleWorkspace ? <div className="flex flex-col gap-3 rounded-lg border border-cyan-300/20 bg-cyan-300/[0.055] p-4 sm:flex-row sm:items-center sm:justify-between" data-studio-sample><div className="flex items-start gap-3"><Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-cyan-200" /><div><p className="text-sm font-medium text-cyan-100">Regional Service Request Modernization · Fictional discovery evidence</p><p className="mt-1 text-xs leading-5 text-zinc-400">Explore the same program evidence used throughout North Star. Studio changes and revisions stay in this browser session.</p></div></div><Button type="button" variant="outline" size="sm" onClick={clearWorkspace} disabled={busy} className="border-cyan-300/20 text-cyan-100">Use my own sources</Button></div> : null}
 
-        {isSampleWorkspace ? (
-          <div className="flex flex-col gap-3 rounded-lg border border-cyan-300/20 bg-cyan-300/[0.055] p-4 sm:flex-row sm:items-center sm:justify-between" data-studio-sample>
-            <div className="flex items-start gap-3">
-              <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-cyan-200" />
+        <Card className="overflow-hidden bg-zinc-950/80"><CardContent className="grid gap-5 p-4 sm:p-5"><div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end"><label className="grid gap-2"><span className="text-[11px] font-medium uppercase tracking-[0.16em] text-zinc-500">Workspace title</span><input value={workspaceName} onChange={(event) => setWorkspaceName(event.target.value)} maxLength={120} disabled={busy} placeholder="Name this discovery package" className={inputStyle} data-studio-workspace-name /><span className="text-sm leading-6 text-zinc-400">Use Studio with or without an active program. Sources, results, and revisions stay in this session.</span></label><div className="flex flex-wrap gap-2">{!sources.length && !pendingFiles.length && !synthesis ? <Button type="button" variant="outline" onClick={loadSampleWorkspace} disabled={busy} data-studio-load-sample><Sparkles className="h-4 w-4" />Try example evidence</Button> : null}<Button type="button" variant="outline" onClick={clearWorkspace} disabled={busy || (!sources.length && !pendingFiles.length && !synthesis)} data-studio-clear><RotateCcw className="h-4 w-4" />Start fresh</Button></div></div><div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4"><Metric label="Discovery sources" value={String(sources.length + pendingFiles.length)} /><Metric label="Readiness" value={synthesis ? `${synthesis.readinessScore}%` : "—"} /><Metric label="Blocking gaps" value={synthesis ? String(blockingGapCount) : "—"} /><Metric label="Stories ready for review" value={synthesis ? String(synthesis.stories.filter((story) => story.readiness === "ready").length) : "—"} /></div></CardContent></Card>
+
+        <Card className="bg-zinc-950/75">
+          <CardHeader className="border-b border-white/10">
+            <div className="flex flex-wrap items-start justify-between gap-4">
               <div>
-                <p className="text-sm font-medium text-cyan-100">Exploring a fictional sample package</p>
-                <p className="mt-1 text-xs leading-5 text-zinc-400">This session is not saved and does not create or change an active program.</p>
+                <p className="text-xs font-medium uppercase tracking-[0.18em] text-emerald-300">1 · Source package</p>
+                <CardTitle className="mt-2 text-zinc-50">Add discovery evidence</CardTitle>
+                <p className="mt-2 max-w-3xl text-sm leading-6 text-zinc-400">Upload up to 16 Word, Excel, PowerPoint, PDF, CSV, Markdown, JSON, or text files together. Include capability analyses, pain points, rules, decisions, and interview notes.</p>
               </div>
+              <input ref={inputRef} type="file" multiple accept={acceptedFormats} onChange={handleFiles} disabled={busy} className="hidden" aria-label="Discovery source files" data-studio-source-input />
+              <Button type="button" variant="outline" onClick={() => inputRef.current?.click()} disabled={busy}><Upload className="h-4 w-4" />Add sources</Button>
             </div>
-            <Button type="button" variant="outline" size="sm" onClick={clearWorkspace} className="border-cyan-300/20 text-cyan-100">
-              Use my own sources
-            </Button>
-          </div>
-        ) : null}
-
-        <Card className="overflow-hidden bg-zinc-950/80">
-          <CardContent className="grid gap-5 p-4 sm:p-5">
-            <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
-              <label className="grid gap-2">
-                <span className="text-[11px] font-medium uppercase tracking-[0.16em] text-zinc-500">Workspace title</span>
-                <input
-                  value={workspaceName}
-                  onChange={(event) => setWorkspaceName(event.target.value)}
-                  maxLength={120}
-                  placeholder="Name this discovery package"
-                  className="rounded-md border border-white/10 bg-zinc-950 px-3 py-2.5 text-sm text-zinc-100 outline-none placeholder:text-zinc-600 focus:border-emerald-300/50 focus:ring-2 focus:ring-emerald-300/15"
-                  data-studio-workspace-name
-                />
-                <span className="text-sm leading-6 text-zinc-400">Standalone by design. Nothing in this workspace depends on or updates an active program.</span>
-              </label>
-              <div className="flex flex-wrap gap-2">
-                {!sources.length && !pendingFiles.length && !synthesis ? (
-                  <Button type="button" variant="outline" onClick={loadSampleWorkspace} data-studio-load-sample>
-                    <Sparkles className="h-4 w-4" />Try sample package
-                  </Button>
-                ) : null}
-                <Button type="button" variant="outline" onClick={clearWorkspace} disabled={!sources.length && !pendingFiles.length && !synthesis} data-studio-clear>
-                  <RotateCcw className="h-4 w-4" />Start fresh
-                </Button>
-              </div>
-            </div>
-            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-              <Metric label="Discovery sources" value={String(sources.length + pendingFiles.length)} />
-              <Metric label="Readiness" value={synthesis ? `${synthesis.readinessScore}%` : "—"} />
-              <Metric label="Blocking gaps" value={synthesis ? String(blockingGapCount) : "—"} />
-              <Metric label="Build-ready stories" value={synthesis ? String(synthesis.stories.filter((story) => story.readiness === "ready").length) : "—"} />
+          </CardHeader>
+          <CardContent className="grid gap-4 p-4 sm:p-5">
+            <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
+              {sources.map((artifact) => (
+                <div key={artifact.id} className="flex items-start gap-3 rounded-md border border-white/10 bg-white/[0.025] p-3">
+                  <FileText className="mt-0.5 h-4 w-4 shrink-0 text-cyan-200" />
+                  <div className="min-w-0 flex-1">
+                    <p className="break-words text-sm font-medium text-zinc-100">{artifact.name}</p>
+                    <p className="mt-1 text-xs text-zinc-500">{artifact.fileFormat?.toUpperCase() ?? "FILE"} · {artifact.extractionStatus ?? "tracked"}</p>
+                    {!artifact.extractedText?.trim() ? <p className="mt-2 text-xs leading-5 text-amber-100">{artifact.extractionSummary || "No readable content. Upload a readable version to include this source in synthesis."}</p> : null}
+                  </div>
+                  <button type="button" aria-label={`Remove ${artifact.name}`} onClick={() => removeSource(artifact.id)} disabled={busy} className="text-zinc-500 hover:text-zinc-100"><X className="h-4 w-4" /></button>
+                </div>
+              ))}
+              {pendingFiles.map((file) => (
+                <div key={`${file.name}-${file.lastModified}-${file.size}`} className="flex items-start gap-3 rounded-md border border-emerald-300/20 bg-emerald-300/[0.04] p-3">
+                  <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-emerald-200" />
+                  <div className="min-w-0 flex-1"><p className="break-words text-sm font-medium text-zinc-100">{file.name}</p><p className="mt-1 text-xs text-emerald-100/70">Queued for analysis</p></div>
+                  <button type="button" aria-label={`Remove ${file.name}`} onClick={() => setPendingFiles((current) => current.filter((candidate) => candidate !== file))} disabled={busy} className="text-zinc-500 hover:text-zinc-100"><X className="h-4 w-4" /></button>
+                </div>
+              ))}
+              {!sources.length && !pendingFiles.length ? <div className="rounded-md border border-dashed border-white/10 p-5 text-sm text-zinc-500">No discovery evidence has been added yet.</div> : null}
             </div>
           </CardContent>
         </Card>
 
-            <Card className="bg-zinc-950/75">
-              <CardHeader className="border-b border-white/10">
-                <div className="flex flex-wrap items-start justify-between gap-4">
-                  <div>
-                    <p className="text-xs font-medium uppercase tracking-[0.18em] text-emerald-300">1 · Source package</p>
-                    <CardTitle className="mt-2 text-zinc-50">Add discovery evidence</CardTitle>
-                    <p className="mt-2 max-w-3xl text-sm leading-6 text-zinc-400">Upload Word, Excel, PowerPoint, PDF, CSV, Markdown, JSON, or text files together. Sources stay in this working session and are synthesized independently from active programs.</p>
-                  </div>
-                  <input ref={inputRef} type="file" multiple accept={acceptedFormats} onChange={handleFiles} className="hidden" data-studio-source-input />
-                  <Button type="button" variant="outline" onClick={() => inputRef.current?.click()}><Upload className="h-4 w-4" />Add sources</Button>
-                </div>
-              </CardHeader>
-              <CardContent className="grid gap-4 p-4 sm:p-5">
-                <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
-                  {sources.map((artifact) => (
-                    <div key={artifact.id} className="flex items-start gap-3 rounded-md border border-white/10 bg-white/[0.025] p-3">
-                      <FileText className="mt-0.5 h-4 w-4 shrink-0 text-cyan-200" />
-                      <div className="min-w-0"><p className="truncate text-sm font-medium text-zinc-100">{artifact.name}</p><p className="mt-1 text-xs text-zinc-500">{artifact.fileFormat?.toUpperCase() ?? "FILE"} · {artifact.extractionStatus ?? "tracked"}</p></div>
-                    </div>
-                  ))}
-                  {pendingFiles.map((file) => (
-                    <div key={`${file.name}-${file.lastModified}`} className="flex items-start gap-3 rounded-md border border-emerald-300/20 bg-emerald-300/[0.04] p-3">
-                      <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-emerald-200" />
-                      <div className="min-w-0 flex-1"><p className="truncate text-sm font-medium text-zinc-100">{file.name}</p><p className="mt-1 text-xs text-emerald-100/70">Queued for analysis</p></div>
-                      <button type="button" aria-label={`Remove ${file.name}`} onClick={() => setPendingFiles((current) => current.filter((candidate) => candidate !== file))} className="text-zinc-500 hover:text-zinc-100"><X className="h-4 w-4" /></button>
-                    </div>
-                  ))}
-                  {!sources.length && !pendingFiles.length ? <div className="rounded-md border border-dashed border-white/10 p-5 text-sm text-zinc-500">No discovery evidence has been added yet.</div> : null}
-                </div>
-                <div className="flex flex-wrap items-center justify-between gap-3 border-t border-white/10 pt-4">
-                  <p className="text-sm leading-6 text-zinc-400">{status}</p>
-                  <Button type="button" onClick={() => void analyzePackage()} disabled={isAnalyzing || (!pendingFiles.length && !readableSourceCount)} data-studio-analyze>
-                    {isAnalyzing ? <Loader2 className="h-4 w-4 animate-spin" /> : <BrainCircuit className="h-4 w-4" />}
-                    {synthesis ? "Re-analyze package" : "Analyze discovery package"}
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
+        <DiscoveryStudioPreferences selectedOutputs={selectedOutputs} onSelectedOutputsChange={setSelectedOutputs} exportFormat={exportFormat} onExportFormatChange={setExportFormat} externalResearch={externalResearch} onExternalResearchChange={setExternalResearch} researchTopic={researchTopic} onResearchTopicChange={setResearchTopic} disabled={busy} />
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-white/10 bg-zinc-950/80 p-4"><p className="max-w-4xl text-sm leading-6 text-zinc-300" role="status" aria-live="polite" data-studio-status>{status}</p><Button type="button" onClick={() => void analyzePackage()} disabled={!canAnalyze} data-studio-analyze>{isAnalyzing ? <Loader2 className="h-4 w-4 animate-spin" /> : <BrainCircuit className="h-4 w-4" />}{synthesis ? "Re-analyze package" : "Analyze discovery package"}</Button></div>
 
-            {synthesis ? (
-              <section className="grid gap-5">
-                <div className="flex flex-wrap gap-2" aria-label="Studio output views">
-                  {([
-                    ["understanding", "2 · Understanding", BrainCircuit],
-                    ["gaps", `3 · Gaps${blockingGapCount ? ` (${blockingGapCount})` : ""}`, AlertTriangle],
-                    ["build", "4 · Build package", Layers3]
-                  ] as const).map(([id, label, Icon]) => (
-                    <Button key={id} type="button" variant={view === id ? "default" : "outline"} onClick={() => setView(id)}><Icon className="h-4 w-4" />{label}</Button>
-                  ))}
-                </div>
+        {synthesis ? <section className="grid gap-5" aria-label="Studio results">
+          <StudioQualityReview synthesis={synthesis} isExample={synthesis === sampleDiscoverySynthesis} />
+          <Card className="bg-zinc-950/75"><CardContent className="grid gap-4 p-4 sm:p-5"><div className="flex flex-wrap items-center justify-between gap-3"><div><p className="flex items-center gap-2 text-xs font-medium uppercase tracking-[0.16em] text-cyan-100"><History className="h-4 w-4" />Revision {activeRevisionId}</p><p className="mt-2 text-sm leading-6 text-zinc-300" data-studio-revision-summary>{activeRevision?.summary}</p></div><div className="flex flex-wrap items-end gap-2"><label className="grid gap-1"><span className="text-xs text-zinc-400">Revision history</span><select value={selectedRevisionId} onChange={(event) => setSelectedRevisionId(Number(event.target.value))} disabled={busy} className={`${inputStyle} max-w-[280px]`} data-studio-revision-history>{revisions.map((revision) => <option key={revision.id} value={revision.id}>Revision {revision.id}{revision.id === activeRevisionId ? " · Current" : ""} · {revision.summary.slice(0, 60)}</option>)}</select></label><Button type="button" variant="outline" onClick={restoreRevision} disabled={busy || selectedRevisionId === activeRevisionId} data-studio-restore-revision><RotateCcw className="h-4 w-4" />Restore</Button></div></div><p className="text-xs leading-5 text-zinc-500">Every generated revision is retained until you start fresh or leave this session. Review previous outputs and restore them before making further changes.</p></CardContent></Card>
+          <div className="flex flex-wrap gap-2" aria-label="Studio output views">{([["understanding", "3 · Understanding", BrainCircuit], ["gaps", `4 · Gaps${blockingGapCount ? ` (${blockingGapCount})` : ""}`, AlertTriangle], ["build", "5 · Build package", Layers3]] as const).map(([id, label, Icon]) => <Button key={id} type="button" variant={view === id ? "default" : "outline"} onClick={() => setView(id)} aria-pressed={view === id}><Icon className="h-4 w-4" />{label}</Button>)}</div>
+          {view === "understanding" ? <StudioUnderstanding synthesis={synthesis} /> : null}
+          {view === "gaps" ? <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_380px]"><StudioGapList synthesis={synthesis} sources={sources} /><Card className="h-fit bg-zinc-950/75"><CardHeader className="border-b border-white/10"><CardTitle className="text-zinc-50">Add missing context</CardTitle><p className="mt-2 text-sm leading-6 text-zinc-400">Answer the open questions, document decisions, or summarize newly confirmed information. Studio will review the updated evidence in a new revision.</p></CardHeader><CardContent className="grid gap-3 p-4"><label className="grid gap-2"><span className="sr-only">Missing discovery context</span><textarea value={resolutionNotes} onChange={(event) => setResolutionNotes(event.target.value)} disabled={busy} rows={8} maxLength={24000} placeholder="Example: The first release serves regional service managers. Offline access is out of scope. Approval must be completed by a compliance administrator…" className={`${inputStyle} resize-y leading-6`} /></label><Button type="button" onClick={() => void analyzePackage()} disabled={!canAnalyze || !resolutionNotes.trim()}>{isAnalyzing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}Apply context and regenerate</Button></CardContent></Card></div> : null}
+          {view === "build" ? <div className="grid gap-5"><Card className="bg-zinc-950/75"><CardContent className="grid gap-3 p-5"><p className="text-xs font-medium uppercase tracking-[0.16em] text-emerald-300">Build readiness · {synthesis.readinessScore}%</p><p className="text-sm leading-6 text-zinc-300">{synthesis.readinessNarrative}</p></CardContent></Card><StudioBuildOutputs synthesis={synthesis} sources={sources} selectedOutputs={selectedOutputs} /></div> : null}
 
-                {view === "understanding" ? (
-                  <div className="grid gap-5">
-                    <Card className="bg-zinc-950/75"><CardContent className="grid gap-4 p-5"><div><p className="text-xs font-medium uppercase tracking-[0.16em] text-emerald-300">Synthesized understanding</p><h2 className="mt-2 text-xl font-semibold text-zinc-50">What the evidence says</h2></div><p className="text-sm leading-7 text-zinc-200">{synthesis.executiveSummary}</p><p className="border-t border-white/10 pt-4 text-sm leading-6 text-zinc-400">{synthesis.evidenceSummary}</p></CardContent></Card>
-                    <div className="grid gap-4 lg:grid-cols-2"><InsightList title="Capabilities" items={synthesis.capabilities} empty="No explicit capabilities were found." /><InsightList title="Pain points" items={synthesis.painPoints} empty="No explicit pain points were found." /><InsightList title="Business rules" items={synthesis.businessRules} empty="No explicit business rules were found." /><InsightList title="Assumptions" items={synthesis.assumptions} empty="No material assumptions were required." /></div>
-                  </div>
-                ) : null}
+          <Card className="bg-zinc-950/75" data-studio-feedback><CardHeader className="border-b border-white/10"><div className="flex items-center gap-2"><MessageSquare className="h-4 w-4 text-cyan-200" /><CardTitle className="text-zinc-50">Review and refine the outputs</CardTitle></div><p className="mt-2 text-sm leading-6 text-zinc-400">Flag an issue, explain a discrepancy, or request an update. Include the source or rule that supports your correction. Studio reviews your feedback with the existing package and creates a new revision.</p></CardHeader><CardContent className="grid gap-4 p-4 sm:p-5"><div className="grid gap-3 sm:grid-cols-[220px_minmax(0,1fr)]"><label className="grid gap-2"><span className="text-xs font-medium text-zinc-200">Feedback type</span><select value={feedbackKind} onChange={(event) => setFeedbackKind(event.target.value as FeedbackKind)} disabled={busy} className={inputStyle}><option value="change">Change or update</option><option value="issue">Issue or error</option><option value="discrepancy">Evidence discrepancy</option></select></label><label className="grid gap-2"><span className="text-xs font-medium text-zinc-200">Output to review</span><select value={feedbackTarget} onChange={(event) => setFeedbackTarget(event.target.value)} disabled={busy} className={inputStyle} data-studio-feedback-target><option value="package">Whole package</option>{feedbackTargets.map((target) => <option key={target.id} value={target.id}>{target.label}</option>)}</select></label></div><label className="grid gap-2"><span className="text-xs font-medium text-zinc-200">What needs to change?</span><textarea value={feedback} onChange={(event) => setFeedback(event.target.value)} rows={4} maxLength={12000} disabled={busy} placeholder="Example: US-02 assigns approval to the requester. The business rules specify a service manager must approve. Update the story, criteria, and related tests to match." className={`${inputStyle} resize-y leading-6`} data-studio-feedback-input /></label><div className="flex flex-wrap items-center justify-between gap-3"><p className="text-xs leading-5 text-zinc-500">Current revision remains available in the history after refinement.</p><Button type="button" onClick={() => void analyzePackage(true)} disabled={!canAnalyze || !feedback.trim()} data-studio-refine>{isAnalyzing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}Apply feedback and create revision</Button></div></CardContent></Card>
 
-                {view === "gaps" ? (
-                  <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_380px]">
-                    <Card className="bg-zinc-950/75"><CardHeader className="border-b border-white/10"><p className="text-xs font-medium uppercase tracking-[0.16em] text-amber-200">Readiness analysis</p><CardTitle className="mt-2 text-zinc-50">Close the gaps before engineering commitment.</CardTitle></CardHeader><CardContent className="grid gap-3 p-4 sm:p-5">{synthesis.gaps.length ? synthesis.gaps.map((gap) => <article key={gap.id} className="rounded-md border border-white/10 bg-white/[0.025] p-4"><div className="flex flex-wrap items-center gap-2"><span className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em] ${gap.severity === "blocking" ? "border-red-300/30 bg-red-300/10 text-red-100" : gap.severity === "important" ? "border-amber-300/30 bg-amber-300/10 text-amber-100" : "border-cyan-300/30 bg-cyan-300/10 text-cyan-100"}`}>{gap.severity}</span><span className="text-xs text-zinc-500">{gap.id}</span></div><h3 className="mt-3 font-semibold text-zinc-100">{gap.title}</h3><p className="mt-2 text-sm leading-6 text-zinc-400">{gap.description}</p><p className="mt-3 rounded-md border border-white/10 bg-zinc-950 p-3 text-sm leading-6 text-zinc-200">{gap.question}</p></article>) : <div className="rounded-md border border-emerald-300/20 bg-emerald-300/[0.05] p-5"><CheckCircle2 className="h-5 w-5 text-emerald-200" /><p className="mt-3 font-semibold text-zinc-50">No material discovery gaps remain.</p></div>}</CardContent></Card>
-                    <Card className="h-fit bg-zinc-950/75"><CardHeader className="border-b border-white/10"><CardTitle className="text-zinc-50">Add missing context</CardTitle><p className="mt-2 text-sm leading-6 text-zinc-400">Answer the questions, document decisions, or summarize newly confirmed information. Studio will regenerate the affected package.</p></CardHeader><CardContent className="grid gap-3 p-4"><textarea value={resolutionNotes} onChange={(event) => setResolutionNotes(event.target.value)} rows={10} placeholder="Example: The first release serves regional service managers. Offline access is out of scope. Approval must be completed by a compliance administrator..." className="resize-y rounded-md border border-white/10 bg-zinc-950 px-3 py-3 text-sm leading-6 text-zinc-100 outline-none placeholder:text-zinc-600 focus:border-emerald-300/50 focus:ring-2 focus:ring-emerald-300/15" /><Button type="button" onClick={() => void analyzePackage()} disabled={isAnalyzing || !resolutionNotes.trim()}>{isAnalyzing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}Apply context and regenerate</Button></CardContent></Card>
-                  </div>
-                ) : null}
-
-                {view === "build" ? (
-                  <div className="grid gap-5">
-                    <Card className="bg-zinc-950/75"><CardContent className="grid gap-4 p-5 sm:grid-cols-[1fr_auto]"><div><p className="text-xs font-medium uppercase tracking-[0.16em] text-emerald-300">Build readiness · {synthesis.readinessScore}%</p><p className="mt-2 text-sm leading-6 text-zinc-300">{synthesis.readinessNarrative}</p></div><div className="flex flex-wrap items-center gap-2"><Button type="button" variant="outline" onClick={() => void copyPackage()}><ClipboardCopy className="h-4 w-4" />Copy</Button><Button type="button" variant="outline" onClick={downloadPackage}><Download className="h-4 w-4" />Download</Button></div></CardContent></Card>
-                    <Card className="bg-zinc-950/75"><CardHeader className="border-b border-white/10"><div className="flex items-center gap-2"><Map className="h-4 w-4 text-cyan-200" /><CardTitle className="text-zinc-50">Product roadmap</CardTitle></div></CardHeader><CardContent className="grid gap-3 p-4 sm:p-5">{synthesis.roadmap.map((item, index) => <article key={`${item.horizon}-${index}`} className="grid gap-3 rounded-md border border-white/10 bg-white/[0.025] p-4 md:grid-cols-[120px_1fr]"><div><p className="text-xs font-semibold uppercase tracking-[0.16em] text-emerald-200">{item.horizon}</p></div><div><h3 className="font-semibold text-zinc-100">{item.title}</h3><p className="mt-1 text-sm leading-6 text-zinc-400">{item.outcome}</p>{item.dependencies.length ? <p className="mt-2 text-xs text-amber-100">Depends on: {item.dependencies.join(" · ")}</p> : null}</div></article>)}</CardContent></Card>
-                    <Card className="bg-zinc-950/75"><CardHeader className="border-b border-white/10"><div className="flex items-center gap-2"><Layers3 className="h-4 w-4 text-cyan-200" /><CardTitle className="text-zinc-50">Epics and features</CardTitle></div></CardHeader><CardContent className="grid gap-4 p-4 sm:p-5">{synthesis.epics.map((epic) => <article key={epic.id} className="rounded-lg border border-white/10 bg-white/[0.025] p-4"><p className="text-xs font-semibold uppercase tracking-[0.14em] text-cyan-100">{epic.id}</p><h3 className="mt-2 text-lg font-semibold text-zinc-50">{epic.title}</h3><p className="mt-1 text-sm leading-6 text-zinc-400">{epic.objective}</p><div className="mt-4 grid gap-2 lg:grid-cols-2">{synthesis.features.filter((feature) => feature.epicId === epic.id).map((feature) => <div key={feature.id} className="rounded-md border border-white/10 bg-zinc-950/70 p-3"><div className="flex items-center justify-between gap-2"><span className="text-xs font-medium text-emerald-200">{feature.id}</span><span className="text-[10px] uppercase tracking-[0.12em] text-zinc-500">{feature.priority}</span></div><p className="mt-2 text-sm font-semibold text-zinc-100">{feature.title}</p><p className="mt-1 text-xs leading-5 text-zinc-400">{feature.description}</p></div>)}</div></article>)}</CardContent></Card>
-                    <Card className="bg-zinc-950/75"><CardHeader className="border-b border-white/10"><div className="flex items-center gap-2"><ListChecks className="h-4 w-4 text-cyan-200" /><CardTitle className="text-zinc-50">Stories, acceptance criteria, and test cases</CardTitle></div></CardHeader><CardContent className="grid gap-4 p-4 sm:p-5">{synthesis.stories.map((story) => <details key={story.id} className="rounded-lg border border-white/10 bg-white/[0.025] p-4" open={synthesis.stories.length <= 4}><summary className="cursor-pointer list-none"><div className="flex flex-wrap items-start justify-between gap-3"><div><p className="text-xs font-semibold uppercase tracking-[0.14em] text-emerald-200">{story.id} · {story.featureId}</p><h3 className="mt-2 font-semibold text-zinc-50">{story.title}</h3><p className="mt-1 text-sm leading-6 text-zinc-400">{story.story}</p></div><span className={`rounded-full border px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] ${story.readiness === "ready" ? "border-emerald-300/30 bg-emerald-300/10 text-emerald-100" : "border-amber-300/30 bg-amber-300/10 text-amber-100"}`}>{story.readiness}</span></div></summary><div className="mt-4 grid gap-4 border-t border-white/10 pt-4 lg:grid-cols-2"><div><p className="text-xs font-medium uppercase tracking-[0.14em] text-zinc-500">Acceptance criteria</p><ul className="mt-2 grid gap-2 text-sm leading-6 text-zinc-300">{story.acceptanceCriteria.map((criterion, index) => <li key={index} className="flex gap-2"><CheckCircle2 className="mt-1 h-4 w-4 shrink-0 text-emerald-200" /><span>{criterion}</span></li>)}</ul></div><div><p className="text-xs font-medium uppercase tracking-[0.14em] text-zinc-500">Test cases</p><div className="mt-2 grid gap-2">{story.testCases.map((testCase) => <div key={testCase.id} className="rounded-md border border-white/10 bg-zinc-950/70 p-3"><p className="text-xs font-medium text-cyan-100">{testCase.id} · {testCase.type}</p><p className="mt-1 text-sm font-semibold text-zinc-100">{testCase.title}</p><p className="mt-1 text-xs leading-5 text-zinc-400">Expected: {testCase.expectedResult}</p></div>)}</div></div></div></details>)}</CardContent></Card>
-                  </div>
-                ) : null}
-              </section>
-            ) : null}
+          <Card className="bg-zinc-950/75"><CardContent className="grid gap-4 p-5 sm:grid-cols-[1fr_auto]"><div><p className="text-xs font-medium uppercase tracking-[0.16em] text-emerald-300">Download your selected outputs</p><p className="mt-2 text-sm leading-6 text-zinc-300">{selectedOutputs.length} deliverable{selectedOutputs.length === 1 ? "" : "s"} · {selectedFormat.label} ({selectedFormat.extension}) · Revision {activeRevisionId}</p><p className="mt-1 text-xs leading-5 text-zinc-500">Adjust the deliverables and format in Desired outputs above.</p></div><div className="flex flex-wrap items-center gap-2"><Button type="button" variant="outline" onClick={() => void exportPackage("copy")} disabled={busy || !selectedOutputs.length}>{exportAction === "copy" ? <Loader2 className="h-4 w-4 animate-spin" /> : <ClipboardCopy className="h-4 w-4" />}Copy Markdown</Button><Button type="button" onClick={() => void exportPackage("download")} disabled={busy || !selectedOutputs.length} data-studio-download>{exportAction === "download" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}Download {selectedFormat.extension}</Button></div></CardContent></Card>
+        </section> : null}
       </div>
     </main>
   );

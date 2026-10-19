@@ -76,10 +76,27 @@ export type DiscoverySynthesis = {
   generatedAt: string;
   provider: "local" | "openai";
   modelUsage?: OpenAIUsageMetadata;
+  quality?: {
+    status: "reviewed" | "provisional";
+    checks: string[];
+    warnings: string[];
+  };
+  research?: {
+    status: "not-requested" | "completed" | "unavailable";
+    summary: string;
+    sources: Array<{ title: string; url: string }>;
+  };
+  revision?: { number: number; summary: string; feedback?: string };
+  sources?: Array<{ id: string; name: string; coverage: "complete" | "excerpt"; characters: number }>;
 };
 
 export type DiscoverySynthesisRequest = {
   workspaceName?: string;
   artifacts?: ProgramArtifact[];
   resolutionNotes?: string;
+  feedback?: string;
+  previousSynthesis?: DiscoverySynthesis;
+  selectedOutputs?: Array<"roadmap" | "backlog" | "stories" | "tests" | "gaps" | "analysis">;
+  externalResearch?: boolean;
+  researchTopic?: string;
 };

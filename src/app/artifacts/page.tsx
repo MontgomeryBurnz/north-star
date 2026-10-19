@@ -2,6 +2,7 @@ export const dynamic = "force-dynamic";
 
 import { DiscoveryStudioConsole } from "@/components/discovery-studio-console";
 import { requireInternalWorkspacePage } from "@/lib/app-page-access";
+import { isDemoMode } from "@/lib/demo-session";
 
 export const metadata = {
   title: "Studio | North Star"
@@ -14,5 +15,5 @@ export default async function ArtifactsPage({
 }) {
   await requireInternalWorkspacePage("/artifacts");
   const { sample } = await searchParams;
-  return <DiscoveryStudioConsole initialSample={sample === "regional-service-modernization"} />;
+  return <DiscoveryStudioConsole initialSample={sample === "regional-service-modernization" || await isDemoMode()} />;
 }

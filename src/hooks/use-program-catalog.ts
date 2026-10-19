@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState, type SetStateAction } from "react";
 import { useRequestSequence } from "@/hooks/use-request-sequence";
 import type { StoredProgram } from "@/lib/program-intake-types";
+import { demoProgramId } from "@/lib/demo-mode";
 
 type UseProgramCatalogOptions = {
   initialPrograms?: StoredProgram[];
@@ -36,6 +37,8 @@ function resolveSelectedProgramId(input: {
   if (fallbackSelectedProgramId && programs.some((program) => program.id === fallbackSelectedProgramId)) {
     return fallbackSelectedProgramId;
   }
+
+  if (programs.length === 1 && programs[0].id === demoProgramId) return demoProgramId;
 
   return autoSelectFirstProgram ? programs[0]?.id ?? "" : "";
 }

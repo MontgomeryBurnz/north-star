@@ -42,10 +42,10 @@ const workflowSteps = [
     href: "/artifacts",
     icon: FileText,
     label: "Studio",
-    title: "What should we create to move the work forward?",
+    title: "How do we turn discovery into product definition?",
     detail:
-      "Generate, refine, version, copy, and export role-specific work products from the selected program context.",
-    outcome: "Reusable artifacts teams can iterate against."
+      "Add discovery evidence with or without a program, choose the outputs you need, review gaps, and refine with feedback.",
+    outcome: "Traceable product outputs in editable Word, Excel, or PowerPoint files."
   },
   {
     href: "/client",
@@ -85,7 +85,7 @@ const intelligenceLayers = [
   {
     icon: BrainCircuit,
     title: "Intelligence",
-    detail: "North Star interprets and prioritizes the selected program context so teams can separate signal from noise."
+    detail: "North Star interprets program signal and discovery evidence so teams can understand priorities, gaps, and next actions."
   },
   {
     icon: DatabaseZap,
@@ -97,7 +97,7 @@ const intelligenceLayers = [
 const capabilityOutputs = [
   "Program health and progress posture",
   "Guided plans and Team Action Plans",
-  "Role-based artifacts and reusable work products",
+  "Roadmaps, backlogs, user stories, acceptance criteria, and tests",
   "Risks, decisions, and executive-ready summaries",
   "Governed feedback when guidance needs correction"
 ];
@@ -169,7 +169,7 @@ export function CommandCenterGrid({ metrics }: { metrics: DashboardMetrics }) {
             Living guidance rule
           </p>
           <p className="mt-3 text-sm leading-6 text-zinc-300">
-            Every meaningful input should refresh the work path automatically and preserve why the guidance changed.
+            Keep program inputs current to refresh guidance. In Studio, analyze new evidence or feedback to create a reviewed revision.
           </p>
         </div>
       </div>

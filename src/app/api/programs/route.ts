@@ -1,19 +1,24 @@
 import { NextResponse } from "next/server";
-import { requireSiteAccessRequest } from "@/lib/api-route-access";
+import { requireInternalWorkspaceRouteAccess, requireSiteAccessRequest } from "@/lib/api-route-access";
 import { getAssignedProgramIdSet, hasActiveUserCredentials, isExternalOnlyUserType, shouldScopeManagedUserPrograms } from "@/lib/admin-user-types";
 import { buildSystemAuditActor } from "@/lib/audit-event-service";
 import { getCurrentManagedUser } from "@/lib/current-managed-user";
 import { createAuditEvent, listPrograms, upsertProgram } from "@/lib/program-store";
 import type { ProgramIntake } from "@/lib/program-intake-types";
 import { syncProgramTeamFootprint } from "@/lib/team-roles";
+import { isDemoMode } from "@/lib/demo-session";
 
 export async function GET(request: Request) {
+  if (await isDemoMode()) {
+    const { response } = await requireInternalWorkspaceRouteAccess(request);
+    if (response) return response;
+  }
   const currentUser = await getCurrentManagedUser();
   const denied = requireSiteAccessRequest(request);
   if (denied && !hasActiveUserCredentials(currentUser)) return denied;
 
   const programs = await listPrograms();
-  if (currentUser && shouldScopeManagedUserPrograms(currentUser)) {
+  if (currentUser && shouldScopeManagedUserPrograms(currentUser) && !await isDemoMode()) {
     const assignedProgramIds = getAssignedProgramIdSet(currentUser);
     return NextResponse.json({
       programs: programs.filter((program) => assignedProgramIds.has(program.id))

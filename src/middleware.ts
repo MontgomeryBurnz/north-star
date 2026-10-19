@@ -2,6 +2,17 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { buildCanonicalRedirectUrl } from "@/lib/public-origin";
 import { getSiteAccessConfig, isSiteAccessSessionTokenValid, siteAccessSessionCookieName } from "@/lib/site-access";
+import { demoModeCookieName, demoModeValue, demoProgramId } from "@/lib/demo-mode";
+
+function isDemoMutationAllowed(pathname: string) {
+  if (pathname === "/api/demo-session" || pathname.endsWith("/logout")) return true;
+  if (["/api/artifacts/extract", "/api/studio/discovery-synthesis", "/api/studio/export", "/api/client-portal/export/pdf"].includes(pathname)) return true;
+  if (pathname === "/api/programs") return true;
+  const programPrefix = `/api/programs/${demoProgramId}`;
+  if (pathname === programPrefix) return true;
+  if (!pathname.startsWith(`${programPrefix}/`)) return false;
+  return /\/(updates|guided-plan|leadership-feedback|meeting-inputs|client-decisions|client-updates|discovery-synthesis|role-artifacts|role-artifact-suggestions|guidance-justifications|guidance-feedback-flags)(\/|$)/.test(pathname);
+}
 
 function isPublicPath(pathname: string) {
   if (
@@ -66,6 +77,9 @@ function isCanonicalRedirectEnabled() {
 }
 
 export async function middleware(request: NextRequest) {
+  if (request.cookies.get(demoModeCookieName)?.value === demoModeValue && request.nextUrl.pathname.startsWith("/api/") && !["GET", "HEAD", "OPTIONS"].includes(request.method) && !isDemoMutationAllowed(request.nextUrl.pathname)) {
+    return NextResponse.json({ error: "This action is unavailable while exploring sample data. Exit sample data to manage your real workspace." }, { status: 403 });
+  }
   if (isCanonicalRedirectEnabled()) {
     const canonicalUrl = buildCanonicalRedirectUrl(request.url);
     if (canonicalUrl) {

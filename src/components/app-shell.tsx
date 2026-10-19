@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import { usePathname } from "next/navigation";
 import { Footer } from "@/components/footer";
 import { SiteNav } from "@/components/site-nav";
+import { DemoModeBanner } from "@/components/demo-mode-banner";
 
 const chromeLessRoutes = new Set([
   "/auth/activate",
@@ -14,17 +15,18 @@ const chromeLessRoutes = new Set([
   "/leadership/login"
 ]);
 
-export function AppShell({ children }: { children: ReactNode }) {
+export function AppShell({ children, demoMode = false }: { children: ReactNode; demoMode?: boolean }) {
   const pathname = usePathname();
   const hideChrome = chromeLessRoutes.has(pathname);
 
   if (hideChrome) {
-    return <>{children}</>;
+    return <>{demoMode ? <DemoModeBanner /> : null}{children}</>;
   }
 
   return (
     <>
-      <SiteNav />
+      <SiteNav demoMode={demoMode} />
+      {demoMode ? <DemoModeBanner /> : null}
       {children}
       <Footer />
     </>

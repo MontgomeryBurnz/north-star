@@ -1,5 +1,7 @@
 # NorthStar Executive Product Summary and Demo Guide
 
+Last updated: October 18, 2026
+
 ## Executive Summary
 
 NorthStar is an intelligence hub for complex program delivery. It helps delivery teams, practice leaders, executives, and clients separate signal from noise by combining program setup, uploaded artifacts, team updates, leadership feedback, delivery board activity, curated client-facing updates, and governance decisions into living guidance and role-specific work products.
@@ -36,7 +38,7 @@ NorthStar gives leaders and teams one operating system for program intelligence:
 
 - Program Hub: set up new programs, manage active programs, track progress, and operate the delivery board.
 - Guided Plans: translate live program signal into program-level guidance and role-based team action plans.
-- Studio: generate and iterate on role-specific work products such as roadmaps, requirements matrices, user journeys, and delivery artifacts.
+- Studio: turn discovery sources into selected roadmaps, epics, features, user stories, acceptance criteria, test cases, and gap analyses; refine with feedback and download editable Office files.
 - Leadership: collect concise leadership feedback and automatically refresh guidance.
 - Client Portal: provide clients with an executive view of portfolio and program progress.
 - Admin: manage users, roles, governance, audit history, cost posture, model settings, and platform health.
@@ -99,10 +101,12 @@ Use this narrative for an executive demo:
 2. The team adds artifacts, context, roles, updates, and delivery activity.
 3. NorthStar interprets the signal and generates guided plans.
 4. The team works from role-specific actions and a delivery board.
-5. Studio turns guidance into usable work products.
+5. Studio synthesizes discovery evidence into selected product outputs, with source references and open questions.
 6. Leadership feedback refreshes the operating plan.
 7. Clients see a clean executive view.
 8. Admins govern access, quality, auditability, and cost.
+
+Studio also works on its own: users can bring a discovery package without creating or selecting an active program.
 
 ## Recommended Demo Flow
 
@@ -111,6 +115,10 @@ Use this narrative for an executive demo:
 Open with the login page and explain that users now access NorthStar with assigned credentials. Access is role-based, so the experience changes depending on whether the user is an Admin, Leader, Delivery Lead, Team Member, or Client.
 
 Then show Quick Start as the product onboarding surface.
+
+Choose **Explore with sample data** to demonstrate **Regional Service Request Modernization** for the fictional Civic Services Network. Follow the ordinary Program Hub, Guided Plans, Studio, Leadership, Client Updates, and Client Portal screens using the sample-data banner. The scenario includes discovery evidence, delivery roles, board activity, milestones, decisions, sponsor direction, and a client publication so the relationship between inputs and outputs is visible throughout the application.
+
+Use **Reset sample** to restore the original scenario and **Exit sample data** to return to the normal workspace. Program exploration edits remain in the current browser session. Studio revisions are retained only while its page workspace remains open; download work before refreshing or navigating away. Access remains governed by the user's account permissions.
 
 Key message:
 
@@ -148,7 +156,7 @@ Highlight:
 - Compact task cards.
 - Detail drawer for owner, due date, status, context, latest movement, and evidence.
 - Attachment support.
-- Board changes feeding Guided Plans and Studio suggestions.
+- Board changes feeding updated program guidance.
 
 Key message:
 
@@ -174,31 +182,32 @@ Key message:
 
 ### 5. Studio
 
-Show Studio as the "what should we create?" surface.
+Show Studio as the discovery-to-product workspace. It works with or without an active program.
 
 Highlight:
 
-- Program selection.
-- Role selection.
-- Role-specific artifact recommendations.
-- Custom artifact requests.
-- Generated work products.
-- Versioning and export paths.
+- The discovery sources shared by the fictional scenario, with extraction status and readable evidence.
+- Desired output selection before analysis: roadmap, epics/features, stories/acceptance criteria, tests, gaps, and discovery analysis.
+- Editable Word, Excel, and PowerPoint downloads, plus Markdown and clipboard copy.
+- The synthesized capabilities, pain points, business rules, assumptions, and readiness gaps.
+- Source references on epics, features, stories, and gaps, plus complete test steps and expected results.
+- OpenAI evidence review and synthesis when configured, with an honest provider and quality status.
+- Optional public best-practice research using a generic topic the user explicitly supplies, with citations and availability status.
+- Feedback for issues, discrepancies, and changes; new revisions and restoration of prior outputs during the open Studio session.
 
-Example artifacts:
+Suggested hands-on demonstration:
 
-- Product Management: Product Roadmap, Epic/Feature Breakdown, Prioritization Matrix.
-- Business Analysis: Requirements Matrix, User Stories, Traceability Matrix.
-- UX: User Journey, App Flow, Service Blueprint.
-- Application Development: Technical Implementation Plan, Release Readiness Checklist.
-- Data Engineering: Data Mapping, Data Quality Plan, Integration Inventory.
-- Change Management: Stakeholder Plan, Communications Plan, Training Readiness.
-- Scrum Master: Sprint Risk Log, Ceremony Plan, Impediment Tracker.
-- Delivery Lead: Executive Action Plan, Decision Log, Delivery Risk Register.
+1. Review how the intake and routing roadmap relates to the volume analysis and pain points.
+2. Inspect an approval story, its acceptance criteria, its evidence, and its test steps.
+3. Show the unresolved approval-policy question and explain why it affects readiness.
+4. Provide a correction or additional decision context and generate a revision.
+5. Compare the revision summary, restore the earlier output if needed, and download the selected deliverables as an Excel workbook or Word document.
+
+The preloaded output is clearly labeled as an illustrative example. Analyze the sources to demonstrate a fresh provider-generated result. If OpenAI is not configured, the application identifies a provisional local draft. Failed generation preserves the existing output. Evidence review and readiness checks support human judgment; they do not certify that a product package is ready for delivery without team review.
 
 Key message:
 
-> Studio turns program intelligence into reusable work products the team can iterate against.
+> Studio turns discovery evidence into traceable product outputs that teams can question, refine, and take into their existing delivery tools.
 
 ### 6. Leadership
 
@@ -271,7 +280,7 @@ Admins, leaders, delivery leads, team members, and clients each see different su
 
 ### NorthStar creates reusable work products.
 
-Studio helps roles produce deliverables that are grounded in program context instead of starting from scratch.
+Studio turns uploaded discovery evidence into selected deliverables, exposes assumptions and missing information, and lets users refine the result with feedback before taking it into Word, Excel, PowerPoint, or Markdown.
 
 ### NorthStar is designed for governance.
 
@@ -299,7 +308,15 @@ Guidance refreshes when users add artifacts, save active-program updates, update
 
 ### How does it avoid becoming a black box?
 
-Users can inspect inputs used, understand why guidance changed, flag disputed guidance, and route disputes through Admin review.
+Users can inspect inputs used, understand why guidance changed, flag disputed program guidance, and route those disputes through Admin review. In Studio, users can inspect source references, review gaps and research citations, and request corrections through feedback with revision history.
+
+### Can users see the value before adding their own data?
+
+Yes. Explore with sample data opens a connected fictional program in the normal application screens. Users can inspect the evidence, plans, delivery work, leadership direction, and client publication, try changes, reset the scenario, and exit to their own workspace.
+
+### Must users create a program before using Studio?
+
+No. Studio accepts a standalone discovery package and lets the user choose the desired deliverables and download format. Its workspace is temporary, so users should download outputs before leaving the page.
 
 ### Can clients use it?
 

@@ -16,6 +16,7 @@ import type { StoredProgram } from "@/lib/program-intake-types";
 import { programsToSlicerOptions } from "@/lib/program-slicer";
 import { getProgramTeamFootprint } from "@/lib/team-roles";
 import { cn } from "@/lib/utils";
+import { demoProgramId } from "@/lib/demo-mode";
 
 type PublishState = "idle" | "publishing" | "published" | "error";
 type ClientDashboardDraft = Omit<ClientPortalUpdateInput, "domainUpdates"> & {
@@ -247,7 +248,7 @@ export function ClientDashboardUpdatesConsole({
   programs,
   restrictedMode = false
 }: ClientDashboardUpdatesConsoleProps) {
-  const [selectedProgramId, setSelectedProgramId] = useState("");
+  const [selectedProgramId, setSelectedProgramId] = useState(() => programs.some((program) => program.id === demoProgramId) ? demoProgramId : "");
   const selectedProgram = useMemo(
     () => programs.find((program) => program.id === selectedProgramId),
     [programs, selectedProgramId]

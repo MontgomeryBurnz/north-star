@@ -2,7 +2,7 @@
 
 Daily operating guide for delivery teams, leaders, clients, and Admins
 
-Last updated: June 27, 2026
+Last updated: October 18, 2026
 
 ## Purpose
 
@@ -24,6 +24,14 @@ Use NorthStar daily to keep program signal current, understand what changed, and
 6. Use Studio to turn discovery evidence into a build-ready product package.
 7. Use Leadership, Client Portal, or Admin only if your user type has access.
 
+### Explore With Sample Data
+
+Choose **Explore with sample data** on Quick Start or Program Hub to use a connected fictional program: **Regional Service Request Modernization** for Civic Services Network. Sample data appears in the ordinary Program Hub, Guided Plans, Studio, Leadership, Client Updates, and Client Portal screens. Use the links in the sample-data banner to follow the workflow and see the same evidence, outcomes, risks, decisions, and delivery activity across those screens.
+
+Try a role update or delivery-board change, review the guided plan, inspect the discovery package in Studio, and compare the leadership and client views. The prepared Studio output is labeled as an illustrative example; analyzing its sources creates a fresh synthesis with the configured provider.
+
+The banner stays visible while sample data is active. **Reset sample** restores the original fictional scenario. **Exit sample data** returns to your normal workspace. Sample program edits remain in that browser session and are not added to live program records. A full sample session may ask you to reset before continuing. Studio sources, outputs, and revision history have a shorter lifetime: they remain only while that Studio workspace is open, and reopening Studio loads the prepared example again. Download anything you want to keep.
+
 ## Training Path
 
 Use this path when onboarding a new user or team.
@@ -35,7 +43,7 @@ Use this path when onboarding a new user or team.
 | 3 | Confirm role focus. | User sees role-centric information first, especially when assigned to different roles across different programs. |
 | 4 | Submit a role update or delivery board movement. | Program signal is captured for the active cycle. |
 | 5 | Review Guided Plans. | User understands what the program and their role should do next. |
-| 6 | Use Studio for a work product. | User generates or refines an artifact grounded in program context. |
+| 6 | Add discovery evidence in Studio and choose deliverables. | User reviews and refines traceable product outputs without needing an active program. |
 | 7 | Publish Client Updates only when responsible for reviewed client-facing inputs. | User understands the difference between internal working signal and client-safe executive communication. |
 | 8 | Escalate access, role, or quality issues to Admin. | Admin can correct assignments, review audit history, and govern quality. |
 
@@ -75,7 +83,7 @@ Use this path when onboarding a new user or team.
 6. Add or update delivery board cards for your work.
 7. Attach evidence when a card, decision, or risk needs supporting context.
 8. Review Guided Plans for your role-specific next actions.
-9. Use Studio when you need a work product for your role.
+9. Use Studio when discovery evidence needs to become a roadmap, backlog, stories, acceptance criteria, or tests.
 
 ### For Delivery Leads
 
@@ -85,7 +93,7 @@ Use this path when onboarding a new user or team.
 4. Check open risks, blocked cards, and decisions needed.
 5. Save the weekly synthesis when the program picture changes.
 6. Review Guided Plans after updates are saved.
-7. Use Studio to generate or refine artifacts needed for execution.
+7. Bring relevant discovery evidence to Studio and choose the product outputs needed for execution.
 8. Route leadership feedback or client decisions when needed.
 
 ### For Leaders
@@ -175,7 +183,7 @@ Status order:
 | Blocked | The item cannot move without a decision, dependency, or support. |
 | Done | The item is complete or no longer requires action. |
 
-Each card should have a clear title, owner, due date when relevant, context, and attachments when evidence is needed. Board changes feed Guided Plans and Studio suggestions, so keep cards current.
+Each card should have a clear title, owner, due date when relevant, context, and attachments when evidence is needed. Board changes feed program guidance, so keep cards current. Add any evidence needed for a Studio analysis directly to its source package.
 
 ### Attachments and Evidence
 
@@ -224,16 +232,23 @@ Studio consumes a package of discovery evidence, synthesizes what the evidence s
 ### How to Use Studio
 
 1. Name the standalone discovery workspace. No active program is required.
-2. Add the available Word, Excel, PowerPoint, PDF, CSV, Markdown, JSON, or text discovery sources.
-3. Analyze the complete discovery package.
-4. Review the synthesized capabilities, pain points, business rules, and assumptions.
-5. Resolve blocking or important gaps by adding missing context or additional evidence.
-6. Regenerate the package after material gaps are closed.
-7. Review roadmap, epics, features, stories, acceptance criteria, and test cases.
-8. Copy or download the build package for product and engineering refinement.
-9. Use **Start fresh** to clear the working session before beginning a different discovery package.
+2. Add up to 16 Word, Excel, PowerPoint, PDF, CSV, Markdown, JSON, or text discovery sources. Check the extraction status and replace sources with unreadable content.
+3. In **Desired outputs**, select the deliverables you need and choose Word, Excel, PowerPoint, or Markdown as the download format.
+4. Optionally enable **Include public best-practice research** and enter a generic public research topic without customer names, private details, or uploaded excerpts.
+5. Analyze the discovery package. Review the synthesis provider, evidence-review checks, warnings, and research citations when present.
+6. Review capabilities, pain points, business rules, assumptions, and source references. Inspect the roadmap, epics, features, stories, acceptance criteria, and test steps that support your deliverables.
+7. Close gaps by adding missing context or additional evidence and regenerating the package.
+8. Use **Review and refine the outputs** to report an issue, evidence discrepancy, or requested change. Select the affected output, explain the correction, and create a new revision.
+9. Use **Revision history** to inspect or restore earlier outputs. Later revisions remain available during the same workspace session.
+10. Download the selected deliverables, or copy them as Markdown, before leaving Studio. Use **Start fresh** to clear the workspace before starting a different discovery package.
 
-Studio workspaces are session-based and deliberately separate from active programs. Sources and generated outputs are not written into Program Hub records.
+Studio workspaces do not require an active program. Sources, generated outputs, feedback, and revision history are held in the current Studio page session; they are not saved to Program Hub and do not survive a refresh, navigation away, or **Start fresh**. A failed analysis preserves the current revision so you can correct the input and retry.
+
+### Evidence Review and Research
+
+When OpenAI is configured, Studio reviews the source evidence before generating the product package and checks its traceability and structure. The quality panel shows the provider, review checks, and remaining warnings. Review those findings and the source names associated with epics, features, stories, and gaps before engineering commitment. A readiness score is an assessment of the supplied evidence, not an approval to build.
+
+Public research is optional and begins with the generic topic you explicitly enter. Uploaded content is used for synthesis; it is not included in web-search queries. External context and citations should be reviewed alongside your own business rules. If research is unavailable, Studio reports that status. If OpenAI is not configured, any local draft is labeled provisional and requires validation. A configured OpenAI generation failure is reported without replacing your current package.
 
 ### Build Package Outputs
 
@@ -249,10 +264,15 @@ Studio workspaces are session-based and deliberately separate from active progra
 
 ### Exports
 
-Use export when the artifact needs to leave NorthStar or be shared in another workflow.
+Select the deliverables and format in **Desired outputs**, then use **Download** below the results. Downloads contain the selected sections and include evidence and readiness context.
 
-- Markdown download: best for preserving the complete hierarchy in a portable, readable package.
-- Copy: best for moving the package into product documentation, issue trackers, or collaboration tools.
+- Word (.docx): an editable product-definition document.
+- Excel (.xlsx): an editable workbook with structured deliverable tables.
+- PowerPoint (.pptx): an editable presentation for reviews and stakeholder discussion.
+- Markdown (.md): a portable text package for documentation and collaboration tools.
+- Copy Markdown: copy the selected sections to the clipboard.
+
+Exports provide working product artifacts. Product and engineering teams should confirm assumptions, source coverage, criteria, and test expectations before committing work.
 
 ## Leadership
 
@@ -333,7 +353,7 @@ Use Trust and Operations to confirm:
 
 Admins should treat NorthStar documentation as part of the product, not a side file. As features change, the knowledge base should be refreshed so users can find accurate instructions without asking the implementation team.
 
-Until the in-app knowledge portal is built, maintain the following source documents:
+Knowledge Center renders the following repository-backed source documents. Keep them aligned with user-facing releases:
 
 - `docs/northstar-team-user-guide.md`
 - `docs/northstar-executive-demo-guide.md`
@@ -374,7 +394,10 @@ Until the in-app knowledge portal is built, maintain the following source docume
 | My role is not available. | Ask an Admin or Delivery Lead to add the role to the program. Adding a role should refresh guidance. |
 | Guidance seems outdated. | Confirm the latest program updates, leadership feedback, delivery board movement, and artifacts were saved. |
 | A recommendation looks wrong. | Flag the specific guidance and provide the missing or corrected context. |
-| An export is missing detail. | Reopen the artifact, refine the brief, regenerate, then export again. |
+| A Studio output is missing detail or contradicts a source. | Use Review and refine the outputs, identify the affected item and supporting evidence, and create a new revision before downloading again. |
+| A Studio download omits a section. | Confirm that section is selected in Desired outputs and download the current revision. |
+| My Studio work disappeared after a refresh or navigation. | Studio is a page-session workspace. Load the sources again and use downloaded files to retain completed outputs. |
+| I am seeing fictional program data. | The sample-data banner indicates an exploration session. Choose Exit sample data to return to your normal workspace or Reset sample to restart the example. |
 | I only see Log Out in Client Portal. | Your user type may only have client access. Ask an Admin if your access needs to change. |
 
 ## Glossary
@@ -385,7 +408,8 @@ Until the in-app knowledge portal is built, maintain the following source docume
 | Role lane | Role-specific update area for progress, changes, risks, decisions, and support needs. |
 | Delivery board | Role/function board for accountable actions and deliverables. |
 | Team Action Plan | Role-based guidance inside Guided Plans. |
-| Studio build package | Versioned roadmap, backlog, acceptance criteria, tests, gaps, and source traceability generated from discovery evidence. |
+| Studio build package | Selected roadmap, backlog, stories, acceptance criteria, tests, gaps, and analysis generated from discovery evidence, with revisions available during the open workspace session. |
+| Sample data mode | A connected fictional program displayed in the ordinary application screens for hands-on exploration, with browser-session reset and exit controls. |
 | Artifact slice | Compact generated work product preview before deeper review or export. |
 | Inputs used | The program signals that shaped guidance or an artifact. |
 | Flag | A user challenge or correction request for guidance. |

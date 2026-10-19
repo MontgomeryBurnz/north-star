@@ -14,111 +14,120 @@ import type {
 import type { ProgramIntake } from "@/lib/program-intake-types";
 import { getProgramRepository } from "@/lib/program-repository";
 import type { RoleArtifactDraft, RoleArtifactType } from "@/lib/role-artifact-types";
+import { isDemoMode } from "@/lib/demo-session";
+
+async function getWorkspaceRepository() {
+  if (await isDemoMode()) {
+    const { getDemoProgramRepository } = await import("@/lib/demo-program-repository");
+    return getDemoProgramRepository();
+  }
+  return getProgramRepository();
+}
 
 export async function listPrograms() {
-  return getProgramRepository().listPrograms();
+  return (await getWorkspaceRepository()).listPrograms();
 }
 
 export async function getProgram(programId: string) {
-  return getProgramRepository().getProgram(programId);
+  return (await getWorkspaceRepository()).getProgram(programId);
 }
 
 export async function upsertProgram(intake: ProgramIntake) {
-  return getProgramRepository().upsertProgram(intake);
+  return (await getWorkspaceRepository()).upsertProgram(intake);
 }
 
 export async function listProgramUpdates(programId: string) {
-  return getProgramRepository().listProgramUpdates(programId);
+  return (await getWorkspaceRepository()).listProgramUpdates(programId);
 }
 
 export async function listAllProgramUpdates() {
-  return getProgramRepository().listAllProgramUpdates();
+  return (await getWorkspaceRepository()).listAllProgramUpdates();
 }
 
 export async function createProgramUpdate(programId: string, review: ActiveProgramReview) {
-  return getProgramRepository().createProgramUpdate(programId, review);
+  return (await getWorkspaceRepository()).createProgramUpdate(programId, review);
 }
 
 export async function deleteProgramUpdatesByTag(programId: string, tag: string) {
-  return getProgramRepository().deleteProgramUpdatesByTag(programId, tag);
+  return (await getWorkspaceRepository()).deleteProgramUpdatesByTag(programId, tag);
 }
 
 export async function getLatestGuidedPlan(programId: string) {
-  return getProgramRepository().getLatestGuidedPlan(programId);
+  return (await getWorkspaceRepository()).getLatestGuidedPlan(programId);
 }
 
 export async function createGuidedPlan(programId: string) {
-  return getProgramRepository().createGuidedPlan(programId);
+  return (await getWorkspaceRepository()).createGuidedPlan(programId);
 }
 
 export async function listLeadershipFeedback(programId: string) {
-  return getProgramRepository().listLeadershipFeedback(programId);
+  return (await getWorkspaceRepository()).listLeadershipFeedback(programId);
 }
 
 export async function listAllLeadershipFeedback() {
-  return getProgramRepository().listAllLeadershipFeedback();
+  return (await getWorkspaceRepository()).listAllLeadershipFeedback();
 }
 
 export async function createLeadershipFeedback(programId: string, feedback: LeadershipReviewInput) {
-  return getProgramRepository().createLeadershipFeedback(programId, feedback);
+  return (await getWorkspaceRepository()).createLeadershipFeedback(programId, feedback);
 }
 
 export async function listMeetingInputs(programId: string) {
-  return getProgramRepository().listMeetingInputs(programId);
+  return (await getWorkspaceRepository()).listMeetingInputs(programId);
 }
 
 export async function createMeetingInput(
   programId: string,
   input: Omit<ProgramMeetingInput, "id" | "programId" | "programName" | "createdAt" | "updatedAt">
 ) {
-  return getProgramRepository().createMeetingInput(programId, input);
+  return (await getWorkspaceRepository()).createMeetingInput(programId, input);
 }
 
 export async function listRoleArtifacts(programId: string, artifactType?: RoleArtifactType) {
-  return getProgramRepository().listRoleArtifacts(programId, artifactType);
+  return (await getWorkspaceRepository()).listRoleArtifacts(programId, artifactType);
 }
 
 export async function createRoleArtifact(programId: string, artifact: RoleArtifactDraft) {
-  return getProgramRepository().createRoleArtifact(programId, artifact);
+  return (await getWorkspaceRepository()).createRoleArtifact(programId, artifact);
 }
 
 export async function listClientDecisionRequests(programId: string) {
-  return getProgramRepository().listClientDecisionRequests(programId);
+  return (await getWorkspaceRepository()).listClientDecisionRequests(programId);
 }
 
 export async function createClientDecisionRequest(programId: string, input: ClientDecisionRequestInput) {
-  return getProgramRepository().createClientDecisionRequest(programId, input);
+  return (await getWorkspaceRepository()).createClientDecisionRequest(programId, input);
 }
 
 export async function listClientPortalUpdates(programId: string) {
-  return getProgramRepository().listClientPortalUpdates(programId);
+  return (await getWorkspaceRepository()).listClientPortalUpdates(programId);
 }
 
 export async function createClientPortalUpdate(programId: string, input: ClientPortalUpdateInput) {
-  return getProgramRepository().createClientPortalUpdate(programId, input);
+  return (await getWorkspaceRepository()).createClientPortalUpdate(programId, input);
 }
 
 export async function deleteClientPortalUpdatesByTag(programId: string, tag: string) {
-  return getProgramRepository().deleteClientPortalUpdatesByTag(programId, tag);
+  return (await getWorkspaceRepository()).deleteClientPortalUpdatesByTag(programId, tag);
 }
 
 export async function listGuidanceJustifications(programId: string) {
-  return getProgramRepository().listGuidanceJustifications(programId);
+  return (await getWorkspaceRepository()).listGuidanceJustifications(programId);
 }
 
 export async function createGuidanceJustification(record: GuidanceJustificationRecord) {
-  return getProgramRepository().createGuidanceJustification(record);
+  return (await getWorkspaceRepository()).createGuidanceJustification(record);
 }
 
 export async function listGuidanceFeedbackFlags(programId: string) {
-  return getProgramRepository().listGuidanceFeedbackFlags(programId);
+  return (await getWorkspaceRepository()).listGuidanceFeedbackFlags(programId);
 }
 
 export async function createGuidanceFeedbackFlag(
   programId: string,
   flag: Omit<GuidanceFeedbackFlag, "id" | "programId" | "programName" | "createdAt" | "updatedAt" | "status">
 ) {
-  return getProgramRepository().createGuidanceFeedbackFlag(programId, flag);
+  return (await getWorkspaceRepository()).createGuidanceFeedbackFlag(programId, flag);
 }
 
 export async function reviewGuidanceFeedbackFlag(
@@ -126,27 +135,27 @@ export async function reviewGuidanceFeedbackFlag(
   flagId: string,
   review: { status: "approved" | "denied"; reviewedBy: string; leadershipDisposition: string }
 ) {
-  return getProgramRepository().reviewGuidanceFeedbackFlag(programId, flagId, review);
+  return (await getWorkspaceRepository()).reviewGuidanceFeedbackFlag(programId, flagId, review);
 }
 
 export async function listOpenAIUsageRecords(programId: string) {
-  return getProgramRepository().listOpenAIUsageRecords(programId);
+  return (await getWorkspaceRepository()).listOpenAIUsageRecords(programId);
 }
 
 export async function listAllOpenAIUsageRecords() {
-  return getProgramRepository().listAllOpenAIUsageRecords();
+  return (await getWorkspaceRepository()).listAllOpenAIUsageRecords();
 }
 
 export async function createOpenAIUsageRecord(programId: string, usage: OpenAIUsageRecordInput) {
-  return getProgramRepository().createOpenAIUsageRecord(programId, usage);
+  return (await getWorkspaceRepository()).createOpenAIUsageRecord(programId, usage);
 }
 
 export async function listAuditEvents(limit?: number) {
-  return getProgramRepository().listAuditEvents(limit);
+  return (await getWorkspaceRepository()).listAuditEvents(limit);
 }
 
 export async function createAuditEvent(input: AuditEventInput) {
-  return getProgramRepository().createAuditEvent(input);
+  return (await getWorkspaceRepository()).createAuditEvent(input);
 }
 
 export async function listManagedUsers() {

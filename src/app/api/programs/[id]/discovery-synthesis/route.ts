@@ -1,11 +1,12 @@
 import { NextResponse } from "next/server";
 import { requireProgramRouteAccess } from "@/lib/api-route-access";
 import { auditActorFromManagedUser, buildSystemAuditActor } from "@/lib/audit-event-service";
-import { generateDiscoverySynthesis, synthesisToArtifact } from "@/lib/discovery-studio-service";
+import { DiscoveryGenerationError, generateDiscoverySynthesis, synthesisToArtifact } from "@/lib/discovery-studio-service";
 import type { DiscoverySynthesisRequest } from "@/lib/discovery-studio-types";
 import { createAuditEvent, createOpenAIUsageRecord, createRoleArtifact, getProgram, listRoleArtifacts } from "@/lib/program-store";
 
 const artifactType = "studio-discovery-build-package";
+export const maxDuration = 300;
 
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -33,7 +34,12 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
   const body = (await request.json().catch(() => ({}))) as DiscoverySynthesisRequest;
   const resolutionNotes = typeof body.resolutionNotes === "string" ? body.resolutionNotes.slice(0, 12_000) : "";
-  const synthesis = await generateDiscoverySynthesis(program, resolutionNotes);
+  let synthesis;
+  try {
+    synthesis = await generateDiscoverySynthesis(program, resolutionNotes);
+  } catch (error) {
+    return NextResponse.json({ error: error instanceof DiscoveryGenerationError ? error.message : "Studio could not complete the analysis." }, { status: 503 });
+  }
   const artifact = await createRoleArtifact(id, synthesisToArtifact(program, synthesis, resolutionNotes));
 
   if (artifact.modelUsage) {

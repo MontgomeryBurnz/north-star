@@ -9,6 +9,7 @@ import { AnimatedNorthStarMark } from "@/components/login-brand-mark";
 import { useCurrentUserAssignments } from "@/hooks/use-current-user-assignments";
 import type { AppUserType } from "@/lib/admin-user-types";
 import { cn } from "@/lib/utils";
+import { demoProgramId } from "@/lib/demo-mode";
 
 type NavItem = {
   activePaths?: string[];
@@ -21,7 +22,6 @@ const primaryNavItems: NavItem[] = [
   { label: "Program Hub", href: "/active-program", activePaths: ["/active-program", "/new-program"] },
   { label: "Guided Plans", href: "/systems" },
   { label: "Studio", href: "/artifacts" },
-  { label: "Sample", href: "/sample-program" },
   { label: "Client Portal", href: "/client" },
   { label: "Leadership", href: "/leadership" },
   { label: "Knowledge", href: "/knowledge" }
@@ -128,7 +128,7 @@ function CurrentUserMenu({ className, mobile = false }: { className?: string; mo
   );
 }
 
-export function SiteNav() {
+export function SiteNav({ demoMode = false }: { demoMode?: boolean }) {
   const pathname = usePathname();
   const { currentUser, loaded } = useCurrentUserAssignments();
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
@@ -141,7 +141,12 @@ export function SiteNav() {
         ? "client"
         : undefined);
   const visibleNavItems = getVisibleNavItems(inferredUserType);
-  const showAdminLink = currentUser?.userType === "admin" || (!isClientSurface && (!loaded || !currentUser));
+  const showAdminLink = !demoMode && (currentUser?.userType === "admin" || (!isClientSurface && (!loaded || !currentUser)));
+  const navHref = (href: string) => demoMode && href === "/active-program"
+    ? `/active-program?mode=manage&program=${demoProgramId}`
+    : demoMode && ["/systems", "/leadership", "/client-updates"].includes(href)
+      ? `${href}?program=${demoProgramId}`
+      : href;
 
   useEffect(() => {
     setMobileNavOpen(false);
@@ -174,7 +179,7 @@ export function SiteNav() {
                   isActive && "bg-white/[0.08] text-zinc-50"
                 )}
               >
-                <Link href={item.href}>{item.label}</Link>
+                <Link href={navHref(item.href)}>{item.label}</Link>
               </Button>
               );
             })}
@@ -229,7 +234,7 @@ export function SiteNav() {
                   isActive && "bg-white/[0.08] text-zinc-50"
                 )}
               >
-                <Link href={item.href}>{item.label}</Link>
+                <Link href={navHref(item.href)}>{item.label}</Link>
               </Button>
               );
             })}

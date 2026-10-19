@@ -1273,7 +1273,7 @@ test("Client Dashboard Contributor has a scoped publication lane", () => {
   assert.match(navSource, /primaryNavItems/);
   assert.match(navSource, /getVisibleNavItems/);
   assert.match(navSource, /pathname === "\/client-updates"/);
-  assert.match(navSource, /const showAdminLink = currentUser\?\.userType === "admin"/);
+  assert.match(navSource, /const showAdminLink = !demoMode && \(currentUser\?\.userType === "admin"/);
   assert.match(authLoginSource, /\/client-updates/);
   assert.match(programRouteSource, /shouldScopeManagedUserPrograms/);
   assert.match(programRouteSource, /getAssignedProgramIdSet/);

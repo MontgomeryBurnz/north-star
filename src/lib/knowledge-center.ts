@@ -24,7 +24,7 @@ const knowledgeSources = [
   {
     audience: ["Leadership", "Delivery Lead", "Admin", "Client"],
     category: "Executive",
-    description: "Executive framing, buyer-ready story, demo flow, and leadership talking points.",
+    description: "Executive framing, connected sample-data walkthrough, discovery-to-delivery story, and leadership talking points.",
     id: "executive-review",
     module: "Executive Review",
     path: "docs/northstar-executive-demo-guide.md",
@@ -33,7 +33,7 @@ const knowledgeSources = [
   {
     audience: ["Team Member", "Delivery Lead", "Leadership", "Client", "Admin"],
     category: "Training",
-    description: "Daily user guide, training path, module instructions, examples, and troubleshooting.",
+    description: "Daily workflows, sample data, Studio output selection, Word/Excel/PowerPoint downloads, feedback revisions, and troubleshooting.",
     id: "user-guide",
     module: "Training Manual",
     path: "docs/northstar-team-user-guide.md",
@@ -42,7 +42,7 @@ const knowledgeSources = [
   {
     audience: ["Admin", "Delivery Lead"],
     category: "Operations",
-    description: "Evergreen Knowledge Center model, AI-assisted refresh workflow, and content governance.",
+    description: "Repository-backed Knowledge Center, current sample and Studio workflows, future AI-assisted refresh, and content governance.",
     id: "knowledge-management",
     module: "Knowledge Center",
     path: "docs/northstar-knowledge-management-solution.md",

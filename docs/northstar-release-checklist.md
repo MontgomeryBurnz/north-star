@@ -41,13 +41,15 @@ The bundle currently verifies:
 
 - disabled chat policy: `/assistant` redirects and `/api/assistant` returns `410`
 - program slicers across product surfaces
-- Studio program, role, brief load, generation, and export behavior
+- standalone Studio intake and analysis prerequisites, deliverable selection, Office-format controls, prepared-example provenance, test steps, feedback/revision controls, and Start fresh
 - Admin model settings save and automatic revert
 - Admin audit export filters
 - Admin Trust & Operations documentation freshness panel renders after deploy
 - logged-in Client Portal seeded update: writes executive fields, opens `/client`, verifies portfolio/detail rendering, captures desktop/mobile screenshots, and prunes the tagged update
 - Active Program save, role focus, Delivery Board, mobile screenshot, and cleanup behavior
 - Team Footprint smoke cleanup: stale tagged smoke roles are pruned before the test and can be removed with `NORTHSTAR_TEAM_FOOTPRINT_SMOKE_CLEANUP_ONLY=true`
+
+For changes to connected sample data or Studio generation, also verify the affected flow end to end: start sample data from Quick Start, inspect the same fictional program across the standard screens, try an edit, reset and exit; then analyze discovery evidence, refine an output, restore a revision, and open the selected Office downloads. Confirm that research and provider status are reported accurately and that failed generation preserves the current revision. The standard Studio browser smoke verifies the controls and prepared example; it does not by itself certify a live OpenAI generation or Office-file rendering.
 
 ## Required Smoke Environment
 

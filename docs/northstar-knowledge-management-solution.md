@@ -1,8 +1,10 @@
 # NorthStar Knowledge Management Solution
 
+Last updated: October 18, 2026
+
 ## Purpose
 
-NorthStar needs an evergreen knowledge-management layer so users can learn the application as it evolves. The long-term goal is an in-app help and training portal that explains current functionality, role-specific workflows, release changes, examples, and governance rules without relying on static tribal knowledge.
+NorthStar's Knowledge Center renders repository-backed guides so users can learn the application as it evolves. The long-term goal is to keep that content current through a governed update workflow that explains functionality, role-specific workflows, release changes, examples, and governance rules.
 
 ## Product Intent
 
@@ -19,7 +21,7 @@ The knowledge-management solution should answer:
 
 ## Target Experience
 
-Add an in-app Knowledge Center that is accessible from Quick Start and the global navigation footer or help control.
+The current in-app Knowledge Center provides searchable, audience-filtered guides from repository documentation. Expand this foundation as the application evolves.
 
 The Knowledge Center should include:
 
@@ -47,7 +49,7 @@ The Knowledge Center should include:
 
 ## Source of Truth
 
-The first implementation should treat repository documentation as the source of truth:
+The implementation treats repository documentation as the source of truth:
 
 - `docs/northstar-team-user-guide.md`
 - `docs/northstar-executive-demo-guide.md`
@@ -55,7 +57,13 @@ The first implementation should treat repository documentation as the source of 
 - `docs/northstar-release-checklist.md`
 - release commits, smoke tests, and audit-event taxonomy
 
-The app can render curated versions of these docs inside the product later. For now, keeping them in the repo makes the docs reviewable, versioned, and tied to code changes.
+The app renders curated versions of these docs inside Knowledge Center. Keeping them in the repo makes the docs reviewable, versioned, and tied to code changes.
+
+### Current Release Coverage
+
+Guides must describe **Explore with sample data** as an exploration mode across the ordinary Program Hub, Guided Plans, Studio, Leadership, Client Updates, and Client Portal screens. There is no separate Sample navigation tab. The banner identifies the fictional scenario and provides **Reset sample** and **Exit sample data** controls. Document the difference between browser-session sample program edits and Studio's temporary page workspace.
+
+Studio documentation must cover standalone source intake, desired deliverables, editable Word/Excel/PowerPoint downloads, Markdown copy/export, evidence and readiness review, feedback-driven revisions, and restoration of prior outputs. Explain optional public research: users supply a generic public topic, research citations are displayed when available, and private uploaded source text is used for synthesis rather than web-search queries. Quality labels must distinguish prepared examples, OpenAI-generated results, and provisional local drafts. Users should download outputs before refreshing or leaving Studio.
 
 ## Evergreen Content Workflow
 
@@ -106,6 +114,7 @@ Knowledge content must not:
 - Where people, intelligence, and data move as one.
 - Which module to use first.
 - Common user journeys.
+- Explore a connected fictional program in the normal screens, reset the example, and exit to the normal workspace.
 
 ### Program Hub
 
@@ -131,6 +140,11 @@ Knowledge content must not:
 - Synthesize capabilities, pain points, business rules, assumptions, and source coverage.
 - Identify and resolve delivery-readiness gaps.
 - Generate a traceable roadmap, backlog, acceptance criteria, and test package for export.
+- Choose deliverables and editable Word, Excel, PowerPoint, or Markdown output before analysis and download.
+- Inspect the provider, evidence-review findings, source references, test steps, and readiness warnings.
+- Opt into public research with a generic topic and review its citations or availability notice.
+- Request corrections or updates with targeted feedback, compare revisions, and restore earlier outputs.
+- Explain that sources, outputs, and revisions are temporary and must be downloaded before leaving or refreshing the Studio page.
 
 ### Client Portal
 
@@ -166,11 +180,9 @@ Knowledge content must not:
 
 ### Phase 2: In-App Knowledge Center
 
-- Add `/knowledge` route.
-- Add searchable article index.
-- Add role-based article filters.
-- Render curated markdown content from repo-backed content files.
-- Add "last updated" and "applies to version" metadata.
+- Maintain the existing `/knowledge` route, searchable article index, and audience filters.
+- Keep the rendered repository-backed content aligned with released workflows.
+- Expand "last updated" and "applies to version" metadata.
 
 ### Phase 3: AI-Assisted Documentation Refresh
 
@@ -182,7 +194,7 @@ Knowledge content must not:
 
 ### Phase 4: Interactive Training
 
-- Add guided walkthroughs for core workflows.
+- Expand the connected sample-data exploration mode with guided walkthroughs for core workflows.
 - Add short role-specific training checklists.
 - Add example inputs and sample outputs.
 - Add "show me where this is in the app" deep links.
@@ -202,4 +214,4 @@ Every major product change should answer:
 
 ## Recommended Next Build
 
-Build a first-pass `/knowledge` route that renders a polished, searchable Knowledge Center from repo-backed markdown content. Keep it read-only at first. Then add Admin review workflows and AI-assisted refresh once the content model is stable.
+Keep the existing read-only Knowledge Center aligned with releases, including connected sample exploration and the current Studio workflow. Add Admin review workflows and AI-assisted refresh once documentation-drift detection and publication controls are ready.

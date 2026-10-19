@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { leadershipSessionCookieName } from "@/lib/leadership-auth";
 import { siteAccessSessionCookieName } from "@/lib/site-access";
 import { createSupabaseServerClient, isSupabaseConfigured } from "@/lib/supabase/server";
+import { demoModeCookieName, demoStateCookieCount, demoStateCookiePrefix } from "@/lib/demo-mode";
 
 const logoutRedirectPath = "/login?redirect=%2F";
 const northStarSessionCookies = [siteAccessSessionCookieName, leadershipSessionCookieName] as const;
@@ -31,6 +32,10 @@ async function handleLogout(request: Request) {
   const response = NextResponse.redirect(new URL(logoutRedirectPath, request.url), { status: 303 });
   response.headers.set("cache-control", "no-store");
   northStarSessionCookies.forEach((cookieName) => expireSessionCookie(response, cookieName));
+  expireSessionCookie(response, demoModeCookieName);
+  for (let index = 0; index < demoStateCookieCount; index += 1) {
+    expireSessionCookie(response, `${demoStateCookiePrefix}${index}`);
+  }
   return response;
 }
 

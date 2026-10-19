@@ -6,6 +6,7 @@ import { canAccessClientDashboardUpdateSurface, getAssignedProgramIdSet, shouldS
 import { loadClientPortalData } from "@/lib/client-portal-data";
 import { listPrograms } from "@/lib/program-store";
 import { redirect } from "next/navigation";
+import { isDemoMode } from "@/lib/demo-session";
 
 export const metadata = {
   title: "Client Updates | North Star"
@@ -20,7 +21,7 @@ export default async function ClientUpdatesPage() {
     redirect("/client");
   }
   const programs = await listPrograms();
-  const visiblePrograms = currentUser && shouldScopeManagedUserPrograms(currentUser)
+  const visiblePrograms = currentUser && shouldScopeManagedUserPrograms(currentUser) && !await isDemoMode()
     ? programs.filter((program) => getAssignedProgramIdSet(currentUser).has(program.id))
     : programs;
 

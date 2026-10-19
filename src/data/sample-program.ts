@@ -19,7 +19,7 @@ export const sampleProgram = {
   metrics: [
     { label: "Discovery sources", value: "06", detail: "Word, Excel, PowerPoint, PDF, CSV, notes" },
     { label: "Capabilities", value: "05", detail: "Synthesized from the evidence package" },
-    { label: "Build-ready stories", value: "02", detail: "With acceptance criteria and tests" },
+    { label: "Build-ready stories", value: "03", detail: "With acceptance criteria and tests" },
     { label: "Open decisions", value: "02", detail: "Routed to accountable leaders" }
   ],
   milestones: [
@@ -77,7 +77,12 @@ export const sampleDiscoverySources: ProgramArtifact[] = [
     extractionStatus: "extracted",
     extractionMethod: "server-parser",
     extractionSummary: "Current-state capabilities, handoffs, and regional variation extracted.",
-    extractedText: "Regional service intake is split across email, shared inboxes, and local spreadsheets."
+    extractedText: `FICTIONAL TRAINING DOCUMENT — Current-state capability assessment.
+Civic Services Network operates 12 regional offices. Its service coordinators receive resident requests through email, shared inboxes, and local spreadsheets. A regional coordinator manually checks completeness, categorizes each request, and asks a regional service manager to assign a service team. Residents must call or email to learn status.
+Capability gaps: intake has no common required fields; service categories vary by region; reassignment has no recorded reason; approvals are stored in email; leaders cannot compare request aging consistently. Duplicate entry occurs when email details move into regional spreadsheets.
+Target capabilities: category-aware guided intake; regional and category routing; privacy classification and access controls; approvals with rationale; requester status notifications; reporting on volume, aging, reassignment, and service-level risk. Each request needs a unique reference and an accountable owner throughout its lifecycle.
+Primary users are resident service coordinators, regional coordinators, regional service managers, compliance administrators, and executive operations leaders. Residents submit through a coordinator during the pilot; a public self-service portal is a later proposal.
+The pilot will cover three regions. Required pilot categories and their SLA targets are an open decision. Existing enterprise identity and notification services are candidate dependencies requiring technical validation. Offline entry is not required for the pilot; field demand should be reassessed after pilot feedback.`
   },
   {
     id: "sample-volume-analysis",
@@ -93,7 +98,15 @@ export const sampleDiscoverySources: ProgramArtifact[] = [
     extractionStatus: "extracted",
     extractionMethod: "server-parser",
     extractionSummary: "Volume, aging, reassignment, and SLA data extracted across 12 regions.",
-    extractedText: "Median assignment time is 3.8 days. Twenty-seven percent of requests are reassigned."
+    extractedText: `FICTIONAL TRAINING WORKBOOK — Request volume and aging, eight-week baseline.
+Measure | Current baseline | Target or decision
+Regional offices | 12 | Pilot 3 before scale-up
+Median request-to-assignment time | 3.8 calendar days | Under 4 business hours; business calendar needs confirmation
+Requests reassigned after initial routing | 27% | Proposed target below 10%; product owner to confirm
+Requests missing a required detail at triage | 31% | Proposed target below 5%; product owner to confirm
+Four highest-volume candidate categories | Facilities access, records request, service correction, general inquiry | Operations council must approve pilot selection and per-category SLA
+Known limitations: local trackers use different status labels, some have no assignment timestamp, and the baseline excludes abandoned email threads. Do not infer a verified cost saving from this dataset.
+The management dashboard should show volume, unassigned requests, aging buckets, reassignment rate, and cases that reach 80% of the applicable SLA. Report definitions need consistent time zones, pause rules, and working-day calendars before rollout.`
   },
   {
     id: "sample-vision-deck",
@@ -109,7 +122,13 @@ export const sampleDiscoverySources: ProgramArtifact[] = [
     extractionStatus: "extracted",
     extractionMethod: "server-parser",
     extractionSummary: "Target experience, business outcomes, and executive success measures extracted.",
-    extractedText: "Create one transparent service-request journey with measurable ownership and outcomes."
+    extractedText: `FICTIONAL TRAINING PRESENTATION — Service modernization vision.
+Vision: one transparent service-request journey with measurable ownership and outcomes across all 12 regional offices.
+Business outcomes: reduce assignment delay from 3.8 days to under four business hours; establish a single auditable approval path; give leaders a timely view of demand, aging, and service-level risk. Outcomes are targets, not achieved results.
+Delivery approach: definition and operating-model decisions first; configure and prove a three-region pilot next; expand to 12 regions after an outcome review. Pilot work should prioritize category-aware intake, protected sensitive requests, basic routing, and auditable exceptions. Cross-region reporting follows once categories and metric definitions are stable.
+Indicative planning windows: 0–30 days validate blueprint and policy, 31–60 days pilot configuration and validation, 61–120 days assess scale-up. These are planning horizons, not committed release dates.
+Executive sponsor owns exception-approval policy. Operations council owns pilot category scope and service-level targets. Regional managers validate team ownership rules. Engineering validates identity, notifications, data retention, and deployment controls.
+Success review should compare measured pilot assignment time, reassignment, incomplete requests, and requester satisfaction against confirmed baselines. No budget, implementation estimate, or system vendor has been approved.`
   },
   {
     id: "sample-policy",
@@ -125,7 +144,12 @@ export const sampleDiscoverySources: ProgramArtifact[] = [
     extractionStatus: "extracted",
     extractionMethod: "server-parser",
     extractionSummary: "Approval thresholds, privacy controls, and retention rules extracted.",
-    extractedText: "Sensitive requests require role-based access, an approval event, and seven-year audit retention."
+    extractedText: `FICTIONAL TRAINING POLICY — Approval and privacy rules, draft for pilot validation.
+All requests have a regional owner and a service category. Sensitive requests may be viewed only by assigned service staff and authorized compliance approvers. Requests must not expose resident personal details in dashboard summaries or notification subject lines.
+An approval, rejection, reassignment, or policy exception requires an immutable audit event with the actor, timestamp, prior state, new state, and rationale. Approval and rejection require a non-empty explanation. Unauthorized users cannot execute approval actions. A user cannot approve their own policy exception.
+Audit history retention is seven years. The applicable policy for deletion of request content, legal holds, encryption, and access-review frequency is not yet confirmed and must be raised as discovery gaps.
+Service-level intervention: alert when a request reaches 80% of its applicable SLA. Exact per-category SLA, business calendar, pause/resume behavior, and escalation owner require decisions.
+Exception approver differs across current regional procedures. The proposed pilot design uses one compliance administrator, but the executive sponsor has not approved cross-region approval authority. Do not treat that proposal as a settled business rule.`
   },
   {
     id: "sample-pain-points",
@@ -141,7 +165,16 @@ export const sampleDiscoverySources: ProgramArtifact[] = [
     extractionStatus: "extracted",
     extractionMethod: "server-parser",
     extractionSummary: "Frequency and impact of 34 frontline pain points extracted.",
-    extractedText: "Top pain points are duplicate entry, unclear ownership, missing status, and inconsistent categories."
+    extractedText: `FICTIONAL TRAINING DATASET — Frontline pain-point inventory.
+ID,Persona,Pain point,Frequency,Impact,Desired change
+PP01,Service coordinator,Re-enter email details in spreadsheet,Daily,High,One intake record with mandatory information
+PP02,Regional coordinator,Unknown responsible team,Daily,High,Routing by region and common service category
+PP03,Requester,No visible status,Weekly,Medium,Reference number and status notification
+PP04,Service manager,Repeated reassignment without reason,Daily,High,Reason-coded assignment history and exception queue
+PP05,Operations leader,Incomparable aging by region,Weekly,High,Shared metric definitions and portfolio dashboard
+PP06,Compliance administrator,Approvals scattered across email,Weekly,High,Authorized decision with rationale and immutable history
+PP07,Service coordinator,Sensitive details copied into general updates,Weekly,High,Privacy classification and restricted views
+Pain points indicate needs, not validated solution requirements. Confirm accessibility needs with frontline users, including keyboard navigation, clear validation messages, and screen-reader support. Notification channel preference, delivery failure handling, and request cancellation rules are not documented.`
   },
   {
     id: "sample-workshop-notes",
@@ -157,7 +190,14 @@ export const sampleDiscoverySources: ProgramArtifact[] = [
     extractionStatus: "extracted",
     extractionMethod: "browser-text",
     extractionSummary: "Stakeholder assumptions, unresolved questions, and candidate pilot scope extracted.",
-    extractedText: "Pilot four categories in three regions. Approval ownership and offline needs remain open."
+    extractedText: `FICTIONAL TRAINING NOTES — Discovery workshop.
+Attendees: product owner, regional managers, service coordinators, compliance representative, engineering lead, and operations sponsor.
+Agreed: begin with a three-region pilot; give each request a reference, category, regional owner, status, and history. Required-field validation should explain how to correct an incomplete request. Unmatched routing rules should create a coordinator exception, not silently discard the request. Reassignments need a reason.
+Proposed: four high-volume categories. Candidate categories are facilities access, records request, service correction, and general inquiry. Operations council will confirm the categories and SLA targets. Product owner will confirm measurable pilot exit thresholds.
+Open decision: whether one compliance administrator can approve exceptions across all three pilot regions. Sponsor confirmation is required before the governed approval story is committed.
+Open technical questions: identity roles and integration interfaces, data model and migration boundary, notification retry strategy, dashboard refresh interval, performance target, accessibility acceptance standard, and retention/deletion interaction. Do not invent values for these.
+Scope: offline intake is excluded from the pilot based on current workshop preference; validate with field users before broader rollout. Public resident self-service and historical data migration are proposals for later assessment.
+Next actions: reconcile categories, confirm accountable exception approver, validate a representative request journey with frontline users, and obtain engineering estimates after the critical gaps are closed.`
   }
 ];
 
@@ -375,6 +415,13 @@ export const sampleDiscoverySynthesis: DiscoverySynthesis = {
       ],
       testCases: [
         {
+          id: "TC-06",
+          title: "Record an authorized approval with rationale",
+          type: "happy-path",
+          steps: ["Sign in as the authorized compliance approver", "Open an exception raised by another user", "Enter a rationale and approve"],
+          expectedResult: "The exception is approved and an immutable audit event records actor, decision, rationale, and timestamp."
+        },
+        {
           id: "TC-05",
           title: "Reject unauthorized approval",
           type: "negative",
@@ -384,6 +431,24 @@ export const sampleDiscoverySynthesis: DiscoverySynthesis = {
       ],
       sourceIds: ["sample-policy", "sample-workshop-notes"],
       readiness: "needs-input"
+    },
+    {
+      id: "US-04", epicId: "EPIC-01", featureId: "FEAT-02", title: "Protect sensitive request details",
+      story: "As a service manager, I want sensitive requests restricted to assigned staff and compliance approvers so that resident information is protected.",
+      acceptanceCriteria: ["A request marked sensitive is visible only to its assigned staff and authorized compliance approvers", "General dashboard summaries and notification subject lines omit resident personal details", "An unauthorized attempt to access a sensitive request returns an access-denied result without revealing its content"],
+      testCases: [
+        { id: "TC-07", title: "Assigned staff view a sensitive request", type: "happy-path", steps: ["Mark a request sensitive", "Assign a service team", "Open it as an assigned team member"], expectedResult: "The assigned team member can view the request and its privacy classification." },
+        { id: "TC-08", title: "Unassigned staff cannot read sensitive content", type: "negative", steps: ["Sign in as an unassigned service team member", "Attempt to open the sensitive request URL"], expectedResult: "Access is denied and the request details are not returned." }
+      ], sourceIds: ["sample-policy", "sample-pain-points"], readiness: "ready"
+    },
+    {
+      id: "US-05", epicId: "EPIC-03", featureId: "FEAT-05", title: "Flag requests approaching their service-level target",
+      story: "As an operations leader, I want requests flagged at 80% of their applicable SLA so that I can intervene before a commitment is missed.",
+      acceptanceCriteria: ["A request with a configured applicable SLA is flagged when elapsed service time reaches 80% of that target", "The intervention view displays the reference, region, category, current owner, elapsed time, and applicable target", "Requests with no configured SLA are visibly marked as missing configuration rather than assigned an invented target"],
+      testCases: [
+        { id: "TC-09", title: "Flag a request at the threshold", type: "happy-path", steps: ["Configure a test category SLA", "Advance a request to 80% of that target using the configured calendar", "Refresh the intervention view"], expectedResult: "The request appears with the correct target, elapsed time, and accountable owner." },
+        { id: "TC-10", title: "Handle missing service-level configuration", type: "edge", steps: ["Create a request in a category without a configured SLA", "Open the intervention view"], expectedResult: "The request shows a configuration gap and no fabricated SLA percentage." }
+      ], sourceIds: ["sample-policy", "sample-volume-analysis", "sample-vision-deck"], readiness: "needs-input"
     }
   ],
   readinessScore: 82,
@@ -391,5 +456,7 @@ export const sampleDiscoverySynthesis: DiscoverySynthesis = {
     "The product boundary, primary journey, first-release capabilities, and measurable outcomes are defined. Engineering can refine intake, routing, and reporting now. The approval story should remain uncommitted until leadership names the pilot exception owner.",
   sourceCount: 6,
   generatedAt: "2026-05-04T14:30:00.000Z",
-  provider: "local"
+  provider: "local",
+  sources: sampleDiscoverySources.map((source) => ({ id: source.id, name: source.name, coverage: "complete", characters: source.extractedText?.length ?? 0 })),
+  revision: { number: 1, summary: "Prepared fictional example for exploring the connected North Star workflow." }
 };
