@@ -61,7 +61,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     },
     programId: id,
     programName: program.intake.programName,
-    summary: `${program.intake.programName} discovery package synthesized into a build-ready product definition.`,
+    summary: `${program.intake.programName} discovery package synthesized into a product definition for review.`,
     surface: "Studio"
   });
 

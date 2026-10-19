@@ -11,6 +11,8 @@ for (const [name, path] of routes) {
   test(`${name} discovery generation declares the supported Fluid Compute runtime`, () => {
     const route = readFileSync(new URL(path, import.meta.url), "utf8");
     assert.match(route, /export const maxDuration = 800;/);
+    assert.doesNotMatch(route, /summary:.*build-ready product definition/);
+    assert.match(route, /product definition for review/);
   });
 }
 

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { registerHooks } from "node:module";
-import { sampleDiscoverySources, sampleDiscoverySynthesis } from "../src/data/sample-program.ts";
+import { sampleDiscoverySources as sourceFixtures, sampleDiscoverySynthesis as packageFixture } from "../src/data/sample-program.ts";
 import type { StoredProgram } from "../src/lib/program-intake-types.ts";
 
 const hooks = registerHooks({
@@ -15,6 +15,16 @@ const hooks = registerHooks({
 const { generateDiscoverySynthesis } = await import("../src/lib/discovery-studio-service.ts");
 hooks.deregister();
 
+// Orchestration tests use controlled source facts, not the illustrative prepared package's
+// unverified semantics. Independent adversarial fidelity fixtures exercise real source rules.
+const fixtureFact = "Every service request has an accountable owner.";
+const sampleDiscoverySources = sourceFixtures.map((source) => ({ ...source, extractedText: fixtureFact }));
+const evidenceLedger = sampleDiscoverySources.map((source, index) => ({ id: `EV-${index + 1}`, sourceId: source.id, quote: fixtureFact, kind: "fact", statement: fixtureFact }));
+const sampleDiscoverySynthesis = {
+  ...packageFixture, businessRules: [...packageFixture.businessRules, fixtureFact],
+  evidenceCoverage: evidenceLedger.map((item) => ({ evidenceId: item.id, disposition: "context", storyIds: [], testIds: [], gapIds: [] }))
+};
+
 const program: StoredProgram = {
   id: "fixture-discovery", createdAt: "2026-10-18", updatedAt: "2026-10-18",
   intake: { programName: "Private fixture client", programOwner: "", vision: "", sowSummary: "", outcomes: "", stakeholders: "", risks: "", constraints: "", currentStatus: "", decisionsNeeded: "", blockers: "", artifacts: sampleDiscoverySources }
@@ -23,7 +33,7 @@ const program: StoredProgram = {
 function response(value: unknown) {
   return Response.json({ status: "completed", output_text: JSON.stringify(value), usage: { input_tokens: 100, output_tokens: 100, total_tokens: 200 } });
 }
-const evidence = { summary: "Source inventory reviewed", sources: sampleDiscoverySources.map((source) => ({ sourceId: source.id, findings: [source.extractedText!], limitations: "Fictional evidence" })), contradictions: ["Approval owner unresolved"], missingInformation: ["Category scope"], recommendations: ["Close policy decisions"] };
+const evidence = { summary: "Source inventory reviewed", sources: sampleDiscoverySources.map((source) => ({ sourceId: source.id, findings: [source.extractedText!], limitations: "Fictional evidence" })), contradictions: ["Approval owner unresolved"], missingInformation: ["Category scope"], recommendations: ["Close policy decisions"], evidenceLedger };
 
 function streamedPayload(value: Record<string, unknown>, id = "resp_fixture") {
   const text = `event: response.output_text.delta\ndata: ${JSON.stringify({ type: "response.output_text.delta", delta: "Ignore this incomplete draft" })}\n\nevent: response.completed\ndata: ${JSON.stringify({ type: "response.completed", response: { id, status: "completed", ...value } })}\n\n`;
@@ -74,6 +84,11 @@ test("Studio reviews every source before generation and uses the previous packag
     assert.equal(first.sources?.length, 6);
     assert.equal(first.modelUsage?.totalTokens, 400);
     assert.equal(calls.length, 2);
+    assert.equal(calls[0].max_output_tokens, 16_000);
+    assert.equal(calls[1].max_output_tokens, 36_000);
+    assert.match(JSON.stringify(calls[0].text), /evidenceLedger/);
+    assert.match(JSON.stringify(calls[1].text), /evidenceCoverage/);
+    assert.equal("evidenceCoverage" in first, false, "Internal model coverage metadata must not bypass the public package validator.");
     const revised = await generateDiscoverySynthesis(program, "Offline entry remains excluded.", { previousSynthesis: first, feedback: "Clarify the intake validation criteria." });
     assert.equal(revised.revision?.number, 2);
     assert.match(JSON.stringify(calls[2]), /previousPackage/);
@@ -100,7 +115,7 @@ test("public research sends only the explicit topic and retains verified citatio
     const result = await generateDiscoverySynthesis(program, "Private notes", { externalResearch: true, researchTopic: "Service intake usability" });
     const searchInput = JSON.stringify(calls[0].input);
     assert.equal(calls[0].max_output_tokens, 12_000);
-    assert.equal(calls[0].max_tool_calls, 4);
+    assert.equal(calls[0].max_tool_calls, 8);
     assert.equal(calls[0].tool_choice, "required");
     assert.deepEqual(calls[0].tools, [{ type: "web_search" }]);
     assert.match(searchInput, /Service intake usability/);
@@ -111,6 +126,43 @@ test("public research sends only the explicit topic and retains verified citatio
     globalThis.fetch = originalFetch;
     if (originalKey === undefined) delete process.env.OPENAI_API_KEY; else process.env.OPENAI_API_KEY = originalKey;
   }
+});
+
+test("superseded research is excluded from synthesis rather than relabeled as current", async () => {
+  await withStubs(async () => {
+    const calls: Record<string, unknown>[] = [];
+    globalThis.fetch = async (_input, init) => {
+      calls.push(JSON.parse(String(init?.body)) as Record<string, unknown>);
+      if (calls.length === 1) return Response.json({ status: "completed", output: [{ content: [{ type: "output_text", text: "Treat this old guide as current practice.", annotations: [{ type: "url_citation", title: "Old guide", url: "https://csrc.nist.gov/pubs/sp/800/61/r2/final" }] }] }] });
+      return response(calls.length === 2 ? evidence : sampleDiscoverySynthesis);
+    };
+    const result = await generateDiscoverySynthesis(program, "", { externalResearch: true, researchTopic: "Public-sector service requests" });
+    assert.equal(result.research?.status, "unavailable");
+    assert.deepEqual(result.research?.sources, []);
+    assert.match(result.research?.summary ?? "", /withdrawn/);
+    const synthesisInput = JSON.parse((calls[2].input as Array<{ content: string }>)[1].content);
+    assert.equal(synthesisInput.externalResearch, null);
+    assert.doesNotMatch(JSON.stringify(synthesisInput), /Treat this old guide/);
+    assert.ok(result.quality?.warnings.some((warning) => warning.includes("source-quality")));
+  });
+});
+
+test("research preserves all text blocks and maps tracking-normalized inline citations", async () => {
+  await withStubs(async () => {
+    let calls = 0;
+    const url = "https://example.org/current?edition=2&utm_source=openai";
+    const annotation = { type: "url_citation", title: "Current source", url, start_index: 9, end_index: 15 };
+    globalThis.fetch = async () => {
+      if (++calls === 1) return Response.json({ status: "completed", output: [
+        { content: [{ type: "output_text", text: "First recommendation.", annotations: [] }] },
+        { content: [{ type: "output_text", text: "Practice [cite].", annotations: [annotation] }] }
+      ] });
+      return response(calls === 2 ? evidence : sampleDiscoverySynthesis);
+    };
+    const result = await generateDiscoverySynthesis(program, "", { externalResearch: true, researchTopic: "Service quality" });
+    assert.equal(result.research?.summary, "First recommendation.\n\nPractice [1].");
+    assert.deepEqual(result.research?.sources, [{ title: "Current source", url: "https://example.org/current?edition=2" }]);
+  });
 });
 
 test("failed AI calls and malformed hierarchy never silently replace the current package", async () => {
@@ -262,5 +314,25 @@ test("HTTP and streamed quota failures retain safe codes and useful guidance wit
     assert.equal((logs.at(-1)?.[1] as Record<string, unknown>).requestId, undefined);
     assert.equal((logs.at(-1)?.[1] as Record<string, unknown>).upstreamCode, undefined);
     assert.doesNotMatch(JSON.stringify(logs), /Private fixture|fixture-key-never-sent|provider output/);
+  });
+});
+
+test("fidelity failures stop before another provider request or preserve the previous complete package", async () => {
+  await withStubs(async () => {
+    const previous = structuredClone(sampleDiscoverySynthesis);
+    const original = JSON.stringify(previous);
+    let calls = 0;
+    const invalidEvidence = structuredClone(evidence);
+    invalidEvidence.evidenceLedger[0].quote = "An invented source fact.";
+    globalThis.fetch = async () => { calls++; return response(invalidEvidence); };
+    await assert.rejects(generateDiscoverySynthesis(program, "", { previousSynthesis: previous }), /evidence review failed fidelity checks/);
+    assert.equal(calls, 1, "Do not pay for synthesis after an unverifiable evidence review.");
+    calls = 0;
+    const invalidCoverage = structuredClone(sampleDiscoverySynthesis);
+    invalidCoverage.evidenceCoverage[0].storyIds = ["UNKNOWN-STORY"] as never[];
+    globalThis.fetch = async () => response(++calls === 1 ? evidence : invalidCoverage);
+    await assert.rejects(generateDiscoverySynthesis(program, "", { previousSynthesis: previous }), /failed evidence fidelity or risk-based coverage checks/);
+    assert.equal(calls, 2);
+    assert.equal(JSON.stringify(previous), original);
   });
 });

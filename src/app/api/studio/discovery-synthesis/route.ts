@@ -119,7 +119,7 @@ export async function POST(request: Request) {
       revision: synthesis.revision?.number,
       standalone: true
     },
-    summary: `${workspaceName} synthesized into a build-ready product definition.`,
+    summary: `${workspaceName} synthesized into a product definition for review.`,
     surface: "Studio"
   });
 
