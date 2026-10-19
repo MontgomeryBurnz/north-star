@@ -173,6 +173,20 @@ function sourceMetricStatistic(text: string, metric: Metric, tableSource?: strin
     return verified ? measureStatistic : undefined;
   }
   const line = prefix.slice(Math.max(prefix.lastIndexOf("\n"), prefix.lastIndexOf(". "), prefix.lastIndexOf(";")) + 1);
+  // A unit can directly modify a statistic-qualified measurement noun phrase,
+  // e.g. "4 business hours median request-to-assignment target". Do not borrow
+  // a statistic across punctuation, a row boundary, or an observation/baseline.
+  const postUnit = suffix.match(/^[ \t]+(median|average|mean)[ \t]+((?:[a-z]+[ \t]+){0,5}(?:target|time|duration|latency|delay|turnaround))\b/);
+  if (postUnit && /\b(?:median|mean|average)\b/.test(postUnit[2])) return undefined;
+  if (postUnit && !/\b(?:baseline|observation|reporting|sample|study|measurement|window|not|no|neither|nor|but|and|or|that|which|is|are)\b/.test(postUnit[2])) {
+    const previousMetric = metrics(line).at(-1);
+    const prefixScope = previousMetric ? line.slice(previousMetric.index + previousMetric.text.length) : line;
+    const attachedPrefix = prefixScope.match(/\b(median|average|mean)[ \t]+(?:[a-z]+[ \t]+){0,5}(?:target|time|duration|latency|delay|turnaround)[ \t]+(?:is|are|was|were|of|at)[ \t]*$/)?.[1];
+    // Two directly attached, different statistics are unresolved, not permission
+    // to select whichever matches the source. A prior completed measure is separate.
+    if (attachedPrefix && attachedPrefix !== postUnit[1]) return undefined;
+    return postUnit[1];
+  }
   return line.match(/\b(median|average|mean)\b/g)?.at(-1);
 }
 // Producer-side completeness aid only. This is not a ledger, a source quotation,
