@@ -14,6 +14,9 @@ export async function GET(request: Request) {
     if (response) return response;
   }
   const currentUser = await getCurrentManagedUser();
+  if (currentUser?.userType === "contractor") {
+    return NextResponse.json({ error: "Program access denied." }, { status: 403 });
+  }
   const denied = requireSiteAccessRequest(request);
   if (denied && !hasActiveUserCredentials(currentUser)) return denied;
 
