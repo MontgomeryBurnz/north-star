@@ -509,6 +509,38 @@ test("one validation-guided correction can fix a completed product candidate and
   });
 });
 
+test("failed privacy coverage exposes bounded candidate diagnostics only to the caller and preserves the previous package", async () => {
+  await withStubs(async (logs) => {
+    const quote = "Dashboard summaries and notification subject lines must not expose resident personal details.";
+    const sources = sampleDiscoverySources.map((source) => ({ ...source, extractedText: quote }));
+    const input = { ...program, intake: { ...program.intake, artifacts: sources } };
+    const review = { ...evidence,
+      sources: sources.map((source) => ({ sourceId: source.id, findings: [quote], limitations: "Fictional evidence" })),
+      evidenceLedger: sources.map((source, index) => ({ id: `EV-${index + 1}`, sourceId: source.id, quote, kind: "requirement", statement: quote }))
+    };
+    const invalid = structuredClone(sampleDiscoverySynthesis);
+    const story = invalid.stories[0];
+    story.testCases[0] = { id: story.testCases[0].id, title: "Private dashboard candidate", type: "happy-path", steps: ["Open the dashboard"], expectedResult: "The dashboard exposes resident personal details." };
+    story.testCases[1] = { id: story.testCases[1].id, title: "Private notification candidate", type: "negative", steps: ["Inspect the notification subject"], expectedResult: "The notification subject includes resident personal details." };
+    invalid.evidenceCoverage = review.evidenceLedger.map((item) => ({ evidenceId: item.id, disposition: "implemented", storyIds: [story.id], testIds: story.testCases.map((item) => item.id), gapIds: [] }));
+    const previous = structuredClone(sampleDiscoverySynthesis);
+    const original = JSON.stringify(previous);
+    let calls = 0;
+    globalThis.fetch = async () => response(++calls === 1 ? review : invalid);
+    await assert.rejects(generateDiscoverySynthesis(input, "", { previousSynthesis: previous }), (error: Error) => {
+      assert.match(error.message, /dashboard personal-data redaction test/);
+      assert.match(error.message, /notification personal-data redaction test/);
+      assert.match(error.message, /Private dashboard candidate/);
+      assert.match(error.message, /Private notification candidate/);
+      assert.ok(error.message.length < 10_000);
+      return true;
+    });
+    assert.equal(calls, 3);
+    assert.equal(JSON.stringify(previous), original);
+    assert.doesNotMatch(JSON.stringify(logs), /Private dashboard candidate|Private notification candidate|resident personal details/);
+  });
+});
+
 test("repeated invalid correction fails after one attempt and preserves the previous package", async () => {
   await withStubs(async () => {
     const previous = structuredClone(sampleDiscoverySynthesis);

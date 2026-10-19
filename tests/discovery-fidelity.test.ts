@@ -188,3 +188,45 @@ test("trusted review-gap quotations cannot substitute for visible measurements o
   assert.match(guarded.errors.join(" "), /quantified source fact/);
   assert.match(guarded.errors.join(" "), /unresolved content deletion|unresolved legal holds/);
 });
+
+test("redaction coverage recognizes explicit plural-channel and possessive grammar but not exposure or generic denial", () => {
+  const text = "Sensitive requests may be viewed only by assigned service staff. Dashboard summaries and notification subject lines must not expose resident personal details.";
+  const sources = [{ id: "S1", text }];
+  const ledger = [{ id: "PRIVACY", sourceId: "S1", quote: text, statement: text, kind: "requirement" as const }];
+  const coverage = [{ evidenceId: "PRIVACY", disposition: "implemented", storyIds: ["U1"], testIds: ["T1", "T2", "T3", "T4"], gapIds: [] }];
+  const output = product(text);
+  output.stories[0].testCases = [
+    { id: "T1", title: "Assigned access", type: "happy-path", steps: ["Open an assigned sensitive request"], expectedResult: "The assigned staff member can read the request." },
+    { id: "T2", title: "Deny unassigned access", type: "negative", steps: ["Open the sensitive request as an unassigned staff member"], expectedResult: "Access is denied and no sensitive request content is disclosed." },
+    { id: "T3", title: "Personal details in dashboards", type: "edge", steps: ["Open dashboards containing request summaries"], expectedResult: "Dashboards contain no resident personal details." },
+    { id: "T4", title: "Personal details in notifications", type: "edge", steps: ["Send notifications with subject lines"], expectedResult: "Residents' personal details are excluded from notifications." }
+  ];
+  assert.deepEqual(reviewDiscoveryFidelity(output, ledger, coverage, sources).errors, []);
+  for (const expectedResult of [
+    "Residents’ personal details are absent from dashboards.",
+    "Personal details are removed from dashboards.",
+    "Dashboards omit residents' personal details.",
+    "Dashboards do not include personal details."
+  ]) {
+    const changed = structuredClone(output);
+    changed.stories[0].testCases[2].expectedResult = expectedResult;
+    assert.deepEqual(reviewDiscoveryFidelity(changed, ledger, coverage, sources).errors, []);
+  }
+  for (const expectedResult of [
+    "Residents' personal details are displayed in dashboards.",
+    "Personal details privacy is checked.",
+    "Access is denied to the viewer role.",
+    "Personal details are not removed from dashboards.",
+    "Dashboards do not redact personal details."
+  ]) {
+    const changed = structuredClone(output);
+    changed.stories[0].testCases[2].expectedResult = expectedResult;
+    const errors = reviewDiscoveryFidelity(changed, ledger, coverage, sources).errors.join(" ");
+    assert.match(errors, /dashboard personal-data redaction test/);
+    assert.match(errors, /Closest channel tests: title=Personal details in dashboards; expectedResult=/);
+    assert.ok(errors.length < 1000);
+  }
+  const noNegativePrivacy = structuredClone(output);
+  noNegativePrivacy.stories[0].testCases[1] = { id: "T2", title: "Missing category", type: "negative", steps: ["Omit the category"], expectedResult: "Category validation appears." };
+  assert.match(reviewDiscoveryFidelity(noNegativePrivacy, ledger, coverage, sources).errors.join(" "), /unauthorized sensitive-content access test/);
+});

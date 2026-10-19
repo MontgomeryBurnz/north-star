@@ -13,6 +13,7 @@ export const discoverySynthesisFidelityInstructions = [
   "The independent evidenceLedger is a coverage checklist, not permission to change source facts. Return evidenceCoverage with exactly one row per evidence id: evidenceId, disposition (implemented, context, proposal, gap), storyIds, testIds and gapIds. References must resolve to the actual final package. Requirements need relevant mapped stories and tests or a precise gap; unresolved questions need gaps, and proposals stay explicitly proposed with dependent stories needs-input. A claimed coverage row never substitutes for the actual visible content or test behavior.",
   "Carry every quantitative ledger assertion into the visible analysis, rules, outcomes or assumptions with its original value/comparator, unit, statistic, calendar basis, observation period and confirmation status. Do not omit secondary KPIs or proposed targets. Preserve measured baselines separately from proposed targets and achieved outcomes. Repeat qualifiers where an otherwise ambiguous assertion could change meaning. Prior generated content, including apparent business rules, must be corrected whenever unsupported by raw evidence.",
   "Do not broaden policy: a prohibition on approving one's own specific exception does not prohibit rejecting it or all own requests unless separately sourced. Cover a permitted rejection with rationale and a rejection attempt with empty rationale when those decision rules are stated. Test every source-required immutable audit field and tamper prevention, unauthorized sensitive-content access, and personal-data redaction in each stated output channel.",
+  "For source-required redaction, seed recognizable synthetic personal details using source-supported fields, inspect EACH source-named output channel, and explicitly assert in the expected result that those details are absent or redacted there. Generic role denial or saying privacy is applied does not verify channel redaction. Do not invent client fields, privacy policies or policy values; ask a precise gap question where required details are unknown.",
   "Use risk-based scenarios, not a generic negative test merely to satisfy a count. For any service-level percentage intervention threshold include explicit below/equal/above cases and missing/unconfirmed configuration behavior. Calendar boundaries and pause/resume, keyboard and screen-reader journeys, retries/failure handling, retention/deletion/privacy must each have relevant test behavior or, for an unknown policy, a precise discovery gap. Use parameterized/configuration-dependent tests and mark affected stories needs-input rather than inventing thresholds, accessibility standards, retry policy or legal behavior. Expected results must assert observable behavior and required fields, not merely say success, an audit exists, or follow policy."
 ].join(" ");
 
@@ -279,6 +280,25 @@ function proposedMetricPromoted(context: string) {
   return /\bachieved\s+(?:results?|outcomes?)\b/.test(value)
     || (/\b(?:achieved|approved|confirmed|committed)\b/.test(value) && !unconfirmedKind(value));
 }
+function assertsPersonalDataRedaction(expectedResult: string) {
+  const value = normalized(expectedResult);
+  if (!/\b(?:personal|sensitive|pii)\b/.test(value)) return false;
+  if (/\bnot\s+(?:expose|display|show|include|disclose|reveal|contain|render|send|deliver|leak)\b[^.;]{0,90}\b(?:personal|sensitive|pii)\b/.test(value)) return true;
+  if (/\bno\s+(?:(?:residents?|users?|customers?|clients?|requesters?|applicants?|employees?)(?:['’]s?)?\s+)?(?:personal|sensitive|pii)\b/.test(value)) return true;
+  if (/\b(?:personal|sensitive|pii)\b[^.;]{0,75}\bnot\s+(?:visible|disclosed|included|displayed|shown|exposed|present|sent|rendered)\b/.test(value)) return true;
+  if (/\b(?:personal|sensitive|pii)\b(?:(?!\b(?:not|never|cannot)\b)[^.;]){0,75}\b(?:redacted|masked|omitted|excluded|absent|removed|hidden)\b/.test(value)) return true;
+  return [...value.matchAll(/\b(?:redact(?:s|ed|ing)?|mask(?:s|ed|ing)?|omit(?:s|ted|ting)?|exclude(?:s|d|ing)?|remove(?:s|d|ing)?|hide(?:s)?)\b[^.;]{0,75}\b(?:personal|sensitive|pii)\b/g)]
+    .some((match) => !/\b(?:not|never|without|cannot|unable to)\s*(?:be\s*)?$/.test(value.slice(Math.max(0, match.index! - 24), match.index)));
+}
+function redactionFailureDetails(channel: "dashboard" | "notification", tests: DiscoveryTestCase[]) {
+  const channelPattern = new RegExp(`\\b${channel}s?\\b`);
+  const closest = tests.filter((test) => channelPattern.test(normalized(testText(test))))
+    .sort((left, right) => Number(/\b(?:personal|sensitive|pii)\b/i.test(right.expectedResult)) - Number(/\b(?:personal|sensitive|pii)\b/i.test(left.expectedResult)))
+    .slice(0, 2);
+  // Only returned to the authenticated caller through the existing validation error;
+  // never log generated test content or source material.
+  return closest.length ? ` Closest channel tests: ${closest.map((test) => `title=${literal(test.title).slice(0, 45)}; expectedResult=${literal(test.expectedResult).slice(0, 95)}`).join(" | ")}` : " No matching channel test was supplied.";
+}
 
 export function reviewDiscoveryFidelity(synthesis: FidelityDefinition, inputLedger: DiscoveryEvidenceLedgerItem[], value: unknown, sources: DiscoveryEvidenceSource[], reviewGapIds: ReadonlySet<string> = new Set()) {
   const reviewed = reviewDiscoveryEvidenceLedger(inputLedger, sources);
@@ -394,7 +414,7 @@ export function reviewDiscoveryFidelity(synthesis: FidelityDefinition, inputLedg
     }
     if (/\b(?:personal details|personal data|pii)\b/.test(text) && /\b(?:must not|not expose|redact)\b/.test(text)) {
       for (const channel of ["dashboard", "notification"] as const) {
-        if (text.includes(channel) && !hasTest(new RegExp(`\\b${channel}\\b`), (test) => /\b(?:personal|sensitive|pii)\b/i.test(testText(test)) && /\b(?:not expose|not (?:visible|disclosed|included)|redact|masked|no (?:personal|sensitive)|omit)\b/i.test(test.expectedResult))) errors.push(`${source.id} needs a ${channel} personal-data redaction test.`);
+        if (text.includes(channel) && !hasTest(new RegExp(`\\b${channel}s?\\b`), (test) => assertsPersonalDataRedaction(test.expectedResult))) errors.push(`${source.id} needs a ${channel} personal-data redaction test.${redactionFailureDetails(channel, scopedTests)}`);
       }
     }
     if (/\bimmutable audit\b/.test(text)) {

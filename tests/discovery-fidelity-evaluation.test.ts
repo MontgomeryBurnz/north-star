@@ -496,6 +496,49 @@ test("coverage references must resolve and source-backed obligations cannot disa
   }
 });
 
+function redactionDefinition(dashboardResult: string, notificationResult: string) {
+  const text = "Dashboard summaries and notification subject lines must not expose resident personal details.";
+  const ledger: Evidence[] = [{ id: "REDACTION", sourceId: "SRC1", quote: text, kind: "requirement", statement: text }];
+  const value = definition(text);
+  value.businessRules = [text];
+  value.stories[0].acceptanceCriteria = ["Dashboard summaries omit resident personal details.", "Notification subject lines omit resident personal details."];
+  value.stories[0].testCases = [
+    { id: "T1", title: "Privacy-safe dashboards", type: "happy-path", steps: ["Create a request containing resident personal details", "Open dashboards as an authorized operations leader"], expectedResult: dashboardResult },
+    { id: "T2", title: "Privacy-safe notifications", type: "edge", steps: ["Create a request containing resident personal details", "Trigger status notifications", "Inspect notifications' subject lines"], expectedResult: notificationResult }
+  ];
+  return { value, ledger, text, coverage: [row("REDACTION", "implemented")] };
+}
+
+test("redaction outcomes accept explicit no-resident-details and excluded-details grammar with plural channels", () => {
+  for (const [dashboardResult, notificationResult] of [
+    ["Dashboards show no resident personal details.", "Notifications contain no resident personal details in their subject lines."],
+    ["Personal details are excluded from dashboards.", "Resident personal details are excluded from notifications' subject lines."]
+  ]) {
+    const fixture = redactionDefinition(dashboardResult, notificationResult);
+    assert.deepEqual(review(fixture.value, fixture.ledger, fixture.coverage, fixture.text).errors, []);
+  }
+});
+
+test("redaction requires a nonexposure result rather than actual exposure, a privacy mention, or generic role denial", () => {
+  const fixture = redactionDefinition("Dashboards show no resident personal details.", "Notifications contain no resident personal details in their subject lines.");
+  assert.deepEqual(review(fixture.value, fixture.ledger, fixture.coverage, fixture.text).errors, []);
+  for (const index of [0, 1]) {
+    for (const expectedResult of [
+      "Resident personal details are displayed in the summary.",
+      "Personal details are not excluded from the summary.",
+      "Privacy checks complete successfully.",
+      "Access is denied to an unauthorized role.",
+      "Redaction is configured but resident personal details remain visible."
+    ]) {
+      const changed = structuredClone(fixture.value);
+      changed.stories[0].testCases[index].expectedResult = expectedResult;
+      assert.deepEqual(reviewDiscoveryIntegrity(changed, ["SRC1"]).errors, []);
+      assert.ok(review(changed, fixture.ledger, fixture.coverage, fixture.text).errors.length > 0,
+        `A channel lacks a verified redaction outcome: ${expectedResult}`);
+    }
+  }
+});
+
 test("privacy coverage needs an actual unauthorized-access scenario, not only an unrelated negative test", () => {
   const text = "Sensitive requests may be viewed only by assigned service staff. Dashboard summaries must not expose resident personal details.";
   const ledger: Evidence[] = [{ id: "P1", sourceId: "SRC1", quote: text, kind: "requirement", statement: text }];
