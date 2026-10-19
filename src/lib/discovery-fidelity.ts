@@ -419,37 +419,51 @@ function scopeHead(scope: string | undefined) {
   const nounPhrase = scope?.split(/\b(?:during|when|unless|without|before|after|raised|created|submitted|that|which|because|for|to|by|if)\b/)[0].trim();
   return nounPhrase?.match(/[a-z]+/g)?.at(-1)?.replace(/s$/, "");
 }
+function futureProposalScope(statement: string) {
+  // A specifically stated dependency does not make its prerequisite the subject
+  // of the delivery proposal: "reporting follows once definitions are stable".
+  const value = normalized(statement).replace(/[.!]$/, "");
+  const match = value.match(/^(.+?)\s+follows?\s+once\s+(.+)$/);
+  return match && !/[;.!?\n]/.test(value) ? { main: match[1], prerequisite: match[2] } : undefined;
+}
 function proposalPromotion(item: DiscoveryEvidenceLedgerItem, context: string, measure?: Metric): "hard" | "review" | undefined {
   const value = normalized(context)
     .replace(/(\b(?:(?:do|does|did|must|shall|should|can|may|will|would)\s+not|cannot|never)\s+(?:treat|regard|classify|present|report|count|describe|represent)\s+[^,.;\n]{1,160}?\s+as\s+)achieved(\s+(?:results?|outcomes?)\b)/g, "$1unconfirmed$2")
     .replace(/\bnot\s+(?:(?:an?|the)\s+)?achieved(?:\s+(?:results?|outcomes?))?\b/g, "unconfirmed outcome");
   if (!/\b(?:achieved|approved|confirmed|committed|agreed)\b/.test(value)) return undefined;
+  const futureScope = !measure ? futureProposalScope(item.statement) : undefined;
+  if (futureScope) {
+    const independent = value.split(/[;\n]|(?<!\d)\.|\.(?!\d)|\b(?:but|however|whereas)\b/).map((clause) => clause.trim()).filter(Boolean);
+    if (independent.length > 1 && independent.some((clause) => sameProposalSubject(item.statement, clause) && proposalPromotion(item, clause) === "hard")) return "hard";
+  }
   const clauses = value.split(",").map((clause) => clause.trim());
   // A negated first clause must not hide an independently affirmative claim
   // later in the same field. Re-check only other clauses bound to this claim.
-  if (clauses.slice(1).some((clause) => (measure ? metrics(clause).some((actual) => metricMatches(measure, actual)) : sameAtomicClaim(item.statement, clause))
+  if (clauses.slice(1).some((clause) => (measure ? metrics(clause).some((actual) => metricMatches(measure, actual)) : futureScope ? sameProposalSubject(item.statement, clause) : sameAtomicClaim(item.statement, clause))
     && proposalPromotion(item, clause, measure) === "hard")) return "hard";
   const primary = measure
     ? clauses.find((clause) => metrics(clause).some((actual) => metricMatches(measure, actual))) ?? value
-    : clauses.find((clause) => sameAtomicClaim(item.statement, clause)) ?? value;
+    : clauses.find((clause) => futureScope ? sameProposalSubject(item.statement, clause) : sameAtomicClaim(item.statement, clause)) ?? value;
   const localMetric = measure ? metrics(primary).find((actual) => metricMatches(measure, actual)) : undefined;
   const suffix = localMetric ? primary.slice(localMetric.index + localMetric.text.length) : primary;
   const settlement = suffix.match(/\b(?:is|are|was|were|has|have|had|has been|have been|had been|now|already)\s+(?:(?:formally|explicitly|already|an?|the)\s+)?(approved|confirmed|committed|achieved)\b/);
   const conditional = /\b(?:after|before|until|if|when|once|unless|pending|awaits|subject to|depends? on)\b/.test(suffix.slice(0, settlement?.index ?? suffix.length));
-  const claimWords = new Set((normalized(item.statement).match(/[a-z]{4,}/g) ?? []).filter((word) => !/^(?:proposed|proposal|confirmed|approved|achieved|committed|business|calendar|hours?|days?|weeks?|months?|years?|regions?|offices?|after|before|under|below|above|their|these|those|would|should)$/.test(word)).map((word) => word.replace(/s$/, "")));
+  const bindingStatement = futureScope?.main ?? item.statement;
+  const claimWords = new Set((normalized(bindingStatement).match(/[a-z]{4,}/g) ?? []).filter((word) => futureScope || !/^(?:proposed|proposal|confirmed|approved|achieved|committed|business|calendar|hours?|days?|weeks?|months?|years?|regions?|offices?|after|before|under|below|above|their|these|those|would|should)$/.test(word)).map((word) => word.replace(/s$/, "")));
   const bindingPrefix = suffix.slice(0, settlement?.index ?? 0).trim();
   const directlyBound = !bindingPrefix || (bindingPrefix.match(/[a-z]{4,}/g) ?? []).every((word) => claimWords.has(word.replace(/s$/, "")) || !measure && word === "business");
   // A shared adjective is not necessarily the proposed entity: "category-aware
   // intake" does not propose a category, and an "approved resident portal"
   // modifies the portal rather than the resident. Bound the visible noun phrase
   // before comparing its head; uncertain modifier scope still creates a review hold.
-  const entityWords = new Set((normalized(item.statement.replace(/\b(?:[a-z]+[-–—])+([a-z]+)\b/gi, "$1")).match(/[a-z]{4,}/g) ?? []).map((word) => word.replace(/s$/, "")));
-  const sourceWords = new Set((normalized(item.statement).match(/[a-z]+/g) ?? []).map((word) => word.replace(/s$/, "")));
+  const entityWords = new Set((normalized(bindingStatement.replace(/\b(?:[a-z]+[-–—])+([a-z]+)\b/gi, "$1")).match(/[a-z]{4,}/g) ?? []).map((word) => word.replace(/s$/, "")));
+  const sourceWords = new Set((normalized(bindingStatement).match(/[a-z]+/g) ?? []).map((word) => word.replace(/s$/, "")));
   const directAdjective = [...primary.matchAll(/\b(?:approved|confirmed|committed|achieved)\s+(?=[a-z])/g)].some((match) => {
     const prefix = primary.slice(0, match.index);
     const prerequisite = /\b(?:after|before|until|if|when|once|pending|awaiting|subject to|depends? on)\s+(?:(?:the|an?|already|formally)\s+){0,2}$/.test(prefix)
       || localMetric && match.index! > localMetric.index + localMetric.text.length && /\b(?:after|before|until|if|when|once|pending|awaiting|subject to|depends? on)\b/.test(prefix.slice(localMetric.index + localMetric.text.length));
-    const phrase = primary.slice(match.index! + match[0].length).split(/[,.;\n]|\b(?:is|are|was|were|has|have|had|can|could|will|would|should|must|may|shall|to|of|for|in|on|at|with|without|from|after|before|until|if|when|once|unless|under|below|above|because|so|that|which|and|or|but|as|approved|confirmed|committed|achieved|agreed|covers?|enables?|implements?|supports?|provides?|requires?|depends?|informs?|improves?)\b/)[0];
+    const rawPhrase = primary.slice(match.index! + match[0].length).split(/[,.;\n]|\b(?:is|are|was|were|has|have|had|can|could|will|would|should|must|may|shall|to|of|for|in|on|at|with|without|from|after|before|until|if|when|once|unless|under|below|above|because|so|that|which|and|or|but|as|approved|confirmed|committed|achieved|agreed|covers?|enables?|implements?|supports?|provides?|requires?|depends?|informs?|improves?)\b/)[0];
+    const phrase = futureScope ? rawPhrase.split(/\b(?:uses?|using)\b/)[0] : rawPhrase;
     const phraseWords = phrase.match(/[a-z]+/g) ?? [];
     const head = phraseWords.at(-1)?.replace(/s$/, "");
     const sourceBound = phraseWords.every((word) => sourceWords.has(word.replace(/s$/, "")));
@@ -496,12 +510,12 @@ function explicitPlanningNoncommitmentContext(item: DiscoveryEvidenceLedgerItem,
     && fields.some((field) => field.split(/(?<=[.!?])\s+|\n/).some(pureNoncommittalPlanningStatus));
 }
 function proposalSubjectHead(statement: string) {
-  const subject = normalized(statement).split(/\b(?:is|are|was|were|remain|remains|has|have|will|would|should)\b/)[0];
+  const subject = normalized(futureProposalScope(statement)?.main ?? statement).split(/\b(?:is|are|was|were|remain|remains|has|have|will|would|should)\b/)[0];
   return subject.match(/[a-z]+/g)?.at(-1)?.replace(/s$/, "");
 }
 function sameProposalSubject(statement: string, context: string) {
   const head = proposalSubjectHead(statement);
-  return sameAtomicClaim(statement, context) && Boolean(head && (normalized(context).match(/[a-z]+/g) ?? []).some((word) => word.replace(/s$/, "") === head));
+  return sameAtomicClaim(futureProposalScope(statement)?.main ?? statement, context) && Boolean(head && (normalized(context).match(/[a-z]+/g) ?? []).some((word) => word.replace(/s$/, "") === head));
 }
 function assertsSeededPersonalDataRedaction(test: DiscoveryTestCase) {
   const seeded = [test.title, ...test.steps].join(" ");
@@ -627,7 +641,14 @@ export function reviewDiscoveryFidelity(synthesis: FidelityDefinition, inputLedg
         }
       }
     }
-    if (item.kind === "proposal" && !metrics(item.statement).length) for (const field of fields.filter((value) => sameProposalSubject(item.statement, value))) {
+    if (item.kind === "proposal" && !metrics(item.statement).length) for (const field of fields) {
+      if (!sameProposalSubject(item.statement, field)) {
+        const scope = futureProposalScope(item.statement);
+        if (scope && sameAtomicClaim(scope.prerequisite, field) && /\b(?:achieved|approved|confirmed|committed|agreed)\b/i.test(field)) {
+          reviewIssues.push({ evidenceId: item.id, sourceId: item.sourceId, message: `A future delivery prerequisite needs owner review; confirmation of its configuration does not approve the dependent proposal. Offending output context: ${literal(field).slice(0, 400)}` });
+        }
+        continue;
+      }
       const promotion = proposalPromotion(item, field);
       if (promotion === "hard") errors.push(`${item.id} presents proposed outcomes as approved or achieved. Offending output context: ${literal(field).slice(0, 400)}`);
       else if (promotion === "review") reviewIssues.push({ evidenceId: item.id, sourceId: item.sourceId, message: `Proposal outcome status requires owner review before commitment. Offending output context: ${literal(field).slice(0, 400)}` });

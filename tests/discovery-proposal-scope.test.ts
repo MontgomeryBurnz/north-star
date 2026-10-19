@@ -86,3 +86,49 @@ test("approved categories stay hard when categories themselves are the proposed 
     assert.match(review(statement, output).errors.join(" "), /presents proposed outcomes as approved or achieved/, output);
   }
 });
+
+const reporting = "Cross-region reporting follows once categories and metric definitions are stable.";
+test("the four real reporting-prerequisite contexts are not definite proposal approval or achievement",()=>{
+  for(const context of [
+    "Show volume, unassigned requests, aging buckets, reassignment rate, and cases/alerts when requests reach 80% of applicable SLA, using confirmed metric definitions.",
+    "The story remains needs-input until per-category SLAs, calendars, pause/resume behavior, escalation owner, and metric definitions are confirmed.",
+    "Display pilot management dashboard metrics using confirmed definitions",
+    "Using confirmed metric definitions, the dashboard displays volume, unassigned requests, aging buckets, reassignment rate, and cases that reach 80% of applicable SLA.",
+    "Cross-region reporting uses confirmed metric definitions."
+  ]) assert.deepEqual(review(reporting,context).errors,[],context);
+});
+
+test("a conditional source cannot hide actual reporting approval or achievement, even after safe prerequisites",()=>{
+  const promotions=["Cross-region reporting is approved.","Cross-region reporting has been achieved.","The approved cross-region reporting provides the management view."];
+  for(const promotion of promotions) for(const prefix of [
+    "",
+    "Metric definitions remain unconfirmed. ",
+    "The story remains needs-input until categories and metric definitions are stable; ",
+    "The story remains needs-input until categories and metric definitions are stable, and ",
+    "Once categories and metric definitions are confirmed, "
+  ]) assert.match(review(reporting,prefix+promotion).errors.join(" "),/presents proposed outcomes as approved or achieved/,prefix+promotion);
+});
+
+test("prerequisite attribution is source-aware and generalizes beyond reporting",()=>{
+  const routing="Regional routing follows once ownership and category definitions are stable.";
+  assert.deepEqual(review(routing,"Regional routing uses confirmed category definitions.").errors,[]);
+  for(const context of ["Regional routing is approved.","Regional routing has been achieved.","Once category definitions are confirmed, regional routing is approved."]) {
+    assert.match(review(routing,context).errors.join(" "),/presents proposed outcomes as approved or achieved/,context);
+  }
+  for(const context of ["Use confirmed metric definitions.","Using confirmed metric definitions, display the management view.","Metric definitions are approved."]) {
+    assert.match(review("Metric definitions are proposed.",context).errors.join(" "),/presents proposed outcomes as approved or achieved/,context);
+  }
+});
+
+test("a one-word proposed capability still binds its own approval rather than its longer prerequisite",()=>{
+  const statement="Reporting follows once metric definitions are stable.";
+  assert.deepEqual(review(statement,"Reporting uses confirmed metric definitions.").errors,[]);
+  for(const context of ["Reporting is approved.","Reporting has been achieved.","Metric definitions remain unconfirmed; reporting is approved."]) {
+    assert.match(review(statement,context).errors.join(" "),/presents proposed outcomes as approved or achieved/,context);
+  }
+});
+
+test("a proposed use-case noun phrase must not lose its approval modifier to a verb boundary",()=>{
+  assert.match(review("Use cases are proposed.","The approved use cases are available.").errors.join(" "),/presents proposed outcomes as approved or achieved/);
+  assert.match(review("Uses of resident data are proposed for owner review.","The approved uses of resident data are available.").errors.join(" "),/presents proposed outcomes as approved or achieved/);
+});

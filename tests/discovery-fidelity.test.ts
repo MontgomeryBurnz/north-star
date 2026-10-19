@@ -340,3 +340,67 @@ test("a confirmed prerequisite in the full delivery-approach claim does not appr
     assert.match(reviewDiscoveryFidelity(output, ledger, coverage, sources).errors.join(" "), /presents a proposed target as approved or achieved/);
   }
 });
+
+function reviewFutureReporting(context: string, statement = "Cross-region reporting follows once categories and metric definitions are stable.") {
+  const value = product(statement);
+  value.features[0].description = context;
+  const ledger = [{ id: "VD-013", sourceId: "S1", quote: statement, statement, kind: "proposal" as const }];
+  const coverage = [{ evidenceId: "VD-013", disposition: "proposal", storyIds: ["U1"], testIds: ["T1", "T2"], gapIds: [] }];
+  return reviewDiscoveryFidelity(value, ledger, coverage, [{ id: "S1", text: statement }]);
+}
+
+test("the four live VD-013 configuration prerequisites remain source-linked owner holds, not definite reporting approval", () => {
+  for (const context of [
+    "Show volume, unassigned requests, aging buckets, reassignment rate, and cases/alerts when requests reach 80% of applicable SLA, using confirmed metric definitions.",
+    "The story remains needs-input until per-category SLAs, calendars, pause/resume behavior, escalation owner, and metric definitions are confirmed.",
+    "Display pilot management dashboard metrics using confirmed definitions",
+    "Using confirmed metric definitions, the dashboard displays volume, unassigned requests, aging buckets, reassignment rate, and cases that reach 80% of applicable SLA."
+  ]) {
+    const result = reviewFutureReporting(context);
+    assert.deepEqual(result.errors, [], context);
+    assert.ok(result.reviewIssues.some((issue) => issue.evidenceId === "VD-013" && issue.sourceId === "S1"), "An unverified prerequisite must not disappear from human review.");
+  }
+});
+
+test("a source-defined prerequisite stays distinct even when the output names its dependent reporting proposal", () => {
+  for (const context of [
+    "Cross-region reporting uses confirmed metric definitions.",
+    "Cross-region reporting remains needs-input until categories and metric definitions are confirmed.",
+    "The metric definitions are confirmed."
+  ]) {
+    const result = reviewFutureReporting(context);
+    assert.deepEqual(result.errors, [], context);
+    assert.ok(result.reviewIssues.some((issue) => issue.evidenceId === "VD-013" && issue.sourceId === "S1"));
+  }
+});
+
+test("future-source prerequisites cannot hide independent direct reporting approval or achievement", () => {
+  for (const context of [
+    "Cross-region reporting is approved.",
+    "Cross-region reporting has been achieved.",
+    "The approved cross-region reporting uses stable definitions.",
+    "Using confirmed metric definitions, cross-region reporting is approved.",
+    "Cross-region reporting is approved using confirmed metric definitions.",
+    "Cross-region reporting remains needs-input until categories and metric definitions are confirmed; cross-region reporting is approved.",
+    "Cross-region reporting remains needs-input until categories and metric definitions are confirmed, and cross-region reporting is approved.",
+    "Cross-region reporting remains needs-input until categories and metric definitions are confirmed but cross-region reporting has been achieved."
+  ]) assert.match(reviewFutureReporting(context).errors.join(" "), /VD-013 presents proposed outcomes as approved or achieved/, context);
+});
+
+test("a one-word future proposal subject does not inherit its prerequisite as the claim head", () => {
+  const statement = "Reporting follows once metric definitions are stable.";
+  for (const context of ["Reporting is approved.", "Reporting has been achieved.", "Using confirmed metric definitions, reporting is approved."]) {
+    assert.match(reviewFutureReporting(context, statement).errors.join(" "), /VD-013 presents proposed outcomes as approved or achieved/, context);
+  }
+  const conditional = reviewFutureReporting("If reporting is approved, a future reporting configuration can be assessed.", statement);
+  assert.deepEqual(conditional.errors, []);
+  assert.ok(conditional.reviewIssues.some((issue) => issue.evidenceId === "VD-013"));
+});
+
+test("the future-prerequisite distinction does not exempt independent definition proposals or achieved numeric targets", () => {
+  for (const context of ["Metric definitions are confirmed.", "Using confirmed metric definitions, display the management view."]) {
+    assert.match(reviewFutureReporting(context, "Metric definitions are proposed for owner review.").errors.join(" "), /VD-013 presents proposed outcomes as approved or achieved/);
+  }
+  const statement = "The request-to-assignment target under 4 business hours is proposed.";
+  assert.match(reviewFutureReporting("Using confirmed definitions, the request-to-assignment target under 4 business hours has been achieved.", statement).errors.join(" "), /VD-013 presents a proposed target as approved or achieved/);
+});
