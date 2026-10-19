@@ -28,7 +28,7 @@ export default async function ClientUpdatesPage() {
   return (
     <main>
       <section className="border-b border-white/10 bg-white/[0.015]">
-        <div className="northstar-shell py-10">
+        <div className="northstar-shell py-8 sm:py-10">
           <ProductPageHeader
             eyebrow="Client dashboard inputs"
             title="Publish the client-facing program story."

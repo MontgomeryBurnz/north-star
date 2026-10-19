@@ -38,7 +38,7 @@ export function ActiveProgramReviewSection() {
   const controller = useActiveProgramReviewController();
 
   return (
-    <section id="active-program-review" className="northstar-shell py-16">
+    <section id="active-program-review" className="northstar-shell py-6 sm:py-8">
       <form onSubmit={controller.handleSubmit} className="grid gap-5">
         <ManageFlowBlock
           step="01 Context"

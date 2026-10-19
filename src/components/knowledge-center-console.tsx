@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { BookOpenText, FileText, GraduationCap, Library, Search, ShieldCheck, Sparkles } from "lucide-react";
+import { ProductPageHeader } from "@/components/product-page-header";
 import type { KnowledgeArticle } from "@/lib/knowledge-center";
 import { cn } from "@/lib/utils";
 
@@ -278,17 +279,14 @@ export function KnowledgeCenterConsole({ articles }: { articles: KnowledgeArticl
     articles.find((article) => article.id === selectedArticleId) ?? filteredArticles[0] ?? articles[0];
 
   return (
-    <main className="northstar-shell py-16" data-knowledge-center>
-      <section className="grid gap-8">
-        <div className="grid gap-5">
-          <p className="text-sm font-semibold uppercase tracking-[0.22em] text-emerald-300">Knowledge Center</p>
-          <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_22rem] lg:items-end">
-            <div className="max-w-4xl">
-              <h1 className="text-4xl font-semibold tracking-normal text-zinc-50 sm:text-6xl">Learn NorthStar as it evolves.</h1>
-              <p className="mt-5 text-lg leading-8 text-zinc-400">
-                Search the executive review, training manual, operating map, release checklist, and evergreen knowledge plan from one in-app source.
-              </p>
-            </div>
+    <main className="northstar-shell py-8 sm:py-10" data-knowledge-center>
+      <section className="grid gap-6">
+          <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_22rem] xl:items-start">
+            <ProductPageHeader
+              eyebrow="Knowledge Center"
+              title="Learn NorthStar as it evolves."
+              description="Search the executive review, training manual, operating map, release checklist, and evergreen knowledge plan from one in-app source."
+            />
             <div className="rounded-md border border-emerald-300/20 bg-emerald-300/[0.07] p-5">
               <div className="flex items-center gap-3">
                 <BookOpenText className="h-5 w-5 text-emerald-200" />
@@ -299,7 +297,6 @@ export function KnowledgeCenterConsole({ articles }: { articles: KnowledgeArticl
               </p>
             </div>
           </div>
-        </div>
 
         <section className="rounded-md border border-white/10 bg-white/[0.035]" data-knowledge-search>
           <div className="grid gap-5 border-b border-white/10 p-5 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">

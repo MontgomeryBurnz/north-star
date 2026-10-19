@@ -300,11 +300,11 @@ export function ActiveProgramTeamUpdatesCard({
                 </span>
               ) : null}
             </div>
-            <div className={`mt-3 grid gap-3 ${isPrimary ? "lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end" : ""}`}>
+            <div className="mt-3 grid gap-3">
               <p className={`${isPrimary ? "line-clamp-3" : "line-clamp-1"} min-w-0 text-sm leading-6 text-zinc-400`}>
                 {summary || (isPrimary ? "Write the update this role wants the team to understand this cycle." : "No role update captured yet.")}
               </p>
-              <div className={`grid gap-2 ${isPrimary ? "sm:grid-cols-2 lg:min-w-[560px] lg:grid-cols-5" : "sm:grid-cols-2 lg:grid-cols-5"}`}>
+              <div className="grid min-w-0 gap-2 sm:grid-cols-2 lg:grid-cols-5">
                 <span className="inline-flex min-h-9 items-center gap-2 rounded-md border border-white/10 bg-black/20 px-3 py-2 text-xs text-zinc-400">
                   <Clock3 className="h-3.5 w-3.5 text-zinc-500" />
                   <span className="truncate">{lastUpdatedLabel}</span>

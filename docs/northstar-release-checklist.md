@@ -15,6 +15,7 @@ npm run build
 
 3. Confirm any feature work includes a focused automated test, smoke test, or documented QA path.
    For typography or layout changes, check desktop and mobile widths for natural heading wraps, readable supporting text, and action buttons that fit without overflow.
+   Include all seven primary tabs plus Program Hub setup/manage and Client Updates. Check populated sample data at 390px, 1024px, and 1440px; confirm navigation, long program names, and roadmap fields remain readable without page-level horizontal scrolling.
 4. Confirm user-facing changes update the relevant knowledge assets:
    - `docs/northstar-team-user-guide.md`
    - `docs/northstar-executive-demo-guide.md`

@@ -162,7 +162,7 @@ export function SiteNav({ demoMode = false }: { demoMode?: boolean }) {
             </span>
             <span className="truncate text-sm font-semibold text-zinc-50">North Star</span>
           </Link>
-          <div className="hidden items-center gap-1 lg:flex">
+          <div className="hidden items-center gap-1 xl:flex">
             {visibleNavItems.map((item) => {
               const isActive = item.href === "/"
                 ? pathname === item.href
@@ -202,11 +202,11 @@ export function SiteNav({ demoMode = false }: { demoMode?: boolean }) {
             ) : null}
           </div>
           <div className="flex items-center gap-2">
-            <CurrentUserMenu className="hidden lg:block" />
+            <CurrentUserMenu className="hidden xl:block" />
             <Button
               variant="ghost"
               size="sm"
-              className="lg:hidden"
+              className="xl:hidden"
               aria-label={mobileNavOpen ? "Close navigation" : "Open navigation"}
               aria-expanded={mobileNavOpen}
               onClick={() => setMobileNavOpen((open) => !open)}
@@ -217,7 +217,7 @@ export function SiteNav({ demoMode = false }: { demoMode?: boolean }) {
         </div>
 
         {mobileNavOpen ? (
-          <div className="grid gap-2 border-t border-white/10 py-4 lg:hidden">
+          <div className="grid gap-2 border-t border-white/10 py-4 xl:hidden">
             <CurrentUserMenu mobile />
             {visibleNavItems.map((item) => {
               const isActive = item.href === "/"

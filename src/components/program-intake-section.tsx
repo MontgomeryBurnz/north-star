@@ -771,9 +771,9 @@ export function ProgramIntakeSection() {
 
   return (
     <section id="program-intake" className="border-y border-white/10 bg-white/[0.02]">
-      <div className="northstar-shell grid gap-6 py-16 lg:grid-cols-[minmax(0,1fr)_390px]">
+      <div className="northstar-shell grid gap-6 py-6 sm:py-8 xl:grid-cols-[minmax(0,1fr)_360px]">
         {showReadinessTransition && savedProgramId ? (
-          <div className="lg:col-span-2" data-program-readiness-transition>
+          <div className="xl:col-span-2" data-program-readiness-transition>
             <Card className="overflow-hidden border-emerald-300/20 bg-zinc-950/90">
               <CardHeader className="border-b border-white/10 bg-emerald-300/[0.045]">
                 <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
@@ -1220,7 +1220,7 @@ export function ProgramIntakeSection() {
           </form>
         </div>
 
-        <aside className="grid gap-4 self-start lg:sticky lg:top-24">
+        <aside className="grid min-w-0 gap-4 self-start xl:sticky xl:top-24">
           <Card className="bg-zinc-950/80" data-program-setup-checklist>
             <CardHeader className="border-b border-white/10">
               <CardTitle className="flex items-center gap-2 text-zinc-50">

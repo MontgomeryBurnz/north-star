@@ -848,14 +848,14 @@ export function LeadershipReviewConsole() {
   }
 
   return (
-    <main className="northstar-shell py-16">
+    <main className="northstar-shell py-8 sm:py-10">
       <ProductPageHeader
         eyebrow="Leadership review"
         title="What input do leaders need to give?"
         description="Review posture, progress, and delivery risk in one place, then add sponsor guidance that turns into concise delivery signal."
       />
 
-      <section className="mt-10 grid gap-6 lg:grid-cols-[360px_minmax(0,1fr)]">
+      <section className="mt-6 grid gap-6 xl:grid-cols-[340px_minmax(0,1fr)]">
         <LeadershipReviewSidebar
           programs={programs}
           selectedProgramId={selectedProgramId}
@@ -878,7 +878,7 @@ export function LeadershipReviewConsole() {
           formatTimestamp={formatTimestamp}
         />
 
-        <section className="grid gap-6">
+        <section className="grid min-w-0 gap-6">
           <LeadershipExecutiveSummary
             executiveSummary={executiveSummary}
             leaderReadout={leaderReadout}

@@ -422,7 +422,7 @@ export function ClientDashboardUpdatesConsole({
   return (
     <section className="northstar-shell py-8" data-client-dashboard-updates-console>
       <div className="grid gap-5 xl:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)]">
-        <aside className="grid content-start gap-4">
+        <aside className="grid min-w-0 content-start gap-4">
           <div className="rounded-lg border border-emerald-300/15 bg-emerald-300/[0.045] p-4">
             <div className="flex items-start gap-3">
               <span className="mt-1 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-emerald-300/25 bg-emerald-300/[0.08]">
@@ -456,7 +456,7 @@ export function ClientDashboardUpdatesConsole({
           {selectedProgram ? (
             <div className="rounded-lg border border-white/10 bg-white/[0.035] p-4">
               <p className="text-xs font-medium uppercase tracking-[0.18em] text-cyan-200">Selected program</p>
-              <h2 className="mt-3 text-2xl font-semibold text-zinc-50">{selectedProgram.intake.programName}</h2>
+              <h2 className="mt-3 break-words text-balance text-xl font-semibold leading-7 text-zinc-50 sm:text-2xl">{selectedProgram.intake.programName}</h2>
               <p className="mt-2 text-sm leading-6 text-zinc-500">
                 Client: {selectedProgram.intake.clientName?.trim() || "Client not set"} · Lead:{" "}
                 {selectedProgram.intake.programOwner?.trim() || "Program lead not set"}
@@ -480,7 +480,7 @@ export function ClientDashboardUpdatesConsole({
           )}
         </aside>
 
-        <div className="grid gap-4">
+        <div className="grid min-w-0 gap-4">
           <div className="rounded-lg border border-white/10 bg-zinc-950/80 p-4 md:p-5">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
@@ -622,28 +622,28 @@ export function ClientDashboardUpdatesConsole({
                     data-client-dashboard-roadmap-row
                     className="rounded-md border border-white/10 bg-white/[0.025] p-3"
                   >
-                    <div className="grid gap-3 xl:grid-cols-[minmax(10rem,0.75fr)_minmax(14rem,1.25fr)_repeat(2,minmax(8rem,0.75fr))_minmax(9rem,0.8fr)_auto]">
-                      <label className="grid gap-2">
+                    <div className="grid min-w-0 gap-3 sm:grid-cols-2 2xl:grid-cols-3">
+                      <label className="grid min-w-0 gap-2">
                         <span className="text-[11px] font-medium uppercase tracking-[0.14em] text-zinc-400">Category</span>
                         <input
                           data-client-dashboard-roadmap-category
                           value={item.category}
                           onChange={(event) => updateRoadmapItem(index, "category", event.target.value)}
                           placeholder="Components"
-                          className="min-h-10 rounded-md border border-white/10 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 outline-none transition-colors placeholder:text-zinc-500 focus:border-sky-300/50"
+                          className="min-h-10 w-full min-w-0 rounded-md border border-white/10 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 outline-none transition-colors placeholder:text-zinc-500 focus:border-sky-300/50"
                         />
                       </label>
-                      <label className="grid gap-2">
+                      <label className="grid min-w-0 gap-2">
                         <span className="text-[11px] font-medium uppercase tracking-[0.14em] text-zinc-400">Work item</span>
                         <input
                           data-client-dashboard-roadmap-title
                           value={item.title}
                           onChange={(event) => updateRoadmapItem(index, "title", event.target.value)}
                           placeholder="Product Requests"
-                          className="min-h-10 rounded-md border border-white/10 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 outline-none transition-colors placeholder:text-zinc-500 focus:border-sky-300/50"
+                          className="min-h-10 w-full min-w-0 rounded-md border border-white/10 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 outline-none transition-colors placeholder:text-zinc-500 focus:border-sky-300/50"
                         />
                       </label>
-                      <div className="grid gap-2" data-client-dashboard-roadmap-start>
+                      <div className="grid min-w-0 gap-2" data-client-dashboard-roadmap-start>
                         <span className="text-[11px] font-medium uppercase tracking-[0.14em] text-zinc-400">Start</span>
                         <div className="grid grid-cols-2 gap-2">
                           <select
@@ -653,7 +653,7 @@ export function ClientDashboardUpdatesConsole({
                             onChange={(event) =>
                               updateRoadmapDatePart(index, "startMonth", item.startMonth, "month", event.target.value)
                             }
-                            className="min-h-10 rounded-md border border-white/10 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 outline-none transition-colors focus:border-sky-300/50"
+                            className="min-h-10 w-full min-w-0 rounded-md border border-white/10 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 outline-none transition-colors focus:border-sky-300/50"
                           >
                             <option value="">Month</option>
                             {roadmapMonthOptions.map((option) => (
@@ -669,7 +669,7 @@ export function ClientDashboardUpdatesConsole({
                             onChange={(event) =>
                               updateRoadmapDatePart(index, "startMonth", item.startMonth, "year", event.target.value)
                             }
-                            className="min-h-10 rounded-md border border-white/10 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 outline-none transition-colors focus:border-sky-300/50"
+                            className="min-h-10 w-full min-w-0 rounded-md border border-white/10 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 outline-none transition-colors focus:border-sky-300/50"
                           >
                             <option value="">Year</option>
                             {roadmapYearOptions.map((year) => (
@@ -680,7 +680,7 @@ export function ClientDashboardUpdatesConsole({
                           </select>
                         </div>
                       </div>
-                      <div className="grid gap-2" data-client-dashboard-roadmap-end>
+                      <div className="grid min-w-0 gap-2" data-client-dashboard-roadmap-end>
                         <span className="text-[11px] font-medium uppercase tracking-[0.14em] text-zinc-400">End</span>
                         <div className="grid grid-cols-2 gap-2">
                           <select
@@ -690,7 +690,7 @@ export function ClientDashboardUpdatesConsole({
                             onChange={(event) =>
                               updateRoadmapDatePart(index, "endMonth", item.endMonth, "month", event.target.value)
                             }
-                            className="min-h-10 rounded-md border border-white/10 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 outline-none transition-colors focus:border-sky-300/50"
+                            className="min-h-10 w-full min-w-0 rounded-md border border-white/10 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 outline-none transition-colors focus:border-sky-300/50"
                           >
                             <option value="">Month</option>
                             {roadmapMonthOptions.map((option) => (
@@ -706,7 +706,7 @@ export function ClientDashboardUpdatesConsole({
                             onChange={(event) =>
                               updateRoadmapDatePart(index, "endMonth", item.endMonth, "year", event.target.value)
                             }
-                            className="min-h-10 rounded-md border border-white/10 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 outline-none transition-colors focus:border-sky-300/50"
+                            className="min-h-10 w-full min-w-0 rounded-md border border-white/10 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 outline-none transition-colors focus:border-sky-300/50"
                           >
                             <option value="">Year</option>
                             {roadmapYearOptions.map((year) => (
@@ -717,13 +717,13 @@ export function ClientDashboardUpdatesConsole({
                           </select>
                         </div>
                       </div>
-                      <label className="grid gap-2">
+                      <label className="grid min-w-0 gap-2">
                         <span className="text-[11px] font-medium uppercase tracking-[0.14em] text-zinc-400">Status</span>
                         <select
                           data-client-dashboard-roadmap-status
                           value={item.status}
                           onChange={(event) => updateRoadmapItem(index, "status", event.target.value)}
-                          className="min-h-10 rounded-md border border-white/10 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 outline-none transition-colors focus:border-sky-300/50"
+                          className="min-h-10 w-full min-w-0 rounded-md border border-white/10 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 outline-none transition-colors focus:border-sky-300/50"
                         >
                           {roadmapStatusOptions.map((option) => (
                             <option key={option.value} value={option.value}>
@@ -736,30 +736,30 @@ export function ClientDashboardUpdatesConsole({
                         type="button"
                         aria-label="Remove roadmap row"
                         onClick={() => removeRoadmapItem(index)}
-                        className="self-end inline-flex min-h-10 items-center justify-center rounded-md border border-white/10 bg-zinc-950 px-3 text-zinc-400 transition-colors hover:border-rose-300/35 hover:text-rose-100"
+                        className="inline-flex min-h-10 min-w-0 self-end justify-self-end items-center justify-center rounded-md border border-white/10 bg-zinc-950 px-3 text-zinc-400 transition-colors hover:border-rose-300/35 hover:text-rose-100"
                       >
                         <Trash2 className="h-4 w-4" />
                       </button>
                     </div>
-                    <div className="mt-3 grid gap-3 md:grid-cols-[minmax(10rem,0.4fr)_minmax(0,1fr)]">
-                      <label className="grid gap-2">
+                    <div className="mt-3 grid min-w-0 gap-3 sm:grid-cols-[minmax(0,0.4fr)_minmax(0,1fr)]">
+                      <label className="grid min-w-0 gap-2">
                         <span className="text-[11px] font-medium uppercase tracking-[0.14em] text-zinc-400">Owner</span>
                         <input
                           data-client-dashboard-roadmap-owner
                           value={item.owner}
                           onChange={(event) => updateRoadmapItem(index, "owner", event.target.value)}
                           placeholder="Product lead"
-                          className="min-h-10 rounded-md border border-white/10 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 outline-none transition-colors placeholder:text-zinc-500 focus:border-sky-300/50"
+                          className="min-h-10 w-full min-w-0 rounded-md border border-white/10 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 outline-none transition-colors placeholder:text-zinc-500 focus:border-sky-300/50"
                         />
                       </label>
-                      <label className="grid gap-2">
+                      <label className="grid min-w-0 gap-2">
                         <span className="text-[11px] font-medium uppercase tracking-[0.14em] text-zinc-400">Client-facing note</span>
                         <input
                           data-client-dashboard-roadmap-note
                           value={item.note}
                           onChange={(event) => updateRoadmapItem(index, "note", event.target.value)}
                           placeholder="What progress or dependency should the client understand?"
-                          className="min-h-10 rounded-md border border-white/10 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 outline-none transition-colors placeholder:text-zinc-500 focus:border-sky-300/50"
+                          className="min-h-10 w-full min-w-0 rounded-md border border-white/10 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 outline-none transition-colors placeholder:text-zinc-500 focus:border-sky-300/50"
                         />
                       </label>
                     </div>
@@ -790,10 +790,10 @@ export function ClientDashboardUpdatesConsole({
                   <div
                     key={`${domain.role}-${index}`}
                     data-client-dashboard-domain-row
-                    className="grid gap-3 rounded-md border border-white/10 bg-white/[0.025] p-3 xl:grid-cols-[14rem_minmax(0,1fr)]"
+                    className="grid min-w-0 gap-3 rounded-md border border-white/10 bg-white/[0.025] p-3"
                   >
-                    <div className="grid gap-3">
-                      <div>
+                    <div className="grid min-w-0 gap-3 sm:grid-cols-3 sm:items-end">
+                      <div className="min-w-0 break-words">
                         <p className="text-sm font-semibold text-zinc-100">{domain.role}</p>
                         <p className="mt-1 text-xs leading-5 text-zinc-500">Client Portal workstream lane</p>
                       </div>
@@ -801,12 +801,12 @@ export function ClientDashboardUpdatesConsole({
                         value={domain.owner}
                         onChange={(event) => updateDomain(index, "owner", event.target.value)}
                         placeholder={`${domain.role} owner`}
-                        className="min-h-10 rounded-md border border-white/10 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 outline-none transition-colors placeholder:text-zinc-500 focus:border-cyan-300/50"
+                        className="min-h-10 w-full min-w-0 rounded-md border border-white/10 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 outline-none transition-colors placeholder:text-zinc-500 focus:border-cyan-300/50"
                       />
                       <select
                         value={domain.status}
                         onChange={(event) => updateDomain(index, "status", event.target.value)}
-                        className="min-h-10 rounded-md border border-white/10 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 outline-none transition-colors focus:border-cyan-300/50"
+                        className="min-h-10 w-full min-w-0 rounded-md border border-white/10 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 outline-none transition-colors focus:border-cyan-300/50"
                       >
                         {statusOptions.map((option) => (
                           <option key={option.value} value={option.value}>
@@ -815,27 +815,27 @@ export function ClientDashboardUpdatesConsole({
                         ))}
                       </select>
                     </div>
-                    <div className="grid gap-3 md:grid-cols-3">
+                    <div className="grid min-w-0 gap-3 md:grid-cols-3 xl:grid-cols-1 2xl:grid-cols-3">
                       <textarea
                         value={domain.pursuit}
                         onChange={(event) => updateDomain(index, "pursuit", event.target.value)}
                         placeholder="What this domain is pursuing."
                         rows={3}
-                        className="min-h-[104px] resize-none rounded-md border border-white/10 bg-zinc-950 px-3 py-3 text-sm leading-6 text-zinc-100 outline-none transition-colors placeholder:text-zinc-500 focus:border-cyan-300/50"
+                        className="min-h-[104px] w-full min-w-0 resize-none rounded-md border border-white/10 bg-zinc-950 px-3 py-3 text-sm leading-6 text-zinc-100 outline-none transition-colors placeholder:text-zinc-500 focus:border-cyan-300/50"
                       />
                       <textarea
                         value={domain.risksOrBlockers}
                         onChange={(event) => updateDomain(index, "risksOrBlockers", event.target.value)}
                         placeholder="Client-visible risk or dependency."
                         rows={3}
-                        className="min-h-[104px] resize-none rounded-md border border-white/10 bg-zinc-950 px-3 py-3 text-sm leading-6 text-zinc-100 outline-none transition-colors placeholder:text-zinc-500 focus:border-cyan-300/50"
+                        className="min-h-[104px] w-full min-w-0 resize-none rounded-md border border-white/10 bg-zinc-950 px-3 py-3 text-sm leading-6 text-zinc-100 outline-none transition-colors placeholder:text-zinc-500 focus:border-cyan-300/50"
                       />
                       <textarea
                         value={domain.decisionsOrOutcomes}
                         onChange={(event) => updateDomain(index, "decisionsOrOutcomes", event.target.value)}
                         placeholder="Decision, outcome, or next proof point."
                         rows={3}
-                        className="min-h-[104px] resize-none rounded-md border border-white/10 bg-zinc-950 px-3 py-3 text-sm leading-6 text-zinc-100 outline-none transition-colors placeholder:text-zinc-500 focus:border-cyan-300/50"
+                        className="min-h-[104px] w-full min-w-0 resize-none rounded-md border border-white/10 bg-zinc-950 px-3 py-3 text-sm leading-6 text-zinc-100 outline-none transition-colors placeholder:text-zinc-500 focus:border-cyan-300/50"
                       />
                     </div>
                   </div>

@@ -60,7 +60,7 @@ export function ProgramWorkspace({ initialMode = null }: { initialMode?: Program
   return (
     <main>
       <section className="border-b border-white/10 bg-white/[0.015]">
-        <div className="northstar-shell py-10">
+        <div className="northstar-shell py-8 sm:py-10">
           <ProductPageHeader
             eyebrow="Program Hub"
             title={workspaceCopy[mode].title}
@@ -91,7 +91,7 @@ function ProgramHubLanding() {
   return (
     <main data-program-hub-landing>
       <section className="border-b border-white/10 bg-white/[0.015]">
-        <div className="northstar-shell py-14">
+        <div className="northstar-shell py-8 sm:py-10">
           <ProductPageHeader
             eyebrow="Program Hub"
             title="Choose the right program path."
@@ -100,16 +100,16 @@ function ProgramHubLanding() {
         </div>
       </section>
 
-      <section className="northstar-shell py-10">
-        <StartSampleButton className="mb-5">
-          <span className="flex h-10 w-10 items-center justify-center rounded-md border border-emerald-300/25 bg-emerald-300/10 text-emerald-100">
+      <section className="northstar-shell py-6 sm:py-8">
+        <StartSampleButton className="mb-5 [&>button]:grid [&>button]:grid-cols-[auto_minmax(0,1fr)] [&>button]:gap-3 [&>button]:p-4 [&>button]:text-left [&>button>svg]:hidden sm:[&>button]:grid-cols-[auto_minmax(0,1fr)_auto]">
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md border border-emerald-300/25 bg-emerald-300/10 text-emerald-100">
             <Sparkles className="h-4 w-4" />
           </span>
-          <span>
+          <span className="min-w-0">
             <span className="block text-sm font-medium text-emerald-100">Explore North Star with connected sample data.</span>
             <span className="mt-1 block text-sm leading-6 text-zinc-400">Open the actual workspaces with a populated program, team updates, guided plan, discovery evidence, and client reporting.</span>
           </span>
-          <span className="flex items-center gap-2 text-sm font-medium text-emerald-100">
+          <span className="col-start-2 flex items-center gap-2 text-sm font-medium text-emerald-100 sm:col-start-auto">
             Start exploring
             <ArrowRight className="h-4 w-4" />
           </span>
@@ -121,7 +121,7 @@ function ProgramHubLanding() {
               key={entry.id}
               href={entry.href}
               data-program-hub-entry={entry.id}
-              className="group grid min-h-[320px] rounded-lg border border-white/10 bg-zinc-950/80 p-5 transition-colors hover:border-emerald-300/35 hover:bg-emerald-300/[0.045] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300/50 md:p-6"
+              className="group grid min-w-0 rounded-lg border border-white/10 bg-zinc-950/80 p-5 transition-colors hover:border-emerald-300/35 hover:bg-emerald-300/[0.045] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300/50 md:p-6"
             >
               <div className="flex items-start justify-between gap-4">
                 <span className="inline-flex h-12 w-12 items-center justify-center rounded-md border border-emerald-300/20 bg-emerald-300/[0.08] text-emerald-100">
@@ -130,15 +130,15 @@ function ProgramHubLanding() {
                 <ArrowRight className="h-5 w-5 text-zinc-500 transition-transform group-hover:translate-x-1 group-hover:text-emerald-200" />
               </div>
 
-              <div className="mt-8">
+              <div className="mt-6">
                 <p className="text-xs font-medium uppercase tracking-[0.18em] text-emerald-300">
                   {entry.id === "setup" ? "Program creation" : entry.id === "manage" ? "Execution cockpit" : "Client publication"}
                 </p>
-                <h2 className="mt-3 text-3xl font-semibold tracking-normal text-zinc-50">{entry.label}</h2>
-                <p className="mt-4 max-w-xl text-sm leading-7 text-zinc-400">{entry.description}</p>
+                <h2 className="mt-3 text-balance text-2xl font-semibold leading-tight tracking-tight text-zinc-50">{entry.label}</h2>
+                <p className="mt-3 max-w-xl text-sm leading-6 text-zinc-400">{entry.description}</p>
               </div>
 
-              <div className="mt-8 grid gap-2 sm:grid-cols-2">
+              <div className="mt-6 grid gap-2 sm:grid-cols-2">
                 {entry.outcomes.map((outcome) => (
                   <span
                     key={outcome}

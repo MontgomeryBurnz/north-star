@@ -245,9 +245,9 @@ test("Primary app surfaces use the wider North Star shell", () => {
   const navSource = readFileSync(new URL("../src/components/site-nav.tsx", import.meta.url), "utf8");
 
   assert.match(globalSource, /max-w-\[100rem\]/);
-  assert.match(clientSource, /northstar-shell py-10/);
-  assert.match(guidedSource, /northstar-shell py-16/);
-  assert.match(activeSource, /northstar-shell py-16/);
+  assert.match(clientSource, /northstar-shell/);
+  assert.match(guidedSource, /northstar-shell/);
+  assert.match(activeSource, /northstar-shell/);
   assert.match(navSource, /northstar-shell/);
 });
 

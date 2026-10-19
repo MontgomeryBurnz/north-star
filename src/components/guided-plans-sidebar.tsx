@@ -48,7 +48,7 @@ export function GuidedPlansSidebar({
   const programOptions = useMemo(() => programsToSlicerOptions(programs), [programs]);
 
   return (
-    <aside className="grid gap-4 self-start lg:sticky lg:top-24">
+    <aside className="grid min-w-0 gap-4 self-start xl:sticky xl:top-24">
       <Card className="bg-zinc-950/80">
         <CardHeader className="border-b border-white/10">
           <CardTitle className="flex items-center gap-2 text-zinc-50">
@@ -125,7 +125,7 @@ export function GuidedPlansSidebar({
                     }
                   }}
                   placeholder="Add a team role"
-                  className="min-h-11 flex-1 rounded-md border border-white/10 bg-zinc-950 px-3 py-3 text-sm text-zinc-100 outline-none transition-colors placeholder:text-zinc-500 focus:border-cyan-300/50"
+                  className="min-h-11 min-w-0 flex-1 rounded-md border border-white/10 bg-zinc-950 px-3 py-3 text-sm text-zinc-100 outline-none transition-colors placeholder:text-zinc-500 focus:border-cyan-300/50"
                 />
                 <Button type="button" onClick={() => void onAddRole()} disabled={isSavingRole} className="min-h-11 shrink-0">
                   <Plus className="mr-2 h-4 w-4" />

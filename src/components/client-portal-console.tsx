@@ -188,8 +188,8 @@ function ProgramHero({ program }: { program: ClientPortalProgram }) {
     <section data-client-program-hero className="min-w-0 max-w-full overflow-hidden rounded-lg border border-slate-800 bg-slate-950 px-4 py-4 text-white shadow-[0_22px_60px_rgba(15,23,42,0.28)] sm:px-6 sm:py-7 md:px-8 md:py-8">
       <div className="grid gap-4 sm:gap-6">
         <div className="min-w-0">
-          <p className="text-sm font-semibold uppercase tracking-[0.16em] text-sky-200">{program.clientName}</p>
-          <h2 className="mt-3 break-words text-2xl font-semibold tracking-normal sm:text-3xl md:text-4xl">{program.name}</h2>
+          <p className="break-words text-xs font-semibold uppercase tracking-[0.16em] text-sky-200">{program.clientName}</p>
+          <h2 className="mt-3 break-words text-balance text-2xl font-semibold leading-tight tracking-[-0.025em] sm:text-3xl">{program.name}</h2>
         </div>
         <div className="grid gap-2 sm:grid-cols-2 sm:gap-3">
           <HeroMetric label="Overall Status" metricId="overall-status" value={program.statusSignal} dot={styles.heroDot} />
@@ -241,9 +241,9 @@ function HeroMetric({
 function ExecutiveCard({ children, icon: Icon, title }: { children: ReactNode; icon: LucideIcon; title: string }) {
   return (
     <section className="min-w-0 max-w-full overflow-hidden rounded-lg border border-slate-200 bg-white p-5 shadow-[0_18px_45px_rgba(15,23,42,0.08)] sm:p-7">
-      <h3 className="flex items-center gap-3 text-xl font-semibold text-slate-950">
-        <Icon className="h-5 w-5 text-sky-700" />
-        {title}
+      <h3 className="flex min-w-0 items-start gap-3 break-words text-balance text-xl font-semibold leading-7 text-slate-950">
+        <Icon className="mt-1 h-5 w-5 shrink-0 text-sky-700" />
+        <span className="min-w-0">{title}</span>
       </h3>
       {children}
     </section>
@@ -670,7 +670,7 @@ export function ClientPortalConsole({
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-sky-700">North Star Client Portal</p>
             <p className="mt-1 truncate text-sm font-medium text-slate-600">{viewerLabel}</p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex shrink-0 items-center gap-2">
             {canReturnToInternal ? (
               <Button asChild variant="outline" size="sm" className="border-slate-300 bg-white text-slate-700 hover:bg-slate-50 hover:text-slate-950">
                 <Link href="/">
@@ -685,13 +685,13 @@ export function ClientPortalConsole({
         </div>
       </header>
 
-      <div className="northstar-shell py-10">
+      <div className="northstar-shell py-8 sm:py-10">
         <section className="flex flex-wrap items-start justify-between gap-5">
-          <div>
-            <h1 className="text-4xl font-semibold tracking-normal text-slate-950 md:text-5xl">Portfolio Dashboard</h1>
-            <div className="mt-6 flex flex-wrap items-center gap-3 text-lg font-medium text-slate-600">
+          <div className="min-w-0">
+            <h1 className="text-balance text-[1.75rem] font-semibold leading-[1.18] tracking-[-0.025em] text-slate-950 sm:text-[2rem] lg:text-[2.25rem]">Portfolio Dashboard</h1>
+            <div className="mt-3 flex flex-wrap items-center gap-3 text-sm font-medium leading-6 text-slate-600 sm:text-[0.9375rem]">
               <span>Week Ending {formatDate(portfolio.generatedAt)}</span>
-              <span className="rounded-full border border-emerald-200 bg-emerald-50 px-4 py-2 text-base font-semibold text-emerald-800">Refreshed {formatRefreshTime(portfolio.generatedAt)}</span>
+              <span className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-800">Refreshed {formatRefreshTime(portfolio.generatedAt)}</span>
             </div>
           </div>
           {selectedClient ? (
@@ -733,7 +733,7 @@ export function ClientPortalConsole({
                       data-client-portfolio-option={client.clientName}
                       onClick={() => selectClient(client.clientName)}
                       className={cn(
-                        "rounded-full border px-4 py-2 text-sm font-medium transition-colors",
+                        "min-w-0 max-w-full break-words rounded-full border px-4 py-2 text-left text-sm font-medium leading-6 transition-colors",
                         client.clientName === selectedClientName
                           ? "border-sky-600 bg-sky-600 text-white"
                           : "border-slate-300 bg-white text-slate-700 hover:border-sky-400 hover:text-sky-800"
@@ -768,7 +768,7 @@ export function ClientPortalConsole({
                       data-client-program-option={program.id}
                       onClick={() => selectProgram(program.id)}
                       className={cn(
-                        "rounded-full border px-4 py-2 text-sm font-medium transition-colors",
+                        "min-w-0 max-w-full break-words rounded-full border px-4 py-2 text-left text-sm font-medium leading-6 transition-colors",
                         program.id === selectedProgram?.id
                           ? "border-emerald-600 bg-emerald-600 text-white"
                           : "border-slate-300 bg-white text-slate-700 hover:border-sky-400 hover:text-sky-800"

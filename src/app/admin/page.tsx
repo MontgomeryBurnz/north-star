@@ -40,14 +40,14 @@ export default async function AdminPage() {
   const guidanceFlags = guidanceFlagsByProgram.flat();
 
   return (
-    <main className="northstar-shell py-16">
+    <main className="northstar-shell py-8 sm:py-10">
       <ProductPageHeader
         eyebrow="Admin"
         title="Admin Console"
         description="Control user access, program role assignments, guidance quality, audit history, reliability, and operating cost from one protected surface."
       />
 
-      <section className="mt-10">
+      <section className="mt-6">
         <AdminUserManagementCard
           initialInvitationProvider={invitationProvider}
           initialPrograms={initialPrograms}

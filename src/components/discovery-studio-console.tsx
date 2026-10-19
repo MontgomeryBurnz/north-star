@@ -18,7 +18,7 @@ type FeedbackKind = "issue" | "discrepancy" | "change";
 
 const acceptedFormats = ".doc,.docx,.xls,.xlsx,.ppt,.pptx,.pdf,.txt,.md,.json,.csv";
 const allOutputIds = STUDIO_OUTPUT_OPTIONS.map((option) => option.id);
-const inputStyle = "rounded-md border border-white/10 bg-zinc-950 px-3 py-2.5 text-sm text-zinc-100 outline-none placeholder:text-zinc-600 focus:border-emerald-300/50 focus:ring-2 focus:ring-emerald-300/15";
+const inputStyle = "w-full min-w-0 rounded-md border border-white/10 bg-zinc-950 px-3 py-2.5 text-sm text-zinc-100 outline-none placeholder:text-zinc-600 focus:border-emerald-300/50 focus:ring-2 focus:ring-emerald-300/15";
 
 function detectFileFormat(name: string): NonNullable<ProgramArtifact["fileFormat"]> {
   const extension = name.toLowerCase().split(".").pop();
@@ -217,8 +217,8 @@ export function DiscoveryStudioConsole({ initialSample = false }: { initialSampl
   }
 
   return (
-    <main className="mx-auto max-w-[1500px] px-4 py-8 sm:px-6 sm:py-10 lg:px-8" data-discovery-studio data-studio-agnostic>
-      <div className="grid gap-6">
+    <main className="northstar-shell py-8 sm:py-10" data-discovery-studio data-studio-agnostic>
+      <div className="grid min-w-0 grid-cols-1 gap-6">
         <ProductPageHeader eyebrow="Studio" title="Turn discovery into the product outputs you need." description="Choose your deliverables, review the evidence, and refine with feedback. Export editable Word, Excel, or PowerPoint files." />
         {isSampleWorkspace ? <div className="flex flex-col gap-3 rounded-lg border border-cyan-300/20 bg-cyan-300/[0.055] p-4 sm:flex-row sm:items-center sm:justify-between" data-studio-sample><div className="flex items-start gap-3"><Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-cyan-200" /><div><p className="text-sm font-medium text-cyan-100">Regional Service Request Modernization · Fictional discovery evidence</p><p className="mt-1 text-xs leading-5 text-zinc-400">Explore the same program evidence used throughout North Star. Studio changes and revisions stay in this browser session.</p></div></div><Button type="button" variant="outline" size="sm" onClick={clearWorkspace} disabled={busy} className="border-cyan-300/20 text-cyan-100">Use my own sources</Button></div> : null}
 
@@ -264,7 +264,7 @@ export function DiscoveryStudioConsole({ initialSample = false }: { initialSampl
         <DiscoveryStudioPreferences selectedOutputs={selectedOutputs} onSelectedOutputsChange={setSelectedOutputs} exportFormat={exportFormat} onExportFormatChange={setExportFormat} externalResearch={externalResearch} onExternalResearchChange={setExternalResearch} researchTopic={researchTopic} onResearchTopicChange={setResearchTopic} disabled={busy} />
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-white/10 bg-zinc-950/80 p-4"><p className="max-w-4xl text-sm leading-6 text-zinc-300" role="status" aria-live="polite" data-studio-status>{status}</p><Button type="button" onClick={() => void analyzePackage()} disabled={!canAnalyze} data-studio-analyze>{isAnalyzing ? <Loader2 className="h-4 w-4 animate-spin" /> : <BrainCircuit className="h-4 w-4" />}{synthesis ? "Re-analyze package" : "Analyze discovery package"}</Button></div>
 
-        {synthesis ? <section className="grid gap-5" aria-label="Studio results">
+        {synthesis ? <section className="grid min-w-0 grid-cols-1 gap-5" aria-label="Studio results">
           <StudioQualityReview synthesis={synthesis} isExample={synthesis === sampleDiscoverySynthesis} />
           <Card className="bg-zinc-950/75"><CardContent className="grid gap-4 p-4 sm:p-5"><div className="flex flex-wrap items-center justify-between gap-3"><div><p className="flex items-center gap-2 text-xs font-medium uppercase tracking-[0.16em] text-cyan-100"><History className="h-4 w-4" />Revision {activeRevisionId}</p><p className="mt-2 text-sm leading-6 text-zinc-300" data-studio-revision-summary>{activeRevision?.summary}</p></div><div className="flex flex-wrap items-end gap-2"><label className="grid gap-1"><span className="text-xs text-zinc-400">Revision history</span><select value={selectedRevisionId} onChange={(event) => setSelectedRevisionId(Number(event.target.value))} disabled={busy} className={`${inputStyle} max-w-[280px]`} data-studio-revision-history>{revisions.map((revision) => <option key={revision.id} value={revision.id}>Revision {revision.id}{revision.id === activeRevisionId ? " · Current" : ""} · {revision.summary.slice(0, 60)}</option>)}</select></label><Button type="button" variant="outline" onClick={restoreRevision} disabled={busy || selectedRevisionId === activeRevisionId} data-studio-restore-revision><RotateCcw className="h-4 w-4" />Restore</Button></div></div><p className="text-xs leading-5 text-zinc-500">Every generated revision is retained until you start fresh or leave this session. Review previous outputs and restore them before making further changes.</p></CardContent></Card>
           <div className="flex flex-wrap gap-2" aria-label="Studio output views">{([["understanding", "3 · Understanding", BrainCircuit], ["gaps", `4 · Gaps${blockingGapCount ? ` (${blockingGapCount})` : ""}`, AlertTriangle], ["build", "5 · Build package", Layers3]] as const).map(([id, label, Icon]) => <Button key={id} type="button" variant={view === id ? "default" : "outline"} onClick={() => setView(id)} aria-pressed={view === id}><Icon className="h-4 w-4" />{label}</Button>)}</div>

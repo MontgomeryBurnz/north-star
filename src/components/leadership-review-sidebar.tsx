@@ -55,7 +55,7 @@ export function LeadershipReviewSidebar({
   const programOptions = useMemo(() => programsToSlicerOptions(programs), [programs]);
 
   return (
-    <aside className="grid gap-4 self-start lg:sticky lg:top-24">
+    <aside className="grid min-w-0 gap-4 self-start xl:sticky xl:top-24">
       <Card className="bg-zinc-950/80">
         <CardHeader className="border-b border-white/10">
           <CardTitle className="flex items-center gap-2 text-zinc-50">
@@ -150,10 +150,10 @@ export function LeadershipReviewSidebar({
       {queueMode || displayedReviewQueue.length ? (
         <Card className="bg-zinc-950/80">
           <CardHeader className="border-b border-white/10">
-            <div className="flex items-center justify-between gap-3">
-              <CardTitle className="flex items-center gap-2 text-zinc-50">
-                <RefreshCw className="h-4 w-4 text-fuchsia-200" />
-                {queueMode ? "Filtered review due queue" : "Review due queue"}
+            <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-3">
+              <CardTitle className="flex min-w-0 items-start gap-2 leading-6 text-zinc-50">
+                <RefreshCw className="mt-1 h-4 w-4 shrink-0 text-fuchsia-200" />
+                <span>{queueMode ? "Filtered review due queue" : "Review due queue"}</span>
               </CardTitle>
               {displayedReviewQueue.length ? (
                 <span className="rounded-full border border-fuchsia-300/25 bg-fuchsia-300/[0.1] px-2.5 py-1 text-[11px] font-medium uppercase tracking-[0.14em] text-fuchsia-100">
@@ -161,7 +161,7 @@ export function LeadershipReviewSidebar({
                 </span>
               ) : null}
               {queueMode ? (
-                <Button type="button" variant="ghost" size="sm" className="text-zinc-300" onClick={onClearQueueFilter}>
+                <Button type="button" variant="ghost" size="sm" className="col-span-2 justify-self-start text-zinc-300" onClick={onClearQueueFilter}>
                   Clear queue filter
                 </Button>
               ) : null}

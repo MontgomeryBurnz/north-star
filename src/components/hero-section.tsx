@@ -59,24 +59,24 @@ export function HeroSection({ metrics }: { metrics: DashboardMetrics }) {
     <section className="relative overflow-hidden border-b border-white/10">
       <div className="absolute inset-0 bg-[linear-gradient(to_right,rgba(255,255,255,0.055)_1px,transparent_1px),linear-gradient(to_bottom,rgba(255,255,255,0.055)_1px,transparent_1px)] bg-[size:64px_64px]" />
       <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,rgba(16,185,129,0.18),transparent_42%),linear-gradient(180deg,rgba(9,9,11,0.4),#09090b_88%)]" />
-      <div className="northstar-shell relative grid items-start gap-8 py-12 sm:py-14 lg:min-h-[calc(100vh-4rem)] lg:grid-cols-[1fr_1.05fr] lg:items-center lg:gap-10 lg:py-16">
+      <div className="northstar-shell relative grid items-start gap-8 py-8 sm:py-10 xl:grid-cols-[minmax(0,1fr)_minmax(0,1.05fr)] xl:gap-10">
         <MotionDiv
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, ease: "easeOut" }}
-          className="max-w-4xl"
+          className="min-w-0 max-w-4xl"
         >
           <div className="mb-5 inline-flex items-center gap-2 rounded-md border border-white/10 bg-white/[0.04] px-3 py-1 text-xs text-zinc-300">
             <Sparkles className="h-3.5 w-3.5 text-emerald-200" />
             Quick Start
           </div>
-          <h1 className="max-w-4xl text-4xl font-semibold tracking-normal text-zinc-50 sm:text-6xl lg:text-7xl">
+          <h1 className="max-w-4xl text-balance text-[1.75rem] font-semibold leading-[1.18] tracking-[-0.025em] text-zinc-50 sm:text-[2rem] lg:text-[2.25rem]">
             Turn program noise into focused action.
           </h1>
-          <p className="mt-5 max-w-2xl text-base leading-7 text-zinc-300 md:mt-6 md:text-lg md:leading-8">
+          <p className="mt-3 max-w-2xl text-pretty text-sm leading-6 text-zinc-400 sm:text-[0.9375rem]">
             North Star connects people, intelligence, and data so teams know what changed, what matters, and what to create next.
           </p>
-          <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+          <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
             <Button asChild size="lg">
               <Link href="/active-program?mode=setup">
                 Start a program
@@ -87,17 +87,18 @@ export function HeroSection({ metrics }: { metrics: DashboardMetrics }) {
                 <PlayCircle className="h-4 w-4" />
                 Explore with sample data
             </StartSampleButton>
-            <Button asChild variant="ghost" size="lg">
-              <Link href="/#how-to-use">See the workflow</Link>
-            </Button>
           </div>
+          <Link href="/#how-to-use" className="mt-4 inline-flex items-center gap-2 rounded-sm text-sm text-zinc-400 transition-colors hover:text-zinc-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300/50">
+            See the workflow
+            <ArrowRight className="h-3.5 w-3.5" />
+          </Link>
         </MotionDiv>
 
         <MotionDiv
           initial={{ opacity: 0, y: 24 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.7, delay: 0.15, ease: "easeOut" }}
-          className="grid gap-4 lg:min-w-0"
+          className="grid min-w-0 gap-4"
         >
           <Card className="relative overflow-hidden bg-zinc-950/80">
             <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-emerald-300/70 to-transparent" />
@@ -109,7 +110,7 @@ export function HeroSection({ metrics }: { metrics: DashboardMetrics }) {
               </CardTitle>
             </CardHeader>
             <CardContent className="grid gap-4 p-5 pt-0 sm:p-6 sm:pt-0">
-              <div className="grid grid-cols-1 gap-3 min-[520px]:grid-cols-2 min-[900px]:grid-cols-5">
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
                 {stats.map((stat) => (
                   <div key={stat.label} className="min-h-20 rounded-md border border-white/10 bg-white/[0.035] p-3">
                     <p className="text-2xl font-semibold text-zinc-50">{stat.value}</p>
