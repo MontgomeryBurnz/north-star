@@ -98,6 +98,80 @@ test("one mixed table quotation can support distinct atomic baseline and propose
     "Atomicity does not permit changing a strict target comparator.");
 });
 
+test("a bare regional-office baseline cell supports its atomic count without borrowing a pilot unit from the decision column", () => {
+  const quote = "Regional offices | 12 | Pilot 3 before scale-up";
+  const text = `Measure | Current baseline | Target or decision\n${quote}`;
+  const baseline: Evidence = { id: "EL-029", sourceId: "sample-volume-analysis", quote, kind: "fact", statement: "The current regional-office baseline is 12 offices." };
+  const sources = [{ id: baseline.sourceId, text }];
+  const accepted = reviewDiscoveryEvidenceLedger([baseline], sources);
+  assert.deepEqual(accepted.errors, [], "The exact production claim is a faithful atomic baseline, not an invented measurement.");
+  assert.deepEqual(accepted.reviewIssues, []);
+  assert.equal(accepted.ledger[0].kind, "fact");
+  for (const context of [
+    quote,
+    `Measure | Proposed target | Decision\n${quote}`,
+    `Measure | Unknown count | Decision\n${quote}`,
+    `Measure | Current baseline | Decision\nOther row | 7 | Pending\n\n${quote}`
+  ]) {
+    assert.ok(reviewDiscoveryEvidenceLedger([baseline], [{ id: baseline.sourceId, text: context }]).errors.length > 0,
+      "A row-only quote needs its own unambiguous current-baseline column; unknown/proposed headers cannot become confirmed baselines.");
+  }
+  const regional = { ...baseline, statement: "The current regional-office baseline is 12 regional offices." };
+  assert.deepEqual(reviewDiscoveryEvidenceLedger([regional], sources).errors, [], "Regional offices normalize to offices, never regions.");
+  for (const statement of [
+    "The current regional-office baseline is 3 offices.",
+    "The current regional-office baseline is 13 offices.",
+    "The pilot covers 12 offices.",
+    "All 3 offices are in the current baseline.",
+    "The current baseline is 12 regions.",
+    "The current regional-office baseline is at least 12 offices."
+  ]) {
+    assert.ok(reviewDiscoveryEvidenceLedger([{ ...baseline, statement }], sources).errors.length > 0,
+      `Wrong count, unit, comparator or scope remains hard: ${statement}`);
+  }
+  const unrelated = "Staff | 12 | Pilot 3 before scale-up";
+  assert.ok(reviewDiscoveryEvidenceLedger([{ ...baseline, quote: unrelated }], [{ id: baseline.sourceId, text: unrelated }]).errors.length > 0,
+    "A bare number cannot borrow an office unit from an unrelated table label.");
+  for (const split of ["Regional offices |\n12 | Pilot 3 before scale-up", "Regional offices\n|12|Pilot 3 before scale-up"]) {
+    assert.ok(reviewDiscoveryEvidenceLedger([{ ...baseline, quote: split }], [{ id: baseline.sourceId, text: split }]).errors.length > 0,
+      "A table unit must not be borrowed across a line boundary.");
+  }
+
+  const pilotQuote = "The pilot covers three regions.";
+  const pilot: Evidence = { id: "PILOT", sourceId: "pilot-scope", quote: pilotQuote, kind: "fact", statement: pilotQuote };
+  const packageSources = [...sources, { id: pilot.sourceId, text: pilotQuote }];
+  const ledger = [regional, pilot];
+  assert.deepEqual(reviewDiscoveryEvidenceLedger(ledger, packageSources).errors, [],
+    "Three regions come from the explicit pilot source, not an invented alias for three offices.");
+  const swapped = [{ ...regional, statement: "The current regional-office baseline is 3 offices." }, { ...pilot, statement: "The pilot covers twelve regions." }];
+  assert.ok(reviewDiscoveryEvidenceLedger(swapped, packageSources).errors.length > 0);
+  const visible = definition(`${regional.statement} ${pilot.statement}`);
+  visible.sourceCount = 2;
+  const coverage = ledger.map((item) => row(item.id));
+  assert.deepEqual(reviewDiscoveryFidelity(visible, ledger, coverage, packageSources).errors, []);
+  const allPilot = { ...pilot, statement: "The pilot covers all 3 regions." };
+  assert.deepEqual(reviewDiscoveryEvidenceLedger([regional, allPilot], packageSources).errors, [], "All within a pilot count does not turn it into an overall baseline.");
+  visible.features[0].description = "The three-region pilot is part of the program’s 12 regional offices.";
+  assert.deepEqual(reviewDiscoveryFidelity(visible, ledger, coverage, packageSources).errors, [], "A distant pilot noun does not make the separate 12-office program count into pilot scope.");
+  visible.features[0].description = "The pilot covers 12 regional offices.";
+  assert.ok(reviewDiscoveryFidelity(visible, ledger, coverage, packageSources).errors.length > 0,
+    "A correct baseline elsewhere cannot conceal an extra false claim expanding the pilot to all 12 offices.");
+});
+
+test("independently supported equal baseline and pilot counts do not contradict each other", () => {
+  const baseline = "The current baseline is 3 regions.";
+  const pilot = "The pilot covers 3 regions.";
+  const ledger: Evidence[] = [
+    { id: "BASE", sourceId: "SRC1", quote: baseline, kind: "fact", statement: baseline },
+    { id: "PILOT", sourceId: "SRC2", quote: pilot, kind: "fact", statement: pilot }
+  ];
+  const sources = [{ id: "SRC1", text: baseline }, { id: "SRC2", text: pilot }];
+  const value = definition(`${baseline} ${pilot}`);
+  value.sourceCount = 2;
+  assert.deepEqual(reviewDiscoveryEvidenceLedger(ledger, sources).errors, []);
+  assert.deepEqual(reviewDiscoveryFidelity(value, ledger, [row("BASE"), row("PILOT")], sources).errors, []);
+});
+
 test("a source-backed fact reporting a proposed target normalizes cautiously without relaxing final proposal or readiness checks", () => {
   const text = "A reassignment target below 10% is proposed and awaits sponsor approval.";
   const ledger: Evidence[] = [{ id: "P1", sourceId: "SRC1", quote: text, kind: "fact", statement: text }];

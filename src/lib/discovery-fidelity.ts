@@ -62,20 +62,54 @@ function normalized(value: string) {
   return value.toLowerCase().replace(/[–—-]/g, " ").replace(/\b(zero|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|twenty|thirty|sixty|eighty|hundred)\b/g, (word) => numberWords[word])
     .replace(/\bpercent\b/g, "%").replace(/\bworking\b/g, "business").replace(/[ \t\r]+/g, " ").replace(/ *\n */g, "\n").trim();
 }
-type Metric = { value: number; unit: string; comparator: string; index: number; text: string };
-function metrics(text: string): Metric[] {
+type Metric = { value: number; unit: string; comparator: string; index: number; text: string; countScope?: "baseline" | "pilot" };
+function countScope(value: string, index: number, end: number, unit: string): Metric["countScope"] {
+  if (!/\b(?:region|office)s?$/.test(unit)) return undefined;
+  if (/^pilot\s/.test(unit)) return "pilot";
+  const prefix = (value.slice(0, index).split(/[.;|\n,]/).at(-1) ?? "").slice(-100);
+  const after = value.slice(end, end + 100).split(/[.;|\n,]/)[0];
+  if (/^\s+(?:(?:are|is|included|used|covered|participating)\s+){0,3}(?:(?:in|for|during|within)\s+(?:the\s+)?)?pilot\b/.test(after)) return "pilot";
+  // Only grammatical attachment to this count is a scope assertion. A distant
+  // mention of a pilot, or another count's noun phrase, is not enough.
+  if (/\bpilot\s+(?:scope\s+)?(?:(?:will|would|may|must|shall|can|should|initially|currently|only|cover|covers|include|includes|encompass|encompasses|involve|involves|has|have|in|across|with|the|all|of|our|these|those)\s+){0,6}$/.test(prefix)) return "pilot";
+  if (/\b(?:baseline|total|overall)\s+(?:(?:is|was|has|have|of|at|includes|currently|remains|count|stands)\s+){0,4}$/.test(prefix)
+    || /\ball\s+(?:(?:the|our|these|those)\s+)?$/.test(prefix)) return "baseline";
+  return undefined;
+}
+function baselineCountColumn(context: string, row: string) {
+  const lines = normalized(context).split("\n");
+  const matches = lines.flatMap((line, index) => line === row || line.startsWith(row) && /^ *(?:\||$)/.test(line.slice(row.length)) ? [index] : []);
+  return matches.length > 0 && matches.every((index) => {
+    for (let previous = index - 1; previous >= 0 && lines[previous].includes("|"); previous--) {
+      if (/^measure *\|/.test(lines[previous])) return /^measure *\| *current baseline *(?:\||$)/.test(lines[previous]);
+    }
+    return false;
+  });
+}
+function metrics(text: string, tableSource?: string): Metric[] {
   const value = normalized(text);
-  const pattern = /(?:(\b(?:less than|under|below|at most|no more than|more than|over|above|at least)(?![a-z])|[<>]=?)\s*)?(\d+(?:\.\d+)?)\s*(%|(?:(?:business|calendar)\s+)?(?:hours?|days?|weeks?|months?|years?|minutes?|seconds?)|(?:(?:pilot|selected|named)\s+)?(?:regions?|offices?))(?=$|[\s,;:.|)])/g;
-  return [...value.matchAll(pattern)].map((match) => ({
-    value: Number(match[2]), unit: match[3].replace(/^(?:pilot|selected|named)\s+/, "").replace(/s$/, ""),
+  const pattern = /(?:(\b(?:less than|under|below|at most|no more than|more than|over|above|at least)(?![a-z])|[<>]=?)\s*)?(\d+(?:\.\d+)?)\s*(%|(?:(?:business|calendar)\s+)?(?:hours?|days?|weeks?|months?|years?|minutes?|seconds?)|(?:(?:pilot|selected|named)\s+)?(?:regions?|offices?)|regional\s+offices?)(?=$|[\s,;:.|)])/g;
+  const found: Metric[] = [...value.matchAll(pattern)].map((match) => ({
+    value: Number(match[2]), unit: match[3].replace(/^(?:pilot|selected|named|regional)\s+/, "").replace(/s$/, ""),
     comparator: /^(less than|under|below|<)$/.test(match[1] ?? "") ? "<" : /^(at most|no more than|<=)$/.test(match[1] ?? "") ? "<=" : /^(more than|over|above|>)$/.test(match[1] ?? "") ? ">" : /^(at least|>=)$/.test(match[1] ?? "") ? ">=" : "",
-    index: match.index!, text: match[0]
+    index: match.index!, text: match[0], countScope: countScope(value, match.index!, match.index! + match[0].length, match[3])
   }));
+  // Only the first bare count cell inherits this exact row label. A decision cell
+  // such as "Pilot 3 before scale-up" does not establish an office/region unit.
+  for (const match of value.matchAll(/^(regional +offices?|offices?|regions?) *\| *(\d+) *(?=\||$)/gm)) {
+    const row = value.slice(match.index!, value.indexOf("\n", match.index!) < 0 ? undefined : value.indexOf("\n", match.index!)).trimEnd();
+    if (!baselineCountColumn(tableSource ?? value, row)) continue;
+    const index = match.index! + match[0].lastIndexOf(match[2]);
+    found.push({ value: Number(match[2]), unit: /offices?/.test(match[1]) ? "office" : "region", comparator: "", index, text: match[2], countScope: "baseline" });
+  }
+  return found.sort((left, right) => left.index - right.index);
 }
 function unitBase(unit: string) { return unit.replace(/^(?:business|calendar) /, ""); }
 function metricMatches(expected: Metric, actual: Metric) {
   return expected.value === actual.value && unitBase(expected.unit) === unitBase(actual.unit)
     && (!/^(?:business|calendar) /.test(expected.unit) || expected.unit === actual.unit)
+    && (!/^(?:office|region)$/.test(expected.unit) || expected.comparator === actual.comparator)
+    && (!expected.countScope || !actual.countScope || expected.countScope === actual.countScope)
     && (!expected.comparator || expected.comparator === actual.comparator);
 }
 function metricContext(text: string, metric: Metric) {
@@ -194,7 +228,7 @@ export function reviewDiscoveryEvidenceLedger(value: unknown, sources: Discovery
     const source = sourceMap.get(entry.sourceId);
     if (!source || !literal(source).includes(literal(entry.quote))) errors.push(`${entry.id} has an unverifiable source quotation.`);
     if (ledger.some((existing) => existing.id === entry.id)) errors.push("Evidence identifiers must be unique.");
-    const quotedMetrics = metrics(entry.quote);
+    const quotedMetrics = metrics(entry.quote, source);
     const statementMetrics = metrics(entry.statement);
     let statementStatus = sourceUnconfirmedKind(entry.statement);
     let sourceStatus: "proposal" | "open-question" | undefined;
@@ -419,6 +453,8 @@ export function reviewDiscoveryFidelity(synthesis: FidelityDefinition, inputLedg
       if (!allMetrics.some((actual) => metricMatches(expected, actual))) errors.push(`${item.id} omits or changes a quantified source fact, target, unit or comparator.`);
       for (const field of fields) {
         const candidates = metrics(field).filter((actual) => actual.value === expected.value && unitBase(actual.unit) === unitBase(expected.unit) && measurementRelated(item.statement, metricContext(field, actual)));
+        if (candidates.some((actual) => expected.countScope && actual.countScope && expected.countScope !== actual.countScope
+          && !ledger.some((other) => metrics(other.statement).some((supported) => supported.countScope === actual.countScope && metricMatches(supported, actual))))) errors.push(`${item.id} changes a source count's baseline or pilot scope.`);
         if (candidates.some((actual) => /^(?:business|calendar) /.test(expected.unit) && /^(?:business|calendar) /.test(actual.unit) && actual.unit !== expected.unit)) errors.push(`${item.id} changes the measurement calendar or unit basis.`);
         if (candidates.some((actual) => expectedStatistic === "median" && /\b(?:average|mean)\b/i.test(metricContext(field, actual)))) errors.push(`${item.id} changes a median into a mean/average.`);
         if (candidates.some((actual) => ["average", "mean"].includes(expectedStatistic ?? "") && /\bmedian\b/i.test(metricContext(field, actual)))) errors.push(`${item.id} changes a mean/average into a median.`);

@@ -155,7 +155,8 @@ export function DiscoveryStudioConsole({ initialSample = false }: { initialSampl
       setView(result.gaps.some((gap) => gap.severity === "blocking") ? "gaps" : "build");
       setStatus(`Revision ${revisionId} generated from ${result.sourceCount} readable source${result.sourceCount === 1 ? "" : "s"}. ${result.provider === "openai" ? "OpenAI evidence review completed." : "Local draft requires review."}`);
     } catch (error) {
-      setStatus(`${error instanceof Error ? error.message : "Studio could not analyze the package."}${synthesis ? " Your current revision is preserved." : ""}`);
+      const message = error instanceof Error ? error.message : "Studio could not analyze the package.";
+      setStatus(`${message}${synthesis && !/\bpreserved\b/i.test(message) ? " Your current revision is preserved." : ""}`);
     } finally { setIsAnalyzing(false); }
   }
 
