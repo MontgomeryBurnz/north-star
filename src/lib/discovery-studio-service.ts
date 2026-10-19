@@ -35,12 +35,14 @@ function excerpt(value: string | undefined | null, limit = 5000) {
 // Return bounded evidence context only to the authenticated caller who supplied
 // the sources. Never send source text or model assertions to runtime telemetry.
 function evidenceFailureDetails(errors: string[], ledger: Array<{ id: string; sourceId: string; kind: string; quote: string; statement: string }>) {
+  const summaries = errors.slice(0, 12).map((error, index) => `${index + 1}. ${excerpt(error, 240)}`).join("\n");
   const details = errors.slice(0, 3).map((error) => {
     const item = ledger.find((entry) => error.startsWith(`${entry.id} `));
     if (!item) return excerpt(error, 700);
     return `${excerpt(error, 700)} Evidence ${excerpt(item.id, 100)}; source ${excerpt(item.sourceId, 240)}; classification ${item.kind}. Source quotation: ${excerpt(item.quote, 1200)} Reviewed assertion: ${excerpt(item.statement, 1000)}`;
   }).join("\n");
-  return `${errors.length} validation ${errors.length === 1 ? "issue" : "issues"}${errors.length > 3 ? "; showing the first 3" : ""}. ${details}`;
+  const message = `${errors.length} validation ${errors.length === 1 ? "issue" : "issues"}. Summaries${errors.length > 12 ? " (first 12)" : ""}:\n${summaries}\nEvidence details (first 3):\n${details}`;
+  return message.length <= 9000 ? message : `${message.slice(0, 8997)}...`;
 }
 
 function applyEvidenceReviewHolds(
@@ -700,7 +702,7 @@ export async function generateDiscoverySynthesis(
       }
       return parsed;
     }
-    let correctionStage: "evidence-repair" | "product-repair" | undefined;
+    let evidenceCorrectionApplied = false;
     const evidencePayload = await callModel("evidence-review", evidenceRequest);
     let evidenceEnvelope = parseStructuredModelOutput(extractOutputText(evidencePayload), asRecord);
     let evidence = reviewedEvidence(evidenceEnvelope);
@@ -711,10 +713,10 @@ export async function generateDiscoverySynthesis(
       return item && [item.id, item.sourceId, item.quote, item.statement].every((value) => Boolean(asTrimmedString(value)))
         && typeof item.kind === "string" && ["fact", "requirement", "proposal", "open-question"].includes(item.kind);
     }) && readableArtifacts.every((source) => rawLedger.some((value) => asRecord(value)?.sourceId === source.id));
-    // One shared correction slot: only a completed, well-shaped, source-complete
-    // evidence candidate may use it, with 180s retained for product synthesis.
+    // One evidence correction: only a completed, well-shaped, source-complete
+    // candidate may use it, with 180s retained for product synthesis.
     if (ledgerReview.errors.length && evidencePayload.status === "completed" && repairableLedger && deadline - Date.now() >= 360_000) {
-      correctionStage = "evidence-repair";
+      evidenceCorrectionApplied = true;
       const repairPayload = await callModel("evidence-repair", {
         ...evidenceRequest,
         input: [
@@ -737,6 +739,7 @@ export async function generateDiscoverySynthesis(
       "Each story needs at least two observable, testable acceptance criteria and at least one happy-path PLUS one negative or edge test, with reproducible steps and observable expected results. Avoid vague criteria such as user-friendly or secure without measurable behavior.",
       "Mark stories affected by missing policy/requirements as needs-input. A resolution note does not close unrelated gaps. Score readiness conservatively; any blocking gap requires score below 85. Research informs recommendations, never substitutes for client decisions.",
       "Preserve scope, pilot boundaries and exclusions visibly as context and constraints. Map a scope requirement to relevant included-story conformance tests, or a precise gap if its verification is undefined; never invent implementation work for an excluded capability. Governance next actions and owner decisions are not implementation requirements unless the source explicitly defines product behavior.",
+      "Before returning, audit EVERY evidenceCoverage row against the full visible package: each testIds entry must belong to a story listed in that row's storyIds. A source-backed requirement must map to actual observable, relevant test steps and expected results, not an unrelated test or a merely shared source citation. If meaningful verification depends on an unknown policy or decision, identify the precise missing decision in a source-linked blocking gap and hold dependent stories as needs-input. Do not replace known obligations with blanket gaps or invent implementation work for proposed or excluded scope.",
       "Return the full coherent hierarchy even if only some deliverables are selected for export. Prioritize those selected deliverables in analytical detail. Produce concise engineering-useful content without filler.",
       discoverySynthesisFidelityInstructions
     ].join(" ");
@@ -765,10 +768,11 @@ export async function generateDiscoverySynthesis(
     const candidateText = extractOutputText(payload);
     const candidate = parseStructuredModelOutput(candidateText, asRecord);
     let reviewed = reviewCandidate(candidate);
-    // A single completed candidate can be corrected using concrete validation feedback.
-    // An evidence correction consumes this same slot; the deadline is never reset.
-    if (reviewed.errors.length && !correctionStage && deadline - Date.now() >= 120_000) {
-      correctionStage = "product-repair";
+    let productCorrectionApplied = false;
+    // At most one full product correction may follow a completed parsed candidate,
+    // including after evidence correction. Both remain inside the original deadline.
+    if (reviewed.errors.length && payload.status === "completed" && candidate && deadline - Date.now() >= 120_000) {
+      productCorrectionApplied = true;
       const repairPayload = await callModel("product-repair", {
         ...synthesisRequest,
         input: [
@@ -776,6 +780,7 @@ export async function generateDiscoverySynthesis(
           { role: "user", content: JSON.stringify({ ...synthesisContext, candidatePackage: candidate ?? candidateText, validationErrors: reviewed.errors }) }
         ]
       });
+      if (repairPayload.status !== "completed") throw new DiscoveryGenerationError("OpenAI returned an incomplete product correction. No partial package was applied; your previous package is preserved.");
       reviewed = reviewCandidate(parseStructuredModelOutput(extractOutputText(repairPayload), asRecord));
     }
     const parsed = reviewed.parsed;
@@ -796,7 +801,7 @@ export async function generateDiscoverySynthesis(
       generatedAt: new Date().toISOString(), provider: "openai", modelUsage: aggregateDiscoveryUsage(usage), research,
       quality: {
         status: reviewed.reviewIssues.length ? "provisional" : "reviewed",
-        checks: ["Independent evidence review covered every source", "Source quotations and quantitative evidence checked", "Source citations validated", "Roadmap, epic, feature, and story relationships validated", "Happy-path and negative/edge test coverage validated", ...(correctionStage === "evidence-repair" ? ["Validation-guided evidence correction rechecked against all source coverage and fidelity rules"] : correctionStage === "product-repair" ? ["Validation-guided correction rechecked against all package quality rules"] : []), ...(reviewed.reviewIssues.length ? ["Definitive factual and risk scenario checks passed; ambiguous interpretations held for human review"] : ["Source-driven fidelity and risk-based scenario checks passed"])],
+        checks: ["Independent evidence review covered every source", "Source quotations and quantitative evidence checked", "Source citations validated", "Roadmap, epic, feature, and story relationships validated", "Happy-path and negative/edge test coverage validated", ...(evidenceCorrectionApplied ? ["Validation-guided evidence correction rechecked against all source coverage and fidelity rules"] : []), ...(productCorrectionApplied ? ["Validation-guided correction rechecked against all package quality rules"] : []), ...(reviewed.reviewIssues.length ? ["Definitive factual and risk scenario checks passed; ambiguous interpretations held for human review"] : ["Source-driven fidelity and risk-based scenario checks passed"])],
         warnings: [...reviewed.integrityWarnings, ...reviewed.fidelityWarnings, ...(reviewed.reviewIssues.length ? ["Provisional review draft: ambiguous source interpretations are blocking gaps. Every story remains needs-input; do not treat this package as approved or build-ready."] : []), ...excerpts.map((source) => `${source.name}: source coverage is partial.`), ...unreadableArtifacts.map((source) => `${source.name}: source could not be read.`), ...(research.status === "unavailable" ? [research.summary] : [])]
       },
       revision: { number: Math.max(0, Math.min(9999, Math.floor(options.previousSynthesis?.revision?.number ?? (previous ? 1 : 0)))) + 1, summary: revisionSummary(previous, parsed, Boolean(feedback)), feedback: feedback || undefined }

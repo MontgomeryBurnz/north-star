@@ -325,7 +325,7 @@ test("HTTP and streamed quota failures retain safe codes and useful guidance wit
   });
 });
 
-test("fidelity failures allow at most one correction and preserve the previous complete package", async () => {
+test("fidelity failures allow at most one correction per candidate stage and preserve the previous complete package", async () => {
   await withStubs(async (logs) => {
     const previous = structuredClone(sampleDiscoverySynthesis);
     const original = JSON.stringify(previous);
@@ -578,10 +578,14 @@ test("correction cannot reset the shared deadline or run with insufficient remai
 
 test("provider failures during product generation never trigger a paid correction retry", async () => {
   await withStubs(async () => {
+    const invalid = structuredClone(sampleDiscoverySynthesis);
+    invalid.stories[0].featureId = "invented-feature";
     for (const failure of [
       async () => Response.json({ error: { code: "credit_balance_exhausted" } }, { status: 429 }),
       async () => { throw new TypeError("Private fixture connection failure"); },
-      async () => Response.json({ status: "incomplete", incomplete_details: { reason: "max_output_tokens" }, output_text: "Partial fixture" })
+      async () => Response.json({ status: "incomplete", incomplete_details: { reason: "max_output_tokens" }, output_text: "Partial fixture" }),
+      async () => Response.json({ output_text: JSON.stringify(invalid) }),
+      async () => Response.json({ status: "completed", output_text: "{invalid JSON" })
     ]) {
       let calls = 0;
       globalThis.fetch = async () => ++calls === 1 ? response(evidence) : failure();
@@ -629,7 +633,7 @@ test("a completed VA-003 ledger candidate gets one bounded source-guided correct
     };
     const original = JSON.stringify(fixture.invalid);
     const result = await generateDiscoverySynthesis(fixture.input, "Private decision notes", { previousSynthesis: sampleDiscoverySynthesis, externalResearch: true, researchTopic: "Public service delivery" });
-    assert.equal(calls.length, 4, "Research + evidence + product + one shared correction is the absolute call ceiling.");
+    assert.equal(calls.length, 4, "This valid product uses evidence correction but does not require product correction.");
     assert.deepEqual(timeouts, [300_000, 730_000, 180_000, 480_000]);
     assert.equal(result.modelUsage?.totalTokens, 800);
     assert.equal(result.modelUsage?.inputTokens, 400);
@@ -720,20 +724,37 @@ test("repaired evidence must still pass full shape, source coverage and completi
   });
 });
 
-test("using evidence correction consumes the shared slot even when the later product candidate fails validation", async () => {
+test("one evidence correction and one full product correction can both run within the same deadline and aggregate every stage", async () => {
   await withStubs(async (logs) => {
     const fixture = evidenceRepairFixture();
     const invalidProduct = structuredClone(fixture.output);
     invalidProduct.stories[0].featureId = "invented-feature";
-    let calls = 0;
-    globalThis.fetch = async () => response(++calls === 1 ? fixture.invalid : calls === 2 ? fixture.corrected : invalidProduct);
-    await assert.rejects(generateDiscoverySynthesis(fixture.input), /invalid epic or feature reference/);
-    assert.equal(calls, 3, "There is no extra product-repair after evidence-repair consumed the correction budget.");
-    assert.equal(logs.some((entry) => (entry[1] as Record<string, unknown>).stage === "product-repair"), false);
+    let now = 0;
+    const calls: Record<string, unknown>[] = [];
+    const timeouts: number[] = [];
+    Date.now = () => now;
+    AbortSignal.timeout = (ms) => { timeouts.push(ms); return new AbortController().signal; };
+    globalThis.fetch = async (_input, init) => {
+      calls.push(JSON.parse(String(init?.body)));
+      now += [10_000, 100_000, 120_000, 180_000, 60_000][calls.length - 1] ?? 0;
+      return response(calls.length === 1 ? { summary: "Public research unavailable" } : calls.length === 2 ? fixture.invalid : calls.length === 3 ? fixture.corrected : calls.length === 4 ? invalidProduct : fixture.output);
+    };
+    const result = await generateDiscoverySynthesis(fixture.input, "", { externalResearch: true, researchTopic: "Public service delivery" });
+    assert.equal(calls.length, 5, "At most research + evidence + evidence correction + product + full product correction.");
+    assert.deepEqual(timeouts, [300_000, 730_000, 180_000, 510_000, 330_000]);
+    assert.equal(result.modelUsage?.totalTokens, 1000);
+    assert.ok(result.quality?.checks.includes("Validation-guided evidence correction rechecked against all source coverage and fidelity rules"));
+    assert.ok(result.quality?.checks.includes("Validation-guided correction rechecked against all package quality rules"));
+    assert.deepEqual(logs.map((entry) => entry[1] as Record<string, unknown>).filter((entry) => entry.status === "completed").map((entry) => entry.stage), ["public-research", "evidence-review", "evidence-repair", "product-synthesis", "product-repair"]);
+    const repair = JSON.parse((calls[4].input as Array<{ content: string }>)[1].content);
+    assert.deepEqual(repair.candidatePackage, invalidProduct);
+    assert.deepEqual(repair.evidenceReview.evidenceLedger, fixture.corrected.evidenceLedger);
+    assert.match((calls[4].input as Array<{ content: string }>)[0].content, /actual observable, relevant test steps/);
+    assert.doesNotMatch(JSON.stringify(logs), /VA-003|Regional offices|invented-feature/);
   });
 });
 
-test("evidence correction requires360s remaining, caps itself at180s and never resets the740s deadline", async () => {
+test("evidence correction requires 360s remaining, caps itself at 180s and never resets the 740s deadline", async () => {
   await withStubs(async () => {
     const fixture = evidenceRepairFixture();
     for (const evidenceDuration of [380_001, 380_000]) {
@@ -757,5 +778,90 @@ test("evidence correction requires360s remaining, caps itself at180s and never r
         assert.deepEqual(timeouts, [740_000, 180_000, 180_000]);
       }
     }
+  });
+});
+
+test("product correction after evidence correction still requires 120s remaining and cannot reset the global deadline", async () => {
+  await withStubs(async () => {
+    const fixture = evidenceRepairFixture();
+    const invalid = structuredClone(fixture.output);
+    invalid.stories[0].featureId = "invented-feature";
+    for (const productDuration of [340_001, 340_000]) {
+      let now = 0;
+      let calls = 0;
+      const timeouts: number[] = [];
+      Date.now = () => now;
+      AbortSignal.timeout = (ms) => { timeouts.push(ms); return new AbortController().signal; };
+      globalThis.fetch = async () => {
+        calls++;
+        now += calls === 1 ? 100_000 : calls === 2 ? 180_000 : calls === 3 ? productDuration : 0;
+        return response(calls === 1 ? fixture.invalid : calls === 2 ? fixture.corrected : calls === 3 ? invalid : fixture.output);
+      };
+      if (productDuration > 340_000) {
+        await assert.rejects(generateDiscoverySynthesis(fixture.input), /invalid epic or feature reference/);
+        assert.equal(calls, 3);
+        assert.deepEqual(timeouts, [740_000, 180_000, 460_000]);
+      } else {
+        assert.equal((await generateDiscoverySynthesis(fixture.input)).provider, "openai");
+        assert.equal(calls, 4);
+        assert.deepEqual(timeouts, [740_000, 180_000, 460_000, 120_000]);
+      }
+    }
+  });
+});
+
+test("provider, incomplete, parse and missing-status product failures never cause extra retries after evidence correction", async () => {
+  await withStubs(async () => {
+    const fixture = evidenceRepairFixture();
+    const invalid = structuredClone(fixture.output);
+    invalid.stories[0].featureId = "invented-feature";
+    const previous = structuredClone(sampleDiscoverySynthesis);
+    const original = JSON.stringify(previous);
+    for (const repairFailure of [false, true]) {
+      for (const failure of [
+        async () => Response.json({ error: { code: "credit_balance_exhausted" } }, { status: 429 }),
+        async () => { throw new TypeError("Private product connection error"); },
+        async () => Response.json({ status: "incomplete", output_text: JSON.stringify(fixture.output) }),
+        async () => Response.json({ status: "completed", output_text: "{invalid JSON" }),
+        async () => Response.json({ output_text: JSON.stringify(repairFailure ? fixture.output : invalid) }),
+        ...(repairFailure ? [async () => response(invalid)] : [])
+      ]) {
+        let calls = 0;
+        globalThis.fetch = async () => {
+          calls++;
+          if (calls === 1) return response(fixture.invalid);
+          if (calls === 2) return response(fixture.corrected);
+          if (calls === 3 && repairFailure) return response(invalid);
+          return failure();
+        };
+        await assert.rejects(generateDiscoverySynthesis(fixture.input, "", { previousSynthesis: previous }));
+        assert.equal(calls, repairFailure ? 4 : 3);
+        assert.equal(JSON.stringify(previous), original);
+      }
+    }
+  });
+});
+
+test("authenticated validation diagnostics include up to 12 error summaries, bounded evidence details and no source logs", async () => {
+  await withStubs(async (logs) => {
+    const longFact = `${fixtureFact} ${"Evidence context ".repeat(200)}`;
+    const diagnosticSources = sampleDiscoverySources.map((source, index) => ({ ...source, extractedText: index < 3 ? longFact : fixtureFact }));
+    const ledger = [...evidenceLedger.map((item, index) => index < 3 ? { ...item, id: `${item.id}-${"X".repeat(800)}`, quote: longFact, statement: longFact } : item), ...Array.from({ length: 8 }, (_, index) => ({ ...evidenceLedger[0], id: `EV-${index + 7}` }))];
+    const review = { ...evidence, sources: diagnosticSources.map((source) => ({ sourceId: source.id, findings: [source.extractedText], limitations: "Fictional evidence" })), evidenceLedger: ledger };
+    const invalid = { ...sampleDiscoverySynthesis, evidenceCoverage: ledger.map((item) => ({ evidenceId: item.id, disposition: "context", storyIds: ["UNKNOWN"], testIds: [], gapIds: [] })) };
+    let calls = 0;
+    globalThis.fetch = async () => response(++calls === 1 ? review : invalid);
+    await assert.rejects(generateDiscoverySynthesis({ ...program, intake: { ...program.intake, artifacts: diagnosticSources } }), (error: Error) => {
+      assert.match(error.message, /14 validation issues/);
+      assert.match(error.message, /EV-12 has unresolved output references/);
+      assert.doesNotMatch(error.message, /EV-13 has unresolved output references/);
+      assert.match(error.message, /Evidence details \(first 3\)/);
+      assert.match(error.message, /Source quotation: Every service request/);
+      assert.ok(error.message.length < 10_000);
+      assert.ok(error.message.length > 8500, "Stress the overall cap including the outer failure prefix and preservation suffix.");
+      return true;
+    });
+    assert.equal(calls, 3);
+    assert.doesNotMatch(JSON.stringify(logs), /Source quotation|EV-12|Every service request/);
   });
 });
