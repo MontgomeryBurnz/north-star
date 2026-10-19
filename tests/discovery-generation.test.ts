@@ -325,7 +325,7 @@ test("HTTP and streamed quota failures retain safe codes and useful guidance wit
   });
 });
 
-test("fidelity failures stop before another provider request or preserve the previous complete package", async () => {
+test("fidelity failures allow at most one correction and preserve the previous complete package", async () => {
   await withStubs(async (logs) => {
     const previous = structuredClone(sampleDiscoverySynthesis);
     const original = JSON.stringify(previous);
@@ -342,7 +342,7 @@ test("fidelity failures stop before another provider request or preserve the pre
       return true;
     });
     assert.doesNotMatch(JSON.stringify(logs), /An invented source fact|Reviewed assertion|Source quotation/);
-    assert.equal(calls, 1, "Do not pay for synthesis after an unverifiable evidence review.");
+    assert.equal(calls, 2, "One completed evidence candidate may be corrected, but invalid evidence never reaches synthesis.");
     calls = 0;
     const invalidCoverage = structuredClone(sampleDiscoverySynthesis);
     invalidCoverage.evidenceCoverage[0].storyIds = ["UNKNOWN-STORY"] as never[];
@@ -587,6 +587,175 @@ test("provider failures during product generation never trigger a paid correctio
       globalThis.fetch = async () => ++calls === 1 ? response(evidence) : failure();
       await assert.rejects(generateDiscoverySynthesis(program));
       assert.equal(calls, 2);
+    }
+  });
+});
+
+function evidenceRepairFixture() {
+  const row = "Measure | Current baseline | Target or decision\nRegional offices | 12 | Pilot 3 before scale-up";
+  const pilot = "The pilot covers three regions.";
+  const sources = sampleDiscoverySources.map((source) => ({ ...source,
+    extractedText: source.id === "sample-volume-analysis" ? row : source.id === "sample-capability-assessment" ? pilot : fixtureFact
+  }));
+  const ledger = sources.map((source, index) => ({
+    id: `EV-${index + 1}`, sourceId: source.id, quote: source.extractedText, kind: "fact",
+    statement: source.id === "sample-volume-analysis" ? "The current regional-office baseline is 12 offices." : source.extractedText
+  }));
+  const invalid = { ...evidence, sources: sources.map((source) => ({ sourceId: source.id, findings: [source.extractedText], limitations: "Fictional evidence" })), evidenceLedger: [
+    ...ledger, { id: "VA-003", sourceId: "sample-volume-analysis", quote: row, kind: "requirement", statement: "The target/decision is to pilot 3 regions before scale-up." }
+  ] };
+  const corrected = structuredClone(invalid);
+  corrected.evidenceLedger[corrected.evidenceLedger.length - 1] = { id: "VA-003", sourceId: "sample-capability-assessment", quote: pilot, kind: "fact", statement: pilot };
+  const output = { ...sampleDiscoverySynthesis,
+    executiveSummary: `${fixtureFact} The current regional-office baseline is 12 offices. ${pilot}`,
+    evidenceSummary: `The current regional-office baseline is 12 offices. ${pilot}`,
+    evidenceCoverage: corrected.evidenceLedger.map((item) => ({ evidenceId: item.id, disposition: "context", storyIds: [], testIds: [], gapIds: [] }))
+  };
+  return { input: { ...program, intake: { ...program.intake, artifacts: sources } }, invalid, corrected, output };
+}
+
+test("a completed VA-003 ledger candidate gets one bounded source-guided correction before synthesis and aggregates every stage", async () => {
+  await withStubs(async (logs) => {
+    const fixture = evidenceRepairFixture();
+    const calls: Record<string, unknown>[] = [];
+    const timeouts: number[] = [];
+    let now = 0;
+    Date.now = () => now;
+    AbortSignal.timeout = (ms) => { timeouts.push(ms); return new AbortController().signal; };
+    globalThis.fetch = async (_input, init) => {
+      calls.push(JSON.parse(String(init?.body)));
+      now += [10_000, 100_000, 150_000, 60_000][calls.length - 1] ?? 0;
+      return response(calls.length === 1 ? { summary: "Public research unavailable" } : calls.length === 2 ? fixture.invalid : calls.length === 3 ? fixture.corrected : fixture.output);
+    };
+    const original = JSON.stringify(fixture.invalid);
+    const result = await generateDiscoverySynthesis(fixture.input, "Private decision notes", { previousSynthesis: sampleDiscoverySynthesis, externalResearch: true, researchTopic: "Public service delivery" });
+    assert.equal(calls.length, 4, "Research + evidence + product + one shared correction is the absolute call ceiling.");
+    assert.deepEqual(timeouts, [300_000, 730_000, 180_000, 480_000]);
+    assert.equal(result.modelUsage?.totalTokens, 800);
+    assert.equal(result.modelUsage?.inputTokens, 400);
+    assert.equal(result.modelUsage?.outputTokens, 400);
+    assert.ok(result.quality?.checks.includes("Validation-guided evidence correction rechecked against all source coverage and fidelity rules"));
+    assert.equal(JSON.stringify(fixture.invalid), original);
+    assert.equal(calls[2].max_output_tokens, 32_000);
+    assert.deepEqual(calls[2].text, calls[1].text);
+    for (const call of calls) {
+      assert.equal(call.model, "gpt-5.5"); assert.equal(call.store, false); assert.equal(call.stream, true);
+      assert.deepEqual(call.reasoning, { effort: "high" });
+    }
+    const repair = JSON.parse((calls[2].input as Array<{ content: string }>)[1].content);
+    assert.deepEqual(repair.candidateEvidence, fixture.invalid);
+    assert.ok(repair.validationErrors.some((error: string) => error.includes("VA-003 changes or invents a source measurement")));
+    assert.equal(repair.sources.length, 6);
+    assert.equal(Object.hasOwn(repair, "previousPackage"), false);
+    assert.equal(Object.hasOwn(repair, "externalResearch"), false);
+    assert.match((calls[2].input as Array<{ content: string }>)[0].content, /unlabeled decision count.*unambiguous actual source quotation/);
+    const synthesis = JSON.parse((calls[3].input as Array<{ content: string }>)[1].content);
+    assert.deepEqual(synthesis.evidenceReview.evidenceLedger, fixture.corrected.evidenceLedger);
+    const stages = logs.map((entry) => entry[1] as Record<string, unknown>).filter((entry) => entry.status === "completed");
+    assert.deepEqual(stages.map((entry) => entry.stage), ["public-research", "evidence-review", "evidence-repair", "product-synthesis"]);
+    assert.doesNotMatch(JSON.stringify(logs), /VA-003|Regional offices|Private decision|candidateEvidence|fixture-key-never-sent/);
+  });
+});
+
+test("a failed evidence correction remains a bounded authenticated failure and never starts synthesis or a second correction", async () => {
+  await withStubs(async (logs) => {
+    const fixture = evidenceRepairFixture();
+    const previous = structuredClone(sampleDiscoverySynthesis);
+    const original = JSON.stringify(previous);
+    let calls = 0;
+    globalThis.fetch = async () => { calls++; return response(fixture.invalid); };
+    await assert.rejects(generateDiscoverySynthesis(fixture.input, "", { previousSynthesis: previous }), (error: Error) => {
+      assert.match(error.message, /evidence review failed fidelity checks/);
+      assert.match(error.message, /VA-003 changes or invents/);
+      assert.match(error.message, /Source quotation: Measure/);
+      assert.ok(error.message.length < 10_000);
+      return true;
+    });
+    assert.equal(calls, 2);
+    assert.equal(JSON.stringify(previous), original);
+    assert.doesNotMatch(JSON.stringify(logs), /VA-003|Regional offices|Source quotation|Reviewed assertion/);
+  });
+});
+
+test("initial provider, incomplete, parse, malformed-shape and missing-source failures cannot trigger evidence correction", async () => {
+  await withStubs(async () => {
+    const fixture = evidenceRepairFixture();
+    const missingSource = { ...fixture.invalid, sources: fixture.invalid.sources.slice(1) };
+    const malformed = { ...fixture.invalid, contradictions: [42] };
+    const missingLedgerSource = { ...fixture.invalid, evidenceLedger: fixture.invalid.evidenceLedger.filter((item) => item.sourceId !== "sample-workshop-notes") };
+    const badLedgerShape = { ...fixture.invalid, evidenceLedger: [{ ...fixture.invalid.evidenceLedger[0], kind: ["fact"] }, ...fixture.invalid.evidenceLedger.slice(1)] };
+    const noStatus = () => Response.json({ output_text: JSON.stringify(fixture.invalid) });
+    for (const failure of [
+      async () => Response.json({ error: { code: "credit_balance_exhausted" } }, { status: 429 }),
+      async () => { throw new TypeError("Private network failure"); },
+      async () => Response.json({ status: "incomplete", output_text: JSON.stringify(fixture.invalid) }),
+      async () => response(missingSource), async () => response(malformed), async () => response(missingLedgerSource), async () => response(badLedgerShape),
+      async () => Response.json({ status: "completed", output_text: "{invalid JSON" }), noStatus
+    ]) {
+      let calls = 0;
+      globalThis.fetch = async () => { calls++; return failure(); };
+      await assert.rejects(generateDiscoverySynthesis(fixture.input));
+      assert.equal(calls, 1, "Only a completed, valid-shape, source-complete evidence ledger may qualify for correction.");
+    }
+  });
+});
+
+test("repaired evidence must still pass full shape, source coverage and completion checks without retrying failures", async () => {
+  await withStubs(async () => {
+    const fixture = evidenceRepairFixture();
+    for (const failure of [
+      async () => response({ ...fixture.corrected, sources: fixture.corrected.sources.slice(1) }),
+      async () => response({ ...fixture.corrected, recommendations: [42] }),
+      async () => Response.json({ status: "completed", output_text: "{invalid JSON" }),
+      async () => Response.json({ output_text: JSON.stringify(fixture.corrected) }),
+      async () => Response.json({ error: { code: "credit_balance_exhausted" } }, { status: 429 }),
+      async () => Response.json({ status: "incomplete", output_text: JSON.stringify(fixture.corrected) }),
+      async () => { throw new TypeError("Private repair connection failure"); }
+    ]) {
+      let calls = 0;
+      globalThis.fetch = async () => ++calls === 1 ? response(fixture.invalid) : failure();
+      await assert.rejects(generateDiscoverySynthesis(fixture.input));
+      assert.equal(calls, 2);
+    }
+  });
+});
+
+test("using evidence correction consumes the shared slot even when the later product candidate fails validation", async () => {
+  await withStubs(async (logs) => {
+    const fixture = evidenceRepairFixture();
+    const invalidProduct = structuredClone(fixture.output);
+    invalidProduct.stories[0].featureId = "invented-feature";
+    let calls = 0;
+    globalThis.fetch = async () => response(++calls === 1 ? fixture.invalid : calls === 2 ? fixture.corrected : invalidProduct);
+    await assert.rejects(generateDiscoverySynthesis(fixture.input), /invalid epic or feature reference/);
+    assert.equal(calls, 3, "There is no extra product-repair after evidence-repair consumed the correction budget.");
+    assert.equal(logs.some((entry) => (entry[1] as Record<string, unknown>).stage === "product-repair"), false);
+  });
+});
+
+test("evidence correction requires360s remaining, caps itself at180s and never resets the740s deadline", async () => {
+  await withStubs(async () => {
+    const fixture = evidenceRepairFixture();
+    for (const evidenceDuration of [380_001, 380_000]) {
+      let now = 0;
+      let calls = 0;
+      const timeouts: number[] = [];
+      Date.now = () => now;
+      AbortSignal.timeout = (ms) => { timeouts.push(ms); return new AbortController().signal; };
+      globalThis.fetch = async () => {
+        calls++;
+        now += calls === 1 ? evidenceDuration : calls === 2 ? 180_000 : 0;
+        return response(calls === 1 ? fixture.invalid : calls === 2 ? fixture.corrected : fixture.output);
+      };
+      if (evidenceDuration > 380_000) {
+        await assert.rejects(generateDiscoverySynthesis(fixture.input), /evidence review failed fidelity checks/);
+        assert.equal(calls, 1);
+        assert.deepEqual(timeouts, [740_000]);
+      } else {
+        assert.equal((await generateDiscoverySynthesis(fixture.input)).provider, "openai");
+        assert.equal(calls, 3);
+        assert.deepEqual(timeouts, [740_000, 180_000, 180_000]);
+      }
     }
   });
 });
