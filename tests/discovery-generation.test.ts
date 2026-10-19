@@ -344,3 +344,35 @@ test("fidelity failures stop before another provider request or preserve the pre
     assert.equal(JSON.stringify(previous), original);
   });
 });
+
+test("source-backed classification normalization reaches synthesis and final checks without exposing evidence in logs", async () => {
+  await withStubs(async (logs) => {
+    const proposed = "A pilot approval authority is proposed and awaits sponsor approval.";
+    const sources = sampleDiscoverySources.map((source) => ({ ...source, extractedText: proposed }));
+    const normalizedProgram = { ...program, intake: { ...program.intake, artifacts: sources } };
+    const proposalEvidence = { ...evidence,
+      sources: sources.map((source) => ({ sourceId: source.id, findings: [proposed], limitations: "Fictional evidence" })),
+      evidenceLedger: sources.map((source, index) => ({ id: `EV-${index + 1}`, sourceId: source.id, quote: proposed, kind: "fact", statement: proposed }))
+    };
+    const original = JSON.stringify(proposalEvidence);
+    const output = { ...sampleDiscoverySynthesis, assumptions: [...sampleDiscoverySynthesis.assumptions, proposed],
+      evidenceCoverage: evidenceLedger.map((item) => ({ evidenceId: item.id, disposition: "proposal", storyIds: [], testIds: [], gapIds: [] }))
+    };
+    const calls: Record<string, unknown>[] = [];
+    globalThis.fetch = async (_input, init) => {
+      calls.push(JSON.parse(String(init?.body)) as Record<string, unknown>);
+      return response(calls.length === 1 ? proposalEvidence : output);
+    };
+    assert.equal((await generateDiscoverySynthesis(normalizedProgram)).quality?.status, "reviewed");
+    const synthesisInput = JSON.parse((calls[1].input as Array<{ content: string }>)[1].content);
+    assert.ok(synthesisInput.evidenceReview.evidenceLedger.every((item: { kind: string }) => item.kind === "proposal"));
+    assert.equal(JSON.stringify(proposalEvidence), original, "Normalization must not mutate the raw model envelope.");
+    const metadata = logs.find((item) => item[0] === "[northstar:studio-evidence]")?.[1] as Record<string, unknown>;
+    assert.equal(metadata.classificationNormalizationCount, 6);
+    assert.doesNotMatch(JSON.stringify(logs), /pilot approval authority|awaits sponsor|fixture-key-never-sent/);
+    calls.length = 0;
+    const falselyConfirmed = { ...output, evidenceCoverage: sampleDiscoverySynthesis.evidenceCoverage };
+    globalThis.fetch = async (_input, init) => { calls.push(JSON.parse(String(init?.body))); return response(calls.length === 1 ? proposalEvidence : falselyConfirmed); };
+    await assert.rejects(generateDiscoverySynthesis(normalizedProgram), /failed evidence fidelity or risk-based coverage checks/);
+  });
+});

@@ -632,6 +632,7 @@ export async function generateDiscoverySynthesis(
     }
     const ledgerReview = reviewDiscoveryEvidenceLedger(evidenceEnvelope?.evidenceLedger, context.sources);
     if (ledgerReview.errors.length) throw new DiscoveryGenerationError(`The evidence review failed fidelity checks: ${ledgerReview.errors.slice(0, 3).join(" ")} Your previous package is preserved.`);
+    if (ledgerReview.normalizations.length) console.info("[northstar:studio-evidence]", { runId, classificationNormalizationCount: ledgerReview.normalizations.length, reason: "source-backed-unconfirmed-status" });
     const payload = await callModel("product-synthesis", {
       max_output_tokens: 48_000,
       text: { format: { type: "json_schema", name: "northstar_discovery_synthesis", strict: true, schema: withDiscoveryCoverageSchema(schema()) } },

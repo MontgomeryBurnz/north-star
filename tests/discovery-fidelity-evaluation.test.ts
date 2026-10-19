@@ -98,6 +98,69 @@ test("one mixed table quotation can support distinct atomic baseline and propose
     "Atomicity does not permit changing a strict target comparator.");
 });
 
+test("a source-backed fact reporting a proposed target normalizes cautiously without relaxing final proposal or readiness checks", () => {
+  const text = "A reassignment target below 10% is proposed and awaits sponsor approval.";
+  const ledger: Evidence[] = [{ id: "P1", sourceId: "SRC1", quote: text, kind: "fact", statement: text }];
+  const value = definition(text);
+  value.assumptions = [text];
+  const reviewed = reviewDiscoveryEvidenceLedger(ledger, [{ id: "SRC1", text }]);
+  assert.deepEqual(reviewed.errors, []);
+  assert.equal(reviewed.ledger[0].kind, "proposal");
+  assert.equal(reviewed.ledger[0].quote, text);
+  assert.equal(reviewed.ledger[0].statement, text);
+  assert.equal(ledger[0].kind, "fact", "Normalization must not mutate the caller's model envelope.");
+  assert.deepEqual(reviewDiscoveryFidelity(value, reviewed.ledger, [row("P1", "proposal")], [{ id: "SRC1", text }]).errors, []);
+  assert.ok(reviewDiscoveryFidelity(value, reviewed.ledger, [row("P1", "context")], [{ id: "SRC1", text }]).errors.length > 0);
+
+  value.stories[0].readiness = "ready";
+  const mappedProposal = [{ ...row("P1", "proposal"), storyIds: ["U1"], testIds: ["T1", "T2"] }];
+  assert.ok(reviewDiscoveryFidelity(value, reviewed.ledger, mappedProposal, [{ id: "SRC1", text }]).errors.length > 0,
+    "A normalized proposal must still prevent a dependent story from being declared ready.");
+});
+
+test("an explicitly unconfirmed decision normalizes to an open question and still requires a precise gap", () => {
+  const text = "The pilot approval authority is unconfirmed and must be decided by the sponsor.";
+  const ledger: Evidence[] = [{ id: "D1", sourceId: "SRC1", quote: text, kind: "fact", statement: text }];
+  const value = definition(text);
+  value.gaps = [{ id: "G1", title: "Pilot approval authority", severity: "blocking", description: text, question: "Who may approve policy exceptions in the pilot?", sourceIds: ["SRC1"] }];
+  const reviewed = reviewDiscoveryEvidenceLedger(ledger, [{ id: "SRC1", text }]);
+  assert.deepEqual(reviewed.errors, []);
+  assert.equal(reviewed.ledger[0].kind, "open-question");
+  const coverage = [{ ...row("D1", "gap"), gapIds: ["G1"] }];
+  assert.deepEqual(reviewDiscoveryFidelity(value, reviewed.ledger, coverage, [{ id: "SRC1", text }]).errors, []);
+  assert.ok(reviewDiscoveryFidelity(value, reviewed.ledger, [row("D1", "gap")], [{ id: "SRC1", text }]).errors.length > 0);
+});
+
+test("approved proposal and candidate business nouns do not make a confirmed workflow obligation uncertain", () => {
+  for (const text of [
+    "An approved grant proposal must be archived before the application is closed.",
+    "A candidate must submit an application before an interview is scheduled."
+  ]) {
+    const ledger: Evidence[] = [{ id: "R1", sourceId: "SRC1", quote: text, kind: "requirement", statement: text }];
+    const value = definition(text);
+    value.businessRules = [text];
+    value.stories[0].acceptanceCriteria = [text, "The workflow is blocked when its confirmed prerequisite is missing."];
+    value.stories[0].readiness = "ready";
+    const reviewed = reviewDiscoveryEvidenceLedger(ledger, [{ id: "SRC1", text }]);
+    assert.deepEqual(reviewed.errors, []);
+    assert.equal(reviewed.ledger[0].kind, "requirement");
+    assert.deepEqual(reviewDiscoveryFidelity(value, reviewed.ledger, [row("R1", "implemented")], [{ id: "SRC1", text }]).errors, []);
+  }
+});
+
+test("a proposed authority rewritten as settled cannot be repaired merely by relabeling internal metadata", () => {
+  const quote = "A single compliance administrator is proposed to approve exceptions across the pilot regions; sponsor approval is pending.";
+  for (const kind of ["fact", "requirement"] as const) {
+    const ledger: Evidence[] = [{ id: "A1", sourceId: "SRC1", quote, kind, statement: "A single compliance administrator is authorized to approve exceptions across the pilot regions." }];
+    assert.ok(reviewDiscoveryEvidenceLedger(ledger, [{ id: "SRC1", text: quote }]).errors.length > 0,
+      "Settled authority is not supported by a source that only proposes it.");
+  }
+  const confirmedQuote = "Reassignments require a reason.";
+  const inventedProposal: Evidence[] = [{ id: "R1", sourceId: "SRC1", quote: confirmedQuote, kind: "requirement", statement: "A reassignment reason is proposed as an optional workflow step." }];
+  assert.ok(reviewDiscoveryEvidenceLedger(inventedProposal, [{ id: "SRC1", text: confirmedQuote }]).errors.length > 0,
+    "A confirmed source obligation must not become optional because the model inserted a proposal qualifier.");
+});
+
 test("metric fidelity accepts exact baselines but rejects changed statistic, calendar basis, and omitted quantitative facts", () => {
   const valid = definition(metricSource);
   valid.assumptions = [metricQuotes[3]];

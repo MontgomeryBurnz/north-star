@@ -103,8 +103,26 @@ function sourceMetricStatistic(text: string, metric: Metric) {
   const context = cells.at(-1)?.trim() ? cells.at(-1)! : cells.at(-2) ?? "";
   return context.match(/\b(median|average|mean)\b/g)?.at(-1);
 }
-const proposal = /\b(?:propos(?:al|ed)|candidate|indicative|unconfirmed|not (?:yet )?(?:approved|confirmed)|pending decision|pending (?:policy|scope|owner|sponsor|governance) (?:approval|confirmation|decision))\b/i;
 const unknown = /\b(?:unconfirmed|unknown|not (?:yet )?(?:confirmed|documented|approved|defined)|open (?:technical )?(?:decisions?|questions?)|pending decision)\b/i;
+
+function unconfirmedKind(text: string): "proposal" | "open-question" | undefined {
+  const value = normalized(text);
+  // Business entities and confirmed procedural obligations are not proposal status.
+  if (/\b(?:must|shall|required|requires?|reject|block|prevent)\b/.test(value) && /\b(?:unconfirmed|unapproved|pending) (?:requests?|applications?|submissions?|records?|transactions?)\b/.test(value)) return undefined;
+  if (/\b(?:is|are|was|were|has been|have been|now|already)\s+(?:(?:formally|explicitly)\s+)?(?:approved|confirmed|authorized|adopted|ratified|settled|achieved)\b/.test(value)) return undefined;
+  if (/\b(?:proposed|indicative)\b|\b(?:is|are|was|were|remains)\s+(?:(?:a|an|the)\s+)?proposal\b|\bproposal (?:for|to)\b|\b(?:later|future|unapproved) proposal\b|\bcandidate (?:dependenc(?:y|ies)|integrations?|solutions?|designs?|approaches?|scope|categor(?:y|ies)|vendors?|platforms?|systems?|options?|targets?|features?)\b/.test(value)) return "proposal";
+  if (/\b(?:unconfirmed|unresolved|unknown|open (?:technical )?(?:decisions?|questions?)|pending decision|not (?:yet )?(?:been )?(?:approved|confirmed|defined))\b/.test(value)) return "open-question";
+  return undefined;
+}
+
+function sameAtomicClaim(statement: string, clause: string) {
+  if (literal(normalized(statement)) === literal(normalized(clause))) return true;
+  const ignored = new Set(["source", "states", "statement", "proposed", "proposal", "unconfirmed", "confirmed", "approved", "requires", "require", "must", "shall", "would", "should", "could", "before", "after", "their", "these", "those", "there", "which", "across"]);
+  const terms = (text: string) => new Set((normalized(text).match(/[a-z]{4,}/g) ?? []).filter((word) => !ignored.has(word)).map((word) => word.replace(/(?:ments?|ing|ed|s)$/, "")));
+  const claim = terms(statement);
+  const context = terms(clause);
+  return claim.size > 0 && [...claim].filter((word) => context.has(word)).length >= Math.min(2, claim.size);
+}
 
 function metricIsProposed(text: string, metric: Metric) {
   const value = normalized(text);
@@ -116,14 +134,14 @@ function metricIsProposed(text: string, metric: Metric) {
   const cellMetrics = metrics(cell);
   const prior = cellMetrics.filter((item) => item.index < localIndex).at(-1);
   const prefix = cell.slice(prior ? prior.index + prior.text.length : 0, localIndex);
-  if (proposal.test(prefix)) return true;
+  if (unconfirmedKind(prefix) === "proposal") return true;
   const following = cellMetrics.find((item) => item.index > localIndex);
-  if (!following && proposal.test(cell.slice(localIndex + metric.text.length))) return true;
+  if (!following && unconfirmedKind(cell.slice(localIndex + metric.text.length)) === "proposal") return true;
   // A bare table value can inherit a column/measure label, not an unrelated target
   // later in the row (e.g. 27% baseline | proposed target below 10%).
   if (!cell.slice(0, localIndex).trim() && value[start] === "|") {
     const previousStart = Math.max(value.lastIndexOf("|", start - 1), value.lastIndexOf("\n", start - 1));
-    return proposal.test(value.slice(previousStart + 1, start));
+    return unconfirmedKind(value.slice(previousStart + 1, start)) === "proposal";
   }
   return false;
 }
@@ -133,28 +151,41 @@ function metricIsProposed(text: string, metric: Metric) {
 export function reviewDiscoveryEvidenceLedger(value: unknown, sources: DiscoveryEvidenceSource[]) {
   const errors: string[] = [];
   const ledger: DiscoveryEvidenceLedgerItem[] = [];
-  if (!Array.isArray(value) || !value.length) return { ledger, errors: ["An atomic evidence ledger is required."] };
+  const normalizations: Array<{ evidenceId: string; from: DiscoveryEvidenceLedgerItem["kind"]; to: DiscoveryEvidenceLedgerItem["kind"]; reason: "source-backed-unconfirmed-status" }> = [];
+  if (!Array.isArray(value) || !value.length) return { ledger, normalizations, errors: ["An atomic evidence ledger is required."] };
   const sourceMap = new Map(sources.map((source) => [source.id, source.text]));
   for (const input of value) {
     const item = record(input);
     if (!item || ![item.id, item.sourceId, item.quote, item.statement].every(nonempty) || !["fact", "requirement", "proposal", "open-question"].includes(String(item.kind))) {
       errors.push("An evidence ledger item is invalid."); continue;
     }
-    const entry = item as unknown as DiscoveryEvidenceLedgerItem;
+    const entry = { ...item } as unknown as DiscoveryEvidenceLedgerItem;
     const source = sourceMap.get(entry.sourceId);
     if (!source || !literal(source).includes(literal(entry.quote))) errors.push(`${entry.id} has an unverifiable source quotation.`);
     if (ledger.some((existing) => existing.id === entry.id)) errors.push("Evidence identifiers must be unique.");
     const quotedMetrics = metrics(entry.quote);
     const statementMetrics = metrics(entry.statement);
+    const statementStatus = unconfirmedKind(entry.statement);
+    let sourceStatus: "proposal" | "open-question" | undefined;
     for (const metric of statementMetrics) {
       const supported = quotedMetrics.filter((quoted) => metricMatches(quoted, metric));
       if (!supported.length) errors.push(`${entry.id} changes or invents a source measurement.`);
       const statistic = sourceMetricStatistic(entry.statement, metric);
       const quotedStatistics = supported.map((quoted) => sourceMetricStatistic(entry.quote, quoted)).filter(Boolean);
       if ((statistic && !quotedStatistics.includes(statistic)) || (quotedStatistics.length && !statistic)) errors.push(`${entry.id} changes or omits a source measurement statistic.`);
-      if (supported.length && supported.every((quoted) => metricIsProposed(entry.quote, quoted)) && !["proposal", "open-question"].includes(entry.kind)) errors.push(`${entry.id} treats a proposed measurement as confirmed.`);
+      if (supported.length && supported.every((quoted) => metricIsProposed(entry.quote, quoted))) sourceStatus = "proposal";
     }
-    if (proposal.test(entry.statement) && !["proposal", "open-question"].includes(entry.kind)) errors.push(`${entry.id} treats proposed evidence as confirmed.`);
+    if (!statementMetrics.length) {
+      const states = entry.quote.split(/(?<=[.!?])\s+|[\n;|]/).filter((clause) => sameAtomicClaim(entry.statement, clause)).map(unconfirmedKind);
+      sourceStatus = states.includes("open-question") ? "open-question" : states.includes("proposal") ? "proposal" : undefined;
+    }
+    if (sourceStatus && !statementStatus) errors.push(`${entry.id} removes a source-backed proposal or unresolved-decision qualification.`);
+    if (statementStatus && sourceStatus && !["proposal", "open-question"].includes(entry.kind)) {
+      const kind = statementStatus === "open-question" || sourceStatus === "open-question" ? "open-question" : "proposal";
+      normalizations.push({ evidenceId: entry.id, from: entry.kind, to: kind, reason: "source-backed-unconfirmed-status" });
+      entry.kind = kind;
+    } else if (statementStatus && !["proposal", "open-question"].includes(entry.kind)) errors.push(`${entry.id} has an unconfirmed classification not supported by its source claim.`);
+    if (statementStatus && !sourceStatus && /\b(?:must|shall|required|requires?|mandatory)\b/i.test(entry.quote)) errors.push(`${entry.id} weakens a confirmed source obligation into an unsupported proposal.`);
     ledger.push(entry);
   }
   for (const source of sources) {
@@ -167,7 +198,7 @@ export function reviewDiscoveryEvidenceLedger(value: unknown, sources: Discovery
       if (statistic && !items.some((item) => metrics(item.statement).some((actual) => metricMatches(metric, actual)) && new RegExp(`\\b${statistic}\\b`, "i").test(item.statement))) errors.push(`${source.id} has an atomic statement that strips a measurement's source statistic.`);
     }
   }
-  return { ledger, errors: [...new Set(errors)] };
+  return { ledger, normalizations, errors: [...new Set(errors)] };
 }
 
 function visibleFields(synthesis: FidelityDefinition) {
@@ -191,8 +222,10 @@ function restrictiveSelfClauses(text: string) {
   return normalized(text).split(/[.;\n]/).map((part) => part.split(/\b(?:but|however|whereas)\b/)[0]).filter((part) => /\b(?:own|self)\b/.test(part) && /\b(?:cannot|can not|must not|may not|shall not|not allowed|prevent(?:s|ed)?|block(?:s|ed)?|den(?:y|ies|ied)|prohibit(?:s|ed)?|forbid(?:s|den)?)\b/.test(part));
 }
 
-export function reviewDiscoveryFidelity(synthesis: FidelityDefinition, ledger: DiscoveryEvidenceLedgerItem[], value: unknown, sources: DiscoveryEvidenceSource[]) {
-  const errors = [...reviewDiscoveryEvidenceLedger(ledger, sources).errors];
+export function reviewDiscoveryFidelity(synthesis: FidelityDefinition, inputLedger: DiscoveryEvidenceLedgerItem[], value: unknown, sources: DiscoveryEvidenceSource[]) {
+  const reviewed = reviewDiscoveryEvidenceLedger(inputLedger, sources);
+  const ledger = reviewed.ledger;
+  const errors = [...reviewed.errors];
   const warnings: string[] = [];
   const coverage: Coverage[] = [];
   if (!Array.isArray(value)) return { errors: [...errors, "Evidence-to-output coverage is required."], warnings };
@@ -227,7 +260,7 @@ export function reviewDiscoveryFidelity(synthesis: FidelityDefinition, ledger: D
         if (candidates.some((actual) => /^(?:business|calendar) /.test(expected.unit) && /^(?:business|calendar) /.test(actual.unit) && actual.unit !== expected.unit)) errors.push(`${item.id} changes the measurement calendar or unit basis.`);
         if (candidates.some((actual) => expectedStatistic === "median" && /\b(?:average|mean)\b/i.test(metricContext(field, actual)))) errors.push(`${item.id} changes a median into a mean/average.`);
         if (candidates.some((actual) => ["average", "mean"].includes(expectedStatistic ?? "") && /\bmedian\b/i.test(metricContext(field, actual)))) errors.push(`${item.id} changes a mean/average into a median.`);
-        if (candidates.some((actual) => item.kind === "proposal" && /\b(?:achieved|approved|confirmed|committed)\b/i.test(metricContext(field, actual)) && !proposal.test(metricContext(field, actual)))) errors.push(`${item.id} presents a proposed target as approved or achieved.`);
+        if (candidates.some((actual) => item.kind === "proposal" && /\b(?:achieved|approved|confirmed|committed)\b/i.test(metricContext(field, actual)) && !unconfirmedKind(metricContext(field, actual)))) errors.push(`${item.id} presents a proposed target as approved or achieved.`);
       }
     }
     const sourceRestrictions = restrictiveSelfClauses(item.statement);
