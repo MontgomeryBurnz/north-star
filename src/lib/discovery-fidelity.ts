@@ -175,6 +175,40 @@ function sourceMetricStatistic(text: string, metric: Metric, tableSource?: strin
   const line = prefix.slice(Math.max(prefix.lastIndexOf("\n"), prefix.lastIndexOf(". "), prefix.lastIndexOf(";")) + 1);
   return line.match(/\b(median|average|mean)\b/g)?.at(-1);
 }
+// Producer-side completeness aid only. This is not a ledger, a source quotation,
+// or an approval decision; the uncapped evidence checks below remain authoritative.
+export function buildDiscoveryMeasurementInventory(sources: DiscoveryEvidenceSource[]) {
+  const perSourceLimit = Math.floor(128 / Math.max(1, sources.length));
+  return sources.map((source) => {
+    const text = normalized(source.text);
+    const lines = text.split("\n");
+    const measured = metrics(source.text);
+    return {
+      sourceId: source.id,
+      totalMeasurements: measured.length,
+      truncated: measured.length > perSourceLimit,
+      measurements: measured.slice(0, perSourceLimit).map((metric) => {
+        const rowIndex = text.slice(0, metric.index).split("\n").length - 1;
+        let firstRow = rowIndex;
+        if (lines[rowIndex].includes("|")) {
+          for (let previous = rowIndex - 1; previous >= 0 && lines[previous].includes("|"); previous--) {
+            if (/^measure *\|/.test(lines[previous])) { firstRow = previous; break; }
+          }
+        }
+        const fullContext = lines.slice(firstRow, rowIndex + 1).join("\n");
+        const rowStart = text.lastIndexOf("\n", metric.index) + 1;
+        const rowEnd = text.indexOf("\n", metric.index);
+        const context = fullContext.length <= 320 ? fullContext : text.slice(Math.max(rowStart, metric.index - 120), Math.min(rowEnd < 0 ? text.length : rowEnd, metric.index + metric.text.length + 120));
+        return {
+          value: metric.value, unit: metric.unit, comparator: metric.comparator,
+          countScope: metric.countScope, statistic: sourceMetricStatistic(source.text, metric),
+          normalizedSourceContext: context.slice(0, 320),
+          contextTruncated: fullContext.length > 320 || context.length > 320
+        };
+      })
+    };
+  });
+}
 const unknown = /\b(?:unconfirmed|unknown|not (?:yet )?(?:confirmed|documented|approved|defined)|open (?:technical )?(?:decisions?|questions?)|pending decision)\b/i;
 
 function unconfirmedKind(text: string): "proposal" | "open-question" | undefined {

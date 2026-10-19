@@ -141,6 +141,7 @@ test("public research sends only the explicit topic and retains verified citatio
     assert.deepEqual(calls[0].tools, [{ type: "web_search" }]);
     assert.match(searchInput, /Service intake usability/);
     assert.doesNotMatch(searchInput, /Private fixture client|Private notes|Civic Services/);
+    assert.doesNotMatch(searchInput, /measurementInventory|normalizedSourceContext/);
     assert.equal(result.research?.status, "completed");
     assert.equal(result.research?.sources[0].url, "https://example.org/research");
   } finally {
@@ -645,6 +646,7 @@ test("a completed VA-003 ledger candidate gets one bounded source-guided correct
       return response(calls.length === 1 ? { summary: "Public research unavailable" } : calls.length === 2 ? fixture.invalid : calls.length === 3 ? fixture.corrected : fixture.output);
     };
     const original = JSON.stringify(fixture.invalid);
+    const originalInput = JSON.stringify(fixture.input);
     const result = await generateDiscoverySynthesis(fixture.input, "Private decision notes", { previousSynthesis: sampleDiscoverySynthesis, externalResearch: true, researchTopic: "Public service delivery" });
     assert.equal(calls.length, 4, "This valid product uses evidence correction but does not require product correction.");
     assert.deepEqual(timeouts, [300_000, 730_000, 240_000, 480_000]);
@@ -653,6 +655,7 @@ test("a completed VA-003 ledger candidate gets one bounded source-guided correct
     assert.equal(result.modelUsage?.outputTokens, 400);
     assert.ok(result.quality?.checks.includes("Validation-guided evidence correction rechecked against all source coverage and fidelity rules"));
     assert.equal(JSON.stringify(fixture.invalid), original);
+    assert.equal(JSON.stringify(fixture.input), originalInput, "The completeness aid must not mutate the raw source package.");
     assert.equal(calls[2].max_output_tokens, 32_000);
     assert.deepEqual(calls[2].text, calls[1].text);
     for (const call of calls) {
@@ -660,6 +663,17 @@ test("a completed VA-003 ledger candidate gets one bounded source-guided correct
       assert.deepEqual(call.reasoning, { effort: "high" });
     }
     const repair = JSON.parse((calls[2].input as Array<{ content: string }>)[1].content);
+    const initialReview = JSON.parse((calls[1].input as Array<{ content: string }>)[1].content);
+    assert.deepEqual(repair.measurementInventory, initialReview.measurementInventory, "Both evidence passes receive the same source-derived completeness aid.");
+    const volumeInventory = initialReview.measurementInventory.find((source: { sourceId: string }) => source.sourceId === "sample-volume-analysis");
+    assert.equal(volumeInventory.totalMeasurements, 1);
+    assert.equal(volumeInventory.truncated, false);
+    assert.deepEqual(volumeInventory.measurements.map((measurement: { value: number; unit: string; countScope?: string }) => ({ value: measurement.value, unit: measurement.unit, countScope: measurement.countScope })), [{ value: 12, unit: "office", countScope: "baseline" }]);
+    assert.ok(!volumeInventory.measurements.some((measurement: { value: number; unit: string }) => measurement.value === 3 && /^(?:office|region)$/.test(measurement.unit)), "The unlabeled decision count cannot borrow either unit.");
+    const rawVolume = fixture.input.intake.artifacts.find((source) => source.id === "sample-volume-analysis")!.extractedText;
+    assert.equal(initialReview.sources.find((source: { id: string }) => source.id === "sample-volume-analysis").text, rawVolume);
+    assert.deepEqual(repair.sources, initialReview.sources, "Normalization context must not replace the original raw sources during correction.");
+    assert.match((calls[1].input as Array<{ content: string }>)[0].content, /normalizedSourceContext is normalized context, not an exact source quotation/);
     assert.deepEqual(repair.candidateEvidence, fixture.invalid);
     assert.ok(repair.validationErrors.some((error: string) => error.includes("VA-003 changes or invents a source measurement")));
     assert.equal(repair.sources.length, 6);
@@ -671,6 +685,28 @@ test("a completed VA-003 ledger candidate gets one bounded source-guided correct
     const stages = logs.map((entry) => entry[1] as Record<string, unknown>).filter((entry) => entry.status === "completed");
     assert.deepEqual(stages.map((entry) => entry.stage), ["public-research", "evidence-review", "evidence-repair", "product-synthesis"]);
     assert.doesNotMatch(JSON.stringify(logs), /VA-003|Regional offices|Private decision|candidateEvidence|fixture-key-never-sent/);
+  });
+});
+
+test("measurement inventory cannot append a missing baseline fact or bypass the evidence fidelity gate", async () => {
+  await withStubs(async (logs) => {
+    const fixture = evidenceRepairFixture();
+    const omitted = structuredClone(fixture.corrected);
+    omitted.evidenceLedger.find((item) => item.sourceId === "sample-volume-analysis")!.statement = "A pilot is discussed before scale-up.";
+    const original = JSON.stringify(omitted);
+    const calls: Record<string, unknown>[] = [];
+    globalThis.fetch = async (_input, init) => {
+      calls.push(JSON.parse(String(init?.body)));
+      return response(omitted);
+    };
+    await assert.rejects(generateDiscoverySynthesis(fixture.input), (error: Error) => {
+      assert.match(error.message, /evidence review failed fidelity checks/);
+      assert.match(error.message, /Missing measurement: value=12; unit=office/);
+      return true;
+    });
+    assert.equal(calls.length, 2, "One evidence correction still fails closed; synthesis and extra correction cannot start.");
+    assert.equal(JSON.stringify(omitted), original, "The original model ledger cannot be silently supplemented.");
+    assert.doesNotMatch(JSON.stringify(logs), /Regional offices|measurementInventory|normalizedSourceContext/);
   });
 });
 
