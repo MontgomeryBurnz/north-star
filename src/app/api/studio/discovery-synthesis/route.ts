@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { requireInternalWorkspaceRouteAccess } from "@/lib/api-route-access";
 import { auditActorFromManagedUser, buildSystemAuditActor } from "@/lib/audit-event-service";
 import { DiscoveryGenerationError, generateDiscoverySynthesis, validateDiscoverySynthesis } from "@/lib/discovery-studio-service";
+import { discoveryStudioResponse } from "@/lib/discovery-studio-transport";
 import type { DiscoverySynthesisRequest } from "@/lib/discovery-studio-types";
 import type { ProgramArtifact, StoredProgram } from "@/lib/program-intake-types";
 import { createAuditEvent } from "@/lib/program-store";
@@ -93,35 +94,37 @@ export async function POST(request: Request) {
   const selectedOutputs = Array.isArray(body.selectedOutputs) ? body.selectedOutputs.filter((output) => allowedOutputs.includes(output)) : undefined;
   const researchTopic = cleanText(body.researchTopic, 500);
   if (body.externalResearch && !researchTopic) return NextResponse.json({ error: "Enter a public topic for external research." }, { status: 400 });
-  let synthesis;
-  try {
-    synthesis = await generateDiscoverySynthesis(buildWorkspace(workspaceName, artifacts), resolutionNotes, {
-      feedback: cleanText(body.feedback, 12_000), previousSynthesis: body.previousSynthesis, selectedOutputs,
-      externalResearch: body.externalResearch === true, researchTopic
+  return discoveryStudioResponse(request, async () => {
+    let synthesis;
+    try {
+      synthesis = await generateDiscoverySynthesis(buildWorkspace(workspaceName, artifacts), resolutionNotes, {
+        feedback: cleanText(body.feedback, 12_000), previousSynthesis: body.previousSynthesis, selectedOutputs,
+        externalResearch: body.externalResearch === true, researchTopic
+      });
+    } catch (error) {
+      return { status: 503, body: { error: error instanceof DiscoveryGenerationError ? error.message : "Studio could not finish the analysis. Your current package is preserved." } };
+    }
+    const eventId = randomUUID();
+
+    await createAuditEvent({
+      actor: auditActorFromManagedUser(currentUser) ?? buildSystemAuditActor(),
+      entityId: eventId,
+      entityLabel: workspaceName,
+      entityType: "studio-workspace",
+      eventType: "artifact.generate",
+      metadata: {
+        blockingGapCount: synthesis.gaps.filter((gap) => gap.severity === "blocking").length,
+        provider: synthesis.provider,
+        readinessScore: synthesis.readinessScore,
+        sourceCount: synthesis.sourceCount,
+        modelUsage: synthesis.modelUsage,
+        revision: synthesis.revision?.number,
+        standalone: true
+      },
+      summary: `${workspaceName} synthesized into a product definition for review.`,
+      surface: "Studio"
     });
-  } catch (error) {
-    return NextResponse.json({ error: error instanceof DiscoveryGenerationError ? error.message : "Studio could not finish the analysis. Your current package is preserved." }, { status: 503 });
-  }
-  const eventId = randomUUID();
 
-  await createAuditEvent({
-    actor: auditActorFromManagedUser(currentUser) ?? buildSystemAuditActor(),
-    entityId: eventId,
-    entityLabel: workspaceName,
-    entityType: "studio-workspace",
-    eventType: "artifact.generate",
-    metadata: {
-      blockingGapCount: synthesis.gaps.filter((gap) => gap.severity === "blocking").length,
-      provider: synthesis.provider,
-      readinessScore: synthesis.readinessScore,
-      sourceCount: synthesis.sourceCount,
-      modelUsage: synthesis.modelUsage,
-      revision: synthesis.revision?.number,
-      standalone: true
-    },
-    summary: `${workspaceName} synthesized into a product definition for review.`,
-    surface: "Studio"
+    return { status: 200, body: { synthesis } };
   });
-
-  return NextResponse.json({ synthesis });
 }

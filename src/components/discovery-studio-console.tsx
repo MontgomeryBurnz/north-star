@@ -3,6 +3,7 @@
 import { useRef, useState, type ChangeEvent } from "react";
 import { AlertTriangle, BrainCircuit, ClipboardCopy, Download, FileText, History, Layers3, Loader2, MessageSquare, RotateCcw, Sparkles, Upload, X } from "lucide-react";
 import type { DiscoverySynthesis } from "@/lib/discovery-studio-types";
+import { readDiscoveryStudioResponse } from "@/lib/discovery-studio-transport";
 import type { ProgramArtifact } from "@/lib/program-intake-types";
 import { STUDIO_EXPORT_FORMATS, STUDIO_OUTPUT_OPTIONS, type StudioExportFormat, type StudioOutputId } from "@/lib/studio-export-types";
 import { Button } from "@/components/ui/button";
@@ -138,12 +139,10 @@ export function DiscoveryStudioConsole({ initialSample = false }: { initialSampl
       setStatus(refine ? "Revising the package while checking traceability, acceptance criteria, and tests…" : "Synthesizing the evidence, gaps, roadmap, stories, and tests…");
       const response = await fetch("/api/studio/discovery-synthesis", {
         method: "POST",
-        headers: { "content-type": "application/json" },
+        headers: { "content-type": "application/json", accept: "text/event-stream" },
         body: JSON.stringify({ workspaceName: workspaceName.trim() || "Discovery workspace", artifacts: analysisSources, resolutionNotes, selectedOutputs, externalResearch, researchTopic: externalResearch ? researchTopic.trim() : "", ...(synthesis ? { previousSynthesis: synthesis } : {}), ...(refine ? { feedback: revisionFeedback } : {}) })
       });
-      const payload = (await response.json()) as { error?: string; synthesis?: DiscoverySynthesis };
-      if (!response.ok || !payload.synthesis) throw new Error(payload.error || "Studio analysis failed.");
-      const result = payload.synthesis;
+      const result = await readDiscoveryStudioResponse(response, () => setStatus("Studio is still working on the discovery package. The completed, checked outputs will appear here when ready…"));
       const revisionId = (revisions.at(-1)?.id ?? 0) + 1;
       result.revision = { number: revisionId, summary: result.revision?.summary || "Discovery synthesis generated", ...(refine ? { feedback: revisionFeedback } : {}) };
       const summary = result.revision?.summary || (refine ? revisionFeedback : resolutionNotes.trim() ? "Reanalyzed with additional context" : "Discovery synthesis generated");
