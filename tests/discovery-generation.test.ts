@@ -184,7 +184,7 @@ test("failed AI calls and malformed hierarchy never silently replace the current
     const invalid = structuredClone(sampleDiscoverySynthesis);
     invalid.stories[0].featureId = "invented-feature";
     globalThis.fetch = async () => response(++calls === 1 ? evidence : invalid);
-    await assert.rejects(generateDiscoverySynthesis(program), /quality checks/);
+    await assert.rejects(generateDiscoverySynthesis(program), /invalid epic or feature reference/);
   } finally {
     globalThis.fetch = originalFetch;
     if (originalKey === undefined) delete process.env.OPENAI_API_KEY; else process.env.OPENAI_API_KEY = originalKey;
@@ -346,8 +346,8 @@ test("fidelity failures stop before another provider request or preserve the pre
     const invalidCoverage = structuredClone(sampleDiscoverySynthesis);
     invalidCoverage.evidenceCoverage[0].storyIds = ["UNKNOWN-STORY"] as never[];
     globalThis.fetch = async () => response(++calls === 1 ? evidence : invalidCoverage);
-    await assert.rejects(generateDiscoverySynthesis(program, "", { previousSynthesis: previous }), /failed evidence fidelity or risk-based coverage checks/);
-    assert.equal(calls, 2);
+    await assert.rejects(generateDiscoverySynthesis(program, "", { previousSynthesis: previous }), /unresolved output references/);
+    assert.equal(calls, 3, "At most one validation-guided correction may follow the initial product candidate.");
     assert.equal(JSON.stringify(previous), original);
   });
 });
@@ -380,7 +380,7 @@ test("source-backed classification normalization reaches synthesis and final che
     calls.length = 0;
     const falselyConfirmed = { ...output, evidenceCoverage: sampleDiscoverySynthesis.evidenceCoverage };
     globalThis.fetch = async (_input, init) => { calls.push(JSON.parse(String(init?.body))); return response(calls.length === 1 ? proposalEvidence : falselyConfirmed); };
-    await assert.rejects(generateDiscoverySynthesis(normalizedProgram), /failed evidence fidelity or risk-based coverage checks/);
+    await assert.rejects(generateDiscoverySynthesis(normalizedProgram), /promotes a proposal to a confirmed obligation/);
   });
 });
 
@@ -422,17 +422,101 @@ test("ambiguous wording produces an explicit provisional review draft without re
 
     for (const invalidRow of [
       { ...generated.evidenceCoverage[0], gapIds: ["UNKNOWN-GAP"] },
+      { ...generated.evidenceCoverage[0], gapIds: ["GAP-EVIDENCE-REVIEW-1-HOLD-1"] },
       { ...generated.evidenceCoverage[0], disposition: "INVALID" },
       { ...generated.evidenceCoverage[0], storyIds: ["UNKNOWN-STORY"] }
     ]) {
       calls.length = 0;
       const invalid = { ...generated, evidenceCoverage: [invalidRow, ...generated.evidenceCoverage.slice(1)] };
       globalThis.fetch = async () => { calls.push({}); return response(calls.length === 1 ? review : invalid); };
-      await assert.rejects(generateDiscoverySynthesis(input), /failed evidence fidelity or risk-based coverage checks/);
+      await assert.rejects(generateDiscoverySynthesis(input), /failed structure, evidence fidelity or risk-based coverage checks/);
     }
     calls.length = 0;
     const omitted = { ...generated, evidenceCoverage: generated.evidenceCoverage.slice(1) };
     globalThis.fetch = async () => { calls.push({}); return response(calls.length === 1 ? review : omitted); };
-    await assert.rejects(generateDiscoverySynthesis(input), /failed evidence fidelity or risk-based coverage checks/);
+    await assert.rejects(generateDiscoverySynthesis(input), /has no evidence-to-output coverage/);
+  });
+});
+
+test("one validation-guided correction can fix a completed product candidate and is fully revalidated", async () => {
+  await withStubs(async (logs) => {
+    const invalid = structuredClone(sampleDiscoverySynthesis);
+    invalid.stories[0].featureId = "invented-feature";
+    const original = JSON.stringify(invalid);
+    const calls: Record<string, unknown>[] = [];
+    globalThis.fetch = async (_input, init) => {
+      calls.push(JSON.parse(String(init?.body)));
+      return response(calls.length === 1 ? evidence : calls.length === 2 ? invalid : sampleDiscoverySynthesis);
+    };
+    const result = await generateDiscoverySynthesis(program, "", { selectedOutputs: ["roadmap", "tests"] });
+    assert.equal(calls.length, 3);
+    assert.equal(result.provider, "openai");
+    assert.equal(result.quality?.status, "reviewed");
+    assert.equal(result.stories[0].featureId, sampleDiscoverySynthesis.stories[0].featureId);
+    assert.ok(result.quality?.checks.includes("Validation-guided correction rechecked against all package quality rules"));
+    assert.equal(result.modelUsage?.totalTokens, 600);
+    assert.equal(JSON.stringify(invalid), original);
+    assert.match(JSON.stringify(calls[2].input), /invented-feature/);
+    assert.match(JSON.stringify(calls[2].input), /invalid epic or feature reference/);
+    assert.match(JSON.stringify(calls[2].input), /Every service request has an accountable owner/);
+    const correctionInput = JSON.parse((calls[2].input as Array<{ content: string }>)[1].content);
+    assert.deepEqual(correctionInput.candidatePackage, invalid);
+    assert.ok(correctionInput.validationErrors.some((error: string) => error.includes("invalid epic or feature reference")));
+    assert.deepEqual(correctionInput.selectedOutputs, ["roadmap", "tests"]);
+    assert.equal(calls[2].max_output_tokens, 48_000);
+    assert.equal(calls[2].stream, true);
+    assert.equal(calls[2].store, false);
+    assert.deepEqual(calls[2].reasoning, { effort: "high" });
+    assert.deepEqual(logs.map((entry) => entry[1] as Record<string, unknown>).filter((entry) => entry.status === "completed").map((entry) => entry.stage), ["evidence-review", "product-synthesis", "product-repair"]);
+    assert.doesNotMatch(JSON.stringify(logs), /invented-feature|Every service request|fixture-key-never-sent/);
+  });
+});
+
+test("repeated invalid correction fails after one attempt and preserves the previous package", async () => {
+  await withStubs(async () => {
+    const previous = structuredClone(sampleDiscoverySynthesis);
+    const original = JSON.stringify(previous);
+    const invalid = structuredClone(sampleDiscoverySynthesis);
+    invalid.evidenceCoverage[0].storyIds = ["UNKNOWN-STORY"] as never[];
+    let calls = 0;
+    globalThis.fetch = async () => response(++calls === 1 ? evidence : invalid);
+    await assert.rejects(generateDiscoverySynthesis(program, "", { previousSynthesis: previous }), /unresolved output references/);
+    assert.equal(calls, 3);
+    assert.equal(JSON.stringify(previous), original);
+  });
+});
+
+test("correction cannot reset the shared deadline or run with insufficient remaining time", async () => {
+  await withStubs(async () => {
+    let now = 0;
+    let calls = 0;
+    const timeouts: number[] = [];
+    Date.now = () => now;
+    AbortSignal.timeout = (ms) => { timeouts.push(ms); return new AbortController().signal; };
+    const invalid = structuredClone(sampleDiscoverySynthesis);
+    invalid.stories[0].featureId = "invented-feature";
+    globalThis.fetch = async () => {
+      calls++;
+      now += calls === 1 ? 100_000 : 600_000;
+      return response(calls === 1 ? evidence : invalid);
+    };
+    await assert.rejects(generateDiscoverySynthesis(program), /preserved/);
+    assert.equal(calls, 2);
+    assert.deepEqual(timeouts, [740_000, 640_000]);
+  });
+});
+
+test("provider failures during product generation never trigger a paid correction retry", async () => {
+  await withStubs(async () => {
+    for (const failure of [
+      async () => Response.json({ error: { code: "credit_balance_exhausted" } }, { status: 429 }),
+      async () => { throw new TypeError("Private fixture connection failure"); },
+      async () => Response.json({ status: "incomplete", incomplete_details: { reason: "max_output_tokens" }, output_text: "Partial fixture" })
+    ]) {
+      let calls = 0;
+      globalThis.fetch = async () => ++calls === 1 ? response(evidence) : failure();
+      await assert.rejects(generateDiscoverySynthesis(program));
+      assert.equal(calls, 2);
+    }
   });
 });
