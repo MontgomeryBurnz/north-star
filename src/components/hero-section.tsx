@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowRight, BookOpenCheck, FilePlus2, FileText, Gauge, Info, Layers3, ListChecks, Sparkles } from "lucide-react";
+import { ArrowRight, BookOpenCheck, FilePlus2, FileText, Gauge, Info, Layers3, ListChecks, PlayCircle, Sparkles } from "lucide-react";
 
 import { MotionDiv } from "@/components/motion";
 import { Button } from "@/components/ui/button";
@@ -83,6 +83,12 @@ export function HeroSection({ metrics }: { metrics: DashboardMetrics }) {
               </Link>
             </Button>
             <Button asChild variant="outline" size="lg">
+              <Link href="/sample-program">
+                <PlayCircle className="h-4 w-4" />
+                Explore a sample
+              </Link>
+            </Button>
+            <Button asChild variant="ghost" size="lg">
               <Link href="/#how-to-use">See the workflow</Link>
             </Button>
           </div>

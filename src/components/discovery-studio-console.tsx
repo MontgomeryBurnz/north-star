@@ -22,6 +22,11 @@ import type { ProgramArtifact } from "@/lib/program-intake-types";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ProductPageHeader } from "@/components/product-page-header";
+import {
+  sampleDiscoverySources,
+  sampleDiscoverySynthesis,
+  sampleProgram
+} from "@/data/sample-program";
 
 type StudioView = "understanding" | "gaps" | "build";
 
@@ -116,16 +121,19 @@ function InsightList({ empty, items, title }: { empty: string; items: string[]; 
   );
 }
 
-export function DiscoveryStudioConsole() {
+export function DiscoveryStudioConsole({ initialSample = false }: { initialSample?: boolean }) {
   const inputRef = useRef<HTMLInputElement | null>(null);
   const [pendingFiles, setPendingFiles] = useState<File[]>([]);
-  const [sources, setSources] = useState<ProgramArtifact[]>([]);
-  const [synthesis, setSynthesis] = useState<DiscoverySynthesis | null>(null);
+  const [sources, setSources] = useState<ProgramArtifact[]>(initialSample ? sampleDiscoverySources : []);
+  const [synthesis, setSynthesis] = useState<DiscoverySynthesis | null>(initialSample ? sampleDiscoverySynthesis : null);
   const [resolutionNotes, setResolutionNotes] = useState("");
-  const [workspaceName, setWorkspaceName] = useState("Discovery workspace");
-  const [status, setStatus] = useState("Add discovery evidence to begin. This workspace is not connected to an active program.");
-  const [view, setView] = useState<StudioView>("understanding");
+  const [workspaceName, setWorkspaceName] = useState(initialSample ? sampleProgram.name : "Discovery workspace");
+  const [status, setStatus] = useState(initialSample
+    ? "Sample package loaded. Explore the synthesis or regenerate it with additional context."
+    : "Add discovery evidence to begin. This workspace is not connected to an active program.");
+  const [view, setView] = useState<StudioView>(initialSample ? "build" : "understanding");
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [isSampleWorkspace, setIsSampleWorkspace] = useState(initialSample);
   const readableSourceCount = sources.filter((artifact) => artifact.extractedText?.trim()).length;
   const blockingGapCount = synthesis?.gaps.filter((gap) => gap.severity === "blocking").length ?? 0;
 
@@ -241,7 +249,20 @@ export function DiscoveryStudioConsole() {
     setResolutionNotes("");
     setView("understanding");
     setWorkspaceName("Discovery workspace");
+    setIsSampleWorkspace(false);
     setStatus("Fresh workspace ready. Add discovery evidence to begin.");
+    if (inputRef.current) inputRef.current.value = "";
+  }
+
+  function loadSampleWorkspace() {
+    setPendingFiles([]);
+    setSources(sampleDiscoverySources);
+    setSynthesis(sampleDiscoverySynthesis);
+    setResolutionNotes("");
+    setView("build");
+    setWorkspaceName(sampleProgram.name);
+    setIsSampleWorkspace(true);
+    setStatus("Sample package loaded. Explore the synthesis or regenerate it with additional context.");
     if (inputRef.current) inputRef.current.value = "";
   }
 
@@ -253,6 +274,21 @@ export function DiscoveryStudioConsole() {
           title="Turn discovery into build-ready product definition."
           description="Bring the full discovery package. North Star synthesizes the evidence, exposes what is missing, and creates a traceable roadmap, backlog, acceptance criteria, and test foundation."
         />
+
+        {isSampleWorkspace ? (
+          <div className="flex flex-col gap-3 rounded-lg border border-cyan-300/20 bg-cyan-300/[0.055] p-4 sm:flex-row sm:items-center sm:justify-between" data-studio-sample>
+            <div className="flex items-start gap-3">
+              <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-cyan-200" />
+              <div>
+                <p className="text-sm font-medium text-cyan-100">Exploring a fictional sample package</p>
+                <p className="mt-1 text-xs leading-5 text-zinc-400">This session is not saved and does not create or change an active program.</p>
+              </div>
+            </div>
+            <Button type="button" variant="outline" size="sm" onClick={clearWorkspace} className="border-cyan-300/20 text-cyan-100">
+              Use my own sources
+            </Button>
+          </div>
+        ) : null}
 
         <Card className="overflow-hidden bg-zinc-950/80">
           <CardContent className="grid gap-5 p-4 sm:p-5">
@@ -269,9 +305,16 @@ export function DiscoveryStudioConsole() {
                 />
                 <span className="text-sm leading-6 text-zinc-400">Standalone by design. Nothing in this workspace depends on or updates an active program.</span>
               </label>
-              <Button type="button" variant="outline" onClick={clearWorkspace} disabled={!sources.length && !pendingFiles.length && !synthesis} data-studio-clear>
-                <RotateCcw className="h-4 w-4" />Start fresh
-              </Button>
+              <div className="flex flex-wrap gap-2">
+                {!sources.length && !pendingFiles.length && !synthesis ? (
+                  <Button type="button" variant="outline" onClick={loadSampleWorkspace} data-studio-load-sample>
+                    <Sparkles className="h-4 w-4" />Try sample package
+                  </Button>
+                ) : null}
+                <Button type="button" variant="outline" onClick={clearWorkspace} disabled={!sources.length && !pendingFiles.length && !synthesis} data-studio-clear>
+                  <RotateCcw className="h-4 w-4" />Start fresh
+                </Button>
+              </div>
             </div>
             <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
               <Metric label="Discovery sources" value={String(sources.length + pendingFiles.length)} />

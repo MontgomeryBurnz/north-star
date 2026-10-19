@@ -7,7 +7,12 @@ export const metadata = {
   title: "Studio | North Star"
 };
 
-export default async function ArtifactsPage() {
+export default async function ArtifactsPage({
+  searchParams
+}: {
+  searchParams: Promise<{ sample?: string }>;
+}) {
   await requireInternalWorkspacePage("/artifacts");
-  return <DiscoveryStudioConsole />;
+  const { sample } = await searchParams;
+  return <DiscoveryStudioConsole initialSample={sample === "regional-service-modernization"} />;
 }

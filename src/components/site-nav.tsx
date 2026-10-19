@@ -21,6 +21,7 @@ const primaryNavItems: NavItem[] = [
   { label: "Program Hub", href: "/active-program", activePaths: ["/active-program", "/new-program"] },
   { label: "Guided Plans", href: "/systems" },
   { label: "Studio", href: "/artifacts" },
+  { label: "Sample", href: "/sample-program" },
   { label: "Client Portal", href: "/client" },
   { label: "Leadership", href: "/leadership" },
   { label: "Knowledge", href: "/knowledge" }

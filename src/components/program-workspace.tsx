@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowRight, ClipboardList, FilePlus2, Gauge, Layers3, ShieldCheck } from "lucide-react";
+import { ArrowRight, ClipboardList, FilePlus2, Gauge, Layers3, ShieldCheck, Sparkles } from "lucide-react";
 import { ActiveProgramReviewSection } from "@/components/active-program-review-section";
 import { ProductPageHeader } from "@/components/product-page-header";
 import { ProgramIntakeSection } from "@/components/program-intake-section";
@@ -100,6 +100,24 @@ function ProgramHubLanding() {
       </section>
 
       <section className="northstar-shell py-10">
+        <Link
+          href="/sample-program"
+          className="mb-5 grid gap-4 rounded-lg border border-emerald-300/20 bg-emerald-300/[0.055] p-5 transition-colors hover:border-emerald-300/35 hover:bg-emerald-300/[0.075] sm:grid-cols-[auto_1fr_auto] sm:items-center"
+          data-sample-program-entry
+        >
+          <span className="flex h-10 w-10 items-center justify-center rounded-md border border-emerald-300/25 bg-emerald-300/10 text-emerald-100">
+            <Sparkles className="h-4 w-4" />
+          </span>
+          <span>
+            <span className="block text-sm font-medium text-emerald-100">New to North Star? Explore a complete sample program.</span>
+            <span className="mt-1 block text-sm leading-6 text-zinc-400">See discovery evidence become product definition, delivery guidance, leadership decisions, and a client-ready story—without adding data to your workspace.</span>
+          </span>
+          <span className="flex items-center gap-2 text-sm font-medium text-emerald-100">
+            Open sample
+            <ArrowRight className="h-4 w-4" />
+          </span>
+        </Link>
+
         <div className="grid gap-4 lg:grid-cols-3">
           {programHubEntries.map((entry) => (
             <Link
