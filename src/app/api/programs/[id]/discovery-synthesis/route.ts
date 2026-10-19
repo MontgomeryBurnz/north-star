@@ -6,7 +6,8 @@ import type { DiscoverySynthesisRequest } from "@/lib/discovery-studio-types";
 import { createAuditEvent, createOpenAIUsageRecord, createRoleArtifact, getProgram, listRoleArtifacts } from "@/lib/program-store";
 
 const artifactType = "studio-discovery-build-package";
-export const maxDuration = 300;
+// Keep this above the service's 740s deadline so saved artifacts/audits finish.
+export const maxDuration = 800;
 
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;

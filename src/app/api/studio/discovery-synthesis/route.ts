@@ -8,7 +8,9 @@ import type { ProgramArtifact, StoredProgram } from "@/lib/program-intake-types"
 import { createAuditEvent } from "@/lib/program-store";
 
 export const runtime = "nodejs";
-export const maxDuration = 300;
+// The service stops at 740s, leaving time for validation/audit writes before
+// Vercel Pro's generally available 800s Fluid Compute limit.
+export const maxDuration = 800;
 
 function cleanText(value: unknown, limit: number) {
   return typeof value === "string" ? value.trim().slice(0, limit) : "";
