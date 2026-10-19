@@ -14,6 +14,7 @@ export const discoverySynthesisFidelityInstructions = [
   "Carry every quantitative ledger assertion into the visible analysis, rules, outcomes or assumptions with its original value/comparator, unit, statistic, calendar basis, observation period and confirmation status. Do not omit secondary KPIs or proposed targets. Preserve measured baselines separately from proposed targets and achieved outcomes. Repeat qualifiers where an otherwise ambiguous assertion could change meaning. Prior generated content, including apparent business rules, must be corrected whenever unsupported by raw evidence.",
   "Do not broaden policy: a prohibition on approving one's own specific exception does not prohibit rejecting it or all own requests unless separately sourced. Cover a permitted rejection with rationale and a rejection attempt with empty rationale when those decision rules are stated. Test every source-required immutable audit field and tamper prevention, unauthorized sensitive-content access, and personal-data redaction in each stated output channel.",
   "For source-required redaction, seed recognizable synthetic personal details using source-supported fields, inspect EACH source-named output channel, and explicitly assert in the expected result that those details are absent or redacted there. Generic role denial or saying privacy is applied does not verify channel redaction. Do not invent client fields, privacy policies or policy values; ask a precise gap question where required details are unknown.",
+  "For a confirmed retention duration, put that exact source period in the test title or steps when testing the relative boundary (for example, immediately before or at the minimum period). Assert that the record remains accessible, queryable, retrievable or not deleted through the required period. Do not invent deletion after the minimum retention period unless the source separately requires it.",
   "Use risk-based scenarios, not a generic negative test merely to satisfy a count. For any service-level percentage intervention threshold include explicit below/equal/above cases and missing/unconfirmed configuration behavior. Calendar boundaries and pause/resume, keyboard and screen-reader journeys, retries/failure handling, retention/deletion/privacy must each have relevant test behavior or, for an unknown policy, a precise discovery gap. Use parameterized/configuration-dependent tests and mark affected stories needs-input rather than inventing thresholds, accessibility standards, retry policy or legal behavior. Expected results must assert observable behavior and required fields, not merely say success, an audit exists, or follow policy."
 ].join(" ");
 
@@ -265,7 +266,22 @@ function actions(text: string) {
   return result;
 }
 function restrictiveSelfClauses(text: string) {
-  return normalized(text).split(/[.;\n]/).map((part) => part.split(/\b(?:but|however|whereas)\b/)[0]).filter((part) => /\b(?:own|self)\b/.test(part) && /\b(?:cannot|can not|must not|may not|shall not|not allowed|prevent(?:s|ed)?|block(?:s|ed)?|den(?:y|ies|ied)|prohibit(?:s|ed)?|forbid(?:s|den)?)\b/.test(part));
+  return normalized(text).split(/[.;\n]/).map((part) => part.split(/\b(?:but|however|whereas)\b/)[0]).flatMap((part) => {
+    const self = part.search(/\b(?:own|self)\b/);
+    const cues = [...part.matchAll(/\b(?:cannot|can not|must not|may not|shall not|not allowed|prevent(?:s|ed)?|block(?:s|ed)?|den(?:y|ies|ied)|prohibit(?:s|ed)?|forbid(?:s|den)?)\b/g)];
+    const cue = cues.filter((match) => match.index! <= self).at(-1) ?? cues[0];
+    if (self < 0 || !cue) return [];
+    let start = cue.index! <= self ? cue.index! : part.lastIndexOf(",", self) + 1;
+    const precedingNegation = part.slice(0, start).match(/\bnot(?:\s+\w+){0,2}\s*$/);
+    if (precedingNegation) start = precedingNegation.index!;
+    let clause = part.slice(start).trim();
+    const own = clause.search(/\bown\b/);
+    const comma = own < 0 ? -1 : clause.indexOf(",", own);
+    // A compound product summary may list permitted approval/rejection before the
+    // prohibition and unrelated audit work afterward. Neither is a new prohibited action.
+    if (comma >= 0 && !/^,\s*(?:(?:and|or)\s+)?(?:approv\w*|reject\w*|delet\w*|publish\w*|cancel\w*|edit\w*|assign\w*|unless|except|only if|if|when)\b/.test(clause.slice(comma))) clause = clause.slice(0, comma);
+    return [clause];
+  });
 }
 
 function ownObjectScope(clause: string) {
@@ -280,15 +296,37 @@ function proposedMetricPromoted(context: string) {
   return /\bachieved\s+(?:results?|outcomes?)\b/.test(value)
     || (/\b(?:achieved|approved|confirmed|committed)\b/.test(value) && !unconfirmedKind(value));
 }
-function assertsPersonalDataRedaction(expectedResult: string) {
-  const value = normalized(expectedResult);
-  if (!/\b(?:personal|sensitive|pii)\b/.test(value)) return false;
+function assertsSeededPersonalDataRedaction(test: DiscoveryTestCase) {
+  const seeded = [test.title, ...test.steps].join(" ");
+  if (!/\b(?:personal|sensitive|pii)\b/i.test(seeded)) return false;
+  // Quoted UI labels are not personal canaries: take values only from explicit
+  // data-setup steps naming personal content or identity fields.
+  const setup = test.steps.filter((step) => /\b(?:seed|enter|populate|set|create|submit|provide|fill)\w*\b/i.test(step) && /\b(?:personal|sensitive|pii|name|phone|email|address)\b/i.test(step)).join(" ");
+  const markers = [...setup.matchAll(/"([^"\n]{3,100})"|(?<!\w)'([^'\n]{3,100})'/g)].map((match) => normalized(match[1] ?? match[2])).filter((marker) => marker.length >= 3 && /[a-z0-9]/.test(marker));
+  const expected = normalized(test.expectedResult);
+  const seededMarkers = [...new Set(markers)];
+  if (!seededMarkers.length || seededMarkers.some((marker) => !expected.includes(marker))) return false;
+  const clauses = expected.split(/(?<=[.!?])\s+|[;\n]|\b(?:but|however|whereas|while)\b/);
+  return seededMarkers.every((marker) => clauses.filter((clause) => clause.includes(marker)).every((clause) => {
+    const position = clause.indexOf(marker);
+    const before = clause.slice(0, position);
+    const after = clause.slice(position + marker.length);
+    const positiveExposure = [...clause.matchAll(/\b(?:contains?|includes?|displays?|shows?|exposes?|reveals?)\b/g)].some((match) => !/\bnot\s*$/.test(clause.slice(Math.max(0, match.index! - 12), match.index)));
+    if (positiveExposure || /\b(?:is|are|remain(?:s)?)\s+(?:visible|shown|displayed|included|exposed|present)\b/.test(after)) return false;
+    return /\bnot\s+(?:contain|expose|display|show|include|disclose|reveal|render|send|deliver|leak)\b/.test(before)
+      || /\b(?:absent|redacted|masked|omitted|excluded|removed|hidden)\b/.test(after) && !/\bnot\b/.test(after)
+      || /\bnot\s+(?:visible|shown|displayed|included|exposed|present)\b/.test(after);
+  }));
+}
+function assertsPersonalDataRedaction(test: DiscoveryTestCase) {
+  const value = normalized(test.expectedResult);
+  if (!/\b(?:personal|sensitive|pii)\b/.test(value)) return assertsSeededPersonalDataRedaction(test);
   if (/\bnot\s+(?:expose|display|show|include|disclose|reveal|contain|render|send|deliver|leak)\b[^.;]{0,90}\b(?:personal|sensitive|pii)\b/.test(value)) return true;
   if (/\bno\s+(?:(?:residents?|users?|customers?|clients?|requesters?|applicants?|employees?)(?:['’]s?)?\s+)?(?:personal|sensitive|pii)\b/.test(value)) return true;
   if (/\b(?:personal|sensitive|pii)\b[^.;]{0,75}\bnot\s+(?:visible|disclosed|included|displayed|shown|exposed|present|sent|rendered)\b/.test(value)) return true;
   if (/\b(?:personal|sensitive|pii)\b(?:(?!\b(?:not|never|cannot)\b)[^.;]){0,75}\b(?:redacted|masked|omitted|excluded|absent|removed|hidden)\b/.test(value)) return true;
   return [...value.matchAll(/\b(?:redact(?:s|ed|ing)?|mask(?:s|ed|ing)?|omit(?:s|ted|ting)?|exclude(?:s|d|ing)?|remove(?:s|d|ing)?|hide(?:s)?)\b[^.;]{0,75}\b(?:personal|sensitive|pii)\b/g)]
-    .some((match) => !/\b(?:not|never|without|cannot|unable to)\s*(?:be\s*)?$/.test(value.slice(Math.max(0, match.index! - 24), match.index)));
+    .some((match) => !/\b(?:not|never|without|cannot|unable to)\s*(?:be\s*)?$/.test(value.slice(Math.max(0, match.index! - 24), match.index))) || assertsSeededPersonalDataRedaction(test);
 }
 function redactionFailureDetails(channel: "dashboard" | "notification", tests: DiscoveryTestCase[]) {
   const channelPattern = new RegExp(`\\b${channel}s?\\b`);
@@ -298,6 +336,17 @@ function redactionFailureDetails(channel: "dashboard" | "notification", tests: D
   // Only returned to the authenticated caller through the existing validation error;
   // never log generated test content or source material.
   return closest.length ? ` Closest channel tests: ${closest.map((test) => `title=${literal(test.title).slice(0, 45)}; expectedResult=${literal(test.expectedResult).slice(0, 95)}`).join(" | ")}` : " No matching channel test was supplied.";
+}
+function retainsRequiredHistory(expectedResult: string) {
+  const value = normalized(expectedResult);
+  if (/\bnot\s+(?:been\s+)?deleted\b/.test(value)) return true;
+  return [...value.matchAll(/\b(?:retain|retained|preserve|preserved|available|unchanged|accessible|queryable|retrievable)\b/g)]
+    .some((match) => !/\b(?:not|never)\s*(?:be\s*)?$/.test(value.slice(Math.max(0, match.index! - 16), match.index)));
+}
+function retentionFailureDetails(period: Metric, tests: DiscoveryTestCase[]) {
+  const score = (test: DiscoveryTestCase) => Number(metrics([test.title, ...test.steps].join(" ")).some((actual) => metricMatches(period, actual))) * 2 + Number(/\b(?:retention|retain|retained|boundary|expiry)\b/i.test(testText(test)));
+  const closest = tests.filter((test) => /\b(?:retention|retain|retained|audit|history|archive)\b/i.test(testText(test))).sort((left, right) => score(right) - score(left)).slice(0, 2);
+  return closest.length ? ` Closest retention tests: ${closest.map((test) => `title=${literal(test.title).slice(0, 30)}; input=${literal(test.steps.join(" ")).slice(0, 55)}; expectedResult=${literal(test.expectedResult).slice(0, 55)}`).join(" | ")}` : " No matching retention test was supplied.";
 }
 
 export function reviewDiscoveryFidelity(synthesis: FidelityDefinition, inputLedger: DiscoveryEvidenceLedgerItem[], value: unknown, sources: DiscoveryEvidenceSource[], reviewGapIds: ReadonlySet<string> = new Set()) {
@@ -406,7 +455,7 @@ export function reviewDiscoveryFidelity(synthesis: FidelityDefinition, inputLedg
     requireTestOrGap(/\b(?:retention|retained)\b/.test(text), "retention/deletion boundaries", /\b(?:retention|retain|retained|legal hold|deletion)\b/, true);
     for (const sentence of source.text.split(/(?<=[.!?])\s+|\n/).filter((part) => /\b(?:retention|retained)\b/i.test(part))) {
       for (const period of metrics(sentence).filter((metric) => /\b(?:year|month|day|week)$/.test(metric.unit))) {
-        if (!scopedTests.some((test) => metrics(testText(test)).some((actual) => metricMatches(period, actual)) && /\b(?:before|until|boundary|expiry|expires|at least|minimum)\b/i.test(testText(test)) && /\b(?:retain|retained|preserve|preserved|available|unchanged)\b/i.test(test.expectedResult))) errors.push(`${source.id} needs a source-duration retention boundary test.`);
+        if (!scopedTests.some((test) => metrics([test.title, ...test.steps].join(" ")).some((actual) => metricMatches(period, actual)) && /\b(?:before|until|boundary|expiry|expires|at least|minimum)\b/i.test([test.title, ...test.steps].join(" ")) && retainsRequiredHistory(test.expectedResult))) errors.push(`${source.id} needs a source-duration retention boundary test.${retentionFailureDetails(period, scopedTests)}`);
       }
     }
     if (/\b(?:sensitive|privacy)\b/.test(text) && /\b(?:only|restricted|restrict|protected)\b/.test(text)) {
@@ -414,7 +463,7 @@ export function reviewDiscoveryFidelity(synthesis: FidelityDefinition, inputLedg
     }
     if (/\b(?:personal details|personal data|pii)\b/.test(text) && /\b(?:must not|not expose|redact)\b/.test(text)) {
       for (const channel of ["dashboard", "notification"] as const) {
-        if (text.includes(channel) && !hasTest(new RegExp(`\\b${channel}s?\\b`), (test) => assertsPersonalDataRedaction(test.expectedResult))) errors.push(`${source.id} needs a ${channel} personal-data redaction test.${redactionFailureDetails(channel, scopedTests)}`);
+        if (text.includes(channel) && !hasTest(new RegExp(`\\b${channel}s?\\b`), (test) => assertsPersonalDataRedaction(test))) errors.push(`${source.id} needs a ${channel} personal-data redaction test.${redactionFailureDetails(channel, scopedTests)}`);
       }
     }
     if (/\bimmutable audit\b/.test(text)) {

@@ -438,6 +438,38 @@ test("same-head self-policy shorthand becomes a final source-linked review issue
   }
 });
 
+test("a compound rule permits governed rejection without bleeding it into a later self-approval prohibition", () => {
+  const quotes = [
+    selfRule,
+    "Approval and rejection require a non-empty rationale.",
+    "Route policy exceptions to authorized approvers.",
+    "Preserve immutable decision history."
+  ];
+  const source = quotes.join(" ");
+  const ledger: Evidence[] = quotes.map((quote, index) => ({ id: `R${index + 1}`, sourceId: "SRC1", quote, kind: "requirement", statement: quote }));
+  const value = selfApprovalDefinition();
+  value.businessRules = ["Route policy exceptions to authorized approvers, enforce non-empty rationale for approval and rejection, prevent a user from approving their own policy exception, and preserve immutable decision history."];
+  value.stories[0].acceptanceCriteria.push(quotes[1], quotes[2], quotes[3]);
+  value.stories[0].testCases[0].steps.splice(2, 0, "Enter a non-empty approval rationale");
+  value.stories[0].testCases.push(
+    { id: "T3", title: "Record a permitted rejection with rationale", type: "happy-path", steps: ["Route a policy exception raised by User A to authorized approver User B", "Sign in as User B", "Enter a non-empty rejection rationale", "Reject the policy exception"], expectedResult: "The exception is rejected and the rationale and decision are recorded in immutable history." },
+    { id: "T4", title: "Prevent rejection without rationale", type: "negative", steps: ["Sign in as an authorized approver", "Leave the rejection rationale blank", "Attempt to reject a policy exception"], expectedResult: "Rejection is blocked and no decision is recorded." }
+  );
+  const coverage: Coverage[] = ledger.map((item) => ({ ...row(item.id, "implemented"), testIds: ["T1", "T2", "T3", "T4"] }));
+  const result = review(value, ledger, coverage, source);
+  assert.deepEqual(result.errors, []);
+  assert.deepEqual(result.reviewIssues, [], "The earlier permitted-rejection clause is not an ambiguous additional self-decision ban.");
+  for (const prohibition of [
+    "A user cannot approve or reject their own policy exception.",
+    "Prevent a user from approving or rejecting their own policy exception."
+  ]) {
+    const changed = structuredClone(value);
+    changed.businessRules = [prohibition];
+    assert.ok(review(changed, ledger, coverage, source).errors.length > 0,
+      "An actual added rejection prohibition after the restrictive predicate must remain a hard failure.");
+  }
+});
+
 test("a generic negative test does not satisfy an explicit self-approval scenario", () => {
   const valid = selfApprovalDefinition();
   const coverage = [row("R1", "implemented")];
@@ -536,6 +568,37 @@ test("redaction requires a nonexposure result rather than actual exposure, a pri
       assert.ok(review(changed, fixture.ledger, fixture.coverage, fixture.text).errors.length > 0,
         `A channel lacks a verified redaction outcome: ${expectedResult}`);
     }
+  }
+});
+
+test("seeded resident markers explicitly absent from each channel prove redaction without requiring the word personal in the result", () => {
+  const dashboardResult = 'Dashboard summaries do not contain "Jane Example", "555-0100", or "jane.example@example.test".';
+  const notificationResult = 'Notification subject lines do not contain "Jane Example", "555-0100", or "jane.example@example.test".';
+  const fixture = redactionDefinition(dashboardResult, notificationResult);
+  for (const testCase of fixture.value.stories[0].testCases) {
+    testCase.steps[0] = 'Create a request containing resident personal details: name "Jane Example", phone "555-0100", and email "jane.example@example.test".';
+  }
+  assert.deepEqual(review(fixture.value, fixture.ledger, fixture.coverage, fixture.text).errors, []);
+
+  for (const index of [0, 1]) {
+    const channel = index === 0 ? "Dashboard summaries" : "Notification subject lines";
+    for (const expectedResult of [
+      `${channel} contain "Jane Example", "555-0100", and "jane.example@example.test".`,
+      "The processing queue is empty.",
+      `${channel} do not contain "John Different", "555-9999", or "different@example.test".`,
+      "Access is denied to an unauthorized role.",
+      `${channel} do not contain "Jane Example" but display "555-0100".`
+    ]) {
+      const changed = structuredClone(fixture.value);
+      changed.stories[0].testCases[index].expectedResult = expectedResult;
+      assert.ok(review(changed, fixture.ledger, fixture.coverage, fixture.text).errors.length > 0,
+        `Seeded-marker context does not excuse an unrelated, unverified, or exposing result: ${expectedResult}`);
+    }
+    const unrelatedLabel = structuredClone(fixture.value);
+    unrelatedLabel.stories[0].testCases[index].steps.push('Select the saved view "Pilot Dashboard".');
+    unrelatedLabel.stories[0].testCases[index].expectedResult = `${channel} do not contain "Pilot Dashboard".`;
+    assert.ok(review(unrelatedLabel, fixture.ledger, fixture.coverage, fixture.text).errors.length > 0,
+      "An unrelated quoted view label is not a seeded resident marker and cannot prove redaction.");
   }
 });
 

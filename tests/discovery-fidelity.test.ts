@@ -230,3 +230,65 @@ test("redaction coverage recognizes explicit plural-channel and possessive gramm
   noNegativePrivacy.stories[0].testCases[1] = { id: "T2", title: "Missing category", type: "negative", steps: ["Omit the category"], expectedResult: "Category validation appears." };
   assert.match(reviewDiscoveryFidelity(noNegativePrivacy, ledger, coverage, sources).errors.join(" "), /unauthorized sensitive-content access test/);
 });
+
+test("compound summaries isolate the self-approval prohibition from permitted rejection and unrelated audit work", () => {
+  const rule = "A user cannot approve their own policy exception.";
+  const ledger = [{ id: "SELF", sourceId: "S1", quote: rule, statement: rule, kind: "requirement" as const }];
+  const output = product(rule);
+  output.businessRules = ["Route policy exceptions to authorized approvers, enforce non-empty rationale for approval and rejection, prevent a user from approving their own policy exception, and preserve immutable decision history."];
+  output.stories[0].testCases[1] = { id: "T2", title: "Prevent self approval of a policy exception", type: "negative", steps: ["Attempt to approve one's own policy exception"], expectedResult: "Approval is blocked and the exception remains pending." };
+  const coverage = [{ evidenceId: "SELF", disposition: "implemented", storyIds: ["U1"], testIds: ["T1", "T2"], gapIds: [] }];
+  assert.deepEqual(reviewDiscoveryFidelity(output, ledger, coverage, [{ id: "S1", text: rule }]).errors, []);
+  output.businessRules = ["Block unauthorized request deletion, enforce non-empty rationale for approval and rejection, prevent a user from approving their own policy exception, and preserve immutable decision history."];
+  assert.deepEqual(reviewDiscoveryFidelity(output, ledger, coverage, [{ id: "S1", text: rule }]).errors, [], "An earlier unrelated restriction cue must not redefine the later self-approval rule.");
+  output.businessRules = ["A user cannot approve or reject their own policy exception."];
+  assert.ok(reviewDiscoveryFidelity(output, ledger, coverage, [{ id: "S1", text: rule }]).errors.length > 0);
+});
+
+test("explicit absence of quoted seeded personal markers proves redaction without repeating the word personal", () => {
+  const text = "Dashboard summaries and notification subject lines must not expose resident personal details.";
+  const ledger = [{ id: "PRIVACY", sourceId: "S1", quote: text, statement: text, kind: "requirement" as const }];
+  const output = product(text);
+  output.stories[0].testCases[0] = { id: "T1", title: "Resident personal details in dashboards and notifications", type: "happy-path", steps: ["Seed the resident's personal details as 'Jane Example', \"555-0100\", and \"jane.example@example.test\"", "Inspect the dashboard summary and notification subject line"], expectedResult: "The dashboard summary and notification subject line do not contain 'Jane Example', \"555-0100\", or \"jane.example@example.test\"." };
+  const coverage = [{ evidenceId: "PRIVACY", disposition: "implemented", storyIds: ["U1"], testIds: ["T1", "T2"], gapIds: [] }];
+  const sources = [{ id: "S1", text }];
+  assert.deepEqual(reviewDiscoveryFidelity(output, ledger, coverage, sources).errors, []);
+  output.stories[0].testCases[0].steps.push('Select the saved view "Pilot Dashboard".');
+  assert.deepEqual(reviewDiscoveryFidelity(output, ledger, coverage, sources).errors, [], "Unrelated UI labels are not seeded personal values that must disappear from output.");
+  for (const expectedResult of [
+    "The dashboard summary and notification subject line display 'Jane Example'.",
+    "The dashboard summary and notification subject line are empty because no request was created.",
+    "The dashboard summary and notification subject line do not contain 'Unshared Person'.",
+    "The dashboard summary and notification subject line do not contain 'Jane Example'.",
+    "Access is denied to the dashboard summary and notification subject line.",
+    "The dashboard summary and notification subject line do not contain 'Jane Example', but \"555-0100\" is displayed."
+  ]) {
+    const changed = structuredClone(output);
+    changed.stories[0].testCases[0].expectedResult = expectedResult;
+    assert.ok(reviewDiscoveryFidelity(changed, ledger, coverage, sources).errors.some((error) => /personal-data redaction/.test(error)));
+  }
+});
+
+test("retention boundary coverage accepts observable access but requires the actual source duration in its input", () => {
+  const text = "Audit history retention is seven years.";
+  const sources = [{ id: "S1", text }];
+  const ledger = [{ id: "RETENTION", sourceId: "S1", quote: text, statement: text, kind: "requirement" as const }];
+  const coverage = [{ evidenceId: "RETENTION", disposition: "implemented", storyIds: ["U1"], testIds: ["T1", "T2"], gapIds: [] }];
+  const output = product(text);
+  output.stories[0].testCases[0] = { id: "T1", title: "Audit history retention boundary", type: "happy-path", steps: ["Advance the audit record to immediately before seven years"], expectedResult: "The audit record remains accessible." };
+  for (const expectedResult of ["The audit record remains accessible.", "The audit history is queryable.", "The audit record remains retrievable.", "The audit record is not deleted."]) {
+    output.stories[0].testCases[0].expectedResult = expectedResult;
+    assert.deepEqual(reviewDiscoveryFidelity(output, ledger, coverage, sources).errors, []);
+  }
+  for (const steps of [["Advance to immediately before five years"], ["Advance to immediately before the retention boundary"]]) {
+    const changed = structuredClone(output);
+    changed.stories[0].testCases[0].steps = steps;
+    const errors = reviewDiscoveryFidelity(changed, ledger, coverage, sources).errors.join(" ");
+    assert.match(errors, /source-duration retention boundary test/);
+    assert.match(errors, /Closest retention tests: title=.*input=.*expectedResult=/);
+    assert.ok(errors.length < 1000);
+  }
+  const deleted = structuredClone(output);
+  deleted.stories[0].testCases[0].expectedResult = "The record is deleted before the boundary and is not accessible.";
+  assert.match(reviewDiscoveryFidelity(deleted, ledger, coverage, sources).errors.join(" "), /source-duration retention boundary test/);
+});
