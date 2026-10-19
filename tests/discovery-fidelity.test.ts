@@ -134,6 +134,7 @@ test("a proposed outcome explicitly not achieved is not mistaken for a claimed a
   const coverage = [{ evidenceId: "TARGET", disposition: "proposal", storyIds: [], testIds: [], gapIds: [] }];
   assert.deepEqual(reviewDiscoveryEvidenceLedger(ledger, sources).errors, []);
   assert.deepEqual(reviewDiscoveryFidelity(product(text), ledger, coverage, sources).errors, []);
+  assert.ok(reviewDiscoveryFidelity(product(text), ledger, [{ ...coverage[0], disposition: "context" }], sources).errors.length > 0, "The target-status metadata allowance must not turn a quantified proposal into context.");
   const achieved = text.replace("not an achieved", "an achieved");
   assert.ok(reviewDiscoveryFidelity(product(achieved), ledger, coverage, sources).errors.length > 0);
 });
@@ -291,4 +292,51 @@ test("retention boundary coverage accepts observable access but requires the act
   const deleted = structuredClone(output);
   deleted.stories[0].testCases[0].expectedResult = "The record is deleted before the boundary and is not accessible.";
   assert.match(reviewDiscoveryFidelity(deleted, ledger, coverage, sources).errors.join(" "), /source-duration retention boundary test/);
+});
+
+test("explicit nonachievement metadata can be unlinked context but cannot be implemented or declared achieved", () => {
+  const text = "The business outcomes are targets, not achieved results.";
+  const sources = [{ id: "S1", text }];
+  const ledger = [{ id: "STATUS", sourceId: "S1", quote: text, statement: text, kind: "proposal" as const }];
+  const coverage = [{ evidenceId: "STATUS", disposition: "context", storyIds: [], testIds: [], gapIds: [] }];
+  assert.deepEqual(reviewDiscoveryFidelity(product(text), ledger, coverage, sources).errors, []);
+  assert.ok(reviewDiscoveryFidelity(product(text), ledger, [{ ...coverage[0], disposition: "implemented", storyIds: ["U1"], testIds: ["T1", "T2"] }], sources).errors.length > 0);
+  assert.ok(reviewDiscoveryFidelity(product("The business outcomes have been achieved."), ledger, [{ ...coverage[0], disposition: "proposal" }], sources).errors.length > 0);
+  const dashboard = "A results dashboard is proposed and not yet approved.";
+  assert.ok(reviewDiscoveryFidelity(product(dashboard), [{ ...ledger[0], quote: dashboard, statement: dashboard }], coverage, [{ id: "S1", text: dashboard }]).errors.length > 0, "Results as an implementation noun modifier is not target-status metadata.");
+});
+
+test("conditional approval prerequisites create review holds while direct approval of the same proposed metric stays hard", () => {
+  const text = "Expansion to twelve regions is proposed after operating-model decisions.";
+  const sources = [{ id: "S1", text }];
+  const ledger = [{ id: "EXPANSION", sourceId: "S1", quote: text, statement: text, kind: "proposal" as const }];
+  const coverage = [{ evidenceId: "EXPANSION", disposition: "proposal", storyIds: [], testIds: [], gapIds: [] }];
+  for (const context of ["After confirmed operating-model decisions, expand service delivery to twelve regions.", "Agreed pilot scope informs expansion to twelve regions.", "Expansion to twelve regions requires governance that is confirmed."]) {
+    const output = product(text);
+    output.features[0].description = context;
+    const reviewed = reviewDiscoveryFidelity(output, ledger, coverage, sources);
+    assert.deepEqual(reviewed.errors, []);
+    assert.ok(reviewed.reviewIssues.some((issue) => issue.evidenceId === "EXPANSION" && issue.sourceId === "S1"));
+  }
+  for (const context of ["Expansion to twelve regions is approved.", "Expansion to twelve regions has been achieved.", "The approved expansion covers twelve regions."]) {
+    const output = product(text);
+    output.features[0].description = context;
+    assert.match(reviewDiscoveryFidelity(output, ledger, coverage, sources).errors.join(" "), /Offending metric context:/);
+  }
+});
+
+test("a confirmed prerequisite in the full delivery-approach claim does not approve the proposed delivery itself", () => {
+  const statement = "The delivery approach configures and proves a three-region pilot after definition and operating-model decisions.";
+  const sources = [{ id: "S1", text: statement }];
+  const ledger = [{ id: "E056", sourceId: "S1", quote: statement, statement, kind: "proposal" as const }];
+  const coverage = [{ evidenceId: "E056", disposition: "proposal", storyIds: [], testIds: [], gapIds: [] }];
+  const output = product(statement);
+  output.features[0].description = "The delivery approach configures and proves a three-region pilot after confirmed operating-model decisions.";
+  const reviewed = reviewDiscoveryFidelity(output, ledger, coverage, sources);
+  assert.deepEqual(reviewed.errors, []);
+  assert.ok(reviewed.reviewIssues.some((issue) => issue.evidenceId === "E056" && issue.sourceId === "S1"));
+  for (const claim of ["The three-region delivery is approved.", "After confirmed operating-model decisions, the three-region delivery is approved.", "The delivery pilot in three regions is approved after confirmed operating-model decisions."]) {
+    output.features[0].description = claim;
+    assert.match(reviewDiscoveryFidelity(output, ledger, coverage, sources).errors.join(" "), /presents a proposed target as approved or achieved/);
+  }
 });

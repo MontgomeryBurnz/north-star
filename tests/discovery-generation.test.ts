@@ -335,6 +335,7 @@ test("fidelity failures stop before another provider request or preserve the pre
     globalThis.fetch = async () => { calls++; return response(invalidEvidence); };
     await assert.rejects(generateDiscoverySynthesis(program, "", { previousSynthesis: previous }), (error: Error) => {
       assert.match(error.message, /evidence review failed fidelity checks/);
+      assert.match(error.message, /\d+ validation issues?\b/);
       assert.match(error.message, /Source quotation: An invented source fact\./);
       assert.match(error.message, /Reviewed assertion:/);
       assert.ok(error.message.length < 10_000);

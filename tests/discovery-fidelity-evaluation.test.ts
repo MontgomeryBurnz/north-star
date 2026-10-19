@@ -245,6 +245,121 @@ test("a target explicitly described as not achieved is distinct from a claim of 
     "An actual achieved-outcome claim remains a hard contradiction of a merely proposed target.");
 });
 
+test("unlinked target-status metadata may remain explicit nonachievement context without becoming implementation scope", () => {
+  const text = "The business outcomes are targets, not achieved results.";
+  const ledger: Evidence[] = [{ id: "E054", sourceId: "SRC1", quote: text, kind: "proposal", statement: text }];
+  const value = definition(text);
+  const result = review(value, ledger, [row("E054")], text);
+  assert.deepEqual(result.errors, []);
+  assert.deepEqual(result.reviewIssues, [], "Explicit nonachievement metadata is not an ambiguous implementation commitment.");
+
+  for (const coverage of [
+    [row("E054", "implemented")],
+    [{ ...row("E054"), storyIds: ["U1"], testIds: ["T1", "T2"] }]
+  ]) {
+    assert.ok(review(value, ledger, coverage, text).errors.length > 0,
+      "The narrow metadata-context allowance cannot legitimize implemented or story-linked proposal scope.");
+  }
+  const ready = structuredClone(value);
+  ready.stories[0].readiness = "ready";
+  assert.ok(review(ready, ledger, [{ ...row("E054", "proposal"), storyIds: ["U1"], testIds: ["T1", "T2"] }], text).errors.length > 0,
+    "A story depending on target-status evidence cannot be marked ready.");
+  for (const claim of [
+    "The business outcomes have been achieved.",
+    "The business outcomes are approved results."
+  ]) {
+    assert.ok(review(definition(claim), ledger, [row("E054", "proposal")], text).errors.length > 0,
+      "Actual settlement of a nonnumeric target remains a hard contradiction, independent of matrix labeling.");
+  }
+  const unqualified = review(definition("The business outcomes guide delivery."), ledger, [row("E054")], text);
+  assert.ok(unqualified.errors.length + unqualified.reviewIssues.length > 0,
+    "Context cannot silently erase the source's explicit target-versus-achieved qualification.");
+
+  for (const scope of [
+    "Expansion to twelve regions is proposed and not yet approved.",
+    "A replacement service portal is proposed and not yet approved.",
+    "A results dashboard is proposed and not yet approved."
+  ]) {
+    const scopeLedger: Evidence[] = [{ id: "SCOPE", sourceId: "SRC1", quote: scope, kind: "proposal", statement: scope }];
+    assert.ok(review(definition(scope), scopeLedger, [row("SCOPE")], scope).errors.length > 0,
+      "Explicit unconfirmed wording cannot turn numeric or nonnumeric implementation scope into target-status metadata context.");
+  }
+});
+
+test("proposed delivery metrics can depend on confirmed operating-model decisions without claiming that delivery is approved", () => {
+  const statements = [
+    "A delivery pilot in three regions is proposed.",
+    "Expansion to twelve regions is proposed after operating-model decisions."
+  ];
+  const text = statements.join(" ");
+  const ledger: Evidence[] = statements.map((statement, index) => ({ id: `E${56 + index}`, sourceId: "SRC1", quote: statement, kind: "proposal", statement }));
+  const coverage = ledger.map((item) => row(item.id, "proposal"));
+  const value = definition(text);
+  value.roadmap[0].outcome = "After confirmed operating-model decisions, the proposed delivery pilot would cover three regions.";
+  value.features[0].description = "The proposed expansion to twelve regions depends on agreed pilot scope.";
+  const result = review(value, ledger, coverage, text);
+  assert.deepEqual(result.errors, []);
+  assert.deepEqual(result.reviewIssues, [], "A modifier on a prerequisite does not affirm approval of an explicitly proposed metric.");
+
+  for (const claim of [
+    "The pilot in three regions is approved.",
+    "Expansion to twelve regions is approved.",
+    "Expansion to twelve regions has been achieved.",
+    "The approved expansion covers twelve regions.",
+    "After confirmed operating-model decisions, the approved expansion covers twelve regions.",
+    "After confirmed operating-model decisions, expansion to twelve regions has been achieved.",
+    "The proposed expansion to twelve regions has been achieved."
+  ]) {
+    const changed = structuredClone(value);
+    changed.features[0].description = claim;
+    assert.ok(review(changed, ledger, coverage, text).errors.length > 0,
+      `Actual approval or achievement of proposed delivery scope remains hard: ${claim}`);
+  }
+});
+
+test("conditional or agreed-scope ambiguity becomes source-linked review rather than a false definite approval contradiction", () => {
+  const text = "Expansion to twelve regions is proposed after operating-model decisions.";
+  const ledger: Evidence[] = [{ id: "E057", sourceId: "SRC1", quote: text, kind: "proposal", statement: text }];
+  for (const claim of [
+    "After confirmed operating-model decisions, expand service delivery to twelve regions.",
+    "Agreed pilot scope informs expansion to twelve regions."
+  ]) {
+    const value = definition(text);
+    value.features[0].description = claim;
+    const result = review(value, ledger, [row("E057", "proposal")], text);
+    assert.deepEqual(result.errors, [], "A prerequisite or modifier does not alone prove the expansion itself was approved.");
+    assert.ok(result.reviewIssues.some((issue) => issue.evidenceId === "E057" && issue.sourceId === "SRC1"),
+      "Ambiguous promotion must create a source-linked review hold, not silently bless the claim.");
+  }
+});
+
+test("a full proposed delivery claim does not mistake its confirmed operating-model prerequisite for pilot approval", () => {
+  const text = "The proposed delivery approach pilots in three regions after operating-model decisions.";
+  const ledger: Evidence[] = [{ id: "E056", sourceId: "SRC1", quote: text, kind: "proposal", statement: text }];
+  const value = definition(text);
+  value.roadmap[0].outcome = "The proposed delivery approach pilots in three regions after confirmed operating-model decisions.";
+  const result = review(value, ledger, [row("E056", "proposal")], text);
+  assert.deepEqual(result.errors, []);
+  assert.deepEqual(result.reviewIssues, [],
+    "A noun shared with the atomic claim does not make confirmation of a prerequisite into approval of the proposed pilot.");
+  const approved = structuredClone(value);
+  approved.roadmap[0].outcome = "The delivery pilot in three regions is approved after confirmed operating-model decisions.";
+  assert.ok(review(approved, ledger, [row("E056", "proposal")], text).errors.length > 0,
+    "An actual approval of the pilot stays hard even when the same sentence also names a confirmed prerequisite.");
+
+  const actualStatement = "The delivery approach configures and proves a three-region pilot after definition and operating-model decisions.";
+  const actualLedger: Evidence[] = [{ id: "E056", sourceId: "SRC1", quote: actualStatement, kind: "proposal", statement: actualStatement }];
+  const actual = definition(actualStatement);
+  actual.features[0].description = "The delivery approach configures and proves a three-region pilot after confirmed operating-model decisions.";
+  const actualReview = review(actual, actualLedger, [row("E056", "proposal")], actualStatement);
+  assert.deepEqual(actualReview.errors, []);
+  assert.ok(actualReview.reviewIssues.some((issue) => issue.evidenceId === "E056" && issue.sourceId === "SRC1"),
+    "The actual full delivery statement lacks explicit proposal wording, so its ambiguous prerequisite alignment still needs owner review.");
+  actual.features[0].description = "After confirmed operating-model decisions, the three-region delivery is approved.";
+  assert.ok(review(actual, actualLedger, [row("E056", "proposal")], actualStatement).errors.length > 0,
+    "The exact full claim must still reject explicit approval of the delivery itself.");
+});
+
 test("confirmation required for each record deletion is a confirmed workflow rule, not an unresolved product decision", () => {
   for (const text of [
     "Record deletion requires confirmation from the record owner before the delete operation proceeds.",

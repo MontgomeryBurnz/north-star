@@ -11,6 +11,7 @@ export const discoveryEvidenceFidelityInstructions = [
 
 export const discoverySynthesisFidelityInstructions = [
   "The independent evidenceLedger is a coverage checklist, not permission to change source facts. Return evidenceCoverage with exactly one row per evidence id: evidenceId, disposition (implemented, context, proposal, gap), storyIds, testIds and gapIds. References must resolve to the actual final package. Requirements need relevant mapped stories and tests or a precise gap; unresolved questions need gaps, and proposals stay explicitly proposed with dependent stories needs-input. A claimed coverage row never substitutes for the actual visible content or test behavior.",
+  "Non-implementation target-status metadata may use context only without story/test links and with visible explicit unconfirmed or target-not-achieved wording. Do not use context to commit proposed implementation scope, and do not call a proposed target achieved or approved. An approval prerequisite for an operating decision does not itself approve the dependent delivery proposal.",
   "Carry every quantitative ledger assertion into the visible analysis, rules, outcomes or assumptions with its original value/comparator, unit, statistic, calendar basis, observation period and confirmation status. Do not omit secondary KPIs or proposed targets. Preserve measured baselines separately from proposed targets and achieved outcomes. Repeat qualifiers where an otherwise ambiguous assertion could change meaning. Prior generated content, including apparent business rules, must be corrected whenever unsupported by raw evidence.",
   "Do not broaden policy: a prohibition on approving one's own specific exception does not prohibit rejecting it or all own requests unless separately sourced. Cover a permitted rejection with rationale and a rejection attempt with empty rationale when those decision rules are stated. Test every source-required immutable audit field and tamper prevention, unauthorized sensitive-content access, and personal-data redaction in each stated output channel.",
   "For source-required redaction, seed recognizable synthetic personal details using source-supported fields, inspect EACH source-named output channel, and explicitly assert in the expected result that those details are absent or redacted there. Generic role denial or saying privacy is applied does not verify channel redaction. Do not invent client fields, privacy policies or policy values; ask a precise gap question where required details are unknown.",
@@ -291,10 +292,41 @@ function scopeHead(scope: string | undefined) {
   const nounPhrase = scope?.split(/\b(?:during|when|unless|without|before|after|raised|created|submitted|that|which|because|for|to|by|if)\b/)[0].trim();
   return nounPhrase?.match(/[a-z]+/g)?.at(-1)?.replace(/s$/, "");
 }
-function proposedMetricPromoted(context: string) {
+function proposalPromotion(item: DiscoveryEvidenceLedgerItem, context: string, measure?: Metric): "hard" | "review" | undefined {
   const value = normalized(context).replace(/\bnot\s+(?:(?:an?|the)\s+)?achieved(?:\s+(?:results?|outcomes?))?\b/g, "unconfirmed outcome");
-  return /\bachieved\s+(?:results?|outcomes?)\b/.test(value)
-    || (/\b(?:achieved|approved|confirmed|committed)\b/.test(value) && !unconfirmedKind(value));
+  if (!/\b(?:achieved|approved|confirmed|committed|agreed)\b/.test(value)) return undefined;
+  const clauses = value.split(",").map((clause) => clause.trim());
+  const primary = measure
+    ? clauses.find((clause) => metrics(clause).some((actual) => metricMatches(measure, actual))) ?? value
+    : clauses.find((clause) => sameAtomicClaim(item.statement, clause)) ?? value;
+  const localMetric = measure ? metrics(primary).find((actual) => metricMatches(measure, actual)) : undefined;
+  const suffix = localMetric ? primary.slice(localMetric.index + localMetric.text.length) : primary;
+  const settlement = suffix.match(/\b(?:is|are|was|were|has|have|had|has been|have been|had been|now|already)\s+(?:(?:formally|explicitly|already|an?|the)\s+)?(approved|confirmed|committed|achieved)\b/);
+  const conditional = /\b(?:after|before|until|if|when|once|unless|pending|awaits|subject to|depends? on)\b/.test(suffix.slice(0, settlement?.index ?? suffix.length));
+  const claimWords = new Set((normalized(item.statement).match(/[a-z]{4,}/g) ?? []).filter((word) => !/^(?:proposed|proposal|confirmed|approved|achieved|committed|business|calendar|hours?|days?|weeks?|months?|years?|regions?|offices?|after|before|under|below|above|their|these|those|would|should)$/.test(word)).map((word) => word.replace(/s$/, "")));
+  const bindingPrefix = suffix.slice(0, settlement?.index ?? 0).trim();
+  const directlyBound = !bindingPrefix || (bindingPrefix.match(/[a-z]{4,}/g) ?? []).every((word) => claimWords.has(word.replace(/s$/, "")) || !measure && word === "business");
+  const directAdjective = [...primary.matchAll(/\b(?:approved|confirmed|committed|achieved)\s+([a-z]+)\b/g)].some((match) => {
+    const prefix = primary.slice(0, match.index);
+    const prerequisite = /\b(?:after|before|until|if|when|once|pending|awaiting|subject to|depends? on)\s+(?:(?:the|an?|already|formally)\s+){0,2}$/.test(prefix)
+      || localMetric && match.index! > localMetric.index + localMetric.text.length && /\b(?:after|before|until|if|when|once|pending|awaiting|subject to|depends? on)\b/.test(prefix.slice(localMetric.index + localMetric.text.length));
+    return claimWords.has(match[1].replace(/s$/, "")) && !/\bnot\s*$/.test(prefix.slice(-12)) && !prerequisite;
+  });
+  const bareSettledOutcome = /,\s*(?:(?:an?|the)\s+)?(?:achieved\s+(?:results?|outcomes?)|committed release dates?)\s*$/.test(value);
+  if (bareSettledOutcome || directAdjective || settlement && directlyBound && !conditional) return "hard";
+  if (unconfirmedKind(primary)) return undefined;
+  return "review";
+}
+function explicitUnconfirmedContext(statement: string, fields: string[]) {
+  return fields.some((field) => sameAtomicClaim(statement, field) && /\bunconfirmed\b|\bnot\s+(?:yet\s+)?(?:(?:an?|the)\s+)?(?:approved|confirmed|committed|achieved)\b/i.test(field));
+}
+function proposalSubjectHead(statement: string) {
+  const subject = normalized(statement).split(/\b(?:is|are|was|were|remain|remains|has|have|will|would|should)\b/)[0];
+  return subject.match(/[a-z]+/g)?.at(-1)?.replace(/s$/, "");
+}
+function sameProposalSubject(statement: string, context: string) {
+  const head = proposalSubjectHead(statement);
+  return sameAtomicClaim(statement, context) && Boolean(head && (normalized(context).match(/[a-z]+/g) ?? []).some((word) => word.replace(/s$/, "") === head));
 }
 function assertsSeededPersonalDataRedaction(test: DiscoveryTestCase) {
   const seeded = [test.title, ...test.steps].join(" ");
@@ -378,7 +410,9 @@ export function reviewDiscoveryFidelity(synthesis: FidelityDefinition, inputLedg
     if (!row) { errors.push(`${item.id} has no evidence-to-output coverage.`); continue; }
     if (item.kind === "requirement" && row.disposition !== "gap" && (!row.storyIds.length || !row.testIds.length)) errors.push(`${item.id} needs mapped stories and relevant tests.`);
     if ((item.kind === "open-question" || row.disposition === "gap") && !row.gapIds.length) errors.push(`${item.id} needs a precise unresolved discovery gap.`);
-    if (item.kind === "proposal" && !["proposal", "gap"].includes(row.disposition)) errors.push(`${item.id} promotes a proposal to a confirmed obligation.`);
+    const noncommittalContext = row.disposition === "context" && !row.storyIds.length && !row.testIds.length && !metrics(item.statement).length
+      && /^(?:target|outcome|result)$/.test(proposalSubjectHead(item.statement) ?? "") && explicitUnconfirmedContext(item.statement, fields);
+    if (item.kind === "proposal" && !["proposal", "gap"].includes(row.disposition) && !noncommittalContext) errors.push(`${item.id} promotes a proposal to a confirmed obligation.`);
     if (["proposal", "open-question"].includes(item.kind) && row.storyIds.some((id) => stories.get(id)?.readiness !== "needs-input")) errors.push(`${item.id} has unresolved evidence but marks a dependent story ready.`);
     for (const expected of metrics(item.statement)) {
       const expectedStatistic = sourceMetricStatistic(item.statement, expected);
@@ -388,8 +422,19 @@ export function reviewDiscoveryFidelity(synthesis: FidelityDefinition, inputLedg
         if (candidates.some((actual) => /^(?:business|calendar) /.test(expected.unit) && /^(?:business|calendar) /.test(actual.unit) && actual.unit !== expected.unit)) errors.push(`${item.id} changes the measurement calendar or unit basis.`);
         if (candidates.some((actual) => expectedStatistic === "median" && /\b(?:average|mean)\b/i.test(metricContext(field, actual)))) errors.push(`${item.id} changes a median into a mean/average.`);
         if (candidates.some((actual) => ["average", "mean"].includes(expectedStatistic ?? "") && /\bmedian\b/i.test(metricContext(field, actual)))) errors.push(`${item.id} changes a mean/average into a median.`);
-        if (candidates.some((actual) => item.kind === "proposal" && proposedMetricPromoted(metricContext(field, actual)))) errors.push(`${item.id} presents a proposed target as approved or achieved.`);
+        if (item.kind === "proposal") for (const actual of candidates) {
+          const context = metricContext(field, actual);
+          const promotion = proposalPromotion(item, context, actual);
+          const diagnosticContext = literal(field).length <= 400 ? literal(field) : context.slice(0, 400);
+          if (promotion === "hard") errors.push(`${item.id} presents a proposed target as approved or achieved. Offending metric context: ${diagnosticContext}`);
+          else if (promotion === "review") reviewIssues.push({ evidenceId: item.id, sourceId: item.sourceId, message: `Proposal approval or modifier scope requires owner review before commitment. Offending metric context: ${diagnosticContext}` });
+        }
       }
+    }
+    if (item.kind === "proposal" && !metrics(item.statement).length) for (const field of fields.filter((value) => sameProposalSubject(item.statement, value))) {
+      const promotion = proposalPromotion(item, field);
+      if (promotion === "hard") errors.push(`${item.id} presents proposed outcomes as approved or achieved. Offending output context: ${literal(field).slice(0, 400)}`);
+      else if (promotion === "review") reviewIssues.push({ evidenceId: item.id, sourceId: item.sourceId, message: `Proposal outcome status requires owner review before commitment. Offending output context: ${literal(field).slice(0, 400)}` });
     }
     const sourceRestrictions = restrictiveSelfClauses(item.statement);
     if (sourceRestrictions.length) {

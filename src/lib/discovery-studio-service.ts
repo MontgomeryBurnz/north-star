@@ -35,11 +35,12 @@ function excerpt(value: string | undefined | null, limit = 5000) {
 // Return bounded evidence context only to the authenticated caller who supplied
 // the sources. Never send source text or model assertions to runtime telemetry.
 function evidenceFailureDetails(errors: string[], ledger: Array<{ id: string; sourceId: string; kind: string; quote: string; statement: string }>) {
-  return errors.slice(0, 3).map((error) => {
+  const details = errors.slice(0, 3).map((error) => {
     const item = ledger.find((entry) => error.startsWith(`${entry.id} `));
     if (!item) return excerpt(error, 700);
     return `${excerpt(error, 700)} Evidence ${excerpt(item.id, 100)}; source ${excerpt(item.sourceId, 240)}; classification ${item.kind}. Source quotation: ${excerpt(item.quote, 1200)} Reviewed assertion: ${excerpt(item.statement, 1000)}`;
   }).join("\n");
+  return `${errors.length} validation ${errors.length === 1 ? "issue" : "issues"}${errors.length > 3 ? "; showing the first 3" : ""}. ${details}`;
 }
 
 function applyEvidenceReviewHolds(
@@ -82,7 +83,7 @@ function applyEvidenceReviewHolds(
   }
   synthesis.stories = synthesis.stories.map((story) => ({ ...story, readiness: "needs-input" }));
   synthesis.readinessScore = Math.min(synthesis.readinessScore, 60);
-  synthesis.readinessNarrative = `Review draft — policy interpretation requires human review. All stories are held as needs-input until the source-linked evidence review gaps are resolved. ${synthesis.readinessNarrative}`;
+  synthesis.readinessNarrative = `Review draft — evidence interpretation requires human review. All stories are held as needs-input until the source-linked evidence review gaps are resolved. ${synthesis.readinessNarrative}`;
   // Establish trusted review holds without repairing malformed rows, bad references,
   // duplicates, or missing coverage. Those remain hard validation failures.
   if (!Array.isArray(coverage)) return { coverage, reviewGapIds };
