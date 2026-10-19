@@ -128,6 +128,15 @@ function measurementRelated(reference: string, actual: string) {
   const actualTerms = new Set(normalized(actual).match(/[a-z]{5,}/g)?.map(stem) ?? []);
   return !terms.length || terms.some((word) => actualTerms.has(word));
 }
+function assertsOpposingStatistic(context: string, expected: string) {
+  const value = normalized(context);
+  const opposing = expected === "median" ? /^(?:mean|average)$/ : /^median$/;
+  const qualified = value.replace(/\bnot\s+(?:(?:a|an|the)\s+)?(?:median|mean|average)(?:\s*(?:or|\/)\s*(?:(?:a|an|the)\s+)?(?:median|mean|average))*/g, (match, offset: number) => {
+    const terms = match.match(/\b(?:median|mean|average)\b/g) ?? [];
+    return /(?:\b(?:not|never|cannot)|\b\w+n['’]t)\s+$/.test(value.slice(0, offset)) || !terms.every(term => opposing.test(term)) ? match : "";
+  });
+  return (qualified.match(/\b(?:median|mean|average)\b/g) ?? []).some(term => opposing.test(term));
+}
 function sourceMetricStatistic(text: string, metric: Metric, tableSource?: string) {
   const value = normalized(text);
   const prefix = value.slice(0, metric.index);
@@ -363,9 +372,15 @@ function scopeHead(scope: string | undefined) {
   return nounPhrase?.match(/[a-z]+/g)?.at(-1)?.replace(/s$/, "");
 }
 function proposalPromotion(item: DiscoveryEvidenceLedgerItem, context: string, measure?: Metric): "hard" | "review" | undefined {
-  const value = normalized(context).replace(/\bnot\s+(?:(?:an?|the)\s+)?achieved(?:\s+(?:results?|outcomes?))?\b/g, "unconfirmed outcome");
+  const value = normalized(context)
+    .replace(/(\b(?:(?:do|does|did|must|shall|should|can|may|will|would)\s+not|cannot|never)\s+(?:treat|regard|classify|present|report|count|describe|represent)\s+[^,.;\n]{1,160}?\s+as\s+)achieved(\s+(?:results?|outcomes?)\b)/g, "$1unconfirmed$2")
+    .replace(/\bnot\s+(?:(?:an?|the)\s+)?achieved(?:\s+(?:results?|outcomes?))?\b/g, "unconfirmed outcome");
   if (!/\b(?:achieved|approved|confirmed|committed|agreed)\b/.test(value)) return undefined;
   const clauses = value.split(",").map((clause) => clause.trim());
+  // A negated first clause must not hide an independently affirmative claim
+  // later in the same field. Re-check only other clauses bound to this claim.
+  if (clauses.slice(1).some((clause) => (measure ? metrics(clause).some((actual) => metricMatches(measure, actual)) : sameAtomicClaim(item.statement, clause))
+    && proposalPromotion(item, clause, measure) === "hard")) return "hard";
   const primary = measure
     ? clauses.find((clause) => metrics(clause).some((actual) => metricMatches(measure, actual))) ?? value
     : clauses.find((clause) => sameAtomicClaim(item.statement, clause)) ?? value;
@@ -381,17 +396,16 @@ function proposalPromotion(item: DiscoveryEvidenceLedgerItem, context: string, m
   // modifies the portal rather than the resident. Bound the visible noun phrase
   // before comparing its head; uncertain modifier scope still creates a review hold.
   const entityWords = new Set((normalized(item.statement.replace(/\b(?:[a-z]+[-–—])+([a-z]+)\b/gi, "$1")).match(/[a-z]{4,}/g) ?? []).map((word) => word.replace(/s$/, "")));
-  const sourceWords = new Set(normalized(item.statement).match(/[a-z]+/g) ?? []);
+  const sourceWords = new Set((normalized(item.statement).match(/[a-z]+/g) ?? []).map((word) => word.replace(/s$/, "")));
   const directAdjective = [...primary.matchAll(/\b(?:approved|confirmed|committed|achieved)\s+(?=[a-z])/g)].some((match) => {
     const prefix = primary.slice(0, match.index);
     const prerequisite = /\b(?:after|before|until|if|when|once|pending|awaiting|subject to|depends? on)\s+(?:(?:the|an?|already|formally)\s+){0,2}$/.test(prefix)
       || localMetric && match.index! > localMetric.index + localMetric.text.length && /\b(?:after|before|until|if|when|once|pending|awaiting|subject to|depends? on)\b/.test(prefix.slice(localMetric.index + localMetric.text.length));
-    const phrase = primary.slice(match.index! + match[0].length).split(/[,.;\n]|\b(?:is|are|was|were|has|have|had|can|could|will|would|should|must|may|shall|to|of|for|in|on|at|with|without|from|after|before|until|if|when|once|unless|under|below|above|because|so|that|which|and|or|but|as|approved|confirmed|committed|achieved|agreed|covers?|enables?|implements?|supports?|provides?|requires?|depends?|informs?)\b/)[0];
+    const phrase = primary.slice(match.index! + match[0].length).split(/[,.;\n]|\b(?:is|are|was|were|has|have|had|can|could|will|would|should|must|may|shall|to|of|for|in|on|at|with|without|from|after|before|until|if|when|once|unless|under|below|above|because|so|that|which|and|or|but|as|approved|confirmed|committed|achieved|agreed|covers?|enables?|implements?|supports?|provides?|requires?|depends?|informs?|improves?)\b/)[0];
     const phraseWords = phrase.match(/[a-z]+/g) ?? [];
-    const firstUnknown = phraseWords.findIndex((word) => !sourceWords.has(word));
-    const boundWords = firstUnknown < 0 ? phraseWords : phraseWords.slice(0, firstUnknown);
-    const head = boundWords.at(-1)?.replace(/s$/, "");
-    return Boolean(head && claimWords.has(head) && entityWords.has(head)) && !/\bnot\s*$/.test(prefix.slice(-12)) && !prerequisite;
+    const head = phraseWords.at(-1)?.replace(/s$/, "");
+    const sourceBound = phraseWords.every((word) => sourceWords.has(word.replace(/s$/, "")));
+    return Boolean(head && sourceBound && claimWords.has(head) && entityWords.has(head)) && !/\bnot\s*$/.test(prefix.slice(-12)) && !prerequisite;
   });
   const bareSettledOutcome = /,\s*(?:(?:an?|the)\s+)?(?:achieved\s+(?:results?|outcomes?)|committed release dates?)\s*$/.test(value);
   if (bareSettledOutcome || directAdjective || settlement && directlyBound && !conditional) return "hard";
@@ -400,6 +414,38 @@ function proposalPromotion(item: DiscoveryEvidenceLedgerItem, context: string, m
 }
 function explicitUnconfirmedContext(statement: string, fields: string[]) {
   return fields.some((field) => sameAtomicClaim(statement, field) && /\bunconfirmed\b|\bnot\s+(?:yet\s+)?(?:(?:an?|the)\s+)?(?:approved|confirmed|committed|achieved)\b/i.test(field));
+}
+function pureNoncommittalPlanningStatus(text: string) {
+  const value = literal(normalized(text)).replace(/[.!]$/, "");
+  return /\bindicative\b/.test(value)
+    && /^(?:the )?(?:indicative )?planning (?:windows|horizons) (?:are|remain) (?:(?:indicative )?planning horizons|indicative),? (?:and )?not (?:yet )?committed release dates$/.test(value);
+}
+function directPlanningSettlement(text: string) {
+  const patterns = [
+    /\bplanning (?:windows?|horizons?)\s+(?:is|are|was|were|has been|have been|had been)\s+(?:(?:formally|explicitly|already|now)\s+)?(?:approved|confirmed|committed|achieved)\b/g,
+    /\b(?:approved|confirmed|committed|achieved)\s+planning (?:windows?|horizons?)\b/g
+  ];
+  return normalized(text).split(/(?<=[.!?])\s+|[;\n]|,\s+(?:and|or)\s+|\b(?:but|however|whereas)\b/).some((clause) => patterns.some((pattern) =>
+    [...clause.matchAll(pattern)].some((match) => {
+      const prefix = clause.slice(0, match.index);
+      // Negation on an earlier independent predicate cannot negate this subject.
+      // Keep actual conditional coordination intact rather than reading its second
+      // planning subject as an asserted achievement.
+      const localPrefix = prefix.split(/\b(?:and|or)\b/).at(-1) ?? "";
+      const negated = /\bnot\b/.test(localPrefix) || /\bnot\s+(?:true|the case)\s+that\b/.test(prefix);
+      const conditional = /\b(?:if|when|once|until|unless|before|after|pending|awaiting|subject to|depends? on|requires?|needs?)\b/.test(prefix);
+      return !negated && !conditional;
+    })));
+}
+function explicitPlanningNoncommitmentContext(item: DiscoveryEvidenceLedgerItem, fields: string[]) {
+  // Only the non-commitment status is metadata. The dated windows and delivery
+  // scope in the same source still require their own proposal/requirement coverage.
+  const quote = literal(normalized(item.quote));
+  return pureNoncommittalPlanningStatus(item.statement)
+    && !fields.some(directPlanningSettlement)
+    && /\bindicative planning (?:windows|horizons)\b/.test(quote)
+    && /\b(?:these|those|they|(?:the )?(?:indicative )?planning (?:windows|horizons)) (?:are|remain) (?:(?:indicative )?planning horizons|indicative),? (?:and )?not (?:yet )?committed release dates\b/.test(quote)
+    && fields.some((field) => field.split(/(?<=[.!?])\s+|\n/).some(pureNoncommittalPlanningStatus));
 }
 function proposalSubjectHead(statement: string) {
   const subject = normalized(statement).split(/\b(?:is|are|was|were|remain|remains|has|have|will|would|should)\b/)[0];
@@ -420,13 +466,31 @@ function assertsSeededPersonalDataRedaction(test: DiscoveryTestCase) {
   const seededMarkers = [...new Set(markers)];
   if (!seededMarkers.length || seededMarkers.some((marker) => !expected.includes(marker))) return false;
   const clauses = expected.split(/(?<=[.!?])\s+|[;\n]|\b(?:but|however|whereas|while)\b/);
+  const markerAlternatives = seededMarkers.map((marker) => marker.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|");
+  const precedingMarker = `(?:"(?:${markerAlternatives})"|'(?:${markerAlternatives})'|(?:${markerAlternatives}))`;
+  const withoutMarkerList = new RegExp(`^\\s*(?:${precedingMarker}\\s*(?:,\\s*(?:(?:and|or|nor)\\s+)?|(?:and|or|nor)\\s+))*["']?$`);
   return seededMarkers.every((marker) => clauses.filter((clause) => clause.includes(marker)).every((clause) => {
     const position = clause.indexOf(marker);
     const before = clause.slice(0, position);
     const after = clause.slice(position + marker.length);
-    const positiveExposure = [...clause.matchAll(/\b(?:contains?|includes?|displays?|shows?|exposes?|reveals?)\b/g)].some((match) => !/\bnot\s*$/.test(clause.slice(Math.max(0, match.index! - 12), match.index)));
-    if (positiveExposure || /\b(?:is|are|remain(?:s)?)\s+(?:visible|shown|displayed|included|exposed|present)\b/.test(after)) return false;
-    return /\bnot\s+(?:contain|expose|display|show|include|disclose|reveal|render|send|deliver|leak)\b/.test(before)
+    // "Rendered without TOKEN" asserts absence only for the directly governed
+    // canary/list. A negated rendering or a separate positive leak is not redaction.
+    const withoutPredicates = [...before.matchAll(/\b(?:renders?|rendered|displays?|displayed|shows?|shown)\s+without\b/g)].filter((match) => {
+      const prefix = before.slice(0, match.index);
+      const negated = /(?:\b(?:not|never|cannot|unable to|no longer)|\b\w+n['’]t)\s+(?:\w+\s+){0,3}$/.test(prefix);
+      return !negated && withoutMarkerList.test(before.slice(match.index! + match[0].length));
+    });
+    const positiveExposure = [...clause.matchAll(/\b(?:contains?|includes?|displays?|displayed|shows?|shown|renders?|rendered|exposes?|reveals?)\b/g)].some((match) => !withoutPredicates.some((predicate) => predicate.index === match.index) && !/\bnot\s*$/.test(clause.slice(Math.max(0, match.index! - 12), match.index)));
+    // An elided rendering verb does not make "without TOKEN and with TOKEN"
+    // consistent: reject an affirmative with-phrase directly governing a canary.
+    const positiveWithCanary = withoutPredicates.length > 0 && [...clause.matchAll(/\bwith\b/g)].some((match) => {
+      if (/\b(?:not|never)\s*$/.test(clause.slice(0, match.index))) return false;
+      const start = match.index! + match[0].length;
+      const occurrence = clause.indexOf(marker, start);
+      return occurrence >= 0 && withoutMarkerList.test(clause.slice(start, occurrence));
+    });
+    if (positiveExposure || positiveWithCanary || /\b(?:is|are|remain(?:s)?)\s+(?:visible|shown|displayed|included|exposed|present)\b/.test(after)) return false;
+    return withoutPredicates.length > 0 || /\bnot\s+(?:contain|expose|display|show|include|disclose|reveal|render|send|deliver|leak)\b/.test(before)
       || /\b(?:absent|redacted|masked|omitted|excluded|removed|hidden)\b/.test(after) && !/\bnot\b/.test(after)
       || /\bnot\s+(?:visible|shown|displayed|included|exposed|present)\b/.test(after);
   }));
@@ -492,7 +556,8 @@ export function reviewDiscoveryFidelity(synthesis: FidelityDefinition, inputLedg
     if (item.kind === "requirement" && row.disposition !== "gap" && (!row.storyIds.length || !row.testIds.length)) errors.push(`${item.id} needs mapped stories and relevant tests.`);
     if ((item.kind === "open-question" || row.disposition === "gap") && !row.gapIds.length) errors.push(`${item.id} needs a precise unresolved discovery gap.`);
     const noncommittalContext = row.disposition === "context" && !row.storyIds.length && !row.testIds.length && !metrics(item.statement).length
-      && /^(?:target|outcome|result)$/.test(proposalSubjectHead(item.statement) ?? "") && explicitUnconfirmedContext(item.statement, fields);
+      && (/^(?:target|outcome|result)$/.test(proposalSubjectHead(item.statement) ?? "") && explicitUnconfirmedContext(item.statement, fields)
+        || explicitPlanningNoncommitmentContext(item, fields));
     if (item.kind === "proposal" && !["proposal", "gap"].includes(row.disposition) && !noncommittalContext) errors.push(`${item.id} promotes a proposal to a confirmed obligation.`);
     if (["proposal", "open-question"].includes(item.kind) && row.storyIds.some((id) => stories.get(id)?.readiness !== "needs-input")) errors.push(`${item.id} has unresolved evidence but marks a dependent story ready.`);
     for (const expected of metrics(item.statement)) {
@@ -503,8 +568,8 @@ export function reviewDiscoveryFidelity(synthesis: FidelityDefinition, inputLedg
         if (candidates.some((actual) => expected.countScope && actual.countScope && expected.countScope !== actual.countScope
           && !ledger.some((other) => metrics(other.statement).some((supported) => supported.countScope === actual.countScope && metricMatches(supported, actual))))) errors.push(`${item.id} changes a source count's baseline or pilot scope.`);
         if (candidates.some((actual) => /^(?:business|calendar) /.test(expected.unit) && /^(?:business|calendar) /.test(actual.unit) && actual.unit !== expected.unit)) errors.push(`${item.id} changes the measurement calendar or unit basis.`);
-        if (candidates.some((actual) => expectedStatistic === "median" && /\b(?:average|mean)\b/i.test(metricContext(field, actual)))) errors.push(`${item.id} changes a median into a mean/average.`);
-        if (candidates.some((actual) => ["average", "mean"].includes(expectedStatistic ?? "") && /\bmedian\b/i.test(metricContext(field, actual)))) errors.push(`${item.id} changes a mean/average into a median.`);
+        if (candidates.some((actual) => expectedStatistic === "median" && assertsOpposingStatistic(metricContext(field, actual), expectedStatistic))) errors.push(`${item.id} changes a median into a mean/average. Offending output context: ${literal(field).slice(0, 500)}`);
+        if (candidates.some((actual) => ["average", "mean"].includes(expectedStatistic ?? "") && assertsOpposingStatistic(metricContext(field, actual), expectedStatistic!))) errors.push(`${item.id} changes a mean/average into a median. Offending output context: ${literal(field).slice(0, 500)}`);
         if (item.kind === "proposal") for (const actual of candidates) {
           const context = metricContext(field, actual);
           const promotion = proposalPromotion(item, context, actual);
