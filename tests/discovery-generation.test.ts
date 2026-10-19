@@ -160,7 +160,7 @@ test("streamed research, evidence and synthesis keep complete citations, aggrega
   });
 });
 
-test("core stages share the bounded run budget instead of each stopping at 120 seconds", async () => {
+test("core stages share the bounded run budget instead of using an independent stage cap", async () => {
   await withStubs(async (logs) => {
     let now = 0;
     let calls = 0;
@@ -179,7 +179,7 @@ test("core stages share the bounded run budget instead of each stopping at 120 s
   });
 });
 
-test("research remains capped at 120 seconds and cannot reset the shared core budget", async () => {
+test("research remains capped at 240 seconds and cannot reset the shared core budget", async () => {
   await withStubs(async () => {
     let now = 0;
     let calls = 0;
@@ -195,7 +195,7 @@ test("research remains capped at 120 seconds and cannot reset the shared core bu
     const result = await generateDiscoverySynthesis(program, "", { externalResearch: true, researchTopic: "Public service practices" });
     assert.equal(result.research?.status, "unavailable");
     assert.equal(result.quality?.status, "reviewed");
-    assert.deepEqual(timeouts, [120_000, 640_000, 590_000]);
+    assert.deepEqual(timeouts, [240_000, 640_000, 590_000]);
   });
 });
 

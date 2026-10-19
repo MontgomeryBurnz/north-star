@@ -517,7 +517,7 @@ export async function generateDiscoverySynthesis(
     let category = "unexpected-error";
     let signal: AbortSignal | undefined;
     try {
-      timeoutMs = Math.min(stage === "public-research" ? 120_000 : Infinity, deadline - Date.now());
+      timeoutMs = Math.min(stage === "public-research" ? 240_000 : Infinity, deadline - Date.now());
       if (timeoutMs < 1000) {
         category = "deadline-exhausted";
         throw new DiscoveryGenerationError("Analysis exceeded its time limit. Your sources and previous package are preserved; retry with a smaller discovery package.");
