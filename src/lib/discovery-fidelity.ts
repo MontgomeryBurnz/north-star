@@ -17,6 +17,7 @@ export const discoverySynthesisFidelityInstructions = [
 ].join(" ");
 
 export type DiscoveryEvidenceSource = { id: string; text: string };
+export type DiscoveryFidelityReviewIssue = { evidenceId: string; sourceId: string; message: string };
 export type DiscoveryEvidenceLedgerItem = {
   id: string; sourceId: string; quote: string;
   kind: "fact" | "requirement" | "proposal" | "open-question";
@@ -110,8 +111,8 @@ function unconfirmedKind(text: string): "proposal" | "open-question" | undefined
   // Business entities and confirmed procedural obligations are not proposal status.
   if (/\b(?:must|shall|required|requires?|reject|block|prevent)\b/.test(value) && /\b(?:unconfirmed|unapproved|pending) (?:requests?|applications?|submissions?|records?|transactions?)\b/.test(value)) return undefined;
   if (/\b(?:is|are|was|were|has been|have been|now|already)\s+(?:(?:formally|explicitly)\s+)?(?:approved|confirmed|authorized|adopted|ratified|settled|achieved)\b/.test(value)) return undefined;
-  if (/\b(?:proposed|indicative)\b|\b(?:is|are|was|were|remains)\s+(?:(?:a|an|the)\s+)?proposal\b|\bproposal (?:for|to)\b|\b(?:later|future|unapproved) proposal\b|\bcandidate (?:dependenc(?:y|ies)|integrations?|solutions?|designs?|approaches?|scope|categor(?:y|ies)|vendors?|platforms?|systems?|options?|targets?|features?)\b/.test(value)) return "proposal";
-  if (/\b(?:unconfirmed|unresolved|unknown|open (?:technical )?(?:decisions?|questions?)|pending decision|not (?:yet )?(?:been )?(?:approved|confirmed|defined))\b/.test(value)) return "open-question";
+  if (/\b(?:proposed|indicative)\b|\bnot\s+(?:(?:a|an|the)\s+)?committed\b|\b(?:is|are|was|were|remains)\s+(?:(?:a|an|the)\s+)?proposal\b|\bproposal (?:for|to)\b|\b(?:later|future|unapproved) proposal\b|\bcandidate (?:dependenc(?:y|ies)|integrations?|solutions?|designs?|approaches?|scope|categor(?:y|ies)|vendors?|platforms?|systems?|options?|targets?|features?)\b/.test(value)) return "proposal";
+  if (/\b(?:unconfirmed|unresolved|unknown|open (?:technical )?(?:decisions?|questions?)|pending decision|not (?:yet )?(?:been )?(?:approved|confirmed|defined|decided|settled|determined))\b/.test(value)) return "open-question";
   return undefined;
 }
 
@@ -135,6 +136,18 @@ function sourceUnconfirmedKind(clause: string) {
 
 function confirmationPrerequisite(statement: string) {
   return /\b(?:must|shall|needs? to|required to)\s+(?:be\s+)?(?:confirm(?:ed)?|decid(?:e|ed)|resolv(?:e|ed)|approv(?:e|ed))\b|\b(?:confirmation|decision|approval)\s+(?:is\s+)?required\s+(?:before|prior to)\b/i.test(normalized(statement));
+}
+
+function contextualSourceMetrics(statement: string, metric: Metric, quote: string, source: string) {
+  const observation = /\b(?:baseline|observation|sampling|sample|reporting|study|measurement)\b/;
+  if (!/\b(?:hour|day|week|month|year)$/.test(metric.unit) || !observation.test(metricContext(statement, metric))) return [];
+  const primaryMeasurement = metrics(statement).some((other) => other.index !== metric.index && metrics(quote).some((quoted) => metricMatches(quoted, other)));
+  if (!primaryMeasurement) return [];
+  return metrics(source).filter((actual) => metricMatches(actual, metric) && observation.test(metricContext(source, actual)));
+}
+
+function explicitSettlement(statement: string) {
+  return /\b(?:is|are|was|were|has|have|had|has been|have been|had been|now|already)\s+(?:(?:formally|explicitly|already)\s+)?(?:approved|confirmed|authorized|adopted|ratified|settled|committed|achieved)\b/i.test(normalized(statement));
 }
 
 function metricIsProposed(text: string, metric: Metric) {
@@ -164,8 +177,9 @@ function metricIsProposed(text: string, metric: Metric) {
 export function reviewDiscoveryEvidenceLedger(value: unknown, sources: DiscoveryEvidenceSource[]) {
   const errors: string[] = [];
   const ledger: DiscoveryEvidenceLedgerItem[] = [];
+  const reviewIssues: DiscoveryFidelityReviewIssue[] = [];
   const normalizations: Array<{ evidenceId: string; from: DiscoveryEvidenceLedgerItem["kind"]; to: DiscoveryEvidenceLedgerItem["kind"]; reason: "source-backed-unconfirmed-status" }> = [];
-  if (!Array.isArray(value) || !value.length) return { ledger, normalizations, errors: ["An atomic evidence ledger is required."] };
+  if (!Array.isArray(value) || !value.length) return { ledger, normalizations, reviewIssues, errors: ["An atomic evidence ledger is required."] };
   const sourceMap = new Map(sources.map((source) => [source.id, source.text]));
   for (const input of value) {
     const item = record(input);
@@ -173,6 +187,7 @@ export function reviewDiscoveryEvidenceLedger(value: unknown, sources: Discovery
       errors.push("An evidence ledger item is invalid."); continue;
     }
     const entry = { ...item } as unknown as DiscoveryEvidenceLedgerItem;
+    const flagReview = (message: string) => reviewIssues.push({ evidenceId: entry.id, sourceId: entry.sourceId, message });
     const source = sourceMap.get(entry.sourceId);
     if (!source || !literal(source).includes(literal(entry.quote))) errors.push(`${entry.id} has an unverifiable source quotation.`);
     if (ledger.some((existing) => existing.id === entry.id)) errors.push("Evidence identifiers must be unique.");
@@ -181,12 +196,17 @@ export function reviewDiscoveryEvidenceLedger(value: unknown, sources: Discovery
     let statementStatus = sourceUnconfirmedKind(entry.statement);
     let sourceStatus: "proposal" | "open-question" | undefined;
     for (const metric of statementMetrics) {
-      const supported = quotedMetrics.filter((quoted) => metricMatches(quoted, metric));
+      let supportText = entry.quote;
+      let supported = quotedMetrics.filter((quoted) => metricMatches(quoted, metric));
+      if (!supported.length && source) {
+        supported = contextualSourceMetrics(entry.statement, metric, entry.quote, source);
+        supportText = source;
+      }
       if (!supported.length) errors.push(`${entry.id} changes or invents a source measurement.`);
       const statistic = sourceMetricStatistic(entry.statement, metric);
-      const quotedStatistics = supported.map((quoted) => sourceMetricStatistic(entry.quote, quoted)).filter(Boolean);
+      const quotedStatistics = supported.map((quoted) => sourceMetricStatistic(supportText, quoted)).filter(Boolean);
       if ((statistic && !quotedStatistics.includes(statistic)) || (quotedStatistics.length && !statistic)) errors.push(`${entry.id} changes or omits a source measurement statistic.`);
-      if (supported.length && supported.every((quoted) => metricIsProposed(entry.quote, quoted))) sourceStatus = "proposal";
+      if (supported.length && supported.every((quoted) => metricIsProposed(supportText, quoted))) sourceStatus = "proposal";
     }
     const matchedClauses = entry.quote.split(/(?<=[.!?])\s+|[\n;|]/).filter((clause) => {
       if (!sameAtomicClaim(entry.statement, clause)) return false;
@@ -198,13 +218,19 @@ export function reviewDiscoveryEvidenceLedger(value: unknown, sources: Discovery
     // "The sponsor must confirm authority before configuration" preserves uncertainty
     // only when the same verified source claim actually says that authority is unresolved.
     if (sourceStatus && confirmationPrerequisite(entry.statement)) statementStatus = "open-question";
-    if (sourceStatus && !statementStatus) errors.push(`${entry.id} removes a source-backed proposal or unresolved-decision qualification.`);
+    if (sourceStatus && !statementStatus) {
+      if (explicitSettlement(entry.statement)) errors.push(`${entry.id} removes a source-backed proposal or unresolved-decision qualification.`);
+      else flagReview("The source and atomic statement need an owner review of proposal or decision status; do not treat this claim as confirmed implementation scope.");
+    }
     if (statementStatus && sourceStatus && !["proposal", "open-question"].includes(entry.kind)) {
       const kind = statementStatus === "open-question" || sourceStatus === "open-question" ? "open-question" : "proposal";
       normalizations.push({ evidenceId: entry.id, from: entry.kind, to: kind, reason: "source-backed-unconfirmed-status" });
       entry.kind = kind;
-    } else if (statementStatus && !["proposal", "open-question"].includes(entry.kind)) errors.push(`${entry.id} has an unconfirmed classification not supported by its source claim.`);
-    if (statementStatus && !sourceStatus && matchedClauses.some((clause) => /\b(?:must|shall|required|requires?|mandatory)\b/i.test(clause) && !sourceUnconfirmedKind(clause))) errors.push(`${entry.id} weakens a confirmed source obligation into an unsupported proposal.`);
+    } else if (statementStatus && !["proposal", "open-question"].includes(entry.kind)) flagReview("The internal evidence classification and statement modality need owner review before commitment.");
+    if (statementStatus && !sourceStatus) {
+      if (matchedClauses.some((clause) => /\b(?:must|shall|required|requires?|mandatory)\b/i.test(clause) && !sourceUnconfirmedKind(clause))) errors.push(`${entry.id} weakens a confirmed source obligation into an unsupported proposal.`);
+      else flagReview("The statement's unconfirmed status is not unambiguously aligned to its quoted source claim and needs owner review.");
+    }
     ledger.push(entry);
   }
   for (const source of sources) {
@@ -217,7 +243,7 @@ export function reviewDiscoveryEvidenceLedger(value: unknown, sources: Discovery
       if (statistic && !items.some((item) => metrics(item.statement).some((actual) => metricMatches(metric, actual)) && new RegExp(`\\b${statistic}\\b`, "i").test(item.statement))) errors.push(`${source.id} has an atomic statement that strips a measurement's source statistic.`);
     }
   }
-  return { ledger, normalizations, errors: [...new Set(errors)] };
+  return { ledger, normalizations, reviewIssues: [...new Map(reviewIssues.map((issue) => [`${issue.evidenceId}:${issue.message}`, issue])).values()], errors: [...new Set(errors)] };
 }
 
 function visibleFields(synthesis: FidelityDefinition) {
@@ -245,9 +271,10 @@ export function reviewDiscoveryFidelity(synthesis: FidelityDefinition, inputLedg
   const reviewed = reviewDiscoveryEvidenceLedger(inputLedger, sources);
   const ledger = reviewed.ledger;
   const errors = [...reviewed.errors];
+  const reviewIssues = reviewed.reviewIssues;
   const warnings: string[] = [];
   const coverage: Coverage[] = [];
-  if (!Array.isArray(value)) return { errors: [...errors, "Evidence-to-output coverage is required."], warnings };
+  if (!Array.isArray(value)) return { errors: [...errors, "Evidence-to-output coverage is required."], warnings, reviewIssues };
   const stories = new Map(synthesis.stories.map((story) => [story.id, story]));
   const tests = new Map(synthesis.stories.flatMap((story) => story.testCases.map((test) => [test.id, { test, story }] as const)));
   const gaps = new Map(synthesis.gaps.map((gap) => [gap.id, gap]));
@@ -374,5 +401,5 @@ export function reviewDiscoveryFidelity(synthesis: FidelityDefinition, inputLedg
       for (const [label, pattern] of unresolvedFamilies) if (pattern.test(normalized(sentence)) && !hasGap(pattern)) errors.push(`${source.id} needs a precise gap for unresolved ${label}.`);
     }
   }
-  return { errors: [...new Set(errors)], warnings };
+  return { errors: [...new Set(errors)], warnings, reviewIssues };
 }

@@ -383,3 +383,56 @@ test("source-backed classification normalization reaches synthesis and final che
     await assert.rejects(generateDiscoverySynthesis(normalizedProgram), /failed evidence fidelity or risk-based coverage checks/);
   });
 });
+
+test("ambiguous wording produces an explicit provisional review draft without repairing invalid coverage", async () => {
+  await withStubs(async (logs) => {
+    const quote = "Pilot category selection is an open decision.";
+    const statement = "The council must review the pilot category selection.";
+    const sources = sampleDiscoverySources.map((source) => ({ ...source, extractedText: quote }));
+    const input = { ...program, intake: { ...program.intake, artifacts: sources } };
+    const review = { ...evidence,
+      sources: sources.map((source) => ({ sourceId: source.id, findings: [statement], limitations: "Interpretation requires review" })),
+      evidenceLedger: sources.map((source, index) => ({ id: `EV-${index + 1}`, sourceId: source.id, quote, kind: "open-question", statement }))
+    };
+    const generated = { ...sampleDiscoverySynthesis, readinessScore: 95,
+      stories: sampleDiscoverySynthesis.stories.map((story) => ({ ...story, readiness: "ready" })),
+      gaps: [...sampleDiscoverySynthesis.gaps, { id: "GAP-EVIDENCE-REVIEW-1", title: "Existing model gap", severity: "important", sourceIds: [sources[0].id], description: "Preserve this gap.", question: "What is the decision?" }]
+    };
+    const original = JSON.stringify(generated);
+    const calls: Record<string, unknown>[] = [];
+    globalThis.fetch = async (_url, init) => {
+      calls.push(JSON.parse(String(init?.body)));
+      return response(calls.length === 1 ? review : generated);
+    };
+    const result = await generateDiscoverySynthesis(input);
+    assert.equal(result.provider, "openai");
+    assert.equal(result.quality?.status, "provisional");
+    assert.ok(result.readinessScore <= 60);
+    assert.ok(result.stories.every((story) => story.readiness === "needs-input"));
+    assert.match(result.readinessNarrative, /Review draft/);
+    assert.match(result.quality!.warnings.join(" "), /do not treat this package as approved or build-ready/);
+    assert.ok(!result.quality!.checks.includes("Source-driven fidelity and risk-based scenario checks passed"));
+    assert.equal(result.gaps.filter((gap) => gap.title === "Review source interpretation before implementation").length, 6);
+    assert.ok(result.gaps.some((gap) => gap.id === "GAP-EVIDENCE-REVIEW-1-HOLD-1" && gap.severity === "blocking"));
+    assert.ok(result.gaps.some((gap) => gap.description.includes(quote) && gap.description.includes(statement)));
+    const synthesisInput = JSON.parse((calls[1].input as Array<{ content: string }>)[1].content);
+    assert.equal(synthesisInput.evidenceReview.reviewIssues.length, 6);
+    assert.equal(JSON.stringify(generated), original);
+    assert.doesNotMatch(JSON.stringify(logs), /Pilot category selection|council must review|Source quotation/);
+
+    for (const invalidRow of [
+      { ...generated.evidenceCoverage[0], gapIds: ["UNKNOWN-GAP"] },
+      { ...generated.evidenceCoverage[0], disposition: "INVALID" },
+      { ...generated.evidenceCoverage[0], storyIds: ["UNKNOWN-STORY"] }
+    ]) {
+      calls.length = 0;
+      const invalid = { ...generated, evidenceCoverage: [invalidRow, ...generated.evidenceCoverage.slice(1)] };
+      globalThis.fetch = async () => { calls.push({}); return response(calls.length === 1 ? review : invalid); };
+      await assert.rejects(generateDiscoverySynthesis(input), /failed evidence fidelity or risk-based coverage checks/);
+    }
+    calls.length = 0;
+    const omitted = { ...generated, evidenceCoverage: generated.evidenceCoverage.slice(1) };
+    globalThis.fetch = async () => { calls.push({}); return response(calls.length === 1 ? review : omitted); };
+    await assert.rejects(generateDiscoverySynthesis(input), /failed evidence fidelity or risk-based coverage checks/);
+  });
+});

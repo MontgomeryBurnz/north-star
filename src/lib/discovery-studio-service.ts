@@ -8,6 +8,7 @@ import { extractOpenAIUsageMetadata } from "@/lib/openai-usage";
 import { OpenAIResponseStreamError, readOpenAIResponsePayload } from "@/lib/openai-response-stream";
 import { aggregateDiscoveryUsage, reviewDiscoveryIntegrity } from "@/lib/discovery-quality";
 import { discoveryEvidenceFidelityInstructions, discoverySynthesisFidelityInstructions, reviewDiscoveryEvidenceLedger, reviewDiscoveryFidelity, withDiscoveryCoverageSchema, withDiscoveryLedgerSchema } from "@/lib/discovery-fidelity";
+import type { DiscoveryFidelityReviewIssue } from "@/lib/discovery-fidelity";
 import { buildDiscoveryResearchInstructions, researchCitationKey, reviewDiscoveryResearch } from "@/lib/discovery-research-policy";
 import type {
   DiscoveryEpic,
@@ -39,6 +40,47 @@ function evidenceFailureDetails(errors: string[], ledger: Array<{ id: string; so
     if (!item) return excerpt(error, 700);
     return `${excerpt(error, 700)} Evidence ${excerpt(item.id, 100)}; source ${excerpt(item.sourceId, 240)}; classification ${item.kind}. Source quotation: ${excerpt(item.quote, 1200)} Reviewed assertion: ${excerpt(item.statement, 1000)}`;
   }).join("\n");
+}
+
+function applyEvidenceReviewHolds(
+  synthesis: Pick<DiscoverySynthesis, "gaps" | "stories" | "readinessScore" | "readinessNarrative">,
+  coverage: unknown,
+  issues: DiscoveryFidelityReviewIssue[],
+  ledger: Array<{ id: string; quote: string; statement: string }>
+) {
+  if (!issues.length) return coverage;
+  const sourceIds = [...new Set(issues.map((issue) => issue.sourceId))];
+  const gapByEvidence = new Map<string, string>();
+  for (const [index, sourceId] of sourceIds.entries()) {
+    const sourceIssues = issues.filter((issue) => issue.sourceId === sourceId);
+    const base = `GAP-EVIDENCE-REVIEW-${index + 1}`;
+    let id = base;
+    let suffix = 1;
+    while (synthesis.gaps.some((gap) => gap.id === id)) id = `${base}-HOLD-${suffix++}`;
+    for (const issue of sourceIssues) gapByEvidence.set(issue.evidenceId, id);
+    const details = sourceIssues.map((issue) => {
+      const item = ledger.find((entry) => entry.id === issue.evidenceId);
+      return `${issue.evidenceId}: ${issue.message}${item ? ` Source quotation: ${excerpt(item.quote, 1000)} Reviewed assertion: ${excerpt(item.statement, 800)}` : ""}`;
+    }).join("\n");
+    synthesis.gaps.push({
+      id, title: "Review source interpretation before implementation", severity: "blocking", sourceIds: [sourceId],
+      description: excerpt(`${sourceIssues.length} evidence interpretation(s) require human review. ${details}`, 20_000),
+      question: "Confirm the intended interpretation of the quoted evidence and correct any unsupported assertion. Supply the confirmed decision or clarification before committing dependent work."
+    });
+  }
+  synthesis.stories = synthesis.stories.map((story) => ({ ...story, readiness: "needs-input" }));
+  synthesis.readinessScore = Math.min(synthesis.readinessScore, 60);
+  synthesis.readinessNarrative = `Review draft — policy interpretation requires human review. All stories are held as needs-input until the source-linked evidence review gaps are resolved. ${synthesis.readinessNarrative}`;
+  // Establish trusted review holds without repairing malformed rows, bad references,
+  // duplicates, or missing coverage. Those remain hard validation failures.
+  if (!Array.isArray(coverage)) return coverage;
+  return coverage.map((input) => {
+    const row = asRecord(input);
+    const gapId = typeof row?.evidenceId === "string" ? gapByEvidence.get(row.evidenceId) : undefined;
+    if (!row || !gapId || !["implemented", "context", "proposal", "gap"].includes(String(row.disposition))
+      || !Array.isArray(row.gapIds) || !row.gapIds.every((value) => typeof value === "string")) return input;
+    return { ...row, disposition: "gap", gapIds: row.gapIds.includes(gapId) ? [...row.gapIds] : [...row.gapIds, gapId] };
+  });
 }
 
 function sourceIds(value: unknown) {
@@ -657,7 +699,7 @@ export async function generateDiscoverySynthesis(
           "Return the full coherent hierarchy even if only some deliverables are selected for export. Prioritize those selected deliverables in analytical detail. Produce concise engineering-useful content without filler.",
           discoverySynthesisFidelityInstructions
         ].join(" ") },
-        { role: "user", content: JSON.stringify({ ...context, evidenceReview: { ...evidence, evidenceLedger: ledgerReview.ledger }, externalResearch: research.status === "completed" ? research : null }) }
+        { role: "user", content: JSON.stringify({ ...context, evidenceReview: { ...evidence, evidenceLedger: ledgerReview.ledger, reviewIssues: ledgerReview.reviewIssues }, externalResearch: research.status === "completed" ? research : null }) }
       ]
     });
     const synthesisEnvelope = parseStructuredModelOutput(extractOutputText(payload), asRecord);
@@ -666,7 +708,8 @@ export async function generateDiscoverySynthesis(
     parsed.gaps = parsed.gaps.filter((gap) => !["GAP-SOURCE-COVERAGE", "GAP-UNREADABLE-SOURCES"].includes(gap.id));
     const integrity = reviewDiscoveryIntegrity(parsed, readableArtifacts.map((source) => source.id));
     if (integrity.errors.length) throw new DiscoveryGenerationError(`The package failed its quality checks: ${integrity.errors.slice(0, 3).join(" ")} Your previous package is preserved; please retry.`);
-    const fidelity = reviewDiscoveryFidelity(parsed, ledgerReview.ledger, synthesisEnvelope?.evidenceCoverage, context.sources);
+    const heldCoverage = applyEvidenceReviewHolds(parsed, synthesisEnvelope?.evidenceCoverage, ledgerReview.reviewIssues, ledgerReview.ledger);
+    const fidelity = reviewDiscoveryFidelity(parsed, ledgerReview.ledger, heldCoverage, context.sources);
     if (fidelity.errors.length) throw new DiscoveryGenerationError(`The package failed evidence fidelity or risk-based coverage checks: ${evidenceFailureDetails(fidelity.errors, ledgerReview.ledger)} Your previous package is preserved.`);
     const excerpts = coverage.filter((source) => source.coverage === "excerpt");
     if (unreadableArtifacts.length) {
@@ -683,9 +726,9 @@ export async function generateDiscoverySynthesis(
       ...parsed, sourceCount: readableArtifacts.length, sources: [...coverage, ...unreadableArtifacts.map((source) => ({ id: source.id, name: source.name, characters: 0, coverage: "excerpt" as const }))],
       generatedAt: new Date().toISOString(), provider: "openai", modelUsage: aggregateDiscoveryUsage(usage), research,
       quality: {
-        status: "reviewed",
-        checks: ["Independent evidence review covered every source", "Atomic source quotations and quantitative evidence coverage validated", "Source citations validated", "Roadmap, epic, feature, and story relationships validated", "Happy-path and negative/edge test coverage validated", "Source-driven fidelity and risk-based scenario checks passed"],
-        warnings: [...integrity.warnings, ...fidelity.warnings, ...excerpts.map((source) => `${source.name}: source coverage is partial.`), ...unreadableArtifacts.map((source) => `${source.name}: source could not be read.`), ...(research.status === "unavailable" ? [research.summary] : [])]
+        status: ledgerReview.reviewIssues.length ? "provisional" : "reviewed",
+        checks: ["Independent evidence review covered every source", "Source quotations and quantitative evidence checked", "Source citations validated", "Roadmap, epic, feature, and story relationships validated", "Happy-path and negative/edge test coverage validated", ...(ledgerReview.reviewIssues.length ? ["Definitive factual and risk scenario checks passed; ambiguous interpretations held for human review"] : ["Source-driven fidelity and risk-based scenario checks passed"])],
+        warnings: [...integrity.warnings, ...fidelity.warnings, ...(ledgerReview.reviewIssues.length ? ["Provisional review draft: ambiguous source interpretations are blocking gaps. Every story remains needs-input; do not treat this package as approved or build-ready."] : []), ...excerpts.map((source) => `${source.name}: source coverage is partial.`), ...unreadableArtifacts.map((source) => `${source.name}: source could not be read.`), ...(research.status === "unavailable" ? [research.summary] : [])]
       },
       revision: { number: Math.max(0, Math.min(9999, Math.floor(options.previousSynthesis?.revision?.number ?? (previous ? 1 : 0)))) + 1, summary: revisionSummary(previous, parsed, Boolean(feedback)), feedback: feedback || undefined }
     };

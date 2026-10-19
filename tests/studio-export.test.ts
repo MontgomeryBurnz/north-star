@@ -115,6 +115,21 @@ test("analysis exports preserve research, quality review, revision feedback, and
   assert.ok(!markdown.includes("## Test cases"));
 });
 
+test("a provisional Excel review notice remains visible when analysis and gaps are not selected", async () => {
+  const request = input("xlsx");
+  request.outputs = ["roadmap"];
+  request.synthesis.quality.status = "provisional";
+  request.synthesis.readinessScore = 60;
+  request.synthesis.readinessNarrative = "Review draft — policy interpretation requires human review. Do not treat this package as build-ready.";
+  const result = await generateStudioExport(normalizeStudioExportRequest(request));
+  const zip = await JSZip.loadAsync(result.buffer);
+  const overview = decodeXml(await zip.file("xl/worksheets/sheet1.xml")!.async("string"));
+  assert.match(overview, /provisional/);
+  assert.match(overview, /Review draft/);
+  assert.match(overview, /Do not treat this package as build-ready/);
+  assert.doesNotMatch(await zip.file("xl/workbook.xml")!.async("string"), /name="Analysis"/);
+});
+
 test("export validation rejects malformed and oversized inputs and removes invalid XML controls", async () => {
   assert.throws(() => normalizeStudioExportRequest({}), StudioExportError);
   assert.throws(() => normalizeStudioExportRequest({ ...input(), format: "pdf" }), /not supported/);

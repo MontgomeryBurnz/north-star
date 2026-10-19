@@ -159,6 +159,59 @@ test("a sponsor-confirmation prerequisite backed by unresolved authority remains
     "The decision prerequisite still prevents a dependent story from being marked ready.");
 });
 
+test("an open pilot-category decision remains open when faithfully phrased as not decided", () => {
+  const quote = "Required pilot categories and their SLA targets are an open decision.";
+  const statement = "Required pilot categories and their SLA targets are not decided.";
+  const ledger: Evidence[] = [{ id: "E022", sourceId: "SRC1", quote, kind: "open-question", statement }];
+  const value = definition(statement);
+  value.gaps = [{ id: "G1", title: "Pilot categories and SLA targets", severity: "blocking", description: statement, question: "Which pilot categories and corresponding SLA targets are approved?", sourceIds: ["SRC1"] }];
+  const reviewed = reviewDiscoveryEvidenceLedger(ledger, [{ id: "SRC1", text: quote }]);
+  assert.deepEqual(reviewed.errors, []);
+  assert.equal(reviewed.ledger[0].kind, "open-question");
+  assert.deepEqual(reviewDiscoveryFidelity(value, reviewed.ledger, [{ ...row("E022", "gap"), gapIds: ["G1"] }], [{ id: "SRC1", text: quote }]).errors, []);
+});
+
+test("indicative planning horizons explicitly described as not committed are not promoted to release commitments", () => {
+  const quote = "Indicative planning windows: 0–30 days validate blueprint and policy, 31–60 days pilot configuration and validation, 61–120 days assess scale-up. These are planning horizons, not committed release dates.";
+  const statements = [
+    "The 0–30 day horizon is for validating blueprint and policy, not a committed release date.",
+    "The 31–60 day horizon is for pilot configuration and validation, not a committed release date.",
+    "The 61–120 day horizon is for assessing scale-up, not a committed release date."
+  ];
+  const ledger: Evidence[] = statements.map((statement, index) => ({ id: `E${62 + index}`, sourceId: "SRC1", quote, kind: "proposal", statement }));
+  const value = definition(statements.join(" "));
+  value.assumptions = statements;
+  const coverage = ledger.map((item) => row(item.id, "proposal"));
+  const reviewed = reviewDiscoveryEvidenceLedger(ledger, [{ id: "SRC1", text: quote }]);
+  assert.deepEqual(reviewed.errors, []);
+  assert.deepEqual(reviewDiscoveryFidelity(value, reviewed.ledger, coverage, [{ id: "SRC1", text: quote }]).errors, []);
+  const committed = replaceVisible(value, "not a committed release date", "a committed release date");
+  assert.ok(reviewDiscoveryFidelity(committed, reviewed.ledger, coverage, [{ id: "SRC1", text: quote }]).errors.length > 0,
+    "Removing the explicit noncommitment must still be rejected.");
+});
+
+test("a metric statement may retain its same-source baseline period from the header without importing unrelated context", () => {
+  const header = "FICTIONAL TRAINING WORKBOOK — Request volume and aging, eight-week baseline.";
+  const quote = "Median request-to-assignment time | 3.8 calendar days";
+  const source = `${header}\n${quote}`;
+  const ledger: Evidence[] = [
+    { id: "HEADER", sourceId: "SRC1", quote: header, kind: "fact", statement: "The request-volume baseline observation period is eight weeks." },
+    { id: "E029", sourceId: "SRC1", quote, kind: "fact", statement: "The median request-to-assignment time is 3.8 calendar days during the eight-week baseline." }
+  ];
+  assert.deepEqual(reviewDiscoveryEvidenceLedger(ledger, [{ id: "SRC1", text: source }]).errors, []);
+
+  const differentSource = structuredClone(ledger);
+  differentSource[0].sourceId = "SRC2";
+  assert.ok(reviewDiscoveryEvidenceLedger(differentSource, [{ id: "SRC1", text: quote }, { id: "SRC2", text: header }]).errors.length > 0,
+    "A period from a different source cannot silently qualify this measurement.");
+
+  const unrelatedHeader = "A governance checkpoint occurs after eight weeks.";
+  const unrelatedContext = structuredClone(ledger);
+  unrelatedContext[0] = { id: "HEADER", sourceId: "SRC1", quote: unrelatedHeader, kind: "fact", statement: unrelatedHeader };
+  assert.ok(reviewDiscoveryEvidenceLedger(unrelatedContext, [{ id: "SRC1", text: `${unrelatedHeader}\n${quote}` }]).errors.length > 0,
+    "An unrelated same-source duration is not evidence of the measurement's baseline period.");
+});
+
 test("confirmation required for each record deletion is a confirmed workflow rule, not an unresolved product decision", () => {
   for (const text of [
     "Record deletion requires confirmation from the record owner before the delete operation proceeds.",
@@ -208,6 +261,27 @@ test("a proposed authority rewritten as settled cannot be repaired merely by rel
   const inventedProposal: Evidence[] = [{ id: "R1", sourceId: "SRC1", quote: confirmedQuote, kind: "requirement", statement: "A reassignment reason is proposed as an optional workflow step." }];
   assert.ok(reviewDiscoveryEvidenceLedger(inventedProposal, [{ id: "SRC1", text: confirmedQuote }]).errors.length > 0,
     "A confirmed source obligation must not become optional because the model inserted a proposal qualifier.");
+});
+
+test("ambiguous authority alignment produces source-linked review issues without claiming an explicit approval contradiction", () => {
+  const quote = "One compliance administrator is proposed to pilot approvals; sponsor approval pending.";
+  const statement = "One compliance administrator manages pilot approvals.";
+  const ledger: Evidence[] = [{ id: "A1", sourceId: "SRC1", quote, kind: "fact", statement }];
+  const sources = [{ id: "SRC1", text: quote }];
+  const reviewed = reviewDiscoveryEvidenceLedger(ledger, sources);
+  assert.deepEqual(reviewed.errors, []);
+  assert.ok(reviewed.reviewIssues.some((issue) => issue.evidenceId === "A1" && issue.sourceId === "SRC1" && issue.message.trim().length > 0));
+  assert.equal(reviewed.ledger[0].quote, quote);
+  assert.equal(reviewed.ledger[0].statement, statement);
+  const value = definition(statement);
+  const final = reviewDiscoveryFidelity(value, reviewed.ledger, [row("A1")], sources);
+  assert.deepEqual(final.errors, []);
+  assert.ok(final.reviewIssues.some((issue) => issue.evidenceId === "A1" && issue.sourceId === "SRC1"),
+    "Final validation must preserve the review issue so the service can impose its provisional hold.");
+
+  const explicitApproval = [{ ...ledger[0], statement: "One compliance administrator is authorized to manage pilot approvals." }];
+  assert.ok(reviewDiscoveryEvidenceLedger(explicitApproval, sources).errors.length > 0,
+    "An explicit claim of approved authority remains a hard failure, not a review warning.");
 });
 
 test("metric fidelity accepts exact baselines but rejects changed statistic, calendar basis, and omitted quantitative facts", () => {
