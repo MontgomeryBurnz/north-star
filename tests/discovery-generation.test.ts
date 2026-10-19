@@ -326,14 +326,21 @@ test("HTTP and streamed quota failures retain safe codes and useful guidance wit
 });
 
 test("fidelity failures stop before another provider request or preserve the previous complete package", async () => {
-  await withStubs(async () => {
+  await withStubs(async (logs) => {
     const previous = structuredClone(sampleDiscoverySynthesis);
     const original = JSON.stringify(previous);
     let calls = 0;
     const invalidEvidence = structuredClone(evidence);
     invalidEvidence.evidenceLedger[0].quote = "An invented source fact.";
     globalThis.fetch = async () => { calls++; return response(invalidEvidence); };
-    await assert.rejects(generateDiscoverySynthesis(program, "", { previousSynthesis: previous }), /evidence review failed fidelity checks/);
+    await assert.rejects(generateDiscoverySynthesis(program, "", { previousSynthesis: previous }), (error: Error) => {
+      assert.match(error.message, /evidence review failed fidelity checks/);
+      assert.match(error.message, /Source quotation: An invented source fact\./);
+      assert.match(error.message, /Reviewed assertion:/);
+      assert.ok(error.message.length < 10_000);
+      return true;
+    });
+    assert.doesNotMatch(JSON.stringify(logs), /An invented source fact|Reviewed assertion|Source quotation/);
     assert.equal(calls, 1, "Do not pay for synthesis after an unverifiable evidence review.");
     calls = 0;
     const invalidCoverage = structuredClone(sampleDiscoverySynthesis);

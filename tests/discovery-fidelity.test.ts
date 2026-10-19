@@ -26,6 +26,33 @@ test("a procedural confirmation requirement is not mislabeled as an unapproved p
   assert.deepEqual(reviewDiscoveryFidelity(definition, ledger, [{ evidenceId: "Q1", disposition: "implemented", storyIds: ["U1"], testIds: ["T1", "T2"], gapIds: [] }], sources).errors, []);
 });
 
+test("an unresolved authority can be expressed as a confirmation prerequisite without becoming settled policy", () => {
+  const quote = "The pilot approval authority is unconfirmed and must be decided by the sponsor.";
+  const statement = "Sponsor confirmation is required before the pilot approval authority can be configured.";
+  const ledger = [{ id: "Q1", sourceId: "S1", quote, kind: "requirement" as const, statement }];
+  const reviewed = reviewDiscoveryEvidenceLedger(ledger, [{ id: "S1", text: quote }]);
+  assert.deepEqual(reviewed.errors, []);
+  assert.equal(reviewed.ledger[0].kind, "open-question");
+  assert.equal(ledger[0].kind, "requirement");
+  const settled = [{ ...ledger[0], statement: "The sponsor has approved the pilot approval authority and it is configured." }];
+  assert.ok(reviewDiscoveryEvidenceLedger(settled, [{ id: "S1", text: quote }]).errors.length > 0);
+});
+
+test("an unchanged configuration decision statement retains its explicit unresolved status", () => {
+  const text = "Exact per-category SLA, business calendar, pause/resume behavior, and escalation owner require decisions.";
+  const reviewed = reviewDiscoveryEvidenceLedger([{ id: "Q1", sourceId: "S1", quote: text, statement: text, kind: "open-question" }], [{ id: "S1", text }]);
+  assert.deepEqual(reviewed.errors, []);
+  assert.equal(reviewed.ledger[0].kind, "open-question");
+});
+
+test("a proposal with a contextual quantity is not contaminated by an unrelated mandatory clause in its quote", () => {
+  const quote = "Requests must have an owner. The pilot covers three regions. A resident self-service portal is a later proposal.";
+  const statement = "A resident self-service portal is proposed for later assessment after the three-region pilot.";
+  const reviewed = reviewDiscoveryEvidenceLedger([{ id: "Q1", sourceId: "S1", quote, kind: "proposal", statement }], [{ id: "S1", text: quote }]);
+  assert.deepEqual(reviewed.errors, []);
+  assert.equal(reviewed.ledger[0].kind, "proposal");
+});
+
 test("mixed table baselines and proposed targets remain separate atomic assertions", () => {
   const text = "Measure | Baseline | Target\nMedian assignment time | 3.8 calendar days | Under 4 business hours; calendar needs confirmation\nReassigned requests | 27% | Proposed target below 10%; owner to confirm";
   const entries = [

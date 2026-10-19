@@ -124,6 +124,19 @@ function sameAtomicClaim(statement: string, clause: string) {
   return claim.size > 0 && [...claim].filter((word) => context.has(word)).length >= Math.min(2, claim.size);
 }
 
+function sourceUnconfirmedKind(clause: string) {
+  const explicit = unconfirmedKind(clause);
+  if (explicit) return explicit;
+  // A decision about configuration is unresolved; requiring a customer's confirmation
+  // as a defined workflow step is not. Keep this restricted to policy/configuration subjects.
+  if (/\b(?:sla|service level|calendar|pause|resume|escalation|authority|interfaces?|integration|roles?|scope|categor(?:y|ies)|targets?|standard|retention policy|deletion policy|retry strategy|data model)\b.{0,120}\b(?:require(?:s)? decisions?|need(?:s)? confirmation)\b/i.test(normalized(clause))) return "open-question" as const;
+  return undefined;
+}
+
+function confirmationPrerequisite(statement: string) {
+  return /\b(?:must|shall|needs? to|required to)\s+(?:be\s+)?(?:confirm(?:ed)?|decid(?:e|ed)|resolv(?:e|ed)|approv(?:e|ed))\b|\b(?:confirmation|decision|approval)\s+(?:is\s+)?required\s+(?:before|prior to)\b/i.test(normalized(statement));
+}
+
 function metricIsProposed(text: string, metric: Metric) {
   const value = normalized(text);
   const boundaries = [...value.matchAll(/[.;|\n]/g)].filter((match) => !(value[match.index! - 1]?.match(/\d/) && value[match.index! + 1]?.match(/\d/))).map((match) => match.index!);
@@ -165,7 +178,7 @@ export function reviewDiscoveryEvidenceLedger(value: unknown, sources: Discovery
     if (ledger.some((existing) => existing.id === entry.id)) errors.push("Evidence identifiers must be unique.");
     const quotedMetrics = metrics(entry.quote);
     const statementMetrics = metrics(entry.statement);
-    const statementStatus = unconfirmedKind(entry.statement);
+    let statementStatus = sourceUnconfirmedKind(entry.statement);
     let sourceStatus: "proposal" | "open-question" | undefined;
     for (const metric of statementMetrics) {
       const supported = quotedMetrics.filter((quoted) => metricMatches(quoted, metric));
@@ -175,17 +188,23 @@ export function reviewDiscoveryEvidenceLedger(value: unknown, sources: Discovery
       if ((statistic && !quotedStatistics.includes(statistic)) || (quotedStatistics.length && !statistic)) errors.push(`${entry.id} changes or omits a source measurement statistic.`);
       if (supported.length && supported.every((quoted) => metricIsProposed(entry.quote, quoted))) sourceStatus = "proposal";
     }
-    if (!statementMetrics.length) {
-      const states = entry.quote.split(/(?<=[.!?])\s+|[\n;|]/).filter((clause) => sameAtomicClaim(entry.statement, clause)).map(unconfirmedKind);
-      sourceStatus = states.includes("open-question") ? "open-question" : states.includes("proposal") ? "proposal" : undefined;
-    }
+    const matchedClauses = entry.quote.split(/(?<=[.!?])\s+|[\n;|]/).filter((clause) => {
+      if (!sameAtomicClaim(entry.statement, clause)) return false;
+      const clauseMetrics = metrics(clause);
+      return !statementMetrics.length || !clauseMetrics.length || statementMetrics.some((claim) => clauseMetrics.some((quoted) => metricMatches(quoted, claim)));
+    });
+    const states = matchedClauses.map(sourceUnconfirmedKind);
+    sourceStatus = states.includes("open-question") ? "open-question" : sourceStatus ?? (states.includes("proposal") ? "proposal" : undefined);
+    // "The sponsor must confirm authority before configuration" preserves uncertainty
+    // only when the same verified source claim actually says that authority is unresolved.
+    if (sourceStatus && confirmationPrerequisite(entry.statement)) statementStatus = "open-question";
     if (sourceStatus && !statementStatus) errors.push(`${entry.id} removes a source-backed proposal or unresolved-decision qualification.`);
     if (statementStatus && sourceStatus && !["proposal", "open-question"].includes(entry.kind)) {
       const kind = statementStatus === "open-question" || sourceStatus === "open-question" ? "open-question" : "proposal";
       normalizations.push({ evidenceId: entry.id, from: entry.kind, to: kind, reason: "source-backed-unconfirmed-status" });
       entry.kind = kind;
     } else if (statementStatus && !["proposal", "open-question"].includes(entry.kind)) errors.push(`${entry.id} has an unconfirmed classification not supported by its source claim.`);
-    if (statementStatus && !sourceStatus && /\b(?:must|shall|required|requires?|mandatory)\b/i.test(entry.quote)) errors.push(`${entry.id} weakens a confirmed source obligation into an unsupported proposal.`);
+    if (statementStatus && !sourceStatus && matchedClauses.some((clause) => /\b(?:must|shall|required|requires?|mandatory)\b/i.test(clause) && !sourceUnconfirmedKind(clause))) errors.push(`${entry.id} weakens a confirmed source obligation into an unsupported proposal.`);
     ledger.push(entry);
   }
   for (const source of sources) {

@@ -31,6 +31,16 @@ function excerpt(value: string | undefined | null, limit = 5000) {
   return normalized.length > limit ? `${normalized.slice(0, limit).trim()}...` : normalized;
 }
 
+// Return bounded evidence context only to the authenticated caller who supplied
+// the sources. Never send source text or model assertions to runtime telemetry.
+function evidenceFailureDetails(errors: string[], ledger: Array<{ id: string; sourceId: string; kind: string; quote: string; statement: string }>) {
+  return errors.slice(0, 3).map((error) => {
+    const item = ledger.find((entry) => error.startsWith(`${entry.id} `));
+    if (!item) return excerpt(error, 700);
+    return `${excerpt(error, 700)} Evidence ${excerpt(item.id, 100)}; source ${excerpt(item.sourceId, 240)}; classification ${item.kind}. Source quotation: ${excerpt(item.quote, 1200)} Reviewed assertion: ${excerpt(item.statement, 1000)}`;
+  }).join("\n");
+}
+
 function sourceIds(value: unknown) {
   return asStringArray(value) ?? [];
 }
@@ -631,7 +641,7 @@ export async function generateDiscoverySynthesis(
       throw new DiscoveryGenerationError("The evidence review did not cover every source. No partial package was applied; please retry.");
     }
     const ledgerReview = reviewDiscoveryEvidenceLedger(evidenceEnvelope?.evidenceLedger, context.sources);
-    if (ledgerReview.errors.length) throw new DiscoveryGenerationError(`The evidence review failed fidelity checks: ${ledgerReview.errors.slice(0, 3).join(" ")} Your previous package is preserved.`);
+    if (ledgerReview.errors.length) throw new DiscoveryGenerationError(`The evidence review failed fidelity checks: ${evidenceFailureDetails(ledgerReview.errors, ledgerReview.ledger)} Your previous package is preserved.`);
     if (ledgerReview.normalizations.length) console.info("[northstar:studio-evidence]", { runId, classificationNormalizationCount: ledgerReview.normalizations.length, reason: "source-backed-unconfirmed-status" });
     const payload = await callModel("product-synthesis", {
       max_output_tokens: 48_000,
@@ -657,7 +667,7 @@ export async function generateDiscoverySynthesis(
     const integrity = reviewDiscoveryIntegrity(parsed, readableArtifacts.map((source) => source.id));
     if (integrity.errors.length) throw new DiscoveryGenerationError(`The package failed its quality checks: ${integrity.errors.slice(0, 3).join(" ")} Your previous package is preserved; please retry.`);
     const fidelity = reviewDiscoveryFidelity(parsed, ledgerReview.ledger, synthesisEnvelope?.evidenceCoverage, context.sources);
-    if (fidelity.errors.length) throw new DiscoveryGenerationError(`The package failed evidence fidelity or risk-based coverage checks: ${fidelity.errors.slice(0, 3).join(" ")} Your previous package is preserved.`);
+    if (fidelity.errors.length) throw new DiscoveryGenerationError(`The package failed evidence fidelity or risk-based coverage checks: ${evidenceFailureDetails(fidelity.errors, ledgerReview.ledger)} Your previous package is preserved.`);
     const excerpts = coverage.filter((source) => source.coverage === "excerpt");
     if (unreadableArtifacts.length) {
       parsed.gaps.push({ id: "GAP-UNREADABLE-SOURCES", title: "Some discovery evidence could not be read", description: `No readable content was available for ${unreadableArtifacts.map((source) => source.name).join(", ")}.`, severity: "blocking", question: "Convert these sources to a supported readable format and analyze them before relying on a complete synthesis.", sourceIds: unreadableArtifacts.map((source) => source.id) });

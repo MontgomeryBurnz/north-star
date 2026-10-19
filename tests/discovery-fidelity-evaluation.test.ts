@@ -131,6 +131,55 @@ test("an explicitly unconfirmed decision normalizes to an open question and stil
   assert.ok(reviewDiscoveryFidelity(value, reviewed.ledger, [row("D1", "gap")], [{ id: "SRC1", text }]).errors.length > 0);
 });
 
+test("a source obligation to decide SLA policy is not mistaken for settled SLA policy", () => {
+  const quote = "Exact per-category SLA, business calendar, pause/resume behavior, and escalation owner require decisions.";
+  const statement = "The business calendar and SLA calculation rules remain unconfirmed.";
+  const ledger: Evidence[] = [{ id: "D1", sourceId: "SRC1", quote, kind: "open-question", statement }];
+  const value = definition(statement);
+  value.gaps = [{ id: "G1", title: "SLA calendar and pause/resume rules", severity: "blocking", description: quote, question: "Which business calendar, pause/resume rules, and escalation owner apply to the per-category SLA?", sourceIds: ["SRC1"] }];
+  const reviewed = reviewDiscoveryEvidenceLedger(ledger, [{ id: "SRC1", text: quote }]);
+  assert.deepEqual(reviewed.errors, []);
+  assert.equal(reviewed.ledger[0].kind, "open-question");
+  assert.deepEqual(reviewDiscoveryFidelity(value, reviewed.ledger, [{ ...row("D1", "gap"), gapIds: ["G1"] }], [{ id: "SRC1", text: quote }]).errors, []);
+});
+
+test("a sponsor-confirmation prerequisite backed by unresolved authority remains a decision gap, not settled authority", () => {
+  const quote = "The proposed pilot design uses one compliance administrator, but the executive sponsor has not approved cross-region approval authority.";
+  const statement = "The executive sponsor must confirm cross-region approval authority before the governed approval story is committed.";
+  const ledger: Evidence[] = [{ id: "A1", sourceId: "SRC1", quote, kind: "requirement", statement }];
+  const value = definition(statement);
+  value.gaps = [{ id: "G1", title: "Cross-region approval authority", severity: "blocking", description: quote, question: "Who does the executive sponsor authorize to approve policy exceptions across the pilot regions?", sourceIds: ["SRC1"] }];
+  const reviewed = reviewDiscoveryEvidenceLedger(ledger, [{ id: "SRC1", text: quote }]);
+  assert.deepEqual(reviewed.errors, []);
+  assert.equal(reviewed.ledger[0].kind, "open-question");
+  assert.equal(reviewed.ledger[0].statement, statement);
+  assert.deepEqual(reviewDiscoveryFidelity(value, reviewed.ledger, [{ ...row("A1", "gap"), gapIds: ["G1"] }], [{ id: "SRC1", text: quote }]).errors, []);
+  value.stories[0].readiness = "ready";
+  assert.ok(reviewDiscoveryFidelity(value, reviewed.ledger, [{ ...row("A1", "gap"), storyIds: ["U1"], gapIds: ["G1"] }], [{ id: "SRC1", text: quote }]).errors.length > 0,
+    "The decision prerequisite still prevents a dependent story from being marked ready.");
+});
+
+test("confirmation required for each record deletion is a confirmed workflow rule, not an unresolved product decision", () => {
+  for (const text of [
+    "Record deletion requires confirmation from the record owner before the delete operation proceeds.",
+    "A record owner must confirm each deletion request before the delete operation proceeds."
+  ]) {
+    const ledger: Evidence[] = [{ id: "R1", sourceId: "SRC1", quote: text, kind: "requirement", statement: text }];
+    const value = definition(text);
+    value.businessRules = [text];
+    value.stories[0].acceptanceCriteria = [text, "A deletion without record-owner confirmation leaves the record unchanged."];
+    value.stories[0].readiness = "ready";
+    value.stories[0].testCases = [
+      { id: "T1", title: "Delete after record-owner confirmation", type: "happy-path", steps: ["Request record deletion", "Confirm the deletion as the record owner", "Complete the delete operation"], expectedResult: "The confirmed record is deleted." },
+      { id: "T2", title: "Block deletion without record-owner confirmation", type: "negative", steps: ["Request record deletion", "Do not obtain record-owner confirmation", "Attempt the delete operation"], expectedResult: "The operation is blocked and the record remains unchanged." }
+    ];
+    const reviewed = reviewDiscoveryEvidenceLedger(ledger, [{ id: "SRC1", text }]);
+    assert.deepEqual(reviewed.errors, []);
+    assert.equal(reviewed.ledger[0].kind, "requirement");
+    assert.deepEqual(reviewDiscoveryFidelity(value, reviewed.ledger, [row("R1", "implemented")], [{ id: "SRC1", text }]).errors, []);
+  }
+});
+
 test("approved proposal and candidate business nouns do not make a confirmed workflow obligation uncertain", () => {
   for (const text of [
     "An approved grant proposal must be archived before the application is closed.",
