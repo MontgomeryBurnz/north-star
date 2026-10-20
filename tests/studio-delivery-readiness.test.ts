@@ -118,3 +118,16 @@ test("the new views do not generate AI, transmit to delivery providers, or remov
   assert.match(consoleSource, /synthesis: result, sources: analysisSources/);
   assert.match(consoleSource, /<StudioPackageReview synthesis=\{synthesis\} sources=\{outputSources\}/);
 });
+
+test("delivery lanes follow the refinement-to-development path without changing persisted status identifiers", () => {
+  const source = readFileSync(new URL("../src/components/studio-delivery-preview.tsx", import.meta.url), "utf8");
+  const configuration = source.slice(source.indexOf("const categories:"), source.indexOf("export function StudioDeliveryPreview"));
+  const lanes = [...configuration.matchAll(/id: "([^"]+)", title: "([^"]+)"/g)].map(match => ({ id: match[1], title: match[2] }));
+  assert.deepEqual(lanes, [
+    { id: "needs-refinement", title: "Needs refinement" },
+    { id: "ready-for-review", title: "Ready for Review" },
+    { id: "approved-for-handoff", title: "Approved for Dev" }
+  ]);
+  assert.match(source, /data-studio-delivery-flow/);
+  assert.match(source, /Approval does not send or start development/);
+});
