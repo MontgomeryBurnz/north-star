@@ -12,6 +12,8 @@ test("saved handoff cards expose independent Refine and Review actions with curr
   assert.match(source, /onRefine && view \?/);
   assert.match(source, /refiningStory && view && currentRevision && onRefine/);
   assert.match(source, /aria-label=\{`Review \$\{story\.id\}`\}/);
+  assert.match(source, /Refine \$\{story\.id\} - saved package required/);
+  assert.match(source, /choose Exit sample data first/);
   assert.doesNotMatch(source, /fetch\(|discovery-synthesis|paidGenerationConsent/);
   const workspace = read("studio-collaboration-workspace.tsx");
   assert.match(workspace, /workspaceView === "collaboration" && currentView\.canManage \? <StudioDeliveryPreview/);
