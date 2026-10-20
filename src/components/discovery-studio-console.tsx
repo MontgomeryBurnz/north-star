@@ -88,11 +88,14 @@ async function generateStudioPackage(requestSnapshot: string, onStatus: (message
 export function DiscoveryStudioConsole({ initialSample = false, demoMode = false }: { initialSample?: boolean; demoMode?: boolean }) {
   const inputRef = useRef<HTMLInputElement | null>(null);
   const outputViewsRef = useRef<HTMLDivElement | null>(null);
+  const feedbackPanelRef = useRef<HTMLDivElement | null>(null);
+  const feedbackInputRef = useRef<HTMLTextAreaElement | null>(null);
   const analysisInFlightRef = useRef(false);
   const [pendingFiles, setPendingFiles] = useState<File[]>([]);
   const [sources, setSources] = useState<ProgramArtifact[]>(initialSample ? sampleDiscoverySources : []);
   const [synthesis, setSynthesis] = useState<DiscoverySynthesis | null>(initialSample ? sampleDiscoverySynthesis : null);
   const [resolutionNotes, setResolutionNotes] = useState("");
+  const [refinementPrepared, setRefinementPrepared] = useState(false);
   const [workspaceName, setWorkspaceName] = useState(initialSample ? sampleProgram.name : "Discovery workspace");
   const [status, setStatus] = useState(initialSample ? "Fictional discovery package loaded. Explore the outputs or analyze the sources to create a new revision." : "Add discovery evidence and choose the outputs you need.");
   const [view, setView] = useState<StudioView>(initialSample ? "build" : "understanding");
@@ -242,6 +245,7 @@ export function DiscoveryStudioConsole({ initialSample = false, demoMode = false
   }
 
   function clearWorkspace() {
+    setRefinementPrepared(false);
     setPendingFiles([]); setSources([]); setSynthesis(null); setResolutionNotes(""); setView("understanding"); setWorkspaceName("Discovery workspace"); setIsSampleWorkspace(false); setFeedback(""); setFeedbackTarget("package"); setRevisions([]); setActiveRevisionId(0); setSelectedRevisionId(0); setExternalResearch(false); setResearchTopic("");
     setStatus("Fresh workspace ready. Saved packages have not been deleted; find them in Delivery handoff.");
     setIsPreparedExample(false); setWorkspaceView("package");
@@ -249,6 +253,7 @@ export function DiscoveryStudioConsole({ initialSample = false, demoMode = false
   }
 
   function loadSampleWorkspace() {
+    setRefinementPrepared(false);
     setPendingFiles([]); setSources(sampleDiscoverySources); setSynthesis(sampleDiscoverySynthesis); setResolutionNotes(""); setView("build"); setWorkspaceName(sampleProgram.name); setIsSampleWorkspace(true); setFeedback(""); setFeedbackTarget("package"); setRevisions([initialRevision()]); setActiveRevisionId(1); setSelectedRevisionId(1); setExternalResearch(false); setResearchTopic("");
     setStatus("Fictional discovery package loaded. Explore the outputs or analyze the sources to create a new revision.");
     setIsPreparedExample(true); setWorkspaceView("package");
@@ -279,6 +284,7 @@ export function DiscoveryStudioConsole({ initialSample = false, demoMode = false
 
   function openSavedRevision(saved: StudioPackageView) {
     if (!saved.canManage) return;
+    setRefinementPrepared(false);
     const revision = saved.revision;
     const result = { ...revision.synthesis, collaboration: { packageId: saved.id, revisionId: revision.id, version: saved.version } };
     setSynthesis(result); setSources(revision.sources); setPendingFiles([]); setResolutionNotes(revision.resolutionNotes);
@@ -291,9 +297,20 @@ export function DiscoveryStudioConsole({ initialSample = false, demoMode = false
   }
 
   function stageCollaborationRefinement(saved: StudioPackageView, storyId: string, notes: string) {
+    if (!saved.canManage || saved.revision.id !== saved.headRevisionId || !notes.trim()) return;
     openSavedRevision(saved);
     setFeedbackTarget(storyId); setFeedbackKind("change"); setFeedback(notes);
-    setStatus("Delivery review feedback staged below. Confirm the supporting evidence or decision before applying it to a new revision; comments alone do not establish business rules.");
+    setRefinementPrepared(true);
+    setStatus(`Refinement prepared for ${storyId}. No AI call or saved changes yet. Confirm the evidence before separately authorizing a paid revision.`);
+    requestAnimationFrame(() => {
+      feedbackPanelRef.current?.scrollIntoView({ block: "start", behavior: "instant" });
+      feedbackInputRef.current?.focus({ preventScroll: true });
+    });
+  }
+
+  function returnToDeliveryHandoff() {
+    setWorkspaceView("collaboration");
+    requestAnimationFrame(() => window.scrollTo({ top: 0, behavior: "instant" }));
   }
 
   async function savePreparedExample() {
@@ -385,7 +402,7 @@ export function DiscoveryStudioConsole({ initialSample = false, demoMode = false
           {view === "gaps" ? <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_380px]"><StudioGapList synthesis={synthesis} sources={sources} /><Card className="h-fit bg-zinc-950/75"><CardHeader className="border-b border-white/10"><CardTitle className="text-zinc-50">Add missing context</CardTitle><p className="mt-2 text-sm leading-6 text-zinc-400">Answer the open questions, document decisions, or summarize newly confirmed information. Studio will review the updated evidence in a new revision.</p></CardHeader><CardContent className="grid gap-3 p-4"><label className="grid gap-2"><span className="sr-only">Missing discovery context</span><textarea value={resolutionNotes} onChange={(event) => setResolutionNotes(event.target.value)} disabled={busy} rows={8} maxLength={24000} placeholder="Example: The first release serves regional service managers. Offline access is out of scope. Approval must be completed by a compliance administrator…" className={`${inputStyle} resize-y leading-6`} /></label><Button type="button" onClick={() => requestAnalysis()} disabled={!canAnalyze || !resolutionNotes.trim()}>{isAnalyzing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}Apply context and regenerate</Button></CardContent></Card></div> : null}
           {view === "build" ? <div className="grid gap-5"><Card className="bg-zinc-950/75"><CardContent className="grid gap-3 p-5"><p className="text-xs font-medium uppercase tracking-[0.16em] text-emerald-300">Model completeness estimate · {synthesis.readinessScore}%</p><p className="text-sm leading-6 text-zinc-300">{synthesis.readinessNarrative}</p></CardContent></Card><StudioBuildOutputs synthesis={synthesis} sources={sources} selectedOutputs={selectedOutputs} /></div> : null}
 
-          <Card className="bg-zinc-950/75" data-studio-feedback><CardHeader className="border-b border-white/10"><div className="flex items-center gap-2"><MessageSquare className="h-4 w-4 text-cyan-200" /><CardTitle className="text-zinc-50">Review and refine the outputs</CardTitle></div><p className="mt-2 text-sm leading-6 text-zinc-400">Flag an issue, explain a discrepancy, or request an update. Include the source or rule that supports your correction. Studio reviews your feedback with the existing package and creates a new revision.</p></CardHeader><CardContent className="grid gap-4 p-4 sm:p-5"><div className="grid gap-3 sm:grid-cols-[220px_minmax(0,1fr)]"><label className="grid gap-2"><span className="text-xs font-medium text-zinc-200">Feedback type</span><select value={feedbackKind} onChange={(event) => setFeedbackKind(event.target.value as FeedbackKind)} disabled={busy} className={inputStyle}><option value="change">Change or update</option><option value="issue">Issue or error</option><option value="discrepancy">Evidence discrepancy</option></select></label><label className="grid gap-2"><span className="text-xs font-medium text-zinc-200">Output to review</span><select value={feedbackTarget} onChange={(event) => setFeedbackTarget(event.target.value)} disabled={busy} className={inputStyle} data-studio-feedback-target><option value="package">Whole package</option>{feedbackTargets.map((target) => <option key={target.id} value={target.id}>{target.label}</option>)}</select></label></div><label className="grid gap-2"><span className="text-xs font-medium text-zinc-200">What needs to change?</span><textarea value={feedback} onChange={(event) => setFeedback(event.target.value)} rows={4} maxLength={12000} disabled={busy} placeholder="Example: US-02 assigns approval to the requester. The business rules specify a service manager must approve. Update the story, criteria, and related tests to match." className={`${inputStyle} resize-y leading-6`} data-studio-feedback-input /></label><div className="flex flex-wrap items-center justify-between gap-3"><p className="text-xs leading-5 text-zinc-500">Current revision remains available in the history after refinement.</p><Button type="button" onClick={() => requestAnalysis(true)} disabled={!canAnalyze || !feedback.trim()} data-studio-refine>{isAnalyzing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}Apply feedback and create revision</Button></div></CardContent></Card>
+          <Card ref={feedbackPanelRef} className="scroll-mt-24 bg-zinc-950/75" data-studio-feedback><CardHeader className="border-b border-white/10"><div className="flex items-center gap-2"><MessageSquare className="h-4 w-4 text-cyan-200" /><CardTitle className="text-zinc-50">Review and refine the outputs</CardTitle></div><p className="mt-2 text-sm leading-6 text-zinc-400">Flag an issue, explain a discrepancy, or request an update. Include the source or rule that supports your correction. Studio reviews your feedback with the existing package and creates a new revision.</p>{refinementPrepared ? <div className="mt-3 flex flex-wrap items-center justify-between gap-3 rounded-md border border-emerald-300/20 bg-emerald-300/[0.04] p-3" data-studio-refinement-prepared><p role="status" className="text-xs leading-6 text-emerald-100">Refinement prepared for {feedbackTarget}. No AI call or saved changes yet. The original package and approval state are unchanged. Applying feedback is a separate paid action that requires confirmation.</p><Button type="button" variant="outline" size="sm" onClick={returnToDeliveryHandoff}>Back to Delivery handoff</Button></div> : null}</CardHeader><CardContent className="grid gap-4 p-4 sm:p-5"><div className="grid gap-3 sm:grid-cols-[220px_minmax(0,1fr)]"><label className="grid gap-2"><span className="text-xs font-medium text-zinc-200">Feedback type</span><select value={feedbackKind} onChange={(event) => setFeedbackKind(event.target.value as FeedbackKind)} disabled={busy} className={inputStyle}><option value="change">Change or update</option><option value="issue">Issue or error</option><option value="discrepancy">Evidence discrepancy</option></select></label><label className="grid gap-2"><span className="text-xs font-medium text-zinc-200">Output to review</span><select value={feedbackTarget} onChange={(event) => setFeedbackTarget(event.target.value)} disabled={busy} className={inputStyle} data-studio-feedback-target><option value="package">Whole package</option>{feedbackTargets.map((target) => <option key={target.id} value={target.id}>{target.label}</option>)}</select></label></div><label className="grid gap-2"><span className="text-xs font-medium text-zinc-200">What needs to change?</span><textarea ref={feedbackInputRef} value={feedback} onChange={(event) => setFeedback(event.target.value)} rows={4} maxLength={12000} disabled={busy} placeholder="Example: US-02 assigns approval to the requester. The business rules specify a service manager must approve. Update the story, criteria, and related tests to match." className={`${inputStyle} resize-y leading-6`} data-studio-feedback-input /></label><div className="flex flex-wrap items-center justify-between gap-3"><p className="text-xs leading-5 text-zinc-500">Current revision remains available in the history after refinement.</p><Button type="button" onClick={() => requestAnalysis(true)} disabled={!canAnalyze || !feedback.trim()} data-studio-refine>{isAnalyzing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}Apply feedback and create revision</Button></div></CardContent></Card>
 
           <Card className="bg-zinc-950/75"><CardContent className="grid gap-4 p-5 sm:grid-cols-[1fr_auto]"><div><p className="text-xs font-medium uppercase tracking-[0.16em] text-emerald-300">Download your selected outputs</p><p className="mt-2 text-sm leading-6 text-zinc-300">{selectedOutputs.length} deliverable{selectedOutputs.length === 1 ? "" : "s"} · {selectedFormat.label} ({selectedFormat.extension}) · Revision {activeRevisionId}</p><p className="mt-1 text-xs leading-5 text-zinc-500">Adjust the deliverables and format in Desired outputs above.</p></div><div className="flex flex-wrap items-center gap-2"><Button type="button" variant="outline" onClick={() => void exportPackage("copy")} disabled={busy || !selectedOutputs.length}>{exportAction === "copy" ? <Loader2 className="h-4 w-4 animate-spin" /> : <ClipboardCopy className="h-4 w-4" />}Copy Markdown</Button><Button type="button" onClick={() => void exportPackage("download")} disabled={busy || !selectedOutputs.length} data-studio-download>{exportAction === "download" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}Download {selectedFormat.extension}</Button></div></CardContent></Card>
         </section> : null}
