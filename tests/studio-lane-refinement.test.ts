@@ -42,5 +42,8 @@ test("preparing lane feedback lands at the matching full-package form without sa
   assert.match(stage, /feedbackInputRef\.current\?\.focus\(\{ preventScroll: true \}\)/);
   assert.match(source, /Back to Delivery handoff/);
   assert.match(source, /data-studio-refinement-prepared/);
+  assert.match(source, /setRefinementPrepared\(false\);\n      setSynthesis\(result\)/);
+  const restore = source.slice(source.indexOf("async function restoreRevision"), source.indexOf("function openSavedRevision"));
+  assert.match(restore, /setRefinementPrepared\(false\)/);
   assert.doesNotMatch(stage, /fetch\(|analyzePackage\(|requestAnalysis\(|onAction|setPendingAnalysis/);
 });

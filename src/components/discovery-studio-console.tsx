@@ -196,6 +196,7 @@ export function DiscoveryStudioConsole({ initialSample = false, demoMode = false
       const revisionId = result.collaboration ? (result.revision?.number ?? 1) : (revisions.at(-1)?.id ?? 0) + 1;
       if (!result.collaboration) result.revision = { number: revisionId, summary: result.revision?.summary || "Discovery synthesis generated", ...(refine ? { feedback: revisionFeedback } : {}) };
       const summary = result.revision?.summary || (refine ? revisionFeedback : resolutionNotes.trim() ? "Reanalyzed with additional context" : "Discovery synthesis generated");
+      setRefinementPrepared(false);
       setSynthesis(result);
       setRevisions((current) => [...(result.collaboration && result.collaboration.packageId !== synthesis?.collaboration?.packageId ? [] : current.filter(item => item.id !== revisionId)), { id: revisionId, synthesis: result, sources: analysisSources, summary, createdAt: result.generatedAt }]);
       setActiveRevisionId(revisionId);
@@ -263,6 +264,7 @@ export function DiscoveryStudioConsole({ initialSample = false, demoMode = false
   async function restoreRevision() {
     const revision = revisions.find((item) => item.id === selectedRevisionId);
     if (!revision) return;
+    setRefinementPrepared(false);
     if (revision.synthesis.collaboration) {
       setSavingExample(true);
       try {
