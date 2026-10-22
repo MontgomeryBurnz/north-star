@@ -1,3 +1,4 @@
+import { denyExplorerRequest } from "@/lib/explorer-access";
 import { NextResponse, type NextRequest } from "next/server";
 import pg from "pg";
 
@@ -135,6 +136,8 @@ async function auditSupabaseRls() {
 }
 
 export async function GET(request: NextRequest) {
+  const explorerDenied = await denyExplorerRequest(request);
+  if (explorerDenied) return explorerDenied;
   const cronSecret = process.env.CRON_SECRET;
   const isAuthorized = Boolean(cronSecret && request.headers.get("authorization") === `Bearer ${cronSecret}`);
 

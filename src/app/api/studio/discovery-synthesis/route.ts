@@ -1,3 +1,4 @@
+import { denyExplorerRequest } from "@/lib/explorer-access";
 import { randomUUID } from "node:crypto";
 import { NextResponse } from "next/server";
 import { requireInternalWorkspaceRouteAccess } from "@/lib/api-route-access";
@@ -80,6 +81,8 @@ function buildWorkspace(name: string, artifacts: ProgramArtifact[]): StoredProgr
 }
 
 export async function POST(request: Request) {
+  const explorerDenied = await denyExplorerRequest(request);
+  if (explorerDenied) return explorerDenied;
   const { currentUser, response } = await requireInternalWorkspaceRouteAccess(request);
   if (response) return response;
   const demoMode = await isDemoMode();

@@ -15,18 +15,18 @@ const chromeLessRoutes = new Set([
   "/leadership/login"
 ]);
 
-export function AppShell({ children, demoMode = false }: { children: ReactNode; demoMode?: boolean }) {
+export function AppShell({ children, demoMode = false, explorerMode = false }: { children: ReactNode; demoMode?: boolean; explorerMode?: boolean }) {
   const pathname = usePathname();
   const hideChrome = chromeLessRoutes.has(pathname);
 
   if (hideChrome) {
-    return <>{demoMode ? <DemoModeBanner /> : null}{children}</>;
+    return <>{demoMode ? <DemoModeBanner explorerMode={explorerMode} /> : null}{children}</>;
   }
 
   return (
     <>
       <SiteNav demoMode={demoMode} />
-      {demoMode ? <DemoModeBanner /> : null}
+      {demoMode ? <DemoModeBanner explorerMode={explorerMode} /> : null}
       {children}
       <Footer />
     </>

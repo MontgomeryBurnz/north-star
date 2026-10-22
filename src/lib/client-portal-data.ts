@@ -6,6 +6,7 @@ import { buildClientPortalPortfolio, type ClientPortalProgramInput } from "@/lib
 import { getCurrentManagedUser } from "@/lib/current-managed-user";
 import { listClientDecisionRequests, listClientPortalUpdates, listPrograms } from "@/lib/program-store";
 import { isDemoMode } from "@/lib/demo-session";
+import { hasActiveUserCredentials, requiresUserSetup } from "@/lib/admin-user-types";
 
 function normalizeClientScope(value: string | null | undefined) {
   return value?.trim().toLowerCase() ?? "";
@@ -19,6 +20,10 @@ export async function loadClientPortalData(
     getCurrentManagedUser(),
     hasSiteAccessPageSession()
   ]);
+
+  if (currentUser && !hasActiveUserCredentials(currentUser)) {
+    redirect(requiresUserSetup(currentUser) ? "/auth/setup" : "/login");
+  }
 
   if (currentUser?.userType === "contractor") {
     redirect("/studio/shared");

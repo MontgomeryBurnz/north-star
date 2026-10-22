@@ -5,6 +5,7 @@ import type { ReactNode } from "react";
 import { usePathname } from "next/navigation";
 import { ArrowRight, RotateCcw, X } from "lucide-react";
 import { demoProgramId } from "@/lib/demo-mode";
+import { useExplorerMode } from "@/components/explorer-mode";
 
 const steps = [
   { href: `/active-program?mode=manage&program=${demoProgramId}`, path: "/active-program", label: "Program Hub" },
@@ -15,17 +16,17 @@ const steps = [
   { href: "/client", path: "/client", label: "Client Portal" }
 ];
 
-export function DemoModeBanner() {
+export function DemoModeBanner({ explorerMode = false }: { explorerMode?: boolean }) {
   const pathname = usePathname();
   return (
     <aside className="border-b border-amber-300/20 bg-amber-300/[0.07]" aria-label="Sample data mode" data-demo-mode>
       <div className="northstar-shell py-3">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <p className="text-sm font-medium text-amber-100">Exploring with sample data · Civic Services Network</p>
-            <p className="mt-1 text-xs leading-5 text-zinc-400">Use every workspace with one connected fictional program. Changes stay in this browser session.</p>
+            <p className="text-sm font-medium text-amber-100">{explorerMode ? "Explorer mode · View-only · No paid generation" : "Exploring with sample data · Civic Services Network"}</p>
+            <p className="mt-1 text-xs leading-5 text-zinc-400">{explorerMode ? "Explore NorthStar with connected fictional sample data and prepared Studio outputs. Uploads, changes, approvals, settings, and paid actions are disabled." : "Use every workspace with one connected fictional program. Changes stay in this browser session."}</p>
           </div>
-          <div className="flex items-center gap-3 text-xs">
+          {!explorerMode ? <div className="flex items-center gap-3 text-xs">
             <form action="/api/demo-session" method="post">
               <input type="hidden" name="action" value="reset" />
               <input type="hidden" name="next" value={pathname === "/artifacts" ? "/artifacts?sample=regional-service-modernization" : pathname === "/active-program" ? "/active-program?mode=manage" : pathname} />
@@ -36,7 +37,7 @@ export function DemoModeBanner() {
               <input type="hidden" name="next" value="/" />
               <button type="submit" className="inline-flex items-center gap-1.5 rounded px-2 py-1 text-zinc-300 hover:bg-white/10"><X className="h-3 w-3" />Exit sample data</button>
             </form>
-          </div>
+          </div> : null}
         </div>
         <div className="mt-3 flex flex-wrap items-center gap-x-2 gap-y-2" aria-label="Explore the connected workflow">
           {steps.map((step, index) => (
@@ -52,6 +53,8 @@ export function DemoModeBanner() {
 }
 
 export function StartSampleButton({ className, children }: { className?: string; children?: ReactNode }) {
+  const explorerMode = useExplorerMode();
+  if (explorerMode) return <Link href={`/active-program?mode=manage&program=${demoProgramId}`} className={`inline-flex items-center justify-center gap-2 rounded-md border border-white/10 bg-white/[0.035] px-5 py-3 text-sm font-medium text-zinc-100 hover:bg-white/[0.075] ${className ?? ""}`}>{children ?? "Explore sample program"}<ArrowRight className="h-4 w-4" /></Link>;
   return (
     <form action="/api/demo-session" method="post" className={className}>
       <input type="hidden" name="action" value="start" />

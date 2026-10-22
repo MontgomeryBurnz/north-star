@@ -1,3 +1,4 @@
+import { denyExplorerRequest } from "@/lib/explorer-access";
 import { NextResponse } from "next/server";
 import { requireAdminRouteAccess } from "@/lib/api-route-access";
 import { auditActorFromAccess } from "@/lib/audit-event-service";
@@ -7,6 +8,8 @@ export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ id: string; flagId: string }> }
 ) {
+  const explorerDenied = await denyExplorerRequest(request);
+  if (explorerDenied) return explorerDenied;
   const { access, response } = await requireAdminRouteAccess(request);
   if (response) return response;
 

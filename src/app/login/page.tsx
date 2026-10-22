@@ -2,7 +2,7 @@ export const dynamic = "force-dynamic";
 
 import { redirect } from "next/navigation";
 import { SiteAccessLoginForm } from "@/components/site-access-login-form";
-import { requiresUserSetup } from "@/lib/admin-user-types";
+import { hasActiveUserCredentials, requiresUserSetup } from "@/lib/admin-user-types";
 import { tryGetCurrentManagedUser } from "@/lib/current-managed-user";
 import { getAdminAccessContext, getLeadershipAccessContext } from "@/lib/leadership-auth";
 import { getSiteAccessConfig, isSiteAccessSessionTokenValid, siteAccessSessionCookieName } from "@/lib/site-access";
@@ -25,7 +25,7 @@ export default async function SiteLoginPage({
   const authError = resolvedSearchParams.authError === "expired" ? "expired" : undefined;
   const requiredAccessSurface = getRequiredAccessSurface(redirectTo);
 
-  if (!config.enabled) {
+  if (!config.enabled && !isSupabaseConfigured()) {
     redirect(redirectTo);
   }
 
@@ -49,6 +49,10 @@ export default async function SiteLoginPage({
     if (currentUser?.userType === "client-dashboard-contributor") {
       redirect("/client-updates");
     }
+    if (currentUser?.userType === "explorer" && hasActiveUserCredentials(currentUser)) {
+      redirect("/artifacts");
+    }
+    if (hasActiveUserCredentials(currentUser) && !requiredAccessSurface) redirect(redirectTo);
   }
 
   if (requiredAccessSurface) {
@@ -59,7 +63,7 @@ export default async function SiteLoginPage({
     if (access.authorized) {
       redirect(redirectTo);
     }
-  } else if (isSiteAccessSessionTokenValid(sessionToken)) {
+  } else if (!isSupabaseConfigured() && isSiteAccessSessionTokenValid(sessionToken)) {
     redirect(redirectTo);
   }
 

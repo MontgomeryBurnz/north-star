@@ -1,4 +1,5 @@
 import { Globe2 } from "lucide-react";
+import { useExplorerMode } from "@/components/explorer-mode";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   STUDIO_EXPORT_FORMATS,
@@ -28,6 +29,7 @@ export function DiscoveryStudioPreferences({
   onResearchTopicChange: (topic: string) => void;
   disabled: boolean;
 }) {
+  const explorerMode = useExplorerMode();
   function toggleOutput(id: StudioOutputId) {
     onSelectedOutputsChange(selectedOutputs.includes(id)
       ? selectedOutputs.filter((output) => output !== id)
@@ -62,7 +64,7 @@ export function DiscoveryStudioPreferences({
           </label>
           <div className="grid gap-3 rounded-md border border-white/10 bg-white/[0.025] p-4">
             <label className="flex cursor-pointer items-start gap-3">
-              <input type="checkbox" checked={externalResearch} onChange={(event) => onExternalResearchChange(event.target.checked)} disabled={disabled} className="mt-1 h-4 w-4 shrink-0 accent-cyan-300" data-studio-external-research />
+              <input type="checkbox" checked={externalResearch} onChange={(event) => onExternalResearchChange(event.target.checked)} disabled={disabled || explorerMode} title={explorerMode ? "External research is unavailable in Explorer mode." : undefined} className="mt-1 h-4 w-4 shrink-0 accent-cyan-300" data-studio-external-research />
               <span><span className="flex items-start gap-2 text-sm font-medium text-zinc-100"><Globe2 className="mt-0.5 h-4 w-4 shrink-0 text-cyan-200" />Supplement with external references</span><span className="mt-1 block text-xs font-medium text-cyan-200">Optional · additional API cost · off by default</span><span className="mt-1 block text-xs leading-5 text-zinc-400">Add cited public guidance for a specific question, such as accessibility or security requirements. Your discovery evidence remains the source of truth; public guidance does not resolve business-policy gaps.</span></span>
             </label>
             {externalResearch ? (

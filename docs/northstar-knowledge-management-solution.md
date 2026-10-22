@@ -1,6 +1,6 @@
 # NorthStar Knowledge Management Solution
 
-Last updated: October 19, 2026
+Last updated: October 22, 2026
 
 ## Purpose
 
@@ -41,6 +41,7 @@ The Knowledge Center should include:
 
 | Role | Knowledge path |
 |---|---|
+| Explorer | Browse connected fictional data and prepared Studio outputs only; inspect readiness, gaps, Delivery handoff, and sample downloads. No program assignment, live data, business-data entry, writes, settings, approvals, sharing, AI/research calls, or external execution. Individual active authentication is required; sample mode cannot be exited. |
 | Team Member | Update role signal, manage delivery cards, attach evidence, review role guidance, generate and review Studio packages. |
 | Delivery Lead | Set up programs, manage active programs, curate client updates, review guidance, coordinate team execution. |
 | Leadership | Review program posture, provide sponsor guidance, understand what changed, monitor risks and decisions. |

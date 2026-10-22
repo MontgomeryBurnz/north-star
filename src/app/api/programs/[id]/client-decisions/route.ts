@@ -1,9 +1,12 @@
+import { denyExplorerRequest } from "@/lib/explorer-access";
 import { NextResponse } from "next/server";
 import { requireProgramRouteAccess } from "@/lib/api-route-access";
 import { auditActorFromManagedUser } from "@/lib/audit-event-service";
 import { createAuditEvent, createClientDecisionRequest, listClientDecisionRequests } from "@/lib/program-store";
 
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
+  const explorerDenied = await denyExplorerRequest(request);
+  if (explorerDenied) return explorerDenied;
   const { id } = await params;
   const { response } = await requireProgramRouteAccess(request, id, { loadCurrentUser: true, scope: "client-dashboard" });
   if (response) return response;
@@ -13,6 +16,8 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
 }
 
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
+  const explorerDenied = await denyExplorerRequest(request);
+  if (explorerDenied) return explorerDenied;
   const { id } = await params;
   const { currentUser, response } = await requireProgramRouteAccess(request, id, { loadCurrentUser: true, scope: "client-dashboard" });
   if (response) return response;

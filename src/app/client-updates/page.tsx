@@ -20,7 +20,7 @@ export default async function ClientUpdatesPage() {
   if (currentUser?.userType === "client") {
     redirect("/client");
   }
-  if (currentUser && !canAccessClientDashboardUpdateSurface(currentUser)) {
+  if (currentUser && currentUser.userType !== "explorer" && !canAccessClientDashboardUpdateSurface(currentUser)) {
     redirect("/client");
   }
   const programs = await listPrograms();

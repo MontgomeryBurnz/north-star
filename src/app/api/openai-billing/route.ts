@@ -1,3 +1,4 @@
+import { denyExplorerRequest } from "@/lib/explorer-access";
 import { NextResponse } from "next/server";
 import { requireAdminRouteAccess } from "@/lib/api-route-access";
 import { getOpenAIBillingReconciliation } from "@/lib/openai-billing";
@@ -17,6 +18,8 @@ function parseBillingWindowKey(value: string | null): OpenAIBillingWindowKey | u
 }
 
 export async function GET(request: Request) {
+  const explorerDenied = await denyExplorerRequest(request);
+  if (explorerDenied) return explorerDenied;
   const { response } = await requireAdminRouteAccess(request);
   if (response) return response;
 

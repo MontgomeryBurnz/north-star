@@ -19,6 +19,7 @@ import { StudioGenerationConfirmation } from "@/components/studio-generation-con
 import { StudioPackageReview } from "@/components/studio-package-review";
 import { StudioDeliveryPreview } from "@/components/studio-delivery-preview";
 import { assessStudioDelivery } from "@/lib/studio-delivery-readiness";
+import { useExplorerMode } from "@/components/explorer-mode";
 
 type StudioView = "understanding" | "gaps" | "build";
 type StudioRevision = { id: number; synthesis: DiscoverySynthesis; sources: ProgramArtifact[]; summary: string; createdAt: string };
@@ -86,6 +87,7 @@ async function generateStudioPackage(requestSnapshot: string, onStatus: (message
 }
 
 export function DiscoveryStudioConsole({ initialSample = false, demoMode = false }: { initialSample?: boolean; demoMode?: boolean }) {
+  const explorerMode = useExplorerMode();
   const inputRef = useRef<HTMLInputElement | null>(null);
   const outputViewsRef = useRef<HTMLDivElement | null>(null);
   const feedbackPanelRef = useRef<HTMLDivElement | null>(null);
@@ -97,7 +99,7 @@ export function DiscoveryStudioConsole({ initialSample = false, demoMode = false
   const [resolutionNotes, setResolutionNotes] = useState("");
   const [refinementPrepared, setRefinementPrepared] = useState(false);
   const [workspaceName, setWorkspaceName] = useState(initialSample ? sampleProgram.name : "Discovery workspace");
-  const [status, setStatus] = useState(initialSample ? "Fictional discovery package loaded. Explore the outputs or analyze the sources to create a new revision." : "Add discovery evidence and choose the outputs you need.");
+  const [status, setStatus] = useState(explorerMode ? "Prepared fictional outputs loaded. Explore the summary, evidence gaps, Delivery handoff, and sample downloads. Changes and paid generation are disabled." : initialSample ? "Fictional discovery package loaded. Explore the outputs or analyze the sources to create a new revision." : "Add discovery evidence and choose the outputs you need.");
   const [view, setView] = useState<StudioView>(initialSample ? "build" : "understanding");
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [exportAction, setExportAction] = useState<"download" | "copy" | null>(null);
@@ -124,7 +126,7 @@ export function DiscoveryStudioConsole({ initialSample = false, demoMode = false
   const reviewCandidateCount = synthesis ? assessStudioDelivery(synthesis, outputSources, [], { preparedExample: isPreparedExample }).filter(item => item.category === "ready-for-review").length : 0;
   const selectedFormat = STUDIO_EXPORT_FORMATS.find((format) => format.id === exportFormat) ?? STUDIO_EXPORT_FORMATS[0];
   const busy = isAnalyzing || exportAction !== null || savingExample;
-  const canAnalyze = !busy && (pendingFiles.length > 0 || readableSourceCount > 0) && selectedOutputs.length > 0 && (!externalResearch || researchTopic.trim().length > 0);
+  const canAnalyze = !explorerMode && !busy && (pendingFiles.length > 0 || readableSourceCount > 0) && selectedOutputs.length > 0 && (!externalResearch || researchTopic.trim().length > 0);
   const feedbackTargets = synthesis ? [
     ...synthesis.epics.map((item) => ({ id: item.id, label: `${item.id} · ${item.title}` })),
     ...synthesis.features.map((item) => ({ id: item.id, label: `${item.id} · ${item.title}` })),
@@ -162,6 +164,7 @@ export function DiscoveryStudioConsole({ initialSample = false, demoMode = false
   }
 
   function requestAnalysis(refine = false) {
+    if (explorerMode) return;
     if (busy || pendingAnalysis || !validateAnalysis(refine)) return;
     setPendingAnalysis({ refine });
   }
@@ -176,6 +179,7 @@ export function DiscoveryStudioConsole({ initialSample = false, demoMode = false
   }
 
   async function analyzePackage(refine = false, paidGenerationConsent?: StudioGenerationConsent) {
+    if (explorerMode) return;
     if (analysisInFlightRef.current || exportAction !== null) return;
     if (!hasStudioGenerationConsent({ paidGenerationConsent, externalResearch }) || !validateAnalysis(refine)) return;
     analysisInFlightRef.current = true;
@@ -350,7 +354,7 @@ export function DiscoveryStudioConsole({ initialSample = false, demoMode = false
             <StudioCollaborationWorkspace packageId={synthesis?.collaboration?.packageId} refreshKey={collaborationRefresh} disabled={busy} onOpenRevision={openSavedRevision} onRefine={stageCollaborationRefinement} sessionPreview={synthesis && !synthesis.collaboration ? { synthesis, sources: outputSources, title: workspaceName, preparedExample: isPreparedExample } : undefined} />
           </>}
         </> : <>
-        {isSampleWorkspace ? <div className="flex flex-col gap-3 rounded-lg border border-cyan-300/20 bg-cyan-300/[0.055] p-4 sm:flex-row sm:items-center sm:justify-between" data-studio-sample><div className="flex items-start gap-3"><Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-cyan-200" /><div><p className="text-sm font-medium text-cyan-100">Regional Service Request Modernization · Fictional discovery evidence</p><p className="mt-1 text-xs leading-5 text-zinc-400">Explore the same program evidence used throughout North Star. Use the prepared outputs without generating, or save the example to track review and approval.</p></div></div><Button type="button" variant="outline" size="sm" onClick={clearWorkspace} disabled={busy} className="border-cyan-300/20 text-cyan-100">Use my own sources</Button></div> : null}
+        {isSampleWorkspace ? <div className="flex flex-col gap-3 rounded-lg border border-cyan-300/20 bg-cyan-300/[0.055] p-4 sm:flex-row sm:items-center sm:justify-between" data-studio-sample><div className="flex items-start gap-3"><Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-cyan-200" /><div><p className="text-sm font-medium text-cyan-100">Regional Service Request Modernization · Fictional discovery evidence</p><p className="mt-1 text-xs leading-5 text-zinc-400">{explorerMode ? "Explore this prepared fictional package, including summary, gaps, delivery previews, and editable sample downloads. Uploads, changes, and paid generation are disabled." : "Explore the same program evidence used throughout North Star. Use the prepared outputs without generating, or save the example to track review and approval."}</p></div></div><Button type="button" variant="outline" size="sm" onClick={clearWorkspace} disabled={busy} className="border-cyan-300/20 text-cyan-100">Use my own sources</Button></div> : null}
 
         <Card className="overflow-hidden bg-zinc-950/80"><CardContent className="grid gap-5 p-4 sm:p-5"><div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end"><label className="grid gap-2"><span className="text-[11px] font-medium uppercase tracking-[0.16em] text-zinc-500">Workspace title</span><input value={workspaceName} onChange={(event) => setWorkspaceName(event.target.value)} maxLength={120} disabled={busy} placeholder="Name this discovery package" className={inputStyle} data-studio-workspace-name /><span className="text-sm leading-6 text-zinc-400">Use Studio with or without an active program. Signed-in generation saves complete package revisions. Extracted evidence stays internal; raw files are not retained.</span></label><div className="flex flex-wrap gap-2">{!sources.length && !pendingFiles.length && !synthesis ? <Button type="button" variant="outline" onClick={loadSampleWorkspace} disabled={busy} data-studio-load-sample><Sparkles className="h-4 w-4" />Try example evidence</Button> : null}<Button type="button" variant="outline" onClick={clearWorkspace} disabled={busy || (!sources.length && !pendingFiles.length && !synthesis)} data-studio-clear><RotateCcw className="h-4 w-4" />Start fresh</Button></div></div><div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4"><Metric label="Discovery sources" value={String(sources.length + pendingFiles.length)} /><Metric label="Completeness estimate" value={synthesis ? `${synthesis.readinessScore}%` : "—"} /><Metric label="Blocking gaps" value={synthesis ? String(blockingGapCount) : "—"} /><Metric label="Generated review candidates" value={synthesis ? String(reviewCandidateCount) : "—"} /></div></CardContent></Card>
 

@@ -21,6 +21,7 @@ const userTypeLabels: Record<AppUserType, string> = {
   "delivery-lead": "Delivery Lead",
   "team-member": "Team Member",
   contractor: "Contractor · Shared Studio only",
+  explorer: "Explorer · Sample data, view-only",
   "client-dashboard-contributor": "Client Dashboard Contributor",
   client: "Client",
   viewer: "Viewer"
@@ -554,6 +555,8 @@ export function AdminUserManagementCard({
             ? `${savedUser.name} was ${wasEditing ? "updated" : "saved"} with Admin access, and the North Star invite email was sent.`
             : savedUser.userType === "contractor"
               ? `${savedUser.name} was ${wasEditing ? "updated" : "saved"} with Shared Studio-only access, and the North Star invite email was sent. Explicit item grants are required before shared content is visible.`
+            : savedUser.userType === "explorer"
+              ? `${savedUser.name} was ${wasEditing ? "updated" : "saved"} with read-only Explorer access to fictional sample data, and the North Star invite email was sent. Paid generation is disabled.`
             : `${savedUser.name} was ${wasEditing ? "updated" : "saved"} with ${savedUser.assignments.length} program role assignment${
                 savedUser.assignments.length === 1 ? "" : "s"
               }, and the North Star invite email was sent.`
@@ -569,6 +572,8 @@ export function AdminUserManagementCard({
             ? `${savedUser.name} was ${wasEditing ? "updated" : "saved"} with Admin access to all programs.`
             : savedUser.userType === "contractor"
               ? `${savedUser.name} was ${wasEditing ? "updated" : "saved"} with Shared Studio-only access. Explicit item grants are required before shared content is visible.`
+            : savedUser.userType === "explorer"
+              ? `${savedUser.name} was ${wasEditing ? "updated" : "saved"} with read-only Explorer access to fictional sample data. Paid generation is disabled.`
             : `${savedUser.name} was ${wasEditing ? "updated" : "saved"} with ${savedUser.assignments.length} role-specific program assignment${
                 savedUser.assignments.length === 1 ? "" : "s"
               }.`
@@ -883,7 +888,7 @@ export function AdminUserManagementCard({
                     setForm((current) => ({
                       ...current,
                       userType,
-                      programId: userType === "contractor" ? "" : current.programId,
+                      programId: userType === "contractor" || userType === "explorer" ? "" : current.programId,
                       role: isProgramScopedUserType(userType) ? current.role : ""
                     }));
                     if (!isProgramScopedUserType(userType)) {
@@ -925,7 +930,7 @@ export function AdminUserManagementCard({
                 <select
                   data-admin-program-select
                   value={form.programId}
-                  disabled={form.userType === "contractor"}
+                  disabled={form.userType === "contractor" || form.userType === "explorer"}
                   onChange={(event) => updateProgram(event.target.value)}
                   className="min-h-11 rounded-md border border-white/10 bg-zinc-950 px-3 py-3 text-sm text-zinc-100 outline-none transition-colors focus:border-emerald-300/50"
                 >
@@ -949,7 +954,7 @@ export function AdminUserManagementCard({
                   disabled={!form.programId || !programAssignmentRequired}
                   className="min-h-11 rounded-md border border-white/10 bg-zinc-950 px-3 py-3 text-sm text-zinc-100 outline-none transition-colors disabled:text-zinc-500 focus:border-emerald-300/50"
                 >
-                  <option value="">{programAssignmentRequired ? "Select role..." : form.userType === "contractor" ? "Shared Studio grants only" : "Admin all-program access"}</option>
+                  <option value="">{programAssignmentRequired ? "Select role..." : form.userType === "contractor" ? "Shared Studio grants only" : form.userType === "explorer" ? "Fictional sample data only" : "Admin all-program access"}</option>
                   {availableRoles.map((role) => (
                     <option key={role} value={role}>
                       {role}
@@ -1020,7 +1025,7 @@ export function AdminUserManagementCard({
 
               {!programAssignmentRequired ? (
                 <p className="rounded-md border border-emerald-300/20 bg-emerald-300/[0.055] p-3 text-sm leading-6 text-emerald-100">
-                  {form.userType === "contractor" ? "Contractors can access only explicitly shared Studio items. They have no program, Client Portal, leadership, admin, or generation access." : "Admin users have ultimate access and visibility across every program. A program role assignment is not required."}
+                  {form.userType === "contractor" ? "Contractors can access only explicitly shared Studio items. They have no program, Client Portal, leadership, admin, or generation access." : form.userType === "explorer" ? "Explorers can navigate the product using fictional sample data and prepared Studio outputs only. No live program access, uploads, edits, approvals, sharing changes, AI calls, or settings changes. No program assignment is required." : "Admin users have ultimate access and visibility across every program. A program role assignment is not required."}
                 </p>
               ) : assignmentDrafts.length ? (
                 <div className="grid gap-2">
@@ -1192,7 +1197,7 @@ export function AdminUserManagementCard({
               Access model
             </p>
             <p className="text-sm leading-6 text-zinc-300">
-              Admin controls user access and role-aware views. Admin users see every program; program-scoped users see assigned programs and roles. Contractors see only explicitly shared Studio items.
+              Admin controls user access and role-aware views. Admin users see every program; program-scoped users see assigned programs and roles. Contractors see only explicitly shared Studio items. Explorers see fictional sample data only, with no changes or paid generation.
             </p>
             <div className="grid gap-2">
               {appUserTypes.map((type) => (
@@ -1209,6 +1214,8 @@ export function AdminUserManagementCard({
                             ? "Updates assigned role signals and can inspect adjacent team context."
                             : type === "contractor"
                               ? "Accesses only explicitly granted Shared Studio items. No program assignments, internal workspaces, Client Portal, or generation access."
+                            : type === "explorer"
+                              ? "Explores fictional sample data and prepared Studio outputs across the product. No live program access, data entry, edits, approvals, sharing changes, settings, AI generation, or paid research."
                             : type === "client-dashboard-contributor"
                               ? "Publishes reviewed, client-safe dashboard inputs for assigned programs without access to internal program workspaces."
                               : type === "client"
@@ -1349,6 +1356,8 @@ export function AdminUserManagementCard({
                       <p className="mt-4 rounded-md border border-cyan-300/20 bg-cyan-300/[0.055] p-3 text-sm leading-6 text-cyan-100">
                         Shared Studio only. Access depends on explicit item grants; no program role assignments apply.
                       </p>
+                    ) : user.userType === "explorer" ? (
+                      <p className="mt-4 rounded-md border border-cyan-300/20 bg-cyan-300/[0.055] p-3 text-sm leading-6 text-cyan-100">Explorer: fictional sample data and prepared outputs only. Read-only; no live program access, changes, or paid generation.</p>
                     ) : primaryAssignment ? (
                       <div className="mt-4 rounded-md border border-emerald-300/20 bg-emerald-300/[0.055] p-3">
                         <p className="text-xs font-medium uppercase tracking-[0.16em] text-emerald-200">Default expanded role</p>

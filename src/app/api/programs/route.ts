@@ -1,3 +1,4 @@
+import { denyExplorerRequest } from "@/lib/explorer-access";
 import { NextResponse } from "next/server";
 import { requireInternalWorkspaceRouteAccess, requireSiteAccessRequest } from "@/lib/api-route-access";
 import { getAssignedProgramIdSet, hasActiveUserCredentials, isExternalOnlyUserType, shouldScopeManagedUserPrograms } from "@/lib/admin-user-types";
@@ -9,6 +10,8 @@ import { syncProgramTeamFootprint } from "@/lib/team-roles";
 import { isDemoMode } from "@/lib/demo-session";
 
 export async function GET(request: Request) {
+  const explorerDenied = await denyExplorerRequest(request);
+  if (explorerDenied) return explorerDenied;
   if (await isDemoMode()) {
     const { response } = await requireInternalWorkspaceRouteAccess(request);
     if (response) return response;
@@ -32,6 +35,8 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
+  const explorerDenied = await denyExplorerRequest(request);
+  if (explorerDenied) return explorerDenied;
   const denied = requireSiteAccessRequest(request);
   if (denied) return denied;
   const currentUser = await getCurrentManagedUser();

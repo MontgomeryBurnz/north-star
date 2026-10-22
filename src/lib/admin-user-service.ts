@@ -145,6 +145,9 @@ export function buildManagedAppUserRecord({
   if (userType === "contractor" && assignmentInputs.length) {
     return { ok: false, error: "Contractors receive access through explicit Shared Studio grants, not program assignments." };
   }
+  if (userType === "explorer" && assignmentInputs.length) {
+    return { ok: false, error: "Explorers use fictional sample data only and cannot receive live program assignments." };
+  }
   const assignments = isProgramScopedUserType(userType)
     ? mergeAssignments({
         assignments: assignmentInputs,

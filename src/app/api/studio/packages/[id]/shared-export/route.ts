@@ -1,3 +1,4 @@
+import { denyExplorerRequest } from "@/lib/explorer-access";
 import { getStudioPackage } from "@/lib/studio-collaboration-persistence";
 import { StudioCollaborationError } from "@/lib/studio-collaboration-types";
 import { requireStudioIdentity, studioRouteError } from "@/lib/studio-route-access";
@@ -6,6 +7,8 @@ export const dynamic = "force-dynamic";
 const plain = (value: string) => value.replace(/[<>\u0000\r]/g, "");
 
 export async function GET(request: Request, context: { params: Promise<{ id: string }> }) {
+  const explorerDenied = await denyExplorerRequest(request);
+  if (explorerDenied) return explorerDenied;
   try {
     const user = await requireStudioIdentity();
     const { id } = await context.params;

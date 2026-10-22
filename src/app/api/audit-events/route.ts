@@ -1,3 +1,4 @@
+import { denyExplorerRequest } from "@/lib/explorer-access";
 import { NextResponse } from "next/server";
 import { requireSiteAccessRequest } from "@/lib/api-route-access";
 import type { AuditEventInput, AuditEventType } from "@/lib/audit-event-types";
@@ -7,6 +8,8 @@ import { createAuditEvent } from "@/lib/program-store";
 const clientWritableEvents = new Set<AuditEventType>(["artifact.copy", "artifact.export"]);
 
 export async function POST(request: Request) {
+  const explorerDenied = await denyExplorerRequest(request);
+  if (explorerDenied) return explorerDenied;
   const denied = requireSiteAccessRequest(request);
   if (denied) return denied;
 

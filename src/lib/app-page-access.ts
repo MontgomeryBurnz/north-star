@@ -2,12 +2,14 @@ import "server-only";
 import { redirect } from "next/navigation";
 import {
   canAccessClientDashboardUpdateSurface,
+  hasActiveUserCredentials,
   isExternalOnlyUserType,
   requiresUserSetup,
   type ManagedAppUser
 } from "@/lib/admin-user-types";
 import { getCurrentManagedUser, tryGetCurrentManagedUser } from "@/lib/current-managed-user";
 import { getSiteAccessConfig, isSiteAccessSessionTokenValid, siteAccessSessionCookieName } from "@/lib/site-access";
+import { isSupabaseConfigured } from "@/lib/supabase/server";
 
 async function getCookieStore() {
   const { cookies } = await import("next/headers");
@@ -33,9 +35,17 @@ export async function requireSiteAccessPage(redirectTo: string) {
   // A managed contractor cannot use a Supabase or legacy site session to enter
   // generic protected pages that do not have a second internal-role gate.
   const currentUser = await tryGetCurrentManagedUser();
+  if (currentUser?.userType === "explorer" && !hasActiveUserCredentials(currentUser)) {
+    redirect(requiresUserSetup(currentUser) ? "/auth/setup" : "/login");
+  }
   if (currentUser?.userType === "contractor") {
     if (requiresUserSetup(currentUser)) redirect("/auth/setup");
     redirect("/studio/shared");
+  }
+  if (isSupabaseConfigured()) {
+    if (requiresUserSetup(currentUser)) redirect("/auth/setup");
+    if (!hasActiveUserCredentials(currentUser)) redirect(`/login?redirect=${encodeURIComponent(redirectTo)}`);
+    return;
   }
   const config = getSiteAccessConfig();
   if (!config.enabled) return;
@@ -108,6 +118,7 @@ export async function requireClientDashboardUpdatePage(redirectTo: string) {
 }
 
 export async function hasSiteAccessPageSession() {
+  if (isSupabaseConfigured()) return hasActiveUserCredentials(await getCurrentManagedUser());
   const config = getSiteAccessConfig();
   if (!config.enabled) return true;
 

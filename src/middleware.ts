@@ -5,6 +5,9 @@ import { getSiteAccessConfig, isSiteAccessSessionTokenValid, siteAccessSessionCo
 import { demoModeCookieName, demoModeValue, demoProgramId } from "@/lib/demo-mode";
 
 function isDemoMutationAllowed(pathname: string) {
+  // Sample cookies must never trap users outside sign-in/setup/recovery.
+  // Identity lifecycle is separate from workspace data and paid operations.
+  if (pathname.startsWith("/api/auth/user/")) return true;
   if (pathname === "/api/demo-session" || pathname.endsWith("/logout")) return true;
   if (["/api/artifacts/extract", "/api/studio/discovery-synthesis", "/api/studio/export", "/api/client-portal/export/pdf"].includes(pathname)) return true;
   if (pathname === "/api/programs") return true;

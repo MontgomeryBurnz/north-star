@@ -1,3 +1,4 @@
+import { denyExplorerRequest } from "@/lib/explorer-access";
 import { isExternalOnlyUserType } from "@/lib/admin-user-types";
 import { sampleDiscoverySources, sampleDiscoverySynthesis, sampleProgram } from "@/data/sample-program";
 import { createStudioPackage, listStudioPackages } from "@/lib/studio-collaboration-persistence";
@@ -6,12 +7,16 @@ import { readStudioJson, requireStudioIdentity, studioJson, studioRouteError } f
 
 export const dynamic = "force-dynamic";
 
-export async function GET() {
+export async function GET(request: Request) {
+  const explorerDenied = await denyExplorerRequest(request);
+  if (explorerDenied) return explorerDenied;
   try { return studioJson({ packages: await listStudioPackages(await requireStudioIdentity()) }); }
   catch (error) { return studioRouteError(error); }
 }
 
 export async function POST(request: Request) {
+  const explorerDenied = await denyExplorerRequest(request);
+  if (explorerDenied) return explorerDenied;
   try {
     const user = await requireStudioIdentity();
     if (isExternalOnlyUserType(user.userType)) throw new StudioCollaborationError("Only internal users can create Studio packages.", 403);

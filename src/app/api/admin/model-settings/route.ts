@@ -1,3 +1,4 @@
+import { denyExplorerRequest } from "@/lib/explorer-access";
 import { NextResponse } from "next/server";
 import { auditActorFromAccess } from "@/lib/audit-event-service";
 import { buildGuidanceModelProfile } from "@/lib/guidance-model-profile";
@@ -18,6 +19,8 @@ function isSupportedOption(value: unknown, options: readonly string[]) {
 }
 
 export async function GET(request: Request) {
+  const explorerDenied = await denyExplorerRequest(request);
+  if (explorerDenied) return explorerDenied;
   const { response } = await requireAdminRouteAccess(request);
   if (response) return response;
 
@@ -35,6 +38,8 @@ export async function GET(request: Request) {
 }
 
 export async function PUT(request: Request) {
+  const explorerDenied = await denyExplorerRequest(request);
+  if (explorerDenied) return explorerDenied;
   const { access, response } = await requireAdminRouteAccess(request);
   if (response) return response;
 

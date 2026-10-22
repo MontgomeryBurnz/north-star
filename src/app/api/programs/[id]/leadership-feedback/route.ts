@@ -1,3 +1,4 @@
+import { denyExplorerRequest } from "@/lib/explorer-access";
 import { NextResponse } from "next/server";
 import { requireLeadershipRouteAccess } from "@/lib/api-route-access";
 import { auditActorFromAccess } from "@/lib/audit-event-service";
@@ -6,6 +7,8 @@ import type { LeadershipReviewInput } from "@/lib/leadership-feedback-types";
 import { saveLeadershipReview } from "@/lib/program-loop-service";
 
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
+  const explorerDenied = await denyExplorerRequest(request);
+  if (explorerDenied) return explorerDenied;
   const { response } = await requireLeadershipRouteAccess(request);
   if (response) return response;
 
@@ -15,6 +18,8 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
 }
 
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
+  const explorerDenied = await denyExplorerRequest(request);
+  if (explorerDenied) return explorerDenied;
   const { access, response } = await requireLeadershipRouteAccess(request);
   if (response) return response;
 

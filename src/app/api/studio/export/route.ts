@@ -1,9 +1,12 @@
+import { denyExplorerRequest } from "@/lib/explorer-access";
 import { NextResponse } from "next/server";
 import { requireInternalWorkspaceRouteAccess } from "@/lib/api-route-access";
 import { generateStudioExport, MAX_STUDIO_EXPORT_BYTES, normalizeStudioExportRequest, StudioExportError } from "@/lib/studio-export";
 import { getStudioExport } from "@/lib/studio-collaboration-persistence";
 import { StudioCollaborationError } from "@/lib/studio-collaboration-types";
 import { requireStudioIdentity } from "@/lib/studio-route-access";
+import { getCurrentManagedUser } from "@/lib/current-managed-user";
+import { sampleDiscoverySynthesis, sampleProgram } from "@/data/sample-program";
 
 export const runtime = "nodejs";
 
@@ -26,6 +29,8 @@ async function readExportBody(request: Request) {
 }
 
 export async function POST(request: Request) {
+  const explorerDenied = await denyExplorerRequest(request);
+  if (explorerDenied) return explorerDenied;
   const { response } = await requireInternalWorkspaceRouteAccess(request);
   if (response) return response;
 
@@ -38,7 +43,12 @@ export async function POST(request: Request) {
     } catch {
       throw new StudioExportError("Provide a valid export request.");
     }
-    if (body && typeof body === "object" && !Array.isArray(body) && "packageId" in body) {
+    if ((await getCurrentManagedUser())?.userType === "explorer") {
+      // Only format/deliverable selections are accepted. Never trust a supplied
+      // synthesis, title, package ID, revision, or evidence in Explorer mode.
+      const selection = body && typeof body === "object" && !Array.isArray(body) ? body as Record<string, unknown> : {};
+      body = { format: selection.format, outputs: selection.outputs, workspaceName: sampleProgram.name, synthesis: sampleDiscoverySynthesis };
+    } else if (body && typeof body === "object" && !Array.isArray(body) && "packageId" in body) {
       const input = body as Record<string, unknown>;
       if (typeof input.packageId !== "string" || typeof input.revisionId !== "string") throw new StudioExportError("Choose a saved package revision to export.");
       const saved = await getStudioExport(await requireStudioIdentity(), input.packageId, input.revisionId);

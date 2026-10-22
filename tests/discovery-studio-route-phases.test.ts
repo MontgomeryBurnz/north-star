@@ -23,6 +23,7 @@ const stateUrl = `data:text/javascript,${encodeURIComponent(`
   export async function createAuditEvent(event){if(state.auditFail)throw new Error('Audit unavailable');state.audits.push(event);}
   export async function ensureStudioCollaborationSchema(){}
   export async function isDemoMode(){return state.demo;}
+  export async function denyExplorerRequest(){return null;}
   export async function getStudioPackage(user,id){return {id,canManage:true,version:3,headRevisionId:state.head,revision:{id:state.head,synthesis:sampleDiscoverySynthesis}};}
   export async function createStudioPackage(user,input){state.saves.push({kind:'create',user,input});return {id:'PACKAGE-1',version:1,canManage:true,revision:{id:'REV-1',synthesis:{...input.synthesis,revision:{number:1,summary:'Saved generation'}}}};}
   export async function appendStudioRevision(user,id,version,input){state.saves.push({kind:'append',user,id,version,input});return {id,version:4,canManage:true,revision:{id:'REV-2',synthesis:{...input.synthesis,revision:{number:2,summary:'Saved revision'}}}};}
@@ -30,7 +31,7 @@ const stateUrl = `data:text/javascript,${encodeURIComponent(`
 const hooks = registerHooks({resolve(specifier, context, nextResolve) {
   if (specifier === "server-only") return {url:"data:text/javascript,export {};",shortCircuit:true};
   if (specifier === "next/server") return {url:"data:text/javascript,export const NextResponse={json:(body,options)=>Response.json(body,options)};",shortCircuit:true};
-  if (["@/lib/api-route-access","@/lib/audit-event-service","@/lib/discovery-studio-service","@/lib/program-store","@/lib/studio-collaboration-persistence","@/lib/demo-session"].includes(specifier)) return {url:stateUrl,shortCircuit:true};
+  if (["@/lib/explorer-access","@/lib/api-route-access","@/lib/audit-event-service","@/lib/discovery-studio-service","@/lib/program-store","@/lib/studio-collaboration-persistence","@/lib/demo-session"].includes(specifier)) return {url:stateUrl,shortCircuit:true};
   if (specifier.startsWith("@/")) return nextResolve(new URL(`../src/${specifier.slice(2)}.ts`,import.meta.url).href,context);
   return nextResolve(specifier,context);
 }});

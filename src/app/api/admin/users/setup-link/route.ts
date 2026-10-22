@@ -1,3 +1,4 @@
+import { denyExplorerRequest } from "@/lib/explorer-access";
 import { NextResponse } from "next/server";
 import { createManagedUserSetupLink, getInvitationProviderStatus } from "@/lib/admin-user-invitations";
 import { requireAdminRouteAccess } from "@/lib/api-route-access";
@@ -5,6 +6,8 @@ import { auditActorFromAccess } from "@/lib/audit-event-service";
 import { createAuditEvent, listManagedUsers, upsertManagedUser } from "@/lib/program-store";
 
 export async function POST(request: Request) {
+  const explorerDenied = await denyExplorerRequest(request);
+  if (explorerDenied) return explorerDenied;
   const { access, response } = await requireAdminRouteAccess(request);
   if (response) return response;
 

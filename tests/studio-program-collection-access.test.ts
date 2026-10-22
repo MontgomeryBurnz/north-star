@@ -27,6 +27,7 @@ function collection(currentUser: ManagedAppUser | null, siteAuthorized = false) 
   let reads = 0;
   let siteChecks = 0;
   const dependencies = {
+    denyExplorerRequest: async () => null,
     NextResponse: Response,
     isDemoMode: async () => false,
     requireInternalWorkspaceRouteAccess: async () => { throw new Error("Unexpected sample-mode gate"); },

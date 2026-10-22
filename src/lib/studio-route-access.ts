@@ -12,6 +12,9 @@ export async function requireStudioIdentity() {
   if (!user || !hasActiveUserCredentials(user)) {
     throw new StudioCollaborationError("Sign in with an active NorthStar account to use saved Studio collaboration.", 401);
   }
+  if (user.userType === "explorer") {
+    throw new StudioCollaborationError("Explorer accounts can preview the fictional sample only, not access or change saved workspace packages.", 403);
+  }
   return user;
 }
 

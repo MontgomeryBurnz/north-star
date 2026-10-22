@@ -20,6 +20,7 @@ const source = (path: string) => readFileSync(new URL(`../${path}`, import.meta.
 // Execute the actual route/helper function bodies with synthetic dependencies.
 // No Next server, account, database, filesystem write, or network call is used.
 function actualFunction(path: string, name: string, dependencies: Record<string, unknown>) {
+  dependencies = { denyExplorerRequest: async () => null, getCurrentManagedUser: async () => null, ...dependencies };
   const text = source(path);
   const parsed = ts.createSourceFile(path, text, ts.ScriptTarget.ES2022, true);
   const entry = parsed.statements.find((item): item is ts.FunctionDeclaration => ts.isFunctionDeclaration(item) && item.name?.text === name);

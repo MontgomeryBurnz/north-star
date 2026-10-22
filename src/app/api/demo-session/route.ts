@@ -1,8 +1,11 @@
+import { denyExplorerRequest } from "@/lib/explorer-access";
 import { NextResponse } from "next/server";
 import { requireInternalWorkspaceRouteAccess } from "@/lib/api-route-access";
 import { demoModeCookieName, demoModeValue, demoProgramId, demoStateCookieCount, demoStateCookiePrefix, getDemoRequestOrigin } from "@/lib/demo-mode";
 
 export async function GET(request: Request) {
+  const explorerDenied = await denyExplorerRequest(request);
+  if (explorerDenied) return explorerDenied;
   const { response: denied } = await requireInternalWorkspaceRouteAccess(request);
   if (denied) return denied;
   const response = NextResponse.redirect(new URL(`/active-program?mode=manage&program=${demoProgramId}`, getDemoRequestOrigin(request)), 303);
@@ -11,6 +14,8 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
+  const explorerDenied = await denyExplorerRequest(request);
+  if (explorerDenied) return explorerDenied;
   const { response: denied } = await requireInternalWorkspaceRouteAccess(request);
   if (denied) return denied;
   const origin = getDemoRequestOrigin(request);

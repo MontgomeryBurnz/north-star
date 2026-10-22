@@ -1,3 +1,4 @@
+import { denyExplorerRequest } from "@/lib/explorer-access";
 import { NextResponse } from "next/server";
 import { requireProgramRouteAccess } from "@/lib/api-route-access";
 import { auditActorFromManagedUser, buildSystemAuditActor } from "@/lib/audit-event-service";
@@ -12,6 +13,8 @@ type ProgramPatchBody = {
 };
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
+  const explorerDenied = await denyExplorerRequest(request);
+  if (explorerDenied) return explorerDenied;
   const { id } = await params;
   const { currentUser, response } = await requireProgramRouteAccess(request, id, { loadCurrentUser: true });
   if (response) return response;

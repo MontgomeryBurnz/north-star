@@ -1,3 +1,4 @@
+import { denyExplorerRequest } from "@/lib/explorer-access";
 import { NextResponse } from "next/server";
 import type { ManagedAppUser, ManagedAppUserInput } from "@/lib/admin-user-types";
 import { getInvitationProviderStatus, inviteManagedUser } from "@/lib/admin-user-invitations";
@@ -44,6 +45,8 @@ async function deleteLinkedAuthUser(user: ManagedAppUser) {
 }
 
 export async function GET(request: Request) {
+  const explorerDenied = await denyExplorerRequest(request);
+  if (explorerDenied) return explorerDenied;
   const { response } = await requireAdminRouteAccess(request);
   if (response) return response;
 
@@ -52,6 +55,8 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
+  const explorerDenied = await denyExplorerRequest(request);
+  if (explorerDenied) return explorerDenied;
   const { access, response } = await requireAdminRouteAccess(request);
   if (response) return response;
 
@@ -125,6 +130,8 @@ export async function POST(request: Request) {
 }
 
 export async function DELETE(request: Request) {
+  const explorerDenied = await denyExplorerRequest(request);
+  if (explorerDenied) return explorerDenied;
   const { access, response } = await requireAdminRouteAccess(request);
   if (response) return response;
 

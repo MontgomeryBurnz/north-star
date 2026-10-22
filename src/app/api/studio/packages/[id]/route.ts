@@ -1,3 +1,4 @@
+import { denyExplorerRequest } from "@/lib/explorer-access";
 import { listManagedUsers } from "@/lib/program-store";
 import { getStudioPackage, mutateStudioPackage } from "@/lib/studio-collaboration-persistence";
 import { StudioCollaborationError, type StudioPackageAction } from "@/lib/studio-collaboration-types";
@@ -7,6 +8,8 @@ export const dynamic = "force-dynamic";
 type Context = { params: Promise<{ id: string }> };
 
 export async function GET(request: Request, context: Context) {
+  const explorerDenied = await denyExplorerRequest(request);
+  if (explorerDenied) return explorerDenied;
   try {
     const user = await requireStudioIdentity();
     const { id } = await context.params;
@@ -16,6 +19,8 @@ export async function GET(request: Request, context: Context) {
 }
 
 export async function POST(request: Request, context: Context) {
+  const explorerDenied = await denyExplorerRequest(request);
+  if (explorerDenied) return explorerDenied;
   try {
     const user = await requireStudioIdentity();
     const { id } = await context.params;

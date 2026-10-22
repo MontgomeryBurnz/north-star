@@ -43,7 +43,9 @@ export async function POST(request: Request) {
   const response = NextResponse.json({
     ok: true,
     redirectTo:
-      managedUser.userType === "contractor"
+      managedUser.userType === "explorer"
+        ? "/artifacts"
+        : managedUser.userType === "contractor"
         ? "/studio/shared"
         : managedUser.userType === "client"
         ? "/client"
@@ -52,5 +54,9 @@ export async function POST(request: Request) {
           : undefined
   });
 
+  if (managedUser.userType === "explorer") {
+    response.cookies.delete("site_access_session");
+    return response;
+  }
   return isExternalOnlyUserType(managedUser.userType) ? response : attachSiteAccessCookie(response);
 }

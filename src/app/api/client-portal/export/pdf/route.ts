@@ -1,3 +1,4 @@
+import { denyExplorerRequest } from "@/lib/explorer-access";
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
@@ -45,6 +46,8 @@ async function recordPdfExportAudit(input: {
 }
 
 export async function GET(request: Request) {
+  const explorerDenied = await denyExplorerRequest(request);
+  if (explorerDenied) return explorerDenied;
   const url = new URL(request.url);
   const scope: ExportScope = url.searchParams.get("scope") === "program" ? "program" : "portfolio";
   const requestedProgramId = url.searchParams.get("programId") ?? "";
@@ -75,7 +78,7 @@ export async function GET(request: Request) {
     scope
   });
 
-  after(() => {
+  if (currentUser?.userType !== "explorer") after(() => {
     void recordPdfExportAudit({
       clientName: reportClientName,
       currentUser,

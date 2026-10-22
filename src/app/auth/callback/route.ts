@@ -43,6 +43,10 @@ export async function GET(request: Request) {
 
   function attachInternalAccessForNonClient(response: NextResponse) {
     if (!hasActiveUserCredentials(managedUser)) return response;
+    if (managedUser?.userType === "explorer") {
+      response.cookies.delete("site_access_session");
+      return response;
+    }
     return managedUser && isExternalOnlyUserType(managedUser.userType) ? response : attachSiteAccessCookie(response);
   }
 

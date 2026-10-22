@@ -1,3 +1,4 @@
+import { denyExplorerRequest } from "@/lib/explorer-access";
 import { NextResponse } from "next/server";
 import { requireSiteAccessRequest } from "@/lib/api-route-access";
 import { getArtifactStorageProvider } from "@/lib/artifact-storage";
@@ -5,6 +6,8 @@ import { getArtifactStorageProvider } from "@/lib/artifact-storage";
 export const runtime = "nodejs";
 
 export async function POST(request: Request) {
+  const explorerDenied = await denyExplorerRequest(request);
+  if (explorerDenied) return explorerDenied;
   const denied = requireSiteAccessRequest(request);
   if (denied) return denied;
 

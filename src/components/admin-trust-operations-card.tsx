@@ -42,6 +42,10 @@ const permissionRows = [
   {
     title: "Viewer",
     detail: "Read-focused visibility for assigned programs when collaboration rights are not needed."
+  },
+  {
+    title: "Explorer",
+    detail: "Fictional sample data and prepared outputs only. No live data, writes, settings changes, paid generation, or external execution."
   }
 ];
 

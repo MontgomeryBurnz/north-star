@@ -1,4 +1,5 @@
 import "server-only";
+import { cache } from "react";
 import type { User } from "@supabase/supabase-js";
 import type { ManagedAppUser } from "@/lib/admin-user-types";
 import { listManagedUsers, upsertManagedUser } from "@/lib/program-store";
@@ -50,7 +51,7 @@ export async function syncManagedUserFromAuthUser(authUser: Pick<User, "id" | "e
   });
 }
 
-export async function getCurrentManagedUser() {
+export const getCurrentManagedUser = cache(async () => {
   if (!isSupabaseConfigured()) return null;
 
   const supabase = await createSupabaseServerClient();
@@ -61,7 +62,7 @@ export async function getCurrentManagedUser() {
   if (!authUser) return null;
 
   return syncManagedUserFromAuthUser(authUser);
-}
+});
 
 export async function tryGetCurrentManagedUser() {
   try {

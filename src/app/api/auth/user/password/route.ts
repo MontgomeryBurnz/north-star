@@ -73,5 +73,9 @@ export async function POST(request: Request) {
           : undefined
   });
 
+  if (activeManagedUser.userType === "explorer") {
+    response.cookies.delete("site_access_session");
+    return response;
+  }
   return isExternalOnlyUserType(activeManagedUser.userType) ? response : attachSiteAccessCookie(response);
 }

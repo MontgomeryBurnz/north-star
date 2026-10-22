@@ -1,6 +1,6 @@
 # NorthStar Executive Product Summary and Demo Guide
 
-Last updated: October 19, 2026
+Last updated: October 22, 2026
 
 ## Executive Summary
 
@@ -72,6 +72,10 @@ Leadership users can monitor posture, risk, decisions, and progress across progr
 For consulting delivery, NorthStar can become a differentiator because it gives clients a polished executive view while protecting internal working context. It helps consulting teams show disciplined delivery, structured insight, clear accountability, and evidence-backed progress.
 
 ## Primary User Groups
+
+### Explorers
+
+Explorers evaluate NorthStar using connected fictional data and prepared Studio outputs. They can navigate the product, inspect summaries, gaps, stories, criteria, tests, and Delivery handoff mapping previews, and download sample Office files. They cannot upload, change data, approve, share, adjust settings, invoke AI or public research, or send work externally. Sample mode is mandatory and no program assignment is required. For a no-paid-generation demo, use the prepared outputs only. Normal hosting/authentication/download traffic still uses infrastructure resources.
 
 ### Delivery Leads
 

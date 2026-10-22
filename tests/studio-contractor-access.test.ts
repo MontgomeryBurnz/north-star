@@ -145,6 +145,7 @@ test("Client Portal and Client Updates redirect before loading any program conte
   const dependencies = {
     getCurrentManagedUser: async () => contractor, hasSiteAccessPageSession: async () => true,
     loadClientPortalData: async () => ({ currentUser: contractor }), canAccessClientDashboardUpdateSurface,
+    hasActiveUserCredentials,
     redirect: (path: string) => { throw new Error(`redirect:${path}`); },
     listPrograms: async () => { programReads++; throw new Error("Program data must not be read"); }
   };
@@ -189,7 +190,7 @@ test("identity and assignment UI do not expose stale contractor program assignme
   assert.match(source("src/hooks/use-current-user-assignments.ts"), /currentUser\?\.userType === "contractor" \? \[\] : currentUser\?\.assignments/);
   const admin = source("src/components/admin-user-management-card.tsx");
   assert.match(admin, /contractor: "Contractor · Shared Studio only"/);
-  assert.match(admin, /disabled=\{form\.userType === "contractor"\}/);
+  assert.match(admin, /disabled=\{form\.userType === "contractor" \|\| form\.userType === "explorer"\}/);
   assert.match(admin, /Shared Studio grants only/);
   assert.match(admin, /Contractors do not receive program access/);
 });

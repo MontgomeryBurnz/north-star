@@ -1,3 +1,4 @@
+import { denyExplorerRequest } from "@/lib/explorer-access";
 import { NextResponse } from "next/server";
 import { requireSiteAccessRequest } from "@/lib/api-route-access";
 import { extractArtifactText } from "@/lib/artifact-extraction";
@@ -26,6 +27,8 @@ function detectFileFormat(fileName: string): NonNullable<ProgramArtifact["fileFo
 }
 
 export async function POST(request: Request) {
+  const explorerDenied = await denyExplorerRequest(request);
+  if (explorerDenied) return explorerDenied;
   const denied = requireSiteAccessRequest(request);
   if (denied) return denied;
 

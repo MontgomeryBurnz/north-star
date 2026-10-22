@@ -46,6 +46,7 @@ const userTypeLabels: Record<AppUserType, string> = {
   "delivery-lead": "Delivery Lead",
   "team-member": "Team Member",
   contractor: "Contractor",
+  explorer: "Explorer · View-only",
   "client-dashboard-contributor": "Client Dashboard",
   client: "Client",
   viewer: "Viewer"

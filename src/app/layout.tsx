@@ -5,6 +5,8 @@ import { SpeedInsights } from "@vercel/speed-insights/next";
 import "./globals.css";
 import { AppShell } from "@/components/app-shell";
 import { isDemoMode } from "@/lib/demo-session";
+import { getCurrentManagedUser } from "@/lib/current-managed-user";
+import { ExplorerMode } from "@/components/explorer-mode";
 
 export const metadata: Metadata = {
   title: "North Star",
@@ -13,10 +15,11 @@ export const metadata: Metadata = {
 
 export default async function RootLayout({ children }: Readonly<{ children: ReactNode }>) {
   const demoMode = await isDemoMode();
+  const explorerMode = (await getCurrentManagedUser())?.userType === "explorer";
   return (
     <html lang="en" className="dark">
       <body className="font-sans antialiased">
-        <AppShell demoMode={demoMode}>{children}</AppShell>
+        <ExplorerMode enabled={explorerMode}><AppShell demoMode={demoMode} explorerMode={explorerMode}>{children}</AppShell></ExplorerMode>
         <Analytics />
         <SpeedInsights />
       </body>

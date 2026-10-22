@@ -2,7 +2,7 @@
 
 Daily operating guide for delivery teams, leaders, clients, and Admins
 
-Last updated: October 19, 2026
+Last updated: October 22, 2026
 
 ## Purpose
 
@@ -15,6 +15,10 @@ NorthStar's product promise is simple:
 Use NorthStar daily to keep program signal current, understand what changed, and turn that signal into guided plans, team actions, work products, and executive visibility.
 
 ## Quick Start
+
+**Explorer accounts:** sign in normally to open Studio with prepared fictional outputs. Explore summaries, gaps, requirements, Delivery handoff, and sample Office downloads without uploading or entering business data. Explorer stays sample-only across NorthStar; changing or deleting the sample cookie cannot unlock live data. Uploads, edits, approvals, sharing, settings, AI generation, research, and external execution are disabled. No program assignment is needed. The editable-workflow steps below apply to authorized working roles, not Explorer.
+
+Admins can select **Explorer · Sample data, view-only** in user management and use the normal invitation process. This does not change any other user's role. Explorer differs from Viewer: Viewer is program-scoped, while Explorer is fictional-sample-only. With Supabase configured, protected workspaces require an active individual account; a legacy shared workspace cookie alone no longer grants access.
 
 1. Go to `https://www.north-star.live`.
 2. Sign in with your NorthStar username and password.
