@@ -4,6 +4,7 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 import { sampleDiscoverySources, sampleDiscoverySynthesis } from "../src/data/sample-program.ts";
 import type { StudioActor } from "../src/lib/studio-collaboration-types.ts";
+import { studioWorkflow } from "../src/lib/studio-workflow.ts";
 
 // Isolated in-process DB double: no network, credentials or production state.
 const stateUrl = `data:text/javascript,${encodeURIComponent(`
@@ -127,4 +128,33 @@ test("persistence introduces no source, comment or generated-output telemetry", 
   assert.doesNotMatch(source, /console\.(?:log|info|error|warn)|fetch\(|writeFile|readFileStore/);
   assert.match(source, /FOR UPDATE/);
   assert.match(source, /WHERE id = \$1 AND version = \$5/);
+});
+
+test("managed gaps and saved drafts round-trip through locked JSON persistence without modifying the full export", async () => {
+  reset(); state.users.set(owner.id, owner);
+  const saved = await persistence.createStudioPackage(owner, input());
+  const before = await persistence.getStudioExport(owner, saved.id, saved.revision.id);
+  let updated = await persistence.mutateStudioPackage(owner, saved.id, saved.version, { type: "manage-gap", revisionId: saved.revision.id, gapId: "GAP-01", status: "resolved", ownerId: owner.id, affectedStoryIds: ["US-01"], evidenceSourceIds: [sampleDiscoverySources[0].id], resolution: "Confirmed by a human against source evidence." });
+  updated = await persistence.mutateStudioPackage(owner, saved.id, updated.version, { type: "save-refinement", revisionId: saved.revision.id, storyId: "US-01", body: "Saved question persists after a fresh read.", evidenceSourceIds: [] });
+  const reopened = await persistence.getStudioPackage(owner, saved.id); assert.ok(reopened.canManage);
+  assert.equal(studioWorkflow(reopened.revision).gaps[0].ownerName, owner.name);
+  assert.equal(studioWorkflow(reopened.revision).refinements[0].body, "Saved question persists after a fresh read.");
+  assert.deepEqual(await persistence.getStudioExport(owner, saved.id, saved.revision.id), before);
+  assert.ok(state.queries.filter((query: { sql: string }) => query.sql === "COMMIT").length >= 2);
+});
+
+test("workflow persistence rejects disabled owner resolution, stale saves and forbidden identity lookups without partial writes", async () => {
+  reset(); state.users.set(owner.id, { ...owner, credentialStatus: "disabled" });
+  const saved = await persistence.createStudioPackage(owner, input());
+  const action = { type: "manage-gap" as const, revisionId: saved.revision.id, gapId: "GAP-01", status: "open" as const, ownerId: owner.id, affectedStoryIds: [], evidenceSourceIds: [], resolution: "" };
+  await assert.rejects(persistence.mutateStudioPackage(owner, saved.id, saved.version, action), /active internal/);
+  assert.equal((await persistence.getStudioPackage(owner, saved.id)).version, saved.version);
+  const queries = state.queries.length;
+  await assert.rejects(persistence.mutateStudioPackage(reviewer, saved.id, saved.version, action), /not available/);
+  assert.ok(!state.queries.slice(queries).some((query: { sql: string }) => query.sql.startsWith("SELECT record FROM managed_users")));
+  const draft = { type: "save-refinement" as const, revisionId: saved.revision.id, storyId: "US-01", body: "Two writers", evidenceSourceIds: [] };
+  const results = await Promise.allSettled([persistence.mutateStudioPackage(owner, saved.id, saved.version, draft), persistence.mutateStudioPackage(owner, saved.id, saved.version, draft)]);
+  assert.equal(results.filter(result => result.status === "fulfilled").length, 1);
+  const loaded = await persistence.getStudioPackage(owner, saved.id);assert.ok(loaded.canManage);
+  assert.equal(studioWorkflow(loaded.revision).refinements.length, 1);
 });

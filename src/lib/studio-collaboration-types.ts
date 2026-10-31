@@ -7,10 +7,26 @@ export type StudioReviewStatus = "pending" | "approved" | "changes-requested";
 export type StudioReview = { status: StudioReviewStatus; reviewedBy?: string; reviewedAt?: string; note?: string };
 export type StudioItemState = { storyId: string; review: StudioReview; assigneeId?: string; assigneeName?: string };
 export type StudioRevisionSummary = { id: string; number: number; createdAt: string; provenance: StudioProvenance };
+export type StudioGapStatus = "open" | "in-progress" | "resolved";
+export type StudioGapState = {
+  gapId: string; status: StudioGapStatus; ownerId?: string; ownerName?: string;
+  affectedStoryIds: string[]; evidenceSourceIds: string[]; resolution: string;
+  updatedAt?: string; updatedBy?: string;
+};
+export type StudioRefinement = {
+  id: string; storyId: string; body: string; evidenceSourceIds: string[];
+  status: "draft" | "submitted" | "addressed"; decision: string;
+  createdAt: string; createdBy: string; updatedAt: string; updatedBy: string;
+};
+export type StudioWorkflow = {
+  gaps: StudioGapState[]; refinements: StudioRefinement[];
+  events: { id: string; targetId: string; actorId: string; at: string; description: string }[];
+};
 export type StudioRevision = StudioRevisionSummary & {
   title: string; parentRevisionId?: string; createdBy: string; synthesis: DiscoverySynthesis; sources: ProgramArtifact[];
   resolutionNotes: string; selectedOutputs: NonNullable<DiscoverySynthesisRequest["selectedOutputs"]>;
   externalResearch: boolean; researchTopic: string; items: StudioItemState[];
+  workflow?: StudioWorkflow;
 };
 export type StudioShareGrant = {
   id: string; revisionId: string; recipientId: string; storyIds: string[]; sharedContext: string;
@@ -50,6 +66,9 @@ export type StudioRevisionInput = {
   provenance: StudioProvenance;
 };
 export type StudioPackageAction =
+  | { type: "manage-gap"; revisionId: string; gapId: string; status: StudioGapStatus; ownerId: string | null; affectedStoryIds: string[]; evidenceSourceIds: string[]; resolution: string }
+  | { type: "save-refinement"; revisionId: string; storyId: string; refinementId?: string; body: string; evidenceSourceIds: string[] }
+  | { type: "refinement-status"; revisionId: string; refinementId: string; status: "submitted" | "addressed" | "draft"; decision: string }
   | { type: "comment"; revisionId: string; storyId: string; body: string; visibility: "shared" | "internal" }
   | { type: "return"; revisionId: string; storyId: string; reason: string }
   | { type: "approve"; revisionId: string; storyId: string; confirmReviewed: boolean }

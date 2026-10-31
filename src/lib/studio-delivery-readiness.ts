@@ -1,17 +1,18 @@
 import type { DiscoverySynthesis, DiscoveryUserStory } from "./discovery-studio-types.ts";
 import type { ProgramArtifact } from "./program-intake-types.ts";
-import type { StudioCollaborationItem, StudioManagedPackageView, StudioPackageView } from "./studio-collaboration-types.ts";
+import type { StudioCollaborationItem, StudioManagedPackageView, StudioPackageView, StudioWorkflow } from "./studio-collaboration-types.ts";
+import { studioWorkflowBlockers } from "./studio-workflow.ts";
 
 export type DeliveryCategory = "ready-for-review" | "approved-for-handoff" | "needs-refinement";
 export type DeliveryAssessment = { storyId: string; category: DeliveryCategory; reasons: string[] };
 export type DeliveryTarget = "jira" | "ado";
 
 /** Deterministic presentation of existing evidence, not another model call or an approval. */
-export function assessStudioDelivery(synthesis: DiscoverySynthesis, sources: ProgramArtifact[], items: StudioCollaborationItem[] = [], options: { preparedExample?: boolean; currentRevision?: boolean } = {}): DeliveryAssessment[] {
+export function assessStudioDelivery(synthesis: DiscoverySynthesis, sources: ProgramArtifact[], items: StudioCollaborationItem[] = [], options: { preparedExample?: boolean; currentRevision?: boolean; workflow?: StudioWorkflow } = {}): DeliveryAssessment[] {
   const sourceIds = new Set(sources.filter(source => source.extractedText?.trim()).map(source => source.id));
   return synthesis.stories.map(story => {
     const state = items.find(item => item.id === story.id);
-    const reasons: string[] = [];
+    const reasons: string[] = studioWorkflowBlockers({ synthesis, workflow: options.workflow }, story.id);
     if (story.readiness !== "ready") reasons.push("Discovery marks this story as needing information or decisions.");
     if (synthesis.quality?.status === "provisional") reasons.push("Package validation is provisional; resolve its review findings first.");
     else if (!options.preparedExample && (synthesis.provider !== "openai" || synthesis.quality?.status !== "reviewed")) reasons.push("Completed evidence validation has not been established for this package.");
@@ -54,7 +55,7 @@ export function buildStudioHandoffPreview(view: StudioPackageView, target: Deliv
   if (!view.canManage) throw new Error("Full delivery previews are available only to the package owner or an administrator.");
   if (!["jira", "ado"].includes(target)) throw new Error("Choose a supported delivery preview.");
   const current = view.revision.id === view.headRevisionId;
-  const approved = new Set(assessStudioDelivery(view.revision.synthesis, view.revision.sources, view.items, { preparedExample: view.revision.provenance === "prepared-example", currentRevision: current }).filter(item => item.category === "approved-for-handoff").map(item => item.storyId));
+  const approved = new Set(assessStudioDelivery(view.revision.synthesis, view.revision.sources, view.items, { preparedExample: view.revision.provenance === "prepared-example", currentRevision: current, workflow: view.revision.workflow }).filter(item => item.category === "approved-for-handoff").map(item => item.storyId));
   if (!selectedStoryIds.length || new Set(selectedStoryIds).size !== selectedStoryIds.length || selectedStoryIds.some(id => !approved.has(id))) throw new Error("Select only approved work from the latest revision for the handoff preview.");
   return { schemaVersion: 1, kind: "northstar-delivery-planning-preview", connected: false, executableImport: false, target,
     packageId: view.id, revisionId: view.revision.id, revisionNumber: view.revision.number, packageVersion: view.version, provenance: view.revision.provenance,

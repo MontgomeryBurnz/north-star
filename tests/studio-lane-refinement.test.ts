@@ -17,19 +17,22 @@ test("saved handoff cards expose independent Refine and Review actions with curr
   assert.doesNotMatch(source, /fetch\(|discovery-synthesis|paidGenerationConsent/);
   const workspace = read("studio-collaboration-workspace.tsx");
   assert.match(workspace, /workspaceView === "collaboration" && currentView\.canManage \? <StudioDeliveryPreview/);
-  assert.match(workspace, /onRefine\(currentView, id, feedback\)/);
+  assert.match(workspace, /onSaveRefinement=\{saveLaneRefinement\}/);
+  assert.match(workspace, /onRefine\(latest, storyId, body\)/);
 });
 
-test("focused refinement dialog is keyboard-accessible, cancelable, blank-gated and does no generation or persistence", () => {
+test("focused refinement dialog is keyboard-accessible, blank-gated and saves only through the explicit callback before preparation", () => {
   const source = read("studio-refinement-dialog.tsx");
   assert.match(source, /<dialog[^>]*aria-labelledby="studio-refinement-title"[^>]*aria-describedby="studio-refinement-description"/);
   assert.match(source, /showModal\(\)/);
   assert.match(source, /feedbackRef\.current\?\.focus\(\)/);
   assert.match(source, /previousFocus\.isConnected/);
   assert.match(source, /onCancel=\{[^\n]*onClose\(\)/);
-  assert.match(source, /if \(disabled \|\| !feedback\.trim\(\) \|\| submittedRef\.current\) return/);
+  assert.match(source, /if \(disabled \|\| saving \|\| !feedback\.trim\(\) \|\| submittedRef\.current\) return false/);
+  assert.match(source, /await onSave\(feedback\.trim\(\)\)/);
+  assert.match(source, /if \(!\(await saveFeedback\(\)\) \|\| !activeRef\.current\) return/);
   assert.match(source, /onPrepare\(feedback\.trim\(\)\)/);
-  assert.match(source, /does not change the package, lane, or approval/);
+  assert.match(source, /without changing outputs, lanes, or approvals/);
   assert.match(source, /separate paid action that requires confirmation/);
   assert.doesNotMatch(source, /fetch\(|localStorage|sessionStorage|discovery-synthesis|onAction|paidGenerationConsent/);
 });

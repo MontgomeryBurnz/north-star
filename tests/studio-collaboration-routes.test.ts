@@ -9,6 +9,7 @@ import { StudioCollaborationError } from "../src/lib/studio-collaboration-types.
 import type { StudioActor, StudioPackageAction } from "../src/lib/studio-collaboration-types.ts";
 import { MAX_STUDIO_EXPORT_BYTES, normalizeStudioExportRequest, StudioExportError } from "../src/lib/studio-export.ts";
 import { isStudioRequestSameOrigin } from "../src/lib/studio-request-origin.ts";
+import { studioWorkflow } from "../src/lib/studio-workflow.ts";
 
 const origin = "https://northstar.example.test";
 const owner: StudioActor = { id: "OWNER", name: "Package owner", userType: "team-member", credentialStatus: "active" };
@@ -64,10 +65,11 @@ function fixture(actor: StudioActor = owner) {
     record = applyStudioPackageAction(record, user, expectedVersion, action, {
       ...clock, recipient: action.type === "share" ? people.find(person => person.id === action.recipientId) : undefined,
       assignee: action.type === "assign" ? people.find(person => person.id === action.assigneeId) : undefined
+      , gapOwner: action.type === "manage-gap" ? people.find(person => person.id === action.ownerId) : undefined
     });
     return projectStudioPackage(record, user, action.type === "revoke" ? undefined : action.revisionId, clock.now);
   };
-  const dependencies = { ...routeHelpers(actor), getStudioPackage, mutateStudioPackage, listManagedUsers: async () => { identityReads++; return people; } };
+  const dependencies = { ...routeHelpers(actor), studioWorkflow, getStudioPackage, mutateStudioPackage, listManagedUsers: async () => { identityReads++; return people; } };
   const get = actualFunction("src/app/api/studio/packages/[id]/route.ts", "GET", dependencies);
   const post = actualFunction("src/app/api/studio/packages/[id]/route.ts", "POST", dependencies);
   const context = () => ({ params: Promise.resolve({ id: record.id }) });
@@ -78,6 +80,35 @@ function fixture(actor: StudioActor = owner) {
   };
   return { get, post, context, getStudioPackage, share, record: () => record, identityReads: () => identityReads, mutationCalls: () => mutationCalls, dependencies };
 }
+
+test("managed gap endpoint resolves internal owners server-side, keeps an omitted owner and ignores forged labels", async () => {
+  const f = fixture();
+  const action = { type: "manage-gap", revisionId: f.record().headRevisionId, gapId: "GAP-01", ownerEmail: "owner@example.test", ownerId: contractor.id, ownerName: "FORGED", status: "open", affectedStoryIds: ["US-01"], evidenceSourceIds: [], resolution: "Private decision" };
+  const first = await f.post(request(`/api/studio/packages/${f.record().id}`, { expectedVersion: f.record().version, action }), f.context());
+  assert.equal(first.status, 200);
+  assert.equal(studioWorkflow(f.record().revisions[0]).gaps[0].ownerId, owner.id);
+  assert.equal(studioWorkflow(f.record().revisions[0]).gaps[0].ownerName, owner.name);
+  const { ownerEmail: _ownerEmail, ...keepOwner } = action;
+  const second = await f.post(request(`/api/studio/packages/${f.record().id}`, { expectedVersion: f.record().version, action: { ...keepOwner, ownerId: contractor.id } }), f.context());
+  assert.equal(second.status, 200);assert.equal(studioWorkflow(f.record().revisions[0]).gaps[0].ownerId, owner.id);
+  const invalid = await f.post(request(`/api/studio/packages/${f.record().id}`, { expectedVersion: f.record().version, action: { ...action, ownerEmail: "reviewer@example.test" } }), f.context());
+  assert.equal(invalid.status, 400);
+});
+
+test("workflow POSTs preserve saved outputs and manager-only gap lookup while reviewers retain only shared DTOs", async () => {
+  const f = fixture();
+  const snapshot = JSON.stringify(f.record().revisions[0].synthesis);
+  const draft = { type: "save-refinement", revisionId: f.record().headRevisionId, storyId: "US-01", body: "PRIVATE-SAVED-REFINEMENT", evidenceSourceIds: [] };
+  const saved = await f.post(request(`/api/studio/packages/${f.record().id}`, { expectedVersion: f.record().version, action: draft }), f.context());
+  assert.equal(saved.status, 200);assert.equal(JSON.stringify(f.record().revisions[0].synthesis), snapshot);
+  const reloaded = await f.get(request(`/api/studio/packages/${f.record().id}`), f.context());
+  assert.match(await reloaded.text(), /PRIVATE-SAVED-REFINEMENT/);
+  const reviewerFixture = fixture(contractor);reviewerFixture.share();
+  const denied = await reviewerFixture.post(request(`/api/studio/packages/${reviewerFixture.record().id}`, { expectedVersion: reviewerFixture.record().version, action: { type: "manage-gap", revisionId: reviewerFixture.record().headRevisionId, gapId: "GAP-01", ownerEmail: "owner@example.test" } }), reviewerFixture.context());
+  assert.equal(denied.status, 403);assert.equal(reviewerFixture.identityReads(), 0);
+  const deniedDraft = await reviewerFixture.post(request(`/api/studio/packages/${reviewerFixture.record().id}`, { expectedVersion: reviewerFixture.record().version, action: { ...draft, revisionId: reviewerFixture.record().headRevisionId } }), reviewerFixture.context());
+  assert.equal(deniedDraft.status, 403);
+});
 
 test("saved-package routes reject site-only, inactive and absent managed identities before storage reads", async () => {
   for (const actor of [null, { ...owner, credentialStatus: "disabled" }, { ...owner, credentialStatus: "invited" }]) {

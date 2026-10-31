@@ -15,9 +15,10 @@ const categories: Array<{ id: DeliveryCategory; title: string; description: stri
   { id: "approved-for-handoff", title: "Approved for Dev", description: "Human-approved work at the latest revision; eligible for the delivery preview." }
 ];
 
-export function StudioDeliveryPreview({ synthesis, sources, view, preparedExample = false, onReview, onRefine, disabled = false }: {
+export function StudioDeliveryPreview({ synthesis, sources, view, preparedExample = false, onReview, onRefine, onSaveRefinement, disabled = false }: {
   synthesis: DiscoverySynthesis; sources: ProgramArtifact[]; view?: StudioManagedPackageView; preparedExample?: boolean;
   onReview?: (id: string) => void; onRefine?: (id: string, feedback: string) => void; disabled?: boolean;
+  onSaveRefinement?: (id: string, feedback: string) => Promise<boolean>;
 }) {
   const explorerMode = useExplorerMode();
   const [target, setTarget] = useState<DeliveryTarget>("jira");
@@ -26,7 +27,7 @@ export function StudioDeliveryPreview({ synthesis, sources, view, preparedExampl
   const [status, setStatus] = useState("");
   const [refiningStoryId, setRefiningStoryId] = useState<string | null>(null);
   const currentRevision = Boolean(view && view.headRevisionId === view.revision.id);
-  const assessments = assessStudioDelivery(synthesis, sources, view?.items, { preparedExample, currentRevision });
+  const assessments = assessStudioDelivery(synthesis, sources, view?.items, { preparedExample, currentRevision, workflow: view?.revision.workflow });
   const eligibleIds = new Set(assessments.filter(item => item.category === "approved-for-handoff").map(item => item.storyId));
   // Revalidate selections on every render, including after review state changes.
   const effectiveIds = selectedIds.filter(id => eligibleIds.has(id));
@@ -51,7 +52,7 @@ export function StudioDeliveryPreview({ synthesis, sources, view, preparedExampl
   }
 
   return <section className="grid min-w-0 gap-5" aria-label="Delivery handoff preview" data-studio-delivery-preview>
-    {refiningStory && view && currentRevision && onRefine ? <StudioRefinementDialog key={refiningStory.id} storyId={refiningStory.id} title={refiningStory.title} revisionNumber={view.revision.number} reasons={refinementReasons} disabled={disabled} onClose={() => setRefiningStoryId(null)} onPrepare={(feedback) => { setRefiningStoryId(null); onRefine(refiningStory.id, feedback); }} /> : null}
+    {refiningStory && view && currentRevision && onRefine ? <StudioRefinementDialog key={refiningStory.id} storyId={refiningStory.id} title={refiningStory.title} revisionNumber={view.revision.number} reasons={refinementReasons} initialFeedback={view.revision.workflow?.refinements.filter(item => item.storyId === refiningStory.id && item.status === "draft").at(-1)?.body} disabled={disabled} onSave={onSaveRefinement ? feedback => onSaveRefinement(refiningStory.id, feedback) : undefined} onClose={() => setRefiningStoryId(null)} onPrepare={(feedback) => { setRefiningStoryId(null); onRefine(refiningStory.id, feedback); }} /> : null}
     <div className="grid min-w-0 gap-4 rounded-lg border border-cyan-300/20 bg-cyan-300/[0.035] p-4 sm:p-5 lg:grid-cols-[minmax(0,1fr)_auto]"><div className="min-w-0"><p className="text-xs font-medium uppercase tracking-[0.14em] text-cyan-200">Preview only · not connected</p><h3 className="mt-2 text-lg font-semibold text-zinc-100">See what development teams would receive</h3><p className="mt-2 text-sm leading-6 text-zinc-300">The full output package stays intact. Only selected, human-approved stories from the latest revision belong in a handoff. Previewing, reviewing, and downloading this plan do not invoke OpenAI.</p>{preparedExample ? <p className="mt-2 text-xs leading-5 text-amber-100">Prepared fictional example—not a fresh AI result. Any review state here demonstrates the workflow, not production implementation readiness.</p> : null}{!view ? <p className="mt-2 text-xs leading-5 text-zinc-400">{explorerMode ? "Explorer preview: inspect each story, its evidence, acceptance criteria, tests, and destination mapping. Refinement, approvals, and sending work are disabled. Your access remains limited to fictional sample data." : "Session preview only. Refinement and human approval require a saved package. If the sample-data banner is visible, choose Exit sample data first. Then select your saved package in Delivery handoff. Otherwise, save the prepared example for review or open an existing package."}</p> : !currentRevision ? <p className="mt-2 text-xs leading-5 text-amber-100">Historical revision: handoff selection is disabled. Open the latest revision to review current work.</p> : null}</div><label className="grid content-start gap-2 text-xs text-zinc-300">Preview destination<select value={target} onChange={(event) => { setTarget(event.target.value as DeliveryTarget); setStatus(""); }} disabled={disabled} className="min-w-0 rounded-md border border-white/15 bg-zinc-950 p-3 text-sm text-zinc-100"><option value="jira">Jira</option><option value="ado">Azure DevOps · Agile</option></select></label></div>
     <p className="text-sm leading-6 text-zinc-300" data-studio-delivery-flow>Needs refinement → Ready for Review → Approved for Dev. Work enters at its current completeness; feedback can return it to refinement. Approval does not send or start development.</p>
     {view && onRefine ? <p className="text-xs leading-6 text-zinc-400" data-studio-refinement-help>Choose Refine on any story card to add a correction or missing evidence. Preparing feedback is free; generating revised outputs requires a separate paid confirmation.</p> : null}

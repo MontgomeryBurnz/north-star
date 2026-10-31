@@ -2,6 +2,7 @@ import { reviewDiscoveryIntegrity } from "./discovery-quality.ts";
 import { StudioCollaborationError } from "./studio-collaboration-types.ts";
 import type { StudioActor, StudioCollaborationItem, StudioPackageAction, StudioPackageRecord, StudioPackageSummary, StudioPackageView, StudioRevision, StudioRevisionInput, StudioShareGrant } from "./studio-collaboration-types.ts";
 import type { DiscoverySynthesis } from "./discovery-studio-types.ts";
+import { applyStudioWorkflow, studioWorkflow, studioWorkflowBlockers } from "./studio-workflow.ts";
 
 type Clock = { now: string; idFactory: () => string };
 const internalRoles = new Set(["admin", "leadership", "delivery-lead", "team-member"]);
@@ -86,6 +87,12 @@ export function appendStudioRevisionRecord(record: StudioPackageRecord, actor: S
   if (record.revisions.length >= 30) fail("This package has reached its revision limit. Create a new package.", 413);
   const next = copy(record);
   const added = newRevision(actor, input, Math.max(...record.revisions.map(item => item.number)) + 1, clock, input.parentRevisionId);
+  // Carry responsibility and explicit impact links, never a resolution/approval.
+  const prior = studioWorkflow(record.revisions.find(rev => rev.id === record.headRevisionId)!);
+  added.workflow = { gaps: studioWorkflow(added).gaps.map(gap => {
+    const old = prior.gaps.find(item => item.gapId === gap.gapId);
+    return old ? { ...gap, ...(old.ownerId ? { ownerId: old.ownerId, ownerName: old.ownerName } : {}), affectedStoryIds: old.affectedStoryIds.filter(id => added.items.some(item => item.storyId === id)) } : gap;
+  }), refinements: [], events: [] };
   next.revisions.push(added); next.headRevisionId = added.id; next.title = input.title.trim(); next.version++; next.updatedAt = clock.now;
   // Prior grants, comments and approvals remain historical, never inherited by the new revision.
   size(next); return next;
@@ -93,13 +100,19 @@ export function appendStudioRevisionRecord(record: StudioPackageRecord, actor: S
 function grantAllows(record: StudioPackageRecord, actor: StudioActor, revisionId: string, storyId: string, now: string) {
   return activeGrants(record, actor, now, revisionId).some(grant => grant.storyIds.includes(storyId));
 }
-export function applyStudioPackageAction(record: StudioPackageRecord, actor: StudioActor, expectedVersion: number, action: StudioPackageAction, clock: Clock & { recipient?: StudioActor; assignee?: StudioActor }) {
+export function applyStudioPackageAction(record: StudioPackageRecord, actor: StudioActor, expectedVersion: number, action: StudioPackageAction, clock: Clock & { recipient?: StudioActor; assignee?: StudioActor; gapOwner?: StudioActor }) {
   assertStudioActor(actor);
   const manage = canManageStudioPackage(record, actor);
   if (!manage && !activeGrants(record, actor, clock.now).length) fail("This Studio package is not available.", 404);
   requireVersion(record, expectedVersion);
-  if (!action || typeof action !== "object" || !["comment", "return", "approve", "assign", "share", "revoke"].includes(action.type)) fail("Invalid Studio action.");
+  if (!action || typeof action !== "object" || !["comment", "return", "approve", "assign", "share", "revoke", "manage-gap", "save-refinement", "refinement-status"].includes(action.type)) fail("Invalid Studio action.");
   const next = copy(record);
+  if (action.type === "manage-gap" || action.type === "save-refinement" || action.type === "refinement-status") {
+    if (!manage) fail("Only the package owner or an administrator can manage gaps and saved refinements.", 403);
+    if (action.revisionId !== next.headRevisionId) fail("Workflow changes require the current revision. Historical decisions remain read-only.", 409);
+    applyStudioWorkflow(revision(next, action.revisionId), actor, action, clock);
+    next.version++; next.updatedAt = clock.now; size(next); return next;
+  }
   if (action.type === "revoke") {
     if (!manage) fail("Only the package owner or an administrator can change sharing.", 403);
     const grant = next.grants.find(item => item.id === action.grantId);
@@ -134,7 +147,7 @@ export function applyStudioPackageAction(record: StudioPackageRecord, actor: Stu
         if (!manage) fail("Only the package owner or an administrator can assign or approve work.", 403);
         if (rev.id !== next.headRevisionId) fail("Only the current revision can be assigned or approved.", 409);
         if (action.type === "approve") {
-          if (action.confirmReviewed !== true || story.readiness !== "ready" || rev.synthesis.quality?.status === "provisional" || story.acceptanceCriteria.length < 2 || story.testCases.length < 2 || item.review.status === "changes-requested") fail("Review blockers and dependencies, and generate a new ready revision after requested changes before approval.", 409);
+          if (action.confirmReviewed !== true || story.readiness !== "ready" || rev.synthesis.quality?.status === "provisional" || story.acceptanceCriteria.length < 2 || story.testCases.length < 2 || item.review.status === "changes-requested" || studioWorkflowBlockers(rev, story.id).length) fail("Review blockers and dependencies, and generate a new ready revision after requested changes before approval.", 409);
           item.review = { status: "approved", reviewedBy: actor.id, reviewedAt: clock.now };
         } else if (action.type === "assign") {
           if (action.assigneeId === null) { delete item.assigneeId; delete item.assigneeName; }
@@ -155,7 +168,7 @@ function itemView(rev: StudioRevision, id: string, internal: boolean): StudioCol
   const state = rev.items.find(item => item.storyId === id)!;
   return { id: story.id, title: story.title, story: story.story, acceptanceCriteria: [...story.acceptanceCriteria],
     testCases: story.testCases.map(test => ({ id: test.id, title: test.title, type: test.type, steps: [...test.steps], expectedResult: test.expectedResult })), readiness: story.readiness,
-    lane: story.readiness === "ready" && state.review.status !== "changes-requested" ? "development-review" : "refinement", review: copy(state.review),
+    lane: story.readiness === "ready" && state.review.status !== "changes-requested" && !studioWorkflowBlockers(rev, story.id).length ? "development-review" : "refinement", review: copy(state.review),
     ...(state.assigneeId ? { assigneeId: state.assigneeId, assigneeName: state.assigneeName } : {}), ...(internal ? { sourceIds: [...story.sourceIds] } : {}) };
 }
 export function projectStudioPackage(record: StudioPackageRecord, actor: StudioActor, revisionId?: string, now = new Date().toISOString()): StudioPackageView {

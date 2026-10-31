@@ -104,10 +104,11 @@ export async function appendStudioRevision(user: StudioActor, id: string, expect
 export async function mutateStudioPackage(user: StudioActor, id: string, expectedVersion: number, action: StudioPackageAction): Promise<StudioPackageView> {
   const record = await update(user, id, expectedVersion, async (before, resolve) => {
     // Do not resolve arbitrary identity IDs before the package management check.
-    if (action?.type === "share" || action?.type === "assign" || action?.type === "revoke" || action?.type === "approve") assertStudioPackageManager(before, user);
+    if (action?.type === "share" || action?.type === "assign" || action?.type === "revoke" || action?.type === "approve" || action?.type === "manage-gap" || action?.type === "save-refinement" || action?.type === "refinement-status") assertStudioPackageManager(before, user);
     const recipient = action?.type === "share" ? await resolve(action.recipientId) : undefined;
     const assignee = action?.type === "assign" && action.assigneeId ? await resolve(action.assigneeId) : undefined;
-    return applyStudioPackageAction(before, user, expectedVersion, action, { ...clock(), recipient, assignee });
+    const gapOwner = action?.type === "manage-gap" && action.ownerId ? await resolve(action.ownerId) : undefined;
+    return applyStudioPackageAction(before, user, expectedVersion, action, { ...clock(), recipient, assignee, gapOwner });
   });
   const actionRevision = action.type === "revoke" ? undefined : action.revisionId;
   return projectStudioPackage(record, user, actionRevision);

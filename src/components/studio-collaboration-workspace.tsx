@@ -12,6 +12,9 @@ import type { DiscoverySynthesis } from "@/lib/discovery-studio-types";
 import type { ProgramArtifact } from "@/lib/program-intake-types";
 import { assessStudioDelivery } from "@/lib/studio-delivery-readiness";
 import { StudioDeliveryPreview } from "@/components/studio-delivery-preview";
+import { StudioManagedGaps, StudioSavedRefinements, type StudioWorkflowClientAction } from "@/components/studio-workflow-panel";
+import { StudioRevisionComparison } from "@/components/studio-revision-comparison";
+import { studioWorkflow } from "@/lib/studio-workflow";
 
 export type StudioCollaborationWorkspaceProps = {
   packageId?: string | null;
@@ -25,10 +28,11 @@ export type StudioCollaborationWorkspaceProps = {
   sessionPreview?: { synthesis: DiscoverySynthesis; sources: ProgramArtifact[]; title: string; preparedExample: boolean };
 };
 
-type ClientAction = Exclude<StudioPackageAction, { type: "share" | "assign" }>
+type ClientAction = Exclude<StudioPackageAction, { type: "share" | "assign" | "manage-gap" }>
   | { type: "share"; revisionId: string; recipientEmail: string; storyIds: string[]; sharedContext?: string; expiresAt?: string }
-  | { type: "assign"; revisionId: string; storyId: string; assigneeEmail: string | null };
-type WorkspaceView = "collaboration" | "review" | "history" | "sharing";
+  | { type: "assign"; revisionId: string; storyId: string; assigneeEmail: string | null }
+  | StudioWorkflowClientAction;
+type WorkspaceView = "collaboration" | "review" | "history" | "sharing" | "gaps" | "refinements";
 type ActionHandler = (action: ClientAction, successMessage: string) => Promise<boolean>;
 
 const fieldStyle = "w-full min-w-0 rounded-md border border-white/10 bg-zinc-950 px-3 py-2.5 text-sm text-zinc-100 outline-none transition-colors placeholder:text-zinc-600 focus:border-emerald-300/50 focus:ring-2 focus:ring-emerald-300/15 disabled:opacity-50";
@@ -76,7 +80,7 @@ function StoryReviewPanel({ view, item, disabled, onAction, onRefine }: {
   const sourceMap = canManage ? new Map([...view.revision.sources.map((source) => [source.id, source.name] as const), ...(view.revision.synthesis.sources ?? []).map((source) => [source.id, source.name] as const)]) : new Map<string, string>();
   const sourceNames = (item.sourceIds ?? []).map((id) => sourceMap.get(id) ?? `Unresolved reference (${id})`);
   const relatedGaps = canManage ? view.revision.synthesis.gaps.filter((gap) => gap.sourceIds.some((id) => item.sourceIds?.includes(id))) : [];
-  const approvalEligible = isCurrentRevision && assessStudioDelivery(view.revision.synthesis, view.revision.sources, view.items, { preparedExample: view.revision.provenance === "prepared-example", currentRevision: true }).some(assessment => assessment.storyId === item.id && assessment.category !== "needs-refinement");
+  const approvalEligible = isCurrentRevision && assessStudioDelivery(view.revision.synthesis, view.revision.sources, view.items, { preparedExample: view.revision.provenance === "prepared-example", currentRevision: true, workflow: view.revision.workflow }).some(assessment => assessment.storyId === item.id && assessment.category !== "needs-refinement");
 
   async function submitComment() {
     const saved = await onAction({ type: "comment", revisionId: view.revision.id, storyId: item.id, body: comment.trim(), visibility: canManage ? visibility : "shared" }, "Comment saved to this work item and revision.");
@@ -122,7 +126,7 @@ function StoryReviewPanel({ view, item, disabled, onAction, onRefine }: {
 
 function RevisionHistory({ view, disabled, onSelectRevision }: { view: StudioPackageView; disabled: boolean; onSelectRevision: (id: string) => void }) {
   if (!view.canManage) return <Card className="bg-zinc-950/75"><CardContent className="p-5"><p className="text-sm font-medium text-zinc-100">Revision {view.revision.number} is shared with you.</p><p className="mt-2 text-sm leading-6 text-zinc-400">Other revisions and internal package history are not included in this review access.</p></CardContent></Card>;
-  return <Card className="bg-zinc-950/75"><CardContent className="p-4 sm:p-5"><h3 className="text-lg font-semibold text-zinc-100">A traceable package history</h3><p className="mt-2 text-sm leading-6 text-zinc-400">Each revision retains its own review state and discussion. New revisions require fresh approval and an explicit sharing decision.</p><ol className="mt-5 grid gap-3">{view.revisions.slice().reverse().map((revision) => <li key={revision.id} className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-white/10 bg-white/[0.025] p-4"><div className="min-w-0"><p className="flex flex-wrap items-center gap-2 text-sm font-medium text-zinc-100">Revision {revision.number}{revision.id === view.headRevisionId ? <Badge variant="cyan">Latest</Badge> : null}{revision.id === view.revision.id ? <span className="text-xs font-normal text-zinc-500">Currently viewing</span> : null}</p><p className="mt-2 text-xs leading-5 text-zinc-500">{formatDate(revision.createdAt)} · {provenanceLabel(revision.provenance)}</p></div><Button type="button" size="sm" variant="outline" disabled={disabled || revision.id === view.revision.id} onClick={() => onSelectRevision(revision.id)}>Review revision</Button></li>)}</ol></CardContent></Card>;
+  return <Card className="bg-zinc-950/75"><CardContent className="p-4 sm:p-5"><h3 className="text-lg font-semibold text-zinc-100">A traceable package history</h3><p className="mt-2 text-sm leading-6 text-zinc-400">Each revision retains its own review state and discussion. New revisions require fresh approval and an explicit sharing decision.</p><ol className="mt-5 grid gap-3">{view.revisions.slice().reverse().map((revision) => <li key={revision.id} className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-white/10 bg-white/[0.025] p-4"><div className="min-w-0"><div className="flex flex-wrap items-center gap-2 text-sm font-medium text-zinc-100">Revision {revision.number}{revision.id === view.headRevisionId ? <Badge variant="cyan">Latest</Badge> : null}{revision.id === view.revision.id ? <span className="text-xs font-normal text-zinc-500">Currently viewing</span> : null}</div><p className="mt-2 text-xs leading-5 text-zinc-500">{formatDate(revision.createdAt)} · {provenanceLabel(revision.provenance)}</p></div><Button type="button" size="sm" variant="outline" disabled={disabled || revision.id === view.revision.id} onClick={() => onSelectRevision(revision.id)}>Review revision</Button></li>)}</ol></CardContent></Card>;
 }
 
 function SharingPanel({ view, disabled, onAction }: { view: StudioPackageView; disabled: boolean; onAction: ActionHandler }) {
@@ -248,9 +252,28 @@ export function StudioCollaborationWorkspace({ packageId, initialRevisionId, ref
   const currentView = packageView?.id === selectedPackageId && (!revisionId || packageView.revision.id === revisionId) ? packageView : null;
   const showingSession = !external && selectedPackageId === "session-preview" && Boolean(sessionPreview);
   const selectedItem = currentView?.items.find((item) => item.id === selectedStoryId) ?? currentView?.items[0];
-  const heldStoryIds = new Set(currentView?.canManage ? assessStudioDelivery(currentView.revision.synthesis, currentView.revision.sources, currentView.items, { preparedExample: currentView.revision.provenance === "prepared-example", currentRevision: currentView.revision.id === currentView.headRevisionId }).filter(item => item.category === "needs-refinement").map(item => item.storyId) : currentView?.items.filter(item => item.lane === "refinement").map(item => item.id));
+  const heldStoryIds = new Set(currentView?.canManage ? assessStudioDelivery(currentView.revision.synthesis, currentView.revision.sources, currentView.items, { preparedExample: currentView.revision.provenance === "prepared-example", currentRevision: currentView.revision.id === currentView.headRevisionId, workflow: currentView.revision.workflow }).filter(item => item.category === "needs-refinement").map(item => item.storyId) : currentView?.items.filter(item => item.lane === "refinement").map(item => item.id));
   const reviewItems = currentView?.items.filter(item => !heldStoryIds.has(item.id)) ?? [];
   const refinementItems = currentView?.items.filter(item => heldStoryIds.has(item.id)) ?? [];
+
+  async function prepareSavedFeedback(storyId: string, body: string) {
+    if (!currentView?.canManage || !onRefine || busy) return;
+    try {
+      const latest = await loadDetail(currentView.id, currentView.revision.id);
+      if (!latest.canManage || latest.revision.id !== latest.headRevisionId) throw new Error("Open the latest revision before preparing refinement.");
+      onRefine(latest, storyId, body);
+    } catch (caught) { setError(caught instanceof Error ? caught.message : "Saved feedback could not be opened."); }
+  }
+
+  async function saveLaneRefinement(storyId: string, body: string) {
+    if (!currentView?.canManage) return false;
+    const draft = studioWorkflow(currentView.revision).refinements.filter(item => item.storyId === storyId && item.status === "draft").at(-1);
+    return mutate({ type: "save-refinement", revisionId: currentView.revision.id, storyId, ...(draft ? { refinementId: draft.id } : {}), body, evidenceSourceIds: draft?.evidenceSourceIds ?? [] }, "Refinement saved to this revision. The full output package is unchanged.");
+  }
+
+  async function saveAndPrepare(storyId: string, body: string) {
+    if (await saveLaneRefinement(storyId, body)) await prepareSavedFeedback(storyId, body);
+  }
 
   async function mutate(action: ClientAction, successMessage: string) {
     if (!currentView || busy || mutationRef.current) return false;
@@ -288,13 +311,17 @@ export function StudioCollaborationWorkspace({ packageId, initialRevisionId, ref
         <nav aria-label="Saved package workspace views" className="flex flex-wrap gap-2 border-b border-white/10 pb-3">
           <Button type="button" variant={workspaceView === "collaboration" ? "default" : "ghost"} size="sm" aria-pressed={workspaceView === "collaboration"} onClick={() => setWorkspaceView("collaboration")}>{currentView.canManage ? "Handoff preview" : "Shared work items"}</Button>
           {currentView.canManage ? <Button type="button" variant={workspaceView === "review" ? "default" : "ghost"} size="sm" aria-pressed={workspaceView === "review"} onClick={() => setWorkspaceView("review")}>Item review</Button> : null}
+          {currentView.canManage ? <><Button type="button" variant={workspaceView === "gaps" ? "default" : "ghost"} size="sm" aria-pressed={workspaceView === "gaps"} onClick={() => setWorkspaceView("gaps")}>Managed gaps ({studioWorkflow(currentView.revision).gaps.filter(gap => gap.status !== "resolved").length})</Button><Button type="button" variant={workspaceView === "refinements" ? "default" : "ghost"} size="sm" aria-pressed={workspaceView === "refinements"} onClick={() => setWorkspaceView("refinements")}>Saved refinements ({studioWorkflow(currentView.revision).refinements.length})</Button></> : null}
           <Button type="button" variant={workspaceView === "history" ? "default" : "ghost"} size="sm" aria-pressed={workspaceView === "history"} onClick={() => setWorkspaceView("history")}><History className="h-3.5 w-3.5" />Revision history</Button>
           <Button type="button" variant={workspaceView === "sharing" ? "default" : "ghost"} size="sm" aria-pressed={workspaceView === "sharing"} onClick={() => setWorkspaceView("sharing")}><LockKeyhole className="h-3.5 w-3.5" />{currentView.canManage ? "Sharing" : "Review access"}</Button>
         </nav>
-        {workspaceView === "collaboration" && currentView.canManage ? <StudioDeliveryPreview key={`${currentView.id}:${currentView.revision.id}`} synthesis={currentView.revision.synthesis} sources={currentView.revision.sources} view={currentView} preparedExample={currentView.revision.provenance === "prepared-example"} disabled={busy} onReview={(id) => { setSelectedStoryId(id); setWorkspaceView("review"); }} onRefine={onRefine ? (id, feedback) => onRefine(currentView, id, feedback) : undefined} /> : null}
+        {workspaceView === "collaboration" && currentView.canManage ? <StudioDeliveryPreview key={`${currentView.id}:${currentView.revision.id}`} synthesis={currentView.revision.synthesis} sources={currentView.revision.sources} view={currentView} preparedExample={currentView.revision.provenance === "prepared-example"} disabled={busy} onReview={(id) => { setSelectedStoryId(id); setWorkspaceView("review"); }} onRefine={onRefine ? (id, feedback) => { void prepareSavedFeedback(id, feedback); } : undefined} onSaveRefinement={saveLaneRefinement} /> : null}
         {workspaceView === "collaboration" && !currentView.canManage ? <div className="grid min-w-0 items-start gap-5 xl:grid-cols-[minmax(0,1.2fr)_minmax(22rem,1fr)]"><div className="grid min-w-0 gap-3 sm:grid-cols-2"><StoryQueue title="Development review" description="Only the work explicitly shared with your account is shown." items={reviewItems} selectedId={selectedItem?.id} onSelect={setSelectedStoryId} /><StoryQueue title="Refinement" description="Clarify decisions or request changes on shared work." items={refinementItems} selectedId={selectedItem?.id} onSelect={setSelectedStoryId} refinement /></div>{selectedItem ? <StoryReviewPanel key={`${currentView.id}:${currentView.revision.id}:${selectedItem.id}`} view={currentView} item={selectedItem} disabled={busy} onAction={mutate} /> : null}</div> : null}
-        {workspaceView === "review" && currentView.canManage ? <div className="grid min-w-0 items-start gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(0,2fr)]"><div className="grid min-w-0 gap-3"><StoryQueue title="Review candidates" description="Select a story to inspect evidence, give feedback, or approve this revision." items={reviewItems} selectedId={selectedItem?.id} onSelect={setSelectedStoryId} /><StoryQueue title="Needs refinement" description="Resolve missing evidence and decisions before handoff." items={refinementItems} selectedId={selectedItem?.id} onSelect={setSelectedStoryId} refinement /></div>{selectedItem ? <StoryReviewPanel key={`${currentView.id}:${currentView.revision.id}:${selectedItem.id}`} view={currentView} item={selectedItem} disabled={busy} onAction={mutate} onRefine={onRefine} /> : null}</div> : null}
+        {workspaceView === "review" && currentView.canManage ? <div className="grid min-w-0 items-start gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(0,2fr)]"><div className="grid min-w-0 gap-3"><StoryQueue title="Review candidates" description="Select a story to inspect evidence, give feedback, or approve this revision." items={reviewItems} selectedId={selectedItem?.id} onSelect={setSelectedStoryId} /><StoryQueue title="Needs refinement" description="Resolve missing evidence and decisions before handoff." items={refinementItems} selectedId={selectedItem?.id} onSelect={setSelectedStoryId} refinement /></div>{selectedItem ? <StoryReviewPanel key={`${currentView.id}:${currentView.revision.id}:${selectedItem.id}`} view={currentView} item={selectedItem} disabled={busy} onAction={mutate} onRefine={onRefine ? (_view, id, body) => { void saveAndPrepare(id, body); } : undefined} /> : null}</div> : null}
         {workspaceView === "history" ? <RevisionHistory view={currentView} disabled={busy} onSelectRevision={(id) => { setRevisionId(id); setSelectedStoryId(""); setWorkspaceView("collaboration"); setStatus(""); }} /> : null}
+        {workspaceView === "history" && currentView.canManage ? <StudioRevisionComparison key={`${currentView.id}:${currentView.revision.id}`} view={currentView} /> : null}
+        {workspaceView === "gaps" && currentView.canManage ? <StudioManagedGaps key={`${currentView.id}:${currentView.revision.id}`} view={currentView} disabled={busy} onSave={mutate} /> : null}
+        {workspaceView === "refinements" && currentView.canManage ? <StudioSavedRefinements key={`${currentView.id}:${currentView.revision.id}`} view={currentView} disabled={busy} onSave={mutate} onPrepare={onRefine ? (storyId, body) => { void prepareSavedFeedback(storyId, body); } : undefined} /> : null}
         {workspaceView === "sharing" ? <SharingPanel key={`${currentView.id}:${currentView.revision.id}`} view={currentView} disabled={busy} onAction={mutate} /> : null}
         <p className="flex items-start gap-2 text-xs leading-5 text-zinc-500"><ShieldCheck className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />{currentView.canManage ? "External reviewers see only explicitly shared work at an exact revision. Raw discovery sources and private internal notes remain internal. Jira and Azure DevOps integrations are not connected." : "Your review access is checked for every request. You cannot approve internal decisions, share the package, or access unshared material."}</p>
       </> : null}
